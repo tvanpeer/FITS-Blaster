@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 -m json.tool)",
+      "Bash(/Applications/Xcode.app/Contents/Developer/usr/bin/mcpbridge:*)",
+      "Bash(claude mcp:*)",
+      "Bash(xcode-select:*)",
+      "Bash(sudo xcode-select:*)",
+      "Bash(DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild:*)",
+      "Bash(open:*)",
+      "Bash(DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild:*)",
+      "Bash(xcodebuild:*)",
+      "WebSearch",
+      "WebFetch(domain:pixinsight.com)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:siril.org)",
+      "WebFetch(domain:free-astro.org)"
+    ]
+  }
+}
