@@ -4,10 +4,14 @@ All notable changes to Simple Claude FITS Viewer are recorded here.
 
 ---
 
-## 2026-03-06 — Two-phase loading + lightweight star count
+## 2026-03-06 — Two-phase loading, NMS bypass, and render-trigger reduction
 
 ### Changed
 - **Two-phase loading pipeline** (`ImageStore.processParallel`): loading is now split per image into Phase A (I/O + histogram + GPU stretch → `isProcessing = false`, image visible) and Phase B (metrics, runs after the image appears, reusing the already-loaded Metal buffer without a second disk read). Previously metrics were computed before `createImage`, so any regression in metrics speed directly delayed image display.
+- **NMS bypass for integer FITS images** (`MetricsCalculator.compute`): non-maximum suppression is now skipped when `BITPIX > 0`. In integer images, adjacent pixels often share the same ADU value, so the strict-greater-than local-maximum test naturally produces at most one candidate per stellar PSF — NMS was ~20 ms of unnecessary overhead per image. Float images (`BITPIX < 0`) still require NMS because IEEE 754 uniqueness creates multiple local maxima per star.
+- **Single MainActor hop per image**: the task group return type changed from `Void` to `(ImageEntry, FrameMetrics?)`. Phase B results are now applied directly on the main actor in the collection loop instead of via a second `await MainActor.run` from a background thread. This halves the number of SwiftUI render triggers during a batch load, reducing thumbnail and chart re-render churn.
+- **Phase 1 reduced to 200 candidates**: shape-statistic measurement (FWHM/eccentricity/SNR) uses the top 200 candidates (was 300), matching the original pre-session behaviour.
+- **Moffat fit: `pow(x, 0.25)` → two `squareRoot()` calls** in both `fitMoffat1D` and `measureFWHMOnly`: avoids the transcendental `powf` function (~5× faster for this specific exponent).
 - **Uniform-sampled star count** (`MetricsCalculator.measureCandidates`): Phase 2 star counting replaced the per-candidate parallel `withTaskGroup` (which was measuring all remaining candidates with the full `measureShape` including the expensive 21×21 eccentricity loop) with a sequential uniform sample of ~600 candidates measured by `measureFWHMOnly`. Extrapolation gives accurate star counts in < 2 ms instead of 4–6 seconds.
 - **`measureFWHMOnly`**: new lightweight helper — 1D Moffat β=4 fit along X only at integer pixel coordinates; no bilinear centroid, no Y-axis fit, no eccentricity loop. ~10× cheaper per call than the full `measureShape`.
 

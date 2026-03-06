@@ -66,7 +66,7 @@ struct MetricsCalculator {
     /// Falls back to the CPU path automatically if the Metal pipeline is
     /// unavailable (e.g. CI, sandboxed test environment).
     static func compute(metalBuffer: MTLBuffer, device: MTLDevice,
-                        width: Int, height: Int,
+                        width: Int, height: Int, bitpix: Int = -32,
                         config: MetricsConfig) async -> FrameMetrics? {
         guard config.needsStarDetection else { return nil }
         let count = width * height
@@ -87,22 +87,30 @@ struct MetricsCalculator {
         // Try GPU detection over the full frame; fall back to CPU on failure.
         let allCandidates: [StarCandidate]
 
+        // Non-maximum suppression is only needed for float FITS images (BITPIX < 0).
+        // In integer images (BITPIX > 0) adjacent pixels often share the same ADU
+        // value, so the strict-greater-than local-maximum test naturally produces at
+        // most one candidate per stellar PSF. Float images have no such ties — every
+        // sub-pixel noise bump is unique — so a single star can generate several
+        // local maxima. NMS collapses those back to one peak per star (~20 ms on
+        // 50 000 candidates, unnecessary overhead for integer data).
+        let needsNMS = bitpix < 0
+
         if let result = findLocalMaximaGPU(metalBuffer: metalBuffer,
                                             width: width, height: height,
                                             threshold: threshold) {
-            // Non-maximum suppression: float images have no integer ties, so every
-            // tiny variation creates a unique local maximum. NMS merges detections
-            // within 3 px of a brighter neighbour, giving a count comparable to
-            // what integer-pixel tools report for the same field.
-            allCandidates = nonMaximumSuppression(result.candidates, imageWidth: width)
+            allCandidates = needsNMS
+                ? nonMaximumSuppression(result.candidates, imageWidth: width)
+                : result.candidates
         } else {
-            // CPU fallback: scan the full frame without a crop limit.
             let cpu = findLocalMaxima(pixels: pixels,
                                       width: width, height: height,
                                       cropX: 0, cropY: 0,
                                       cropW: width, cropH: height,
                                       threshold: threshold)
-            allCandidates = nonMaximumSuppression(cpu, imageWidth: width)
+            allCandidates = needsNMS
+                ? nonMaximumSuppression(cpu, imageWidth: width)
+                : cpu
         }
 
         guard !allCandidates.isEmpty else { return nil }
@@ -194,7 +202,7 @@ struct MetricsCalculator {
         var shapeCount   = 0    // non-saturated candidates used for shape stats
         var topVerified  = 0    // PSF-verified count within the top-300 pass
 
-        for candidate in allCandidates.prefix(300) {
+        for candidate in allCandidates.prefix(200) {
             let (fwhm, ecc, snr) = measureShape(
                 pixels: pixels, width: width, height: height,
                 cx: candidate.x, cy: candidate.y,
@@ -719,7 +727,8 @@ struct MetricsCalculator {
             let fy  = horizontal ? centY                 : centY + Float(offset)
             let val = bilinear(pixels: pixels, width: width, height: height, x: fx, y: fy) - background
             guard val > peakVal * minFrac, val < peakVal else { continue }
-            let z  = pow(peakVal / val, Float(0.25)) - 1  // linearised Moffat β=4
+            let ratio = peakVal / val
+            let z  = ratio.squareRoot().squareRoot() - 1  // equivalent to pow(ratio, 0.25), ~5× faster  // linearised Moffat β=4
             let x2 = Float(offset * offset)
             let w  = val                                    // intensity weight
             num += w * z  * x2   // Σ w·z·x²

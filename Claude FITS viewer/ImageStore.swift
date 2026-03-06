@@ -807,7 +807,7 @@ final class ImageStore {
             return await MetricsCalculator.compute(metalBuffer: bufferResult.metalBuffer,
                                                    device: device,
                                                    width: meta.width, height: meta.height,
-                                                   config: config)
+                                                   bitpix: meta.bitpix, config: config)
         }
 
         // CPU fallback when Metal is unavailable.
@@ -836,11 +836,17 @@ final class ImageStore {
         // without disk-thrashing on large FITS files.
         let concurrency = 3
 
-        await withTaskGroup(of: Void.self) { group in
+        // Task group returns (entry, metrics) so Phase B results are applied
+        // directly on the main actor in the collection loop — no second
+        // MainActor.run hop, halving the number of SwiftUI render triggers.
+        await withTaskGroup(of: (ImageEntry, FrameMetrics?).self) { group in
             var activeCount = 0
             for entry in entriesToProcess {
                 if activeCount >= concurrency {
-                    await group.next()
+                    if let (e, m) = await group.next() {
+                        e.metrics      = m
+                        e.cachedMetrics = m
+                    }
                     activeCount -= 1
                 }
                 let url = entry.url
@@ -864,27 +870,28 @@ final class ImageStore {
                     }
 
                     // ── Phase B: quality metrics ──────────────────────────────
-                    // Reuses the Metal buffer loaded in Phase A — no second file
-                    // read. Falls back to loadMetricsOnly (re-reads disk) only
-                    // when Metal was unavailable in Phase A.
+                    // Reuses the Metal buffer from Phase A (no second file read).
+                    // Falls back to loadMetricsOnly only when Metal was unavailable.
                     let metrics: FrameMetrics?
                     if let buffer = fast.metalBuffer, let device = fast.metalDevice {
                         metrics = await MetricsCalculator.compute(
                             metalBuffer: buffer, device: device,
                             width: fast.width, height: fast.height,
-                            config: metricsConfig)
+                            bitpix: fast.bitpix, config: metricsConfig)
                     } else if metricsConfig.needsStarDetection {
                         metrics = await Self.loadMetricsOnly(url: url, config: metricsConfig)
                     } else {
                         metrics = nil
                     }
 
-                    await MainActor.run {
-                        entry.metrics      = metrics
-                        entry.cachedMetrics = metrics
-                    }
+                    return (entry, metrics)
                 }
                 activeCount += 1
+            }
+            // Drain remaining tasks, applying metrics on the main actor directly.
+            for await (e, m) in group {
+                e.metrics      = m
+                e.cachedMetrics = m
             }
         }
 
@@ -917,7 +924,7 @@ final class ImageStore {
                 info: "\(meta.width) × \(meta.height)  |  BITPIX: \(meta.bitpix)",
                 error: nil, histogram: histogram, headers: meta.headers,
                 metalBuffer: bufferResult.metalBuffer, metalDevice: device,
-                width: meta.width, height: meta.height)
+                width: meta.width, height: meta.height, bitpix: meta.bitpix)
         }
 
         do {
@@ -934,11 +941,11 @@ final class ImageStore {
             let thumb = display.flatMap { ImageStretcher.createThumbnail(from: $0, maxSize: maxThumbnailSize) }
             return FastLoadResult(display: display, thumb: thumb, info: info, error: nil,
                                   histogram: histogram, headers: headers,
-                                  metalBuffer: nil, metalDevice: nil, width: w, height: h)
+                                  metalBuffer: nil, metalDevice: nil, width: w, height: h, bitpix: fits.bitpix)
         } catch {
             return FastLoadResult(display: nil, thumb: nil, info: "", error: error.localizedDescription,
                                   histogram: nil, headers: [:],
-                                  metalBuffer: nil, metalDevice: nil, width: 0, height: 0)
+                                  metalBuffer: nil, metalDevice: nil, width: 0, height: 0, bitpix: 0)
         }
     }
 }
@@ -958,5 +965,8 @@ private struct FastLoadResult {
     let metalDevice: MTLDevice?
     let width:       Int
     let height:      Int
+    /// Original FITS BITPIX value — forwarded to MetricsCalculator so it can
+    /// skip NMS for integer images (BITPIX > 0) where it is not needed.
+    let bitpix:      Int
 }
 
