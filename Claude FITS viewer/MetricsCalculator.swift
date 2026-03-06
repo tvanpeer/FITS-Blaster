@@ -86,16 +86,15 @@ struct MetricsCalculator {
 
         // Try GPU detection over the full frame; fall back to CPU on failure.
         let allCandidates: [StarCandidate]
-        let detectedTotal: Int   // true star count, may exceed the output buffer cap
 
         if let result = findLocalMaximaGPU(metalBuffer: metalBuffer,
                                             width: width, height: height,
                                             threshold: threshold) {
-            allCandidates = result.candidates
-            // Use the raw atomic counter value as the star count: it reflects the
-            // true number of qualifying pixels found even when the output buffer
-            // was capped at maxDetectionCandidates.
-            detectedTotal = result.totalFound
+            // Non-maximum suppression: float images have no integer ties, so every
+            // tiny variation creates a unique local maximum. NMS merges detections
+            // within 3 px of a brighter neighbour, giving a count comparable to
+            // what integer-pixel tools report for the same field.
+            allCandidates = nonMaximumSuppression(result.candidates, imageWidth: width)
         } else {
             // CPU fallback: scan the full frame without a crop limit.
             let cpu = findLocalMaxima(pixels: pixels,
@@ -103,12 +102,11 @@ struct MetricsCalculator {
                                       cropX: 0, cropY: 0,
                                       cropW: width, cropH: height,
                                       threshold: threshold)
-            allCandidates = cpu
-            detectedTotal = cpu.count
+            allCandidates = nonMaximumSuppression(cpu, imageWidth: width)
         }
 
         guard !allCandidates.isEmpty else { return nil }
-        return await measureCandidates(allCandidates: allCandidates, totalCount: detectedTotal,
+        return await measureCandidates(allCandidates: allCandidates,
                                        pixels: pixels, background: background, sigma: sigma,
                                        saturationThreshold: saturationThreshold,
                                        width: width, height: height, config: config)
@@ -160,12 +158,13 @@ struct MetricsCalculator {
         vDSP_maxv(pixels.baseAddress!, 1, &satLevel, vDSP_Length(pixels.count))
         let saturationThreshold = satLevel * 0.90
 
-        let allCandidates = findLocalMaxima(pixels: pixels, width: width, height: height,
-                                            cropX: cropX, cropY: cropY,
-                                            cropW: cropW, cropH: cropH,
-                                            threshold: threshold)
+        let raw = findLocalMaxima(pixels: pixels, width: width, height: height,
+                                  cropX: cropX, cropY: cropY,
+                                  cropW: cropW, cropH: cropH,
+                                  threshold: threshold)
+        let allCandidates = nonMaximumSuppression(raw, imageWidth: width)
         guard !allCandidates.isEmpty else { return nil }
-        return await measureCandidates(allCandidates: allCandidates, totalCount: allCandidates.count,
+        return await measureCandidates(allCandidates: allCandidates,
                                        pixels: pixels, background: background, sigma: sigma,
                                        saturationThreshold: saturationThreshold,
                                        width: width, height: height, config: config)
@@ -175,56 +174,88 @@ struct MetricsCalculator {
     /// and assembles the final FrameMetrics. Called by both the GPU and CPU paths
     /// after their respective detection steps.
     ///
-    /// `totalCount` is passed explicitly rather than derived from `allCandidates.count`
-    /// because the GPU path may have found more candidates than fit in the output buffer.
-    /// The atomic counter value (true total) is passed here so the reported star count
-    /// is always accurate, even when the candidate list was capped.
     private static func measureCandidates(allCandidates: [StarCandidate],
-                                          totalCount: Int,
                                           pixels: UnsafeBufferPointer<Float>,
                                           background: Float, sigma: Float,
                                           saturationThreshold: Float,
                                           width: Int, height: Int,
                                           config: MetricsConfig) async -> FrameMetrics? {
 
-        // For shape measurement: exclude saturated stars (peak near sensor max),
-        // then use up to 200 of the remaining brightest. The higher limit (up from 50)
-        // is viable because per-star measurement now runs in parallel — 200 stars on
-        // 8 cores takes roughly the same wall time as 25 stars measured serially.
-        let unsaturated = allCandidates.filter { $0.peak < saturationThreshold }
-        let candidates  = Array((unsaturated.isEmpty ? allCandidates : unsaturated).prefix(200))
-
-        // SNR now requires FWHM to set the aperture radius, so any metric that
-        // needs star measurement triggers the full measureShape call.
         let needMeasure = config.computeFWHM || config.computeEccentricity || config.computeSNR
 
-        var fwhmValues: [Float] = []
-        var eccValues:  [Float] = []
-        var snrValues:  [Float] = []
+        // ── Phase 1: shape statistics (sequential, top 300 candidates) ──────────
+        //
+        // Candidates are sorted brightest-first, so the top 300 reliably contain
+        // 200 unsaturated stars for stable median FWHM/eccentricity/SNR estimates.
 
-        if needMeasure {
-            // Sequential measurement: per-star work (~10 µs each) is far smaller than the
-            // overhead of creating an async task per candidate. With multiple images loading
-            // concurrently this previously produced 800–1600 micro-tasks that flooded the
-            // cooperative thread pool and starved the main thread. A simple loop is faster.
-            for candidate in candidates {
-                let (fwhm, ecc, snr) = measureShape(
-                    pixels: pixels, width: width, height: height,
-                    cx: candidate.x, cy: candidate.y,
-                    background: background, sigma: sigma
-                )
-                // Reject hot pixels (FWHM < 0.5 px) and pathological blobs (> 20 px).
-                guard fwhm >= 0.5, fwhm <= 20 else { continue }
+        var fwhmValues:  [Float] = []
+        var eccValues:   [Float] = []
+        var snrValues:   [Float] = []
+        var shapeCount   = 0    // non-saturated candidates used for shape stats
+        var topVerified  = 0    // PSF-verified count within the top-300 pass
+
+        for candidate in allCandidates.prefix(300) {
+            let (fwhm, ecc, snr) = measureShape(
+                pixels: pixels, width: width, height: height,
+                cx: candidate.x, cy: candidate.y,
+                background: background, sigma: sigma)
+            guard fwhm >= 0.5, fwhm <= 20 else { continue }
+            topVerified += 1
+            if needMeasure && shapeCount < 200 && candidate.peak < saturationThreshold {
                 if config.computeFWHM         { fwhmValues.append(fwhm) }
                 if config.computeEccentricity { eccValues.append(ecc) }
-                if config.computeSNR, snr > 0 { snrValues.append(snr) }
+                if config.computeSNR          { snrValues.append(snr) }
+                shapeCount += 1
+            }
+        }
+
+        // ── Phase 2: star count via uniform sample (sequential, lightweight) ────
+        //
+        // Measuring every remaining candidate with the full Moffat fit is too
+        // expensive when the NMS list contains tens of thousands of entries.
+        // Instead, we sample ~600 candidates uniformly across the full brightness
+        // range and extrapolate: rate × remaining.count.
+        //
+        // Uniform (not top-N) sampling is critical: the bright top candidates have
+        // a much higher PSF-verification rate than faint ones, so sampling only
+        // the top would overestimate the true star count.
+        //
+        // measureFWHMOnly is used rather than the full measureShape — it fits a
+        // 1D Moffat profile along one axis at integer pixel coordinates, skipping
+        // bilinear centroid refinement, the Y-axis fit, and the 21×21 eccentricity
+        // loop. This makes it ~10× cheaper per call while still filtering out hot
+        // pixels (delta-function profile) and extended sources (FWHM > 20 px).
+
+        var verifiedCount = topVerified
+
+        if config.computeStarCount, allCandidates.count > 300 {
+            let remaining      = allCandidates.dropFirst(300)   // ArraySlice, no copy
+            let targetSamples  = 600
+            let step           = max(1, remaining.count / targetSamples)
+            var sampleVerified = 0
+            var sampled        = 0
+
+            var i = remaining.startIndex
+            while i < remaining.endIndex {
+                let c    = remaining[i]
+                let fwhm = measureFWHMOnly(pixels: pixels, width: width, height: height,
+                                            cx: c.x, cy: c.y, background: background)
+                if fwhm >= 0.5 && fwhm <= 20 { sampleVerified += 1 }
+                sampled += 1
+                i = remaining.index(i, offsetBy: step, limitedBy: remaining.endIndex)
+                    ?? remaining.endIndex
+            }
+
+            if sampled > 0 {
+                let rate = Float(sampleVerified) / Float(sampled)
+                verifiedCount += Int((rate * Float(remaining.count)).rounded())
             }
         }
 
         let fwhm         = config.computeFWHM         ? median(fwhmValues) : nil
         let eccentricity = config.computeEccentricity ? median(eccValues)  : nil
         let snr          = config.computeSNR          ? median(snrValues)  : nil
-        let starCount    = config.computeStarCount    ? totalCount         : nil
+        let starCount    = config.computeStarCount    ? verifiedCount      : nil
 
         let score = qualityScore(fwhm:         config.computeFWHM         ? fwhm         : nil,
                                  eccentricity: config.computeEccentricity ? eccentricity : nil,
@@ -280,13 +311,20 @@ struct MetricsCalculator {
         vDSP.sort(&samples, sortOrder: .ascending)
         let med = samples[sampleCount / 2]
 
+        // Relative floor: 0.01 % of the image's sampled dynamic range.
+        // A fixed floor of 1.0 works for 16-bit ADU data but breaks for BITPIX=-32
+        // float images whose values may be in the range 0.0–1.0 — the threshold
+        // would overshoot all pixel values and no stars would ever be detected.
+        let dataRange = samples[sampleCount - 1] - samples[0]
+        let sigmaFloor = max(dataRange * 0.0001, Float.leastNormalMagnitude)
+
         var deviations = [Float](repeating: 0, count: sampleCount)
         var negMed = -med
         vDSP_vsadd(samples, 1, &negMed, &deviations, 1, vDSP_Length(sampleCount))
         vDSP_vabs(deviations, 1, &deviations, 1, vDSP_Length(sampleCount))
         vDSP.sort(&deviations, sortOrder: .ascending)
         let mad = deviations[sampleCount / 2]
-        let sigma = max(mad * 1.4826, 1.0) // consistent estimator; floor avoids zero
+        let sigma = max(mad * 1.4826, sigmaFloor)
 
         return (med, sigma)
     }
@@ -297,6 +335,48 @@ struct MetricsCalculator {
         let x: Int
         let y: Int
         let peak: Float
+    }
+
+    /// Non-maximum suppression: remove any candidate within `minSep` pixels of a
+    /// brighter one, keeping only the dominant peak in each neighbourhood.
+    ///
+    /// This is especially important for BITPIX=-32 float images: unlike 16-bit
+    /// integer data where adjacent pixels can tie (preventing multiple local
+    /// maxima per star), IEEE 754 floats are almost always unique, so the same
+    /// stellar PSF can generate several sub-pixel local maxima. With minSep = 3,
+    /// candidates within 3 px of a brighter neighbour are suppressed.
+    ///
+    /// Uses an O(n) grid-based lookup (one hash-set entry per accepted candidate)
+    /// so even 50 000 input candidates are processed in milliseconds.
+    private static func nonMaximumSuppression(_ candidates: [StarCandidate],
+                                              imageWidth: Int,
+                                              minSep: Int = 3) -> [StarCandidate] {
+        guard minSep > 0, !candidates.isEmpty else { return candidates }
+        let cellW = max(1, (imageWidth + minSep - 1) / minSep)
+        var occupied = Set<Int>()
+        occupied.reserveCapacity(candidates.count)
+        var filtered: [StarCandidate] = []
+        filtered.reserveCapacity(candidates.count / 2)
+
+        for c in candidates {   // already sorted brightest-first
+            let cellX = c.x / minSep
+            let cellY = c.y / minSep
+            // Check 3×3 grid neighbourhood — covers ±minSep pixels in both axes.
+            var blocked = false
+            outer: for dy in -1...1 {
+                for dx in -1...1 {
+                    let nx = cellX + dx
+                    let ny = cellY + dy
+                    guard nx >= 0 && ny >= 0 else { continue }
+                    if occupied.contains(ny * cellW + nx) { blocked = true; break outer }
+                }
+            }
+            if !blocked {
+                filtered.append(c)
+                occupied.insert(cellY * cellW + cellX)
+            }
+        }
+        return filtered
     }
 
     /// Find local maxima above threshold within the centre crop.
@@ -451,6 +531,51 @@ struct MetricsCalculator {
 
     // MARK: - Per-star shape measurement
 
+    /// Lightweight FWHM check used for bulk star counting in Phase 2.
+    ///
+    /// Fits a 1D Moffat β=4 profile along the X axis at **integer** pixel
+    /// coordinates (no bilinear centroid, no Y-axis fit, no eccentricity loop).
+    /// Roughly 10× cheaper than the full `measureShape`, so it can be called on
+    /// thousands of sampled candidates without noticeable latency.
+    ///
+    /// Returns the estimated FWHM in pixels, or 0 on fit failure.
+    private static func measureFWHMOnly(pixels: UnsafeBufferPointer<Float>,
+                                         width: Int, height: Int,
+                                         cx: Int, cy: Int,
+                                         background: Float) -> Float {
+        let rowStart = cy * width
+        guard cy >= 0 && cy < height,
+              cx >= 0 && cx < width,
+              rowStart + cx < pixels.count else { return 0 }
+
+        let peak = pixels[rowStart + cx] - background
+        guard peak > 0 else { return 0 }
+
+        let halfW    = 10
+        let minFrac: Float = 0.02
+        var num: Float = 0, den: Float = 0
+
+        for offset in -halfW...halfW where offset != 0 {
+            let px = cx + offset
+            guard px >= 0, px < width else { continue }
+            let val = pixels[rowStart + px] - background
+            guard val > peak * minFrac, val < peak else { continue }
+            // Linearised Moffat β=4: z = (A/I)^{1/4} − 1 = sqrt(sqrt(A/I)) − 1
+            let ratio = peak / val
+            let z  = ratio.squareRoot().squareRoot() - 1
+            let x2 = Float(offset * offset)
+            let w  = val
+            num += w * z  * x2
+            den += w * x2 * x2
+        }
+
+        guard den > 0, num > 0 else { return 0 }
+        let alpha      = (den / num).squareRoot()
+        // FWHM = 2α·√(2^{1/4}−1), β=4 → constant ≈ 0.870
+        let fwhmFactor = 2 * (pow(Float(2), Float(0.25)) - 1).squareRoot()
+        return alpha * fwhmFactor
+    }
+
     /// Compute FWHM, eccentricity, and aperture SNR for a single star.
     ///
     /// **FWHM:** 1D Moffat β=4 fits along X and Y axes (PixInsight default model).
@@ -559,47 +684,20 @@ struct MetricsCalculator {
             eccentricity = 0
         }
 
-        // --- Aperture SNR (simplified CCD equation) ---
+        // --- Peak SNR ---
         //
-        // We sum the background-subtracted flux inside a circular aperture of
-        // radius r = 2×FWHM, then apply:
+        // SNR = peakVal / σ_sky  (star peak above background in units of sky noise)
         //
-        //   SNR = I_net / √(I_net + n_ap·σ²_sky)
+        // Unlike aperture-photometry SNR, this ratio is fully scale-invariant:
+        // the same value results whether pixels are in raw ADU, calibrated e⁻/s,
+        // or normalised 0–1 floats. Aperture-photometry SNR (I_net / √(I_net + …))
+        // is not scale-invariant — for small-valued float data it collapses to ≈1
+        // regardless of how bright the star actually is relative to the background.
         //
-        // where:
-        //   I_net   = Σ max(0, pixel − background)  over n_ap aperture pixels
-        //             — total net stellar signal (proxy for photon count)
-        //   n_ap    = number of pixels inside the aperture circle
-        //   σ_sky   = per-pixel background standard deviation (from MAD estimator)
-        //
-        // The two noise terms under the root are:
-        //   I_net          — Poisson (shot) noise from the star itself
-        //   n_ap · σ²_sky  — accumulated background noise across the aperture
-        //
-        // This is the standard aperture-photometry SNR formula (Merline & Howell
-        // 1995; also used by Siril's quick-photometry mode), simplified by
-        // omitting the gain-conversion and readout-noise terms that require
-        // calibrated detector data. Without known gain the Poisson term is only
-        // a proportional proxy, but it still correctly ranks frames relative to
-        // each other within a session recorded on the same camera.
-        let r    = 2 * fwhm                   // aperture radius in pixels
-        let r2   = r * r
-        let rInt = Int(r.rounded(.up))
-        let icx  = Int(centX.rounded())
-        let icy  = Int(centY.rounded())
-        var iNet: Float = 0                   // net stellar flux inside aperture
-        var nAp = 0                           // pixel count inside aperture
-        for dy in -rInt...rInt {
-            for dx in -rInt...rInt {
-                guard Float(dx * dx + dy * dy) <= r2 else { continue }   // circular mask
-                let px = icx + dx, py = icy + dy
-                guard px >= 0 && px < width && py >= 0 && py < height else { continue }
-                iNet += max(0, pixels[py * width + px] - background)
-                nAp  += 1
-            }
-        }
-        // SNR = I_net / √(shot noise² + background noise²)
-        let snr: Float = iNet > 0 ? iNet / sqrt(iNet + Float(nAp) * sigma * sigma) : 0
+        // Peak SNR aligns with the score thresholds (bad ≤ 10, ideal ≥ 200):
+        //   10σ detection (faint, uncertain shape)  → SNR = 10  → low score
+        //  200σ detection (bright, clean shape)     → SNR = 200 → full score
+        let snr: Float = peakVal / sigma
 
         return (fwhm, eccentricity, snr)
     }

@@ -116,8 +116,12 @@ final class ImageStore {
     var batchElapsed: Double?
     var isBatchProcessing: Bool = false
     var errorMessage: String?
-    var thumbnailSortOrder: ThumbnailSortOrder = .filename
-    var thumbnailSortAscending: Bool = true
+    var thumbnailSortOrder: ThumbnailSortOrder = .filename {
+        didSet { updateCachedSort() }
+    }
+    var thumbnailSortAscending: Bool = true {
+        didSet { updateCachedSort() }
+    }
 
     /// The filter group currently highlighted in the sidebar filter strip.
     /// `nil` means "show all groups". Cleared on reset.
@@ -126,9 +130,69 @@ final class ImageStore {
     // MARK: - Filter grouping
 
     /// Unique filter groups present in the loaded session, in canonical display order.
-    var activeFilterGroups: [FilterGroup] {
+    /// Stored (not computed) to avoid O(n) Set creation on every sidebar render.
+    /// Updated at batch boundaries via `updateActiveFilterGroups()`.
+    private(set) var activeFilterGroups: [FilterGroup] = []
+
+    private func updateActiveFilterGroups() {
         let present = Set(entries.map { $0.filterGroup })
-        return FilterGroup.allCases.filter { present.contains($0) }
+        activeFilterGroups = FilterGroup.allCases.filter { present.contains($0) }
+    }
+
+    /// Cached sorted result of `entries` — avoids an O(n log n) sort on every render.
+    /// Updated when sort settings change (`didSet`) or at batch boundaries.
+    private(set) var cachedSortedEntries: [ImageEntry] = []
+
+    private func updateCachedSort() {
+        let asc = thumbnailSortAscending
+        switch thumbnailSortOrder {
+        case .filename:
+            cachedSortedEntries = asc ? entries : entries.reversed()
+        case .qualityScore:
+            cachedSortedEntries = entries.sorted { a, b in
+                let av = a.metrics?.qualityScore ?? -1
+                let bv = b.metrics?.qualityScore ?? -1
+                return asc ? av < bv : av > bv
+            }
+        case .fwhm:
+            cachedSortedEntries = entries.sorted { a, b in
+                switch (a.metrics?.fwhm, b.metrics?.fwhm) {
+                case let (fa?, fb?): return asc ? fa < fb : fa > fb
+                case (_?, nil):      return true
+                case (nil, _?):      return false
+                default:             return false
+                }
+            }
+        case .eccentricity:
+            cachedSortedEntries = entries.sorted { a, b in
+                switch (a.metrics?.eccentricity, b.metrics?.eccentricity) {
+                case let (ea?, eb?): return asc ? ea < eb : ea > eb
+                case (_?, nil):      return true
+                case (nil, _?):      return false
+                default:             return false
+                }
+            }
+        case .snr:
+            cachedSortedEntries = entries.sorted { a, b in
+                switch (a.metrics?.snr, b.metrics?.snr) {
+                case let (sa?, sb?): return asc ? sa < sb : sa > sb
+                case (_?, nil):      return true
+                case (nil, _?):      return false
+                default:             return false
+                }
+            }
+        case .starCount:
+            cachedSortedEntries = entries.sorted { a, b in
+                switch (a.metrics?.starCount, b.metrics?.starCount) {
+                case let (ca?, cb?): return asc ? ca < cb : ca > cb
+                case (_?, nil):      return true
+                case (nil, _?):      return false
+                default:             return false
+                }
+            }
+        case .rating:
+            cachedSortedEntries = entries.sorted { asc ? $0.rating < $1.rating : $0.rating > $1.rating }
+        }
     }
 
     /// `sortedEntries` filtered to the sidebar selection, or all entries when no
@@ -171,59 +235,11 @@ final class ImageStore {
             )
         }
         groupStatistics = result
+        updateActiveFilterGroups()
+        updateCachedSort()
     }
 
-    var sortedEntries: [ImageEntry] {
-        let asc = thumbnailSortAscending
-        switch thumbnailSortOrder {
-        case .filename:
-            return asc ? entries : entries.reversed()
-        case .qualityScore:
-            return entries.sorted { a, b in
-                let av = a.metrics?.qualityScore ?? -1
-                let bv = b.metrics?.qualityScore ?? -1
-                return asc ? av < bv : av > bv
-            }
-        case .fwhm:
-            return entries.sorted { a, b in
-                switch (a.metrics?.fwhm, b.metrics?.fwhm) {
-                case let (fa?, fb?): return asc ? fa < fb : fa > fb
-                case (_?, nil):      return true
-                case (nil, _?):      return false
-                default:             return false
-                }
-            }
-        case .eccentricity:
-            return entries.sorted { a, b in
-                switch (a.metrics?.eccentricity, b.metrics?.eccentricity) {
-                case let (ea?, eb?): return asc ? ea < eb : ea > eb
-                case (_?, nil):      return true
-                case (nil, _?):      return false
-                default:             return false
-                }
-            }
-        case .snr:
-            return entries.sorted { a, b in
-                switch (a.metrics?.snr, b.metrics?.snr) {
-                case let (sa?, sb?): return asc ? sa < sb : sa > sb
-                case (_?, nil):      return true
-                case (nil, _?):      return false
-                default:             return false
-                }
-            }
-        case .starCount:
-            return entries.sorted { a, b in
-                switch (a.metrics?.starCount, b.metrics?.starCount) {
-                case let (ca?, cb?): return asc ? ca < cb : ca > cb
-                case (_?, nil):      return true
-                case (nil, _?):      return false
-                default:             return false
-                }
-            }
-        case .rating:
-            return entries.sorted { asc ? $0.rating < $1.rating : $0.rating > $1.rating }
-        }
-    }
+    var sortedEntries: [ImageEntry] { cachedSortedEntries }
 
     // MARK: - Reset
 
@@ -235,6 +251,8 @@ final class ImageStore {
         errorMessage = nil
         sidebarFilterGroup = nil
         groupStatistics = [:]
+        activeFilterGroups = []
+        cachedSortedEntries = []
     }
 
     // MARK: - Navigation
@@ -407,6 +425,7 @@ final class ImageStore {
         guard entry.rating != rating else { return }
         entry.rating = rating
         saveSidecar(changedEntry: entry)
+        if thumbnailSortOrder == .rating { updateCachedSort() }
     }
 
     // MARK: - Sidecar persistence
@@ -642,6 +661,11 @@ final class ImageStore {
         // Restore saved ratings before processing starts
         loadSidecarRatings(for: newEntries)
 
+        // Populate the sort/filter cache so the sidebar renders immediately
+        // with loading spinners while the batch processes in the background.
+        updateActiveFilterGroups()
+        updateCachedSort()
+
         batchElapsed = nil
         isBatchProcessing = true
         let startTime = CFAbsoluteTimeGetCurrent()
@@ -705,6 +729,9 @@ final class ImageStore {
                 entry.metrics = cached.filtered(by: metricsConfig)
             }
         }
+
+        // Refresh the sort cache now that cached metrics have been restored synchronously.
+        updateCachedSort()
 
         // Pass 2: collect entries that still need at least one metric computed from disk.
         let needsRecompute = entriesToProcess.filter { entry in
@@ -792,14 +819,21 @@ final class ImageStore {
 
     // MARK: - Concurrent pipeline
 
-    /// Single-phase pipeline: GPU stretch + histogram + metrics computed together
-    /// from the same Metal buffer, so the file is only read once per image.
+    /// Two-phase pipeline per image:
+    ///
+    /// **Phase A** — I/O + GPU stretch (fast, ~100–300 ms): image becomes visible
+    /// immediately after the file is read and stretched. The Metal buffer is kept
+    /// alive in `FastLoadResult` so Phase B can read from it without a second disk hit.
+    ///
+    /// **Phase B** — quality metrics (slower, runs after Phase A returns): star
+    /// detection + shape measurement computed from the already-loaded buffer.
+    /// The user sees the image while metrics are being computed in the background.
     private func processParallel(_ entriesToProcess: [ImageEntry], selectFirst: Bool,
                                   maxDisplaySize: Int = 1024, maxThumbnailSize: Int = 120,
                                   metricsConfig: MetricsConfig = MetricsConfig()) async {
 
-        // 3 concurrent tasks: enough to keep GPU and I/O pipeline full without
-        // flooding the thread pool or causing disk thrashing on large files.
+        // 3 concurrent tasks: enough to keep the GPU and I/O pipeline saturated
+        // without disk-thrashing on large FITS files.
         let concurrency = 3
 
         await withTaskGroup(of: Void.self) { group in
@@ -811,24 +845,43 @@ final class ImageStore {
                 }
                 let url = entry.url
                 group.addTask { [weak self] in
-                    let result = await Self.loadDisplay(url: url,
-                                                       maxDisplaySize: maxDisplaySize,
-                                                       maxThumbnailSize: maxThumbnailSize,
-                                                       metricsConfig: metricsConfig)
+                    // ── Phase A: I/O + histogram + GPU stretch ────────────────
+                    let fast = await Self.loadFast(url: url,
+                                                   maxDisplaySize: maxDisplaySize,
+                                                   maxThumbnailSize: maxThumbnailSize)
                     await MainActor.run { [weak self] in
-                        entry.displayImage = result.display
-                        entry.thumbnail    = result.thumb
-                        entry.imageInfo    = result.info
-                        entry.errorMessage = result.error
-                        entry.histogram     = result.histogram
-                        entry.headers       = result.headers
-                        entry.cachedMetrics = result.metrics
-                        entry.metrics       = result.metrics
-                        entry.isProcessing  = false
+                        entry.displayImage = fast.display
+                        entry.thumbnail    = fast.thumb
+                        entry.imageInfo    = fast.info
+                        entry.errorMessage = fast.error
+                        entry.histogram    = fast.histogram
+                        entry.headers      = fast.headers
+                        entry.isProcessing = false   // ← image visible now
 
-                        if selectFirst, entry === entriesToProcess.first, result.display != nil {
+                        if selectFirst, entry === entriesToProcess.first, fast.display != nil {
                             self?.selectedEntry = entry
                         }
+                    }
+
+                    // ── Phase B: quality metrics ──────────────────────────────
+                    // Reuses the Metal buffer loaded in Phase A — no second file
+                    // read. Falls back to loadMetricsOnly (re-reads disk) only
+                    // when Metal was unavailable in Phase A.
+                    let metrics: FrameMetrics?
+                    if let buffer = fast.metalBuffer, let device = fast.metalDevice {
+                        metrics = await MetricsCalculator.compute(
+                            metalBuffer: buffer, device: device,
+                            width: fast.width, height: fast.height,
+                            config: metricsConfig)
+                    } else if metricsConfig.needsStarDetection {
+                        metrics = await Self.loadMetricsOnly(url: url, config: metricsConfig)
+                    } else {
+                        metrics = nil
+                    }
+
+                    await MainActor.run {
+                        entry.metrics      = metrics
+                        entry.cachedMetrics = metrics
                     }
                 }
                 activeCount += 1
@@ -838,74 +891,72 @@ final class ImageStore {
         updateGroupStatistics()
     }
 
-    /// Load, GPU-stretch, and compute all metrics for a single FITS file in one pass.
+    /// Phase A of the loading pipeline: read the FITS file, compute the histogram,
+    /// and GPU-stretch to produce the display image and thumbnail.
     ///
-    /// Metrics are computed directly from the Metal shared buffer while it is still
-    /// live — eliminating the previous Phase 2 re-read of the file. The pixel data
-    /// never needs to be copied into a separate [Float] array.
-    private nonisolated static func loadDisplay(url: URL,
-                                                maxDisplaySize: Int = 1024,
-                                                maxThumbnailSize: Int = 120,
-                                                metricsConfig: MetricsConfig = MetricsConfig()) async -> DisplayLoadResult {
-        let didStartAccessing = url.startAccessingSecurityScopedResource()
-        defer { if didStartAccessing { url.stopAccessingSecurityScopedResource() } }
+    /// Does NOT compute quality metrics — those run in Phase B from the returned
+    /// Metal buffer, keeping the two phases independent.
+    private nonisolated static func loadFast(url: URL,
+                                              maxDisplaySize: Int = 1024,
+                                              maxThumbnailSize: Int = 120) async -> FastLoadResult {
+        let didStart = url.startAccessingSecurityScopedResource()
+        defer { if didStart { url.stopAccessingSecurityScopedResource() } }
 
-        // GPU path: read pixels into Metal shared buffer, compute everything from it.
         if let device = ImageStretcher.metalDevice,
            let bufferResult = try? FITSReader.readIntoBuffer(from: url, device: device) {
-            let meta    = bufferResult.metadata
-            let count   = meta.width * meta.height
-            let info    = "\(meta.width) × \(meta.height)  |  BITPIX: \(meta.bitpix)"
+            let meta     = bufferResult.metadata
             let floatPtr = bufferResult.metalBuffer.contents().assumingMemoryBound(to: Float.self)
-
-            let histogram = MetricsCalculator.computeHistogram(ptr: floatPtr, count: count)
-            // GPU path: pixel data is already in the Metal shared buffer, so the
-            // detection kernel reads it without any copy. Full-frame detection —
-            // no crop limit — using the detectLocalMaxima compute shader.
-            let metrics   = await MetricsCalculator.compute(metalBuffer: bufferResult.metalBuffer,
-                                                            device: device,
-                                                            width: meta.width, height: meta.height,
-                                                            config: metricsConfig)
+            let histogram = MetricsCalculator.computeHistogram(ptr: floatPtr,
+                                                               count: meta.width * meta.height)
             let display = ImageStretcher.createImage(inputBuffer: bufferResult.metalBuffer,
                                                      width: meta.width, height: meta.height,
                                                      maxDisplaySize: maxDisplaySize)
             let thumb = display.flatMap { ImageStretcher.createThumbnail(from: $0, maxSize: maxThumbnailSize) }
-            return DisplayLoadResult(display: display, thumb: thumb, info: info, error: nil,
-                                     histogram: histogram, headers: meta.headers, metrics: metrics)
+            return FastLoadResult(
+                display: display, thumb: thumb,
+                info: "\(meta.width) × \(meta.height)  |  BITPIX: \(meta.bitpix)",
+                error: nil, histogram: histogram, headers: meta.headers,
+                metalBuffer: bufferResult.metalBuffer, metalDevice: device,
+                width: meta.width, height: meta.height)
         }
 
-        // CPU fallback: read into [Float], compute everything, then release the array.
         do {
-            var fits = try FITSReader.read(from: url)
-            let info      = "\(fits.width) × \(fits.height)  |  BITPIX: \(fits.bitpix)"
+            var fits  = try FITSReader.read(from: url)
             let histogram = MetricsCalculator.computeHistogram(pixels: fits.pixelValues,
                                                                width: fits.width, height: fits.height)
-            let metrics   = await MetricsCalculator.compute(pixels: fits.pixelValues,
-                                                            width: fits.width, height: fits.height,
-                                                            config: metricsConfig)
-            let display   = ImageStretcher.createImage(from: &fits.pixelValues, width: fits.width,
-                                                       height: fits.height, maxDisplaySize: maxDisplaySize)
-            let headers   = fits.headers
+            let display = ImageStretcher.createImage(from: &fits.pixelValues,
+                                                     width: fits.width, height: fits.height,
+                                                     maxDisplaySize: maxDisplaySize)
+            let info    = "\(fits.width) × \(fits.height)  |  BITPIX: \(fits.bitpix)"
+            let headers = fits.headers
+            let w = fits.width, h = fits.height
             fits.pixelValues = []
             let thumb = display.flatMap { ImageStretcher.createThumbnail(from: $0, maxSize: maxThumbnailSize) }
-            return DisplayLoadResult(display: display, thumb: thumb, info: info, error: nil,
-                                     histogram: histogram, headers: headers, metrics: metrics)
+            return FastLoadResult(display: display, thumb: thumb, info: info, error: nil,
+                                  histogram: histogram, headers: headers,
+                                  metalBuffer: nil, metalDevice: nil, width: w, height: h)
         } catch {
-            return DisplayLoadResult(display: nil, thumb: nil, info: "", error: error.localizedDescription,
-                                     histogram: nil, headers: [:], metrics: nil)
+            return FastLoadResult(display: nil, thumb: nil, info: "", error: error.localizedDescription,
+                                  histogram: nil, headers: [:],
+                                  metalBuffer: nil, metalDevice: nil, width: 0, height: 0)
         }
     }
 }
 
 // MARK: - Private result types
 
-private struct DisplayLoadResult {
-    let display: NSImage?
-    let thumb: NSImage?
-    let info: String
-    let error: String?
-    let histogram: [Int]?
-    let headers: [String: String]
-    let metrics: FrameMetrics?
+private struct FastLoadResult {
+    let display:     NSImage?
+    let thumb:       NSImage?
+    let info:        String
+    let error:       String?
+    let histogram:   [Int]?
+    let headers:     [String: String]
+    /// Raw FITS float pixels — kept alive so Phase B (metrics) can read them
+    /// without a second file read. `nil` when the CPU fallback was used.
+    let metalBuffer: MTLBuffer?
+    let metalDevice: MTLDevice?
+    let width:       Int
+    let height:      Int
 }
 

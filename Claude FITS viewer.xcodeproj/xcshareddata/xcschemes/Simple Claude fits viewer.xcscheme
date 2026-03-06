@@ -18,7 +18,7 @@
                BlueprintIdentifier = "65BA7E902F52EE16002B50D4"
                BuildableName = "Simple Claude fits viewer.app"
                BlueprintName = "Simple Claude fits viewer"
-               ReferencedContainer = "container:Simple Claude fits viewer.xcodeproj">
+               ReferencedContainer = "container:Claude FITS viewer.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -47,7 +47,7 @@
             BlueprintIdentifier = "65BA7E902F52EE16002B50D4"
             BuildableName = "Simple Claude fits viewer.app"
             BlueprintName = "Simple Claude fits viewer"
-            ReferencedContainer = "container:Simple Claude fits viewer.xcodeproj">
+            ReferencedContainer = "container:Claude FITS viewer.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </LaunchAction>
@@ -64,7 +64,7 @@
             BlueprintIdentifier = "65BA7E902F52EE16002B50D4"
             BuildableName = "Simple Claude fits viewer.app"
             BlueprintName = "Simple Claude fits viewer"
-            ReferencedContainer = "container:Simple Claude fits viewer.xcodeproj">
+            ReferencedContainer = "container:Claude FITS viewer.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </ProfileAction>

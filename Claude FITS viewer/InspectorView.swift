@@ -20,7 +20,9 @@ struct InspectorView: View {
             VStack(spacing: 0) {
                 InspectorHistogramSection(histogram: entry?.histogram)
                 Divider()
-                InspectorMetricsSection(metrics: entry?.metrics, config: settings.metricsConfig)
+                InspectorMetricsSection(metrics: entry?.metrics,
+                                        config: settings.metricsConfig,
+                                        isProcessing: entry?.isProcessing ?? false)
                 Divider()
                 InspectorHeadersSection(headers: entry?.headers ?? [:])
             }
@@ -58,6 +60,7 @@ private struct InspectorHistogramSection: View {
 private struct InspectorMetricsSection: View {
     let metrics: FrameMetrics?
     let config: MetricsConfig
+    let isProcessing: Bool
     @Environment(AppSettings.self) private var settings
 
     var body: some View {
@@ -99,7 +102,7 @@ private struct InspectorMetricsSection: View {
                         .foregroundStyle(metrics.scoreColor)
                 }
             } else if config.needsStarDetection {
-                Text("Computing…")
+                Text(isProcessing ? "Computing…" : "No stars detected")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             } else {

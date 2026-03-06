@@ -147,9 +147,15 @@ struct SessionChartView: View {
     // MARK: - Placeholder
 
     private var placeholder: some View {
-        Text(store.entries.isEmpty
-             ? "Open a folder of FITS files to see the session chart"
-             : "Computing metrics…")
+        let message: String
+        if store.entries.isEmpty {
+            message = "Open a folder of FITS files to see the session chart"
+        } else if store.isBatchProcessing {
+            message = "Computing metrics…"
+        } else {
+            message = "No \(selectedMetric.rawValue) data for this session"
+        }
+        return Text(message)
             .font(.caption)
             .foregroundStyle(.tertiary)
             .frame(maxWidth: .infinity, maxHeight: .infinity)

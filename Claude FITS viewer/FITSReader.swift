@@ -260,14 +260,23 @@ struct FITSReader {
                 vImagePermuteChannels_ARGB8888(&swapBuf, &swapBuf, &permuteMap, vImage_Flags(kvImageNoFlags))
 
             case -64:
-                let src = base.assumingMemoryBound(to: UInt64.self)
-                let temp = UnsafeMutablePointer<Double>.allocate(capacity: pixelCount)
-                for i in 0..<pixelCount {
-                    temp[i] = Double(bitPattern: src[i].bigEndian)
-                }
+                // Two-step vectorized 64-bit big-endian → little-endian byte swap:
+                // Step 1: byte-reverse each 4-byte group (treat buffer as 2×pixelCount ARGB8888 pixels)
+                // Step 2: swap the two 4-byte halves of each 8-byte double (horizontal reflect, width=2)
+                let temp = UnsafeMutablePointer<UInt64>.allocate(capacity: pixelCount)
+                memcpy(temp, base, pixelCount * 8)
+                var step1Buf = vImage_Buffer(data: temp, height: 1,
+                                             width: vImagePixelCount(pixelCount * 2),
+                                             rowBytes: pixelCount * 8)
+                var permuteMap64: [UInt8] = [3, 2, 1, 0]
+                vImagePermuteChannels_ARGB8888(&step1Buf, &step1Buf, &permuteMap64, vImage_Flags(kvImageNoFlags))
+                var step2Buf = vImage_Buffer(data: temp, height: vImagePixelCount(pixelCount),
+                                             width: 2, rowBytes: 8)
+                vImageHorizontalReflect_ARGB8888(&step2Buf, &step2Buf, vImage_Flags(kvImageNoFlags))
+                let dblPtr = UnsafeMutableRawPointer(temp).assumingMemoryBound(to: Double.self)
                 var destBuf64 = UnsafeMutableBufferPointer(start: destPtr, count: pixelCount)
                 vDSP.convertElements(
-                    of: UnsafeBufferPointer(start: temp, count: pixelCount),
+                    of: UnsafeBufferPointer(start: dblPtr, count: pixelCount),
                     to: &destBuf64
                 )
                 temp.deallocate()
@@ -380,7 +389,15 @@ struct FITSReader {
                 let base = rawPtr.baseAddress!.advanced(by: header.dataOffset)
                 let temp = UnsafeMutablePointer<UInt64>.allocate(capacity: pixelCount)
                 memcpy(temp, base, pixelCount * 8)
-                for i in 0..<pixelCount { temp[i] = temp[i].byteSwapped }
+                // Two-step vectorized 64-bit big-endian → little-endian byte swap
+                var step1Buf = vImage_Buffer(data: temp, height: 1,
+                                             width: vImagePixelCount(pixelCount * 2),
+                                             rowBytes: pixelCount * 8)
+                var permuteMap64: [UInt8] = [3, 2, 1, 0]
+                vImagePermuteChannels_ARGB8888(&step1Buf, &step1Buf, &permuteMap64, vImage_Flags(kvImageNoFlags))
+                var step2Buf = vImage_Buffer(data: temp, height: vImagePixelCount(pixelCount),
+                                             width: 2, rowBytes: 8)
+                vImageHorizontalReflect_ARGB8888(&step2Buf, &step2Buf, vImage_Flags(kvImageNoFlags))
                 let dblPtr = UnsafeMutableRawPointer(temp).assumingMemoryBound(to: Double.self)
                 var result = [Float](repeating: 0, count: pixelCount)
                 vDSP.convertElements(of: UnsafeBufferPointer(start: dblPtr, count: pixelCount), to: &result)
