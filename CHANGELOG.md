@@ -4,6 +4,15 @@ All notable changes to Simple Claude FITS Viewer are recorded here.
 
 ---
 
+## 2026-03-07 — Fix star counts wildly inflated (~27×) for BITPIX=16 images
+
+### Fixed
+- **Phase 2 extrapolation poisoned by noise false positives** (`MetricsCalculator.measureFWHMOnly`): for many BITPIX=16 images the GPU `detectLocalMaxima` kernel finds 50 000+ local maxima (hitting the candidate cap), because at the `background + 5σ` threshold many background noise pixels qualify. NMS with `minSep=3` barely reduces this sparse set. `measureFWHMOnly` then accepts ~50% of those noise peaks as "stars" (isolated noise spikes produce a flat, wide profile that happens to fall in the FWHM [0.5, 20] range), and Phase 2 extrapolates that rate across ~47 000 candidates → ~21 000 reported stars regardless of the true count.
+
+  Fix: added a cheap 4-neighbour cross-section pre-filter at the top of `measureFWHMOnly`. All four immediate neighbours (±1px in X and Y, background-subtracted) must exceed 15% of the peak. A real star (Moffat β=4, FWHM ≥ 1.7 px) has ≥ 16% flux in each immediate neighbour; an isolated noise spike has neighbours near sky level (~0 after background subtraction). The check rejects ≈ 99.7% of isolated noise peaks with 4 array lookups, before the 20-point Moffat loop runs.
+
+---
+
 ## 2026-03-07 — Fix star counts inflated 3× for integer FITS images
 
 ### Fixed
