@@ -4,6 +4,13 @@ All notable changes to Simple Claude FITS Viewer are recorded here.
 
 ---
 
+## 2026-03-07 — Eliminate redundant full-frame pixel scan in metrics
+
+### Performance
+- **Remove `vDSP_maxv` saturation scan** (`MetricsCalculator`): the saturation threshold (`sampleMax × 0.90`) was previously computed by calling `vDSP_maxv` over all pixels — a 2–4 ms O(n) scan for large images. `estimateBackground` already sorts a 5000-element stratified sample, so `samples[sampleCount - 1]` is the sample maximum. The return type now includes `sampleMax` and both call sites (`compute(metalBuffer:…)` and `compute(pixels:…)`) use it directly, eliminating the redundant scan with no change to accuracy.
+
+---
+
 ## 2026-03-06 — Two-phase loading, NMS bypass, and render-trigger reduction
 
 ### Changed

@@ -75,14 +75,13 @@ struct MetricsCalculator {
         let floatPtr = metalBuffer.contents().assumingMemoryBound(to: Float.self)
         let pixels   = UnsafeBufferPointer(start: floatPtr, count: count)
 
-        let (background, sigma) = estimateBackground(pixels, width: width, height: height)
+        let (background, sigma, sampleMax) = estimateBackground(pixels, width: width, height: height)
         let threshold = background + 5 * sigma
 
         // Saturation level: stars with peak > 90 % of the sensor maximum are
         // likely clipped and would bias FWHM high — excluded from shape fitting.
-        var satLevel: Float = 0
-        vDSP_maxv(floatPtr, 1, &satLevel, vDSP_Length(count))
-        let saturationThreshold = satLevel * 0.90
+        // Use the sample max from estimateBackground (already computed, no extra full-frame scan needed).
+        let saturationThreshold = sampleMax * 0.90
 
         // Try GPU detection over the full frame; fall back to CPU on failure.
         let allCandidates: [StarCandidate]
@@ -159,12 +158,10 @@ struct MetricsCalculator {
         let cropX = (width  - cropW) / 2   // centre the crop horizontally
         let cropY = (height - cropH) / 2   // centre the crop vertically
 
-        let (background, sigma) = estimateBackground(pixels, width: width, height: height)
+        let (background, sigma, sampleMax) = estimateBackground(pixels, width: width, height: height)
         let threshold = background + 5 * sigma
 
-        var satLevel: Float = 0
-        vDSP_maxv(pixels.baseAddress!, 1, &satLevel, vDSP_Length(pixels.count))
-        let saturationThreshold = satLevel * 0.90
+        let saturationThreshold = sampleMax * 0.90
 
         let raw = findLocalMaxima(pixels: pixels, width: width, height: height,
                                   cropX: cropX, cropY: cropY,
@@ -309,7 +306,7 @@ struct MetricsCalculator {
     // MARK: - Background estimation
 
     /// Robust background estimate using stratified sampling + median/MAD.
-    private static func estimateBackground(_ pixels: UnsafeBufferPointer<Float>, width: Int, height: Int) -> (median: Float, sigma: Float) {
+    private static func estimateBackground(_ pixels: UnsafeBufferPointer<Float>, width: Int, height: Int) -> (median: Float, sigma: Float, sampleMax: Float) {
         let n = pixels.count
         let sampleCount = min(n, 5000)
         let stride = max(1, n / sampleCount)
@@ -334,7 +331,7 @@ struct MetricsCalculator {
         let mad = deviations[sampleCount / 2]
         let sigma = max(mad * 1.4826, sigmaFloor)
 
-        return (med, sigma)
+        return (med, sigma, samples[sampleCount - 1])
     }
 
     // MARK: - Star detection
