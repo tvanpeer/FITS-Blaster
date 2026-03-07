@@ -24,7 +24,10 @@ enum FITSError: LocalizedError {
         case .invalidFormat(let detail):
             return "Invalid FITS format: \(detail)"
         case .unsupportedBitpix(let value):
-            return "Unsupported BITPIX value: \(value)"
+            if value < 0 {
+                return "Unsupported image format: floating-point FITS files (BITPIX=\(value)) are not supported. Only integer formats (8, 16, 32-bit) are supported."
+            }
+            return "Unsupported BITPIX value: \(value). Supported values are 8, 16, and 32."
         case .noImageData:
             return "No image data found in the FITS file."
         case .metalBufferAllocationFailed:
@@ -139,6 +142,9 @@ struct FITSReader {
               let bitpix = Int(bitpixStr) else {
             throw FITSError.invalidFormat("Missing or invalid BITPIX keyword.")
         }
+        guard [8, 16, 32].contains(bitpix) else {
+            throw FITSError.unsupportedBitpix(bitpix)
+        }
 
         guard let naxisStr = headerCards.first(where: { $0.0 == "NAXIS" })?.1,
               let naxis = Int(naxisStr), naxis >= 2 else {
@@ -250,50 +256,23 @@ struct FITSReader {
                 )
                 temp32.deallocate()
 
-            case -32:
-                // Bulk memcpy then vectorized 32-bit byte swap via ARGB permute [3,2,1,0]
-                memcpy(destPtr, base, pixelCount * 4)
-                let rowBytes = header.width * 4
-                var swapBuf = vImage_Buffer(data: destPtr, height: vImagePixelCount(header.height),
-                                            width: vImagePixelCount(header.width), rowBytes: rowBytes)
-                var permuteMap: [UInt8] = [3, 2, 1, 0]
-                vImagePermuteChannels_ARGB8888(&swapBuf, &swapBuf, &permuteMap, vImage_Flags(kvImageNoFlags))
-
-            case -64:
-                // Two-step vectorized 64-bit big-endian → little-endian byte swap:
-                // Step 1: byte-reverse each 4-byte group (treat buffer as 2×pixelCount ARGB8888 pixels)
-                // Step 2: swap the two 4-byte halves of each 8-byte double (horizontal reflect, width=2)
-                let temp = UnsafeMutablePointer<UInt64>.allocate(capacity: pixelCount)
-                memcpy(temp, base, pixelCount * 8)
-                var step1Buf = vImage_Buffer(data: temp, height: 1,
-                                             width: vImagePixelCount(pixelCount * 2),
-                                             rowBytes: pixelCount * 8)
-                var permuteMap64: [UInt8] = [3, 2, 1, 0]
-                vImagePermuteChannels_ARGB8888(&step1Buf, &step1Buf, &permuteMap64, vImage_Flags(kvImageNoFlags))
-                var step2Buf = vImage_Buffer(data: temp, height: vImagePixelCount(pixelCount),
-                                             width: 2, rowBytes: 8)
-                vImageHorizontalReflect_ARGB8888(&step2Buf, &step2Buf, vImage_Flags(kvImageNoFlags))
-                let dblPtr = UnsafeMutableRawPointer(temp).assumingMemoryBound(to: Double.self)
-                var destBuf64 = UnsafeMutableBufferPointer(start: destPtr, count: pixelCount)
-                vDSP.convertElements(
-                    of: UnsafeBufferPointer(start: dblPtr, count: pixelCount),
-                    to: &destBuf64
-                )
-                temp.deallocate()
-
             default:
-                break
+                break  // unreachable: parseHeader rejects unsupported bitpix values
             }
         }
 
-        // Apply BSCALE/BZERO in a single pass using vDSP_vsmsa: out = in * bscale + bzero
+        // Apply BSCALE/BZERO. Integer FITS files almost always have BSCALE=1, so
+        // we use the cheaper vsadd (add only) in that case rather than vsmsa (multiply+add).
         let bscaleF = Float(header.bscale)
-        let bzeroF = Float(header.bzero)
-        if bscaleF != 1.0 || bzeroF != 0.0 {
+        let bzeroF  = Float(header.bzero)
+        let n = vDSP_Length(pixelCount)
+        if bscaleF != 1.0 {
             var mult = bscaleF
-            var add = bzeroF
-            let n = vDSP_Length(pixelCount)
+            var add  = bzeroF
             vDSP_vsmsa(destPtr, 1, &mult, &add, destPtr, 1, n)
+        } else if bzeroF != 0.0 {
+            var add = bzeroF
+            vDSP_vsadd(destPtr, 1, &add, destPtr, 1, n)
         }
 
         let metadata = FITSMetadata(
@@ -368,56 +347,25 @@ struct FITSReader {
                 return result
             }
 
-        case -32:
-            pixelValues = [Float](unsafeUninitializedCapacity: pixelCount) { buf, count in
-                data.withUnsafeBytes { rawPtr in
-                    let base = rawPtr.baseAddress!.advanced(by: header.dataOffset)
-                    memcpy(buf.baseAddress!, base, pixelCount * 4)
-                    // Vectorized 32-bit byte swap using vImagePermuteChannels_ARGB8888
-                    // Treats each 4-byte float as an ARGB pixel, reverses byte order [3,2,1,0]
-                    let rowBytes = header.width * 4
-                    var srcBuf = vImage_Buffer(data: buf.baseAddress!, height: vImagePixelCount(header.height),
-                                               width: vImagePixelCount(header.width), rowBytes: rowBytes)
-                    var permuteMap: [UInt8] = [3, 2, 1, 0]
-                    vImagePermuteChannels_ARGB8888(&srcBuf, &srcBuf, &permuteMap, vImage_Flags(kvImageNoFlags))
-                }
-                count = pixelCount
-            }
-
-        case -64:
-            pixelValues = data.withUnsafeBytes { rawPtr -> [Float] in
-                let base = rawPtr.baseAddress!.advanced(by: header.dataOffset)
-                let temp = UnsafeMutablePointer<UInt64>.allocate(capacity: pixelCount)
-                memcpy(temp, base, pixelCount * 8)
-                // Two-step vectorized 64-bit big-endian → little-endian byte swap
-                var step1Buf = vImage_Buffer(data: temp, height: 1,
-                                             width: vImagePixelCount(pixelCount * 2),
-                                             rowBytes: pixelCount * 8)
-                var permuteMap64: [UInt8] = [3, 2, 1, 0]
-                vImagePermuteChannels_ARGB8888(&step1Buf, &step1Buf, &permuteMap64, vImage_Flags(kvImageNoFlags))
-                var step2Buf = vImage_Buffer(data: temp, height: vImagePixelCount(pixelCount),
-                                             width: 2, rowBytes: 8)
-                vImageHorizontalReflect_ARGB8888(&step2Buf, &step2Buf, vImage_Flags(kvImageNoFlags))
-                let dblPtr = UnsafeMutableRawPointer(temp).assumingMemoryBound(to: Double.self)
-                var result = [Float](repeating: 0, count: pixelCount)
-                vDSP.convertElements(of: UnsafeBufferPointer(start: dblPtr, count: pixelCount), to: &result)
-                temp.deallocate()
-                return result
-            }
-
         default:
-            throw FITSError.unsupportedBitpix(header.bitpix)
+            throw FITSError.unsupportedBitpix(header.bitpix)  // unreachable: parseHeader rejects these
         }
 
-        // Apply BSCALE/BZERO in a single pass
+        // Apply BSCALE/BZERO. Integer FITS files almost always have BSCALE=1, so
+        // we use the cheaper vsadd (add only) in that case rather than vsmsa (multiply+add).
         let bscaleF = Float(header.bscale)
-        let bzeroF = Float(header.bzero)
+        let bzeroF  = Float(header.bzero)
         if bscaleF != 1.0 || bzeroF != 0.0 {
             pixelValues.withUnsafeMutableBufferPointer { buf in
-                var mult = bscaleF
-                var add = bzeroF
                 let n = vDSP_Length(pixelCount)
-                vDSP_vsmsa(buf.baseAddress!, 1, &mult, &add, buf.baseAddress!, 1, n)
+                if bscaleF != 1.0 {
+                    var mult = bscaleF
+                    var add  = bzeroF
+                    vDSP_vsmsa(buf.baseAddress!, 1, &mult, &add, buf.baseAddress!, 1, n)
+                } else {
+                    var add = bzeroF
+                    vDSP_vsadd(buf.baseAddress!, 1, &add, buf.baseAddress!, 1, n)
+                }
             }
         }
 

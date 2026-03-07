@@ -4,6 +4,22 @@ All notable changes to Simple Claude FITS Viewer are recorded here.
 
 ---
 
+## 2026-03-07 — Drop float FITS support; BZERO-only performance improvement
+
+### Removed
+- **Float FITS images (BITPIX=-32, -64)**: `parseHeader` now validates BITPIX immediately and throws `FITSError.unsupportedBitpix` for any value outside `{8, 16, 32}`. The float byte-swap and double→float conversion code is removed from both `readIntoBuffer` and `read`. A float file now shows "Unsupported image format: floating-point FITS files (BITPIX=…)" in the sidebar.
+
+### Improved
+- **BZERO-only path uses `vDSP_vsadd` instead of `vDSP_vsmsa`**: integer FITS files always have BSCALE=1. The common BZERO≠0 case (e.g. BITPIX=16 with BZERO=32768) now runs a vectorized add-only pass rather than multiply+add, saving one multiply per pixel across the full image.
+
+## 2026-03-07 — Add configurable Remove-from-List key (R)
+
+### Added
+- **Remove selected image(s) from list** (`ImageStore.removeSelected`): removes the current selection from `entries` without touching files on disk. After removal the next entry in sorted order is selected, or the previous one if the removed block was at the end. Works with single and multi-select.
+- **Configurable key binding** (`AppSettings.removeKey`, default `R`): stored in UserDefaults, shown as "Remove from List" in Settings → Keyboard.
+
+---
+
 ## 2026-03-07 — SNR in Auto-Flag panel + filename above image + toolbar cleanup
 
 ### Added
