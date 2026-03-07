@@ -109,6 +109,9 @@ final class ImageEntry: Identifiable {
 final class ImageStore {
     var entries: [ImageEntry] = []
     var selectedEntry: ImageEntry?
+    /// IDs of all entries in the multi-selection. When this contains more than
+    /// one entry, reject/undo operations apply to the whole set.
+    var selectedEntryIDs: Set<UUID> = []
     var batchElapsed: Double?
     var isBatchProcessing: Bool = false
     var errorMessage: String?
@@ -240,6 +243,7 @@ final class ImageStore {
     func reset() {
         entries = []
         selectedEntry = nil
+        selectedEntryIDs = []
         batchElapsed = nil
         isBatchProcessing = false
         errorMessage = nil
@@ -253,12 +257,12 @@ final class ImageStore {
 
     func selectFirst() {
         guard let first = sortedEntries.first else { return }
-        if selectedEntry === first { NSSound.beep() } else { selectedEntry = first }
+        if selectedEntry === first { NSSound.beep() } else { selectedEntry = first; selectedEntryIDs = [] }
     }
 
     func selectLast() {
         guard let last = sortedEntries.last else { return }
-        if selectedEntry === last { NSSound.beep() } else { selectedEntry = last }
+        if selectedEntry === last { NSSound.beep() } else { selectedEntry = last; selectedEntryIDs = [] }
     }
 
     func selectPrevious() {
@@ -266,13 +270,13 @@ final class ImageStore {
         guard !ordered.isEmpty else { return }
         guard let current = selectedEntry,
               let index = ordered.firstIndex(where: { $0 === current }) else {
-            selectedEntry = ordered.first
+            selectedEntry = ordered.first; selectedEntryIDs = []
             return
         }
         if index == 0 {
             NSSound.beep()
         } else {
-            selectedEntry = ordered[index - 1]
+            selectedEntry = ordered[index - 1]; selectedEntryIDs = []
         }
     }
 
@@ -281,20 +285,29 @@ final class ImageStore {
         guard !ordered.isEmpty else { return }
         guard let current = selectedEntry,
               let index = ordered.firstIndex(where: { $0 === current }) else {
-            selectedEntry = ordered.first
+            selectedEntry = ordered.first; selectedEntryIDs = []
             return
         }
         if index == ordered.count - 1 {
             NSSound.beep()
         } else {
-            selectedEntry = ordered[index + 1]
+            selectedEntry = ordered[index + 1]; selectedEntryIDs = []
         }
     }
 
-    /// Toggles rejection for the selected entry: rejects if not rejected, undoes if already rejected.
+    /// Toggles rejection for the selection: rejects non-rejected entries, undoes rejected ones.
     func toggleRejectSelected() {
-        guard let entry = selectedEntry else { return }
-        if entry.isRejected { undoRejectSelected() } else { rejectSelected() }
+        if selectedEntryIDs.count > 1 {
+            let selected = entries.filter { selectedEntryIDs.contains($0.id) }
+            if selected.allSatisfy({ $0.isRejected }) {
+                selected.forEach { undoRejectEntry($0) }
+            } else {
+                selected.filter { !$0.isRejected }.forEach { rejectEntry($0) }
+            }
+        } else {
+            guard let entry = selectedEntry else { return }
+            if entry.isRejected { undoRejectSelected() } else { rejectSelected() }
+        }
     }
 
     // MARK: - File Operations
@@ -313,8 +326,11 @@ final class ImageStore {
     }
 
     func rejectSelected() {
-        guard let entry = selectedEntry else { return }
-        rejectEntry(entry)
+        if selectedEntryIDs.count > 1 {
+            entries.filter { selectedEntryIDs.contains($0.id) }.forEach { rejectEntry($0) }
+        } else if let entry = selectedEntry {
+            rejectEntry(entry)
+        }
     }
 
     /// Batch-reject multiple entries. Used by the session chart drag-select action.
@@ -387,8 +403,15 @@ final class ImageStore {
     }
 
     func undoRejectSelected() {
-        guard let entry = selectedEntry, entry.isRejected else { return }
+        if selectedEntryIDs.count > 1 {
+            entries.filter { selectedEntryIDs.contains($0.id) && $0.isRejected }
+                   .forEach { undoRejectEntry($0) }
+        } else if let entry = selectedEntry, entry.isRejected {
+            undoRejectEntry(entry)
+        }
+    }
 
+    private func undoRejectEntry(_ entry: ImageEntry) {
         let dirURL = accessDirectory(for: entry)
         defer { dirURL?.stopAccessingSecurityScopedResource() }
 
@@ -407,7 +430,7 @@ final class ImageStore {
                 try? FileManager.default.removeItem(at: rejectedDir)
             }
         } catch {
-            errorMessage = "Failed to undo rejection: \(error.localizedDescription)"
+            errorMessage = "Failed to undo rejection of \(entry.fileName): \(error.localizedDescription)"
         }
     }
 

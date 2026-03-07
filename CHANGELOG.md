@@ -4,6 +4,16 @@ All notable changes to Simple Claude FITS Viewer are recorded here.
 
 ---
 
+## 2026-03-07 — Multi-select thumbnails for batch reject / undo
+
+### Added
+- **Multi-select in the thumbnail sidebar**: click to select a single image as before; Cmd+click to toggle individual entries in or out of the selection; Shift+click to range-select from the last clicked entry to the clicked entry. All selected thumbnails are highlighted.
+- **Batch reject / undo**: when more than one thumbnail is selected, the reject key rejects all non-rejected entries in the selection; the undo key restores all rejected entries in the selection. The toggle-reject key rejects non-rejected or undoes all-rejected depending on state.
+- **Selection count in toolbar**: when multiple entries are selected, the filename label becomes "N selected".
+- Keyboard navigation (↑/↓/Home/End) clears the multi-selection.
+
+---
+
 ## 2026-03-07 — Remove star rating system + add configurable Simple/Geek mode toggle key
 
 ### Removed

@@ -156,6 +156,18 @@ struct ThumbnailSidebar: View {
     @Bindable var store: ImageStore
     @Environment(AppSettings.self) private var settings
 
+    /// The last entry that received a plain or cmd+click — used as the anchor for shift+click range.
+    @State private var lastClickedID: UUID? = nil
+
+    /// Ordered list of entries currently rendered in the sidebar, used for shift+click range.
+    private var visibleEntries: [ImageEntry] {
+        if settings.isSimpleMode { return store.entries }
+        if store.sidebarFilterGroup != nil || store.activeFilterGroups.count <= 1 {
+            return store.filteredSortedEntries
+        }
+        return store.groupedSortedEntries.flatMap { $0.entries }
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             if !settings.isSimpleMode {
@@ -232,9 +244,41 @@ struct ThumbnailSidebar: View {
 
     private func thumbnailButton(for entry: ImageEntry) -> some View {
         Button {
-            store.selectedEntry = entry
+            let mods = NSEvent.modifierFlags
+            if mods.contains(.command) {
+                // Cmd+click: toggle this entry in/out of the multi-selection.
+                if store.selectedEntryIDs.contains(entry.id) {
+                    store.selectedEntryIDs.remove(entry.id)
+                    if store.selectedEntry === entry {
+                        store.selectedEntry = store.entries.first { store.selectedEntryIDs.contains($0.id) }
+                    }
+                } else {
+                    if let current = store.selectedEntry { store.selectedEntryIDs.insert(current.id) }
+                    store.selectedEntryIDs.insert(entry.id)
+                    store.selectedEntry = entry
+                }
+                lastClickedID = entry.id
+            } else if mods.contains(.shift), let lastID = lastClickedID {
+                // Shift+click: range-select from last clicked entry to this one.
+                let visible = visibleEntries
+                if let fromIdx = visible.firstIndex(where: { $0.id == lastID }),
+                   let toIdx   = visible.firstIndex(where: { $0.id == entry.id }) {
+                    let range = fromIdx <= toIdx ? fromIdx...toIdx : toIdx...fromIdx
+                    if store.selectedEntryIDs.isEmpty, let current = store.selectedEntry {
+                        store.selectedEntryIDs.insert(current.id)
+                    }
+                    store.selectedEntryIDs.formUnion(visible[range].map { $0.id })
+                    store.selectedEntry = entry
+                }
+            } else {
+                // Plain click: single select, clear any multi-selection.
+                store.selectedEntryIDs = []
+                store.selectedEntry = entry
+                lastClickedID = entry.id
+            }
         } label: {
-            ThumbnailCell(entry: entry, isSelected: store.selectedEntry === entry)
+            ThumbnailCell(entry: entry,
+                          isSelected: store.selectedEntry === entry || store.selectedEntryIDs.contains(entry.id))
         }
         .buttonStyle(.plain)
         .id(entry.id)
@@ -363,11 +407,16 @@ struct FITSToolbar: View {
 
             if let entry = store.selectedEntry {
                 Divider().frame(height: 20)
-                Text(entry.fileName)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-
+                if store.selectedEntryIDs.count > 1 {
+                    Text("\(store.selectedEntryIDs.count) selected")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else {
+                    Text(entry.fileName)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
             }
 
             Spacer()
