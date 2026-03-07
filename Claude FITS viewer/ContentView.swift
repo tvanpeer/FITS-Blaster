@@ -405,18 +405,11 @@ struct FITSToolbar: View {
             }
             .disabled(store.entries.isEmpty)
 
-            if let entry = store.selectedEntry {
+            if store.selectedEntryIDs.count > 1 {
                 Divider().frame(height: 20)
-                if store.selectedEntryIDs.count > 1 {
-                    Text("\(store.selectedEntryIDs.count) selected")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                } else {
-                    Text(entry.fileName)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
+                Text("\(store.selectedEntryIDs.count) selected")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
 
             Spacer()
@@ -471,6 +464,14 @@ struct MainContent: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if let displayImage = entry.displayImage {
                 VStack(spacing: 0) {
+                    Text(entry.fileName)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                        .padding(.horizontal)
+                        .padding(.vertical, 4)
+                    Divider()
                     ScrollView([.horizontal, .vertical]) {
                         Image(nsImage: displayImage)
                     }

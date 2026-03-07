@@ -30,6 +30,11 @@ struct AutoRejectConfig: Sendable {
     var starCountMultiplier: Double = 0.40  // relative: reject if stars < multiplier × group median
     var absoluteStarCountFloor: Int = 20    // absolute: reject if star count falls below this
 
+    // SNR
+    var useSNR: Bool = false
+    var snrMultiplier: Double = 0.50        // relative: reject if SNR < multiplier × group median
+    var absoluteSNRFloor: Double = 20.0     // absolute: reject if SNR falls below this
+
     // Quality score (absolute mode only)
     var useScore: Bool = false
     var scoreFloor: Int = 40
@@ -57,6 +62,7 @@ struct AutoRejectSheet: View {
                 FWHMSection(config: $config)
                 EccentricitySection(config: $config)
                 StarCountSection(config: $config)
+                SNRSection(config: $config)
                 if config.mode == .absolute {
                     ScoreSection(config: $config)
                 }
@@ -192,6 +198,31 @@ private struct StarCountSection: View {
                         get: { Double(config.absoluteStarCountFloor) },
                         set: { config.absoluteStarCountFloor = Int($0) }
                     ), in: 5...100, step: 5)
+                }
+            }
+        }
+    }
+}
+
+private struct SNRSection: View {
+    @Binding var config: AutoRejectConfig
+
+    var body: some View {
+        Section("Signal-to-Noise (SNR)") {
+            Toggle("Enable SNR threshold", isOn: $config.useSNR)
+            if config.useSNR {
+                if config.mode == .relative {
+                    LabeledContent("Reject if SNR <") {
+                        Text("\(config.snrMultiplier, format: .percent.precision(.fractionLength(0))) of median")
+                            .foregroundStyle(.secondary)
+                    }
+                    Slider(value: $config.snrMultiplier, in: 0.1...0.8, step: 0.05)
+                } else {
+                    LabeledContent("Reject if SNR <") {
+                        Text("\(config.absoluteSNRFloor, format: .number.precision(.fractionLength(0)))")
+                            .foregroundStyle(.secondary)
+                    }
+                    Slider(value: $config.absoluteSNRFloor, in: 5.0...1000.0, step: 5.0)
                 }
             }
         }

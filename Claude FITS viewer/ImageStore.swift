@@ -223,10 +223,12 @@ final class ImageStore {
             guard let groupEntries = grouped[group], !groupEntries.isEmpty else { continue }
             let fwhms  = groupEntries.compactMap { $0.metrics?.fwhm }.sorted()
             let stars  = groupEntries.compactMap { $0.metrics?.starCount }.sorted()
+            let snrs   = groupEntries.compactMap { $0.metrics?.snr }.sorted()
             let scores = groupEntries.compactMap { $0.metrics?.qualityScore }.sorted()
             result[group] = GroupStats(
                 medianFWHM:         fwhms.isEmpty  ? nil : fwhms[fwhms.count / 2],
                 medianStarCount:    stars.isEmpty  ? nil : stars[stars.count / 2],
+                medianSNR:          snrs.isEmpty   ? nil : snrs[snrs.count / 2],
                 topThirdScoreFloor: scores.count < 3 ? nil : scores[scores.count * 2 / 3],
                 isNarrowband:       group.isNarrowband
             )
@@ -384,12 +386,16 @@ final class ImageStore {
                    Double(fwhm) > Double(medFWHM) * config.fwhmMultiplier { return true }
                 if config.useStarCount, let stars = m.starCount, let medStars = gs?.medianStarCount,
                    Double(stars) < Double(medStars) * config.starCountMultiplier { return true }
+                if config.useSNR, let snr = m.snr, let medSNR = gs?.medianSNR,
+                   Double(snr) < Double(medSNR) * config.snrMultiplier { return true }
 
             case .absolute:
                 if config.useFWHM, let fwhm = m.fwhm,
                    Double(fwhm) > config.absoluteFWHM { return true }
                 if config.useStarCount, let stars = m.starCount,
                    stars < config.absoluteStarCountFloor { return true }
+                if config.useSNR, let snr = m.snr,
+                   Double(snr) < config.absoluteSNRFloor { return true }
                 if config.useScore,
                    m.qualityScore < config.scoreFloor { return true }
             }

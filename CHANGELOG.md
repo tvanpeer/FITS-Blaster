@@ -4,6 +4,17 @@ All notable changes to Simple Claude FITS Viewer are recorded here.
 
 ---
 
+## 2026-03-07 — SNR in Auto-Flag panel + filename above image + toolbar cleanup
+
+### Added
+- **SNR threshold in Auto-Flag panel**: new "Signal-to-Noise (SNR)" section in `AutoRejectSheet`. Relative mode rejects frames whose SNR falls below a chosen fraction of the per-group median (default 50%); absolute mode rejects below a fixed floor (default 20, slider 5–1000 to match the `peak/σ` scale where typical values run 10–500+). `GroupStats` gains `medianSNR`; both branches of `previewAutoReject` now check `config.useSNR`.
+- **Filename above the main image**: shown in `MainContent` with caption font, middle-truncation, and a divider below. Makes the current frame clear when multiple thumbnails are selected.
+
+### Changed
+- **Toolbar**: the filename label between Reset and Auto-Flag has been removed (now shown above the image instead). The "N selected" multi-select counter is still shown in the toolbar when more than one thumbnail is selected.
+
+---
+
 ## 2026-03-07 — Multi-select thumbnails for batch reject / undo
 
 ### Added
