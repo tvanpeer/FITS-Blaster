@@ -4,6 +4,20 @@ All notable changes to Simple Claude FITS Viewer are recorded here.
 
 ---
 
+## 2026-03-07 — Fix star counts ~38% too low + rename app to Claude FITS Viewer
+
+### Fixed
+- **Star counts ~38% too low for BITPIX=16 images** (`MetricsCalculator.measureFWHMOnly` + `measureCandidates`): two root causes, both fixed.
+
+  1. **Wing pre-filter threshold too aggressive**: `minWing = peak × 0.15` was rejecting real stars. For a Moffat β=4 PSF with FWHM ≈ 2 px detected 0.5 px off-centre in Y, the Y-direction immediate neighbours carry only ~10% of the detected peak flux — right below the 15% cutoff. This caused ~38% of real stars to fail the pre-filter and return FWHM = 0. Lowered threshold to `peak × 0.05`: a real star with FWHM ≥ 1.3 px has ≥ 8% flux in each neighbour even when off-centre, so all real stars pass. An isolated noise spike at 5σ has P(all 4 neighbours > 0.25σ) ≈ 2.6%, so most noise is still rejected.
+
+  2. **Extrapolation amplified any residual noise**: Phase 2 sampled ~600 of the ~49 700 remaining candidates and extrapolated `rate × 49 700`. Even a 1% noise false-positive rate adds ~497 phantom stars, and the multiplication by the huge tail makes the count extremely sensitive to the pre-filter threshold. Replaced sample+extrapolate with a direct sequential count of `allCandidates.dropFirst(200).prefix(6000)`: since candidates are sorted brightest-first, real stars dominate the top of the list, and directly counting them avoids any amplification regardless of the total candidate list size. Handles up to ~6 200 total stars before undercounting begins.
+
+### Changed
+- **App display name**: set `CFBundleDisplayName = "Claude FITS Viewer"` in Info.plist. Finder, Dock, and menu bar now show "Claude FITS Viewer" instead of the internal product name.
+
+---
+
 ## 2026-03-07 — Fix star counts wildly inflated (~27×) for BITPIX=16 images
 
 ### Fixed

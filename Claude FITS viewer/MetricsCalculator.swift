@@ -191,46 +191,25 @@ struct MetricsCalculator {
             }
         }
 
-        // ── Phase 2: star count via uniform sample (sequential, lightweight) ────
+        // ── Phase 2: star count via direct measurement of top candidates ─────────
         //
-        // Measuring every remaining candidate with the full Moffat fit is too
-        // expensive when the NMS list contains tens of thousands of entries.
-        // Instead, we sample ~600 candidates uniformly across the full brightness
-        // range and extrapolate: rate × remaining.count.
-        //
-        // Uniform (not top-N) sampling is critical: the bright top candidates have
-        // a much higher PSF-verification rate than faint ones, so sampling only
-        // the top would overestimate the true star count.
-        //
-        // measureFWHMOnly is used rather than the full measureShape — it fits a
-        // 1D Moffat profile along one axis at integer pixel coordinates, skipping
-        // bilinear centroid refinement, the Y-axis fit, and the 21×21 eccentricity
-        // loop. This makes it ~10× cheaper per call while still filtering out hot
-        // pixels (delta-function profile) and extended sources (FWHM > 20 px).
+        // Candidates are sorted brightest-first. Real stars are substantially
+        // brighter than noise peaks (which cluster just above background + 5σ),
+        // so real stars dominate the top of the list. Directly counting up to
+        // 6 000 candidates with measureFWHMOnly avoids the extrapolation trap:
+        // with a sample+extrapolate approach, even a 1% noise false-positive rate
+        // multiplied by ~49 700 remaining candidates adds ~497 phantom stars.
+        // Direct counting limits noise contamination to at most a few dozen stars
+        // regardless of how large the candidate list is.
 
         var verifiedCount = topVerified
 
-        if config.computeStarCount, allCandidates.count > 300 {
-            let remaining      = allCandidates.dropFirst(300)   // ArraySlice, no copy
-            let targetSamples  = 600
-            let step           = max(1, remaining.count / targetSamples)
-            var sampleVerified = 0
-            var sampled        = 0
-
-            var i = remaining.startIndex
-            while i < remaining.endIndex {
-                let c    = remaining[i]
+        if config.computeStarCount, allCandidates.count > 200 {
+            let remaining = allCandidates.dropFirst(200).prefix(6000)
+            for c in remaining {
                 let fwhm = measureFWHMOnly(pixels: pixels, width: width, height: height,
                                             cx: c.x, cy: c.y, background: background)
-                if fwhm >= 0.5 && fwhm <= 20 { sampleVerified += 1 }
-                sampled += 1
-                i = remaining.index(i, offsetBy: step, limitedBy: remaining.endIndex)
-                    ?? remaining.endIndex
-            }
-
-            if sampled > 0 {
-                let rate = Float(sampleVerified) / Float(sampled)
-                verifiedCount += Int((rate * Float(remaining.count)).rounded())
+                if fwhm >= 0.5 && fwhm <= 20 { verifiedCount += 1 }
             }
         }
 
@@ -534,12 +513,18 @@ struct MetricsCalculator {
         guard peak > 0 else { return 0 }
 
         // PSF cross-section pre-filter: all four immediate neighbours (±1px in X and Y)
-        // must carry at least 15% of the background-subtracted peak flux. For a real star
-        // (FWHM ≥ 1.7 px, Moffat β=4) the nearest neighbours hold ≥ 16% of peak, so they
-        // comfortably pass. An isolated noise spike or hot pixel has neighbours at sky level
-        // (≈ 0 after background subtraction), so this check rejects it instantly without
-        // running the expensive 20-point Moffat loop. Rejects ≈ 99.7% of noise false positives.
-        let minWing = peak * 0.15
+        // must carry at least 5% of the background-subtracted peak flux. Real stars pass
+        // easily; isolated noise spikes or hot pixels have neighbours at sky level
+        // (≈ 0 after background subtraction), so this check rejects most of them
+        // without running the expensive 20-point Moffat loop.
+        //
+        // 5% threshold rationale: a Moffat β=4 PSF with FWHM ≥ 1.3 px has ≥ 8% flux in
+        // each immediate neighbour even when the star is detected 0.5 px off-centre, so
+        // real stars pass easily. An isolated noise spike at 5σ has P(single neighbour
+        // > 0.25σ) ≈ 40%, giving P(all 4 pass) ≈ 2.6% — a large reduction at very low
+        // cost. 15% was too aggressive: off-centre stars with FWHM ≈ 2 px had Y-neighbours
+        // at ~10% of detected peak, causing ~38% of real stars to be incorrectly rejected.
+        let minWing = peak * 0.05
         let l = cx > 0          ? pixels[rowStart + cx - 1]      - background : -1
         let r = cx + 1 < width  ? pixels[rowStart + cx + 1]      - background : -1
         let u = cy > 0          ? pixels[(cy - 1) * width + cx]  - background : -1
