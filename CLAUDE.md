@@ -56,3 +56,13 @@ If an operation touches every pixel of a 16 MP+ image (stretching, local-maximum
 - File rejection moves images to a `REJECTED/` subdirectory; undo moves them back and removes the directory if empty.
 - Supported extensions: `.fits`, `.fit`, `.fts`
 - No third-party dependencies — only Apple frameworks: SwiftUI, Metal, Accelerate, AppKit, Foundation, UniformTypeIdentifiers.
+
+## Commit workflow
+
+When the user asks to commit (or says "done", "wrap up", etc.), always do these steps in order:
+
+1. **Update `CHANGELOG.md`** — prepend a new `## <date> — <short title>` section describing what changed (Added / Fixed / Improved / Removed). Commit the changelog together with the code changes, or as a follow-up commit in the same session.
+2. **Commit** all meaningful source changes with a detailed message.
+3. **Propose a version bump** — patch for fixes/perf, minor for new features — and apply it once the user confirms: update both `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION` (= `git rev-list --count HEAD`) in `project.pbxproj`, commit `"Bump version to X.Y (build N)"`, and tag `vX.Y`.
+
+Do NOT commit: `.claude/settings.local.json`, `Simple Claude fits viewer.xcodeproj/` (duplicate project folder).

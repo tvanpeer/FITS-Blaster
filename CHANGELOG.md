@@ -4,6 +4,40 @@ All notable changes to Simple Claude FITS Viewer are recorded here.
 
 ---
 
+## 2026-03-08 — Settings reorganisation + key conflict detection (v1.10)
+
+### Changed
+- Settings tabs renamed and reorganised: "Keys" → **User Interface** (now also contains Appearance and Sizes); "Images" → **Files & Folders** (subfolders only).
+- Apply button moved inside the Sizes section so it visually groups with the size fields.
+- Open Folder panel: "Include files from subfolders" checkbox is now always visible without needing to click "Show options".
+
+### Added
+- Key conflict detection: trying to assign a key already used by another binding beeps and keeps the recorder open so the user can choose a different key.
+
+---
+
+## 2026-03-08 — Font size control (v1.9)
+
+### Added
+- **Text Size picker** in Settings → User Interface: a System Settings–style row of seven "A" buttons (xSmall → xxxLarge). Changes take effect instantly across the whole UI.
+- Custom `fontSizeMultiplier` environment key and `scaledFont(size:weight:monospaced:)` ViewModifier (`AppFont.swift`) replace all hard-coded `.font(.caption)` calls throughout the app.
+- Buttons and toggles use explicit `Text` labels so macOS native controls also respond to font scaling.
+
+---
+
+## 2026-03-08 — Recursive subfolder support (v1.9)
+
+### Added
+- **Include files from subfolders** setting (Settings → Files & Folders, default off). When enabled, opening a folder recursively scans subdirectories for FITS files.
+- **Excluded folder names** list (default: FLAT, DARK, BIAS, CALIB). The `REJECTED` folder is always skipped regardless of this list.
+- Open Folder panel shows a pre-filled checkbox for the current setting; changes in the panel are session-only and do not write back to Settings.
+- Drag & drop respects the `includeSubfolders` setting.
+- **Collapsible folder sections** in the thumbnail sidebar: click a folder header to collapse/expand its entries, with an animated chevron.
+- **Folder filter pills** in the session chart strip: tap to show only frames from selected folders.
+- `ImageEntry.subfolderPath` stores the relative path from the opened root.
+
+---
+
 ## 2026-03-07 — Skip float FITS files silently at scan time with alert
 
 ### Fixed
