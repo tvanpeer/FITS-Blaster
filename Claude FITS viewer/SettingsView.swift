@@ -14,15 +14,12 @@ struct SettingsView: View {
 
     var body: some View {
         TabView {
-            Tab("User Interface", systemImage: "keyboard") {
-                UISettingsTab()
-            }
-            Tab("Image Display", systemImage: "photo") {
-                ImageDisplayTab()
-            }
-            Tab("Files & Folders", systemImage: "folder") {
-                FilesAndFoldersTab()
-            }
+            UISettingsTab()
+                .tabItem { Label("User Interface", systemImage: "keyboard") }
+            ImageDisplayTab()
+                .tabItem { Label("Image Display", systemImage: "photo") }
+            FilesAndFoldersTab()
+                .tabItem { Label("Files & Folders", systemImage: "folder") }
         }
         .frame(width: 500, height: 540)
         .environment(\.fontSizeMultiplier, settings.fontSizeMultiplier)
