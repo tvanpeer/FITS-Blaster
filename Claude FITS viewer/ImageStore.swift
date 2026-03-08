@@ -627,20 +627,35 @@ final class ImageStore {
         panel.message = "Select a folder containing FITS files"
         panel.prompt = "Open"
 
-        // Accessory view: pre-filled from settings but does NOT write back on change.
-        let options = FolderPanelOptions(settings.includeSubfolders)
-        let accessoryHeight: CGFloat = settings.excludedSubfolderNames.isEmpty ? 44 : 60
-        let accessoryView = NSHostingView(
-            rootView: FolderPanelAccessoryView(options: options,
-                                               excludedNames: settings.excludedSubfolderNames))
-        accessoryView.frame = NSRect(x: 0, y: 0, width: 480, height: accessoryHeight)
-        panel.accessoryView = accessoryView
+        // Accessory view: plain AppKit — NSHostingView doesn't wire @Observable correctly
+        // when used outside a SwiftUI window hierarchy (NSOpenPanel accessory context).
+        let checkbox = NSButton(checkboxWithTitle: "Include files from subfolders",
+                                target: nil, action: nil)
+        checkbox.state = settings.includeSubfolders ? .on : .off
+
+        let container = NSView()
+        let excludedNames = settings.excludedSubfolderNames
+        let containerHeight: CGFloat = excludedNames.isEmpty ? 44 : 62
+        container.frame = NSRect(x: 0, y: 0, width: 480, height: containerHeight)
+        checkbox.frame = NSRect(x: 20, y: containerHeight - 28, width: 440, height: 20)
+        container.addSubview(checkbox)
+
+        if !excludedNames.isEmpty {
+            let hint = NSTextField(labelWithString:
+                "Skipping: \(excludedNames.joined(separator: ", "))  —  edit in Settings → Files & Folders")
+            hint.font = .systemFont(ofSize: 10)
+            hint.textColor = .secondaryLabelColor
+            hint.frame = NSRect(x: 22, y: 8, width: 440, height: 14)
+            container.addSubview(hint)
+        }
+
+        panel.accessoryView = container
         panel.isAccessoryViewDisclosed = true
 
         guard panel.runModal() == .OK, let folderURL = panel.url else { return }
 
-        // Use the panel's checkbox value — intentionally NOT written back to settings.
-        let includeSubfolders = options.includeSubfolders
+        // Use the checkbox value — intentionally NOT written back to settings.
+        let includeSubfolders = checkbox.state == .on
         let excludedSet = Set(settings.excludedSubfolderNames.map { $0.lowercased() })
 
         let didAccess = folderURL.startAccessingSecurityScopedResource()

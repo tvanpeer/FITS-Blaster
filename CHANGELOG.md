@@ -4,6 +4,13 @@ All notable changes to Simple Claude FITS Viewer are recorded here.
 
 ---
 
+## 2026-03-08 — Fix 'Include subfolders' checkbox in Open Folder panel
+
+### Fixed
+- The "Include files from subfolders" checkbox in the Open Folder panel now works correctly. The SwiftUI/`@Observable` accessory view didn't wire up bindings properly outside a SwiftUI window hierarchy; replaced with a plain AppKit `NSButton` checkbox which reads back reliably after `runModal()` returns.
+
+---
+
 ## 2026-03-08 — Settings reorganisation + key conflict detection (v1.10)
 
 ### Changed
