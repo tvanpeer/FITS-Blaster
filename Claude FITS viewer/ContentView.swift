@@ -23,14 +23,10 @@ struct ContentView: View {
             VStack(spacing: 0) {
                 FITSToolbar(store: store)
                 Divider()
-                VSplitView {
+                if settings.isSimpleMode {
                     MainContent(store: store)
-                        .frame(minHeight: 180)
-                        .layoutPriority(1)
-                    if !settings.isSimpleMode {
-                        SessionChartView()
-                            .frame(minHeight: 80, idealHeight: 160, maxHeight: 220)
-                    }
+                } else {
+                    ResizableChartLayout()
                 }
             }
             .frame(minWidth: settings.isSimpleMode ? 380 : 400)
@@ -140,6 +136,53 @@ struct ContentView: View {
             guard !urls.isEmpty else { return }
             store.openDroppedItems(urls, settings: settings)
         }
+    }
+}
+
+// MARK: - Resizable Chart Layout
+
+/// A VStack containing the main image and session chart, separated by a draggable
+/// handle that persists the chart height across launches via AppStorage.
+private struct ResizableChartLayout: View {
+    @Environment(ImageStore.self) private var store
+    @AppStorage("sessionChartHeight") private var chartHeight: Double = 200
+
+    /// Captured at the start of each drag so we can compute relative offset.
+    @State private var heightAtDragStart: Double = 200
+
+    var body: some View {
+        VStack(spacing: 0) {
+            MainContent(store: store)
+                .frame(minHeight: 180)
+
+            // Drag handle
+            Rectangle()
+                .fill(Color.secondary.opacity(0.15))
+                .frame(height: 5)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 1)
+                        .fill(Color.secondary.opacity(0.5))
+                        .frame(width: 32, height: 3)
+                )
+                .onHover { inside in
+                    if inside { NSCursor.resizeUpDown.push() } else { NSCursor.pop() }
+                }
+                .gesture(
+                    DragGesture(minimumDistance: 2)
+                        .onChanged { value in
+                            // Dragging up = negative translation = chart taller
+                            chartHeight = max(80, min(600,
+                                heightAtDragStart - value.translation.height))
+                        }
+                        .onEnded { _ in
+                            heightAtDragStart = chartHeight
+                        }
+                )
+
+            SessionChartView()
+                .frame(height: chartHeight)
+        }
+        .onAppear { heightAtDragStart = chartHeight }
     }
 }
 

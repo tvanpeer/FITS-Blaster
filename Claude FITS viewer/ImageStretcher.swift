@@ -10,6 +10,31 @@ import AppKit
 import Metal
 import Accelerate
 
+// MARK: - BayerClips
+
+/// Per-channel percentile clip bounds for a Bayer image.
+/// Stored on `ImageEntry` during the grey-pass so the post-batch normalisation
+/// step can compute per-folder medians and re-render in colour with shared bounds.
+struct BayerClips: Sendable {
+    let loR, hiR: Float
+    let loG, hiG: Float
+    let loB, hiB: Float
+
+    var isValid: Bool { hiR > loR && hiG > loG && hiB > loB }
+
+    /// Compute per-channel medians from a collection of per-image clips.
+    static func median(of clips: [BayerClips]) -> BayerClips {
+        guard !clips.isEmpty else { return BayerClips(loR: 0, hiR: 1, loG: 0, hiG: 1, loB: 0, hiB: 1) }
+        let mid = clips.count / 2
+        return BayerClips(
+            loR: clips.map(\.loR).sorted()[mid], hiR: clips.map(\.hiR).sorted()[mid],
+            loG: clips.map(\.loG).sorted()[mid], hiG: clips.map(\.hiG).sorted()[mid],
+            loB: clips.map(\.loB).sorted()[mid], hiB: clips.map(\.hiB).sorted()[mid]
+        )
+    }
+
+}
+
 /// Converts raw FITS pixel data into a displayable image using a Metal compute
 /// shader that performs the entire stretch pipeline in a single GPU pass:
 ///   normalize → asinh stretch → float-to-byte → vertical flip
@@ -34,12 +59,32 @@ struct ImageStretcher {
         return try? device.makeComputePipelineState(function: function)
     }()
 
+    private static let bayerPipelineState: MTLComputePipelineState? = {
+        guard let device = metalDevice,
+              let library = device.makeDefaultLibrary(),
+              let function = library.makeFunction(name: "bayerDebayerAndStretch") else { return nil }
+        return try? device.makeComputePipelineState(function: function)
+    }()
+
     /// Parameters struct matching the Metal shader's StretchParams
     private struct StretchParams {
         var lowClip: Float
         var highClip: Float
         var width: UInt32
         var height: UInt32
+    }
+
+    /// Parameters struct matching the Metal shader's BayerStretchParams (9 × 4 bytes = 36 bytes)
+    private struct BayerStretchParams {
+        var lowClipR: Float
+        var highClipR: Float
+        var lowClipG: Float
+        var highClipG: Float
+        var lowClipB: Float
+        var highClipB: Float
+        var width: UInt32
+        var height: UInt32
+        var rOffset: UInt32
     }
 
     // MARK: - Shared Metal Buffer for FITS Reading
@@ -103,14 +148,19 @@ struct ImageStretcher {
         let thumbW = max(1, Int(CGFloat(w) * scale))
         let thumbH = max(1, Int(CGFloat(h) * scale))
 
+        let colorSpace = cgImage.colorSpace ?? CGColorSpaceCreateDeviceGray()
+        let isColor = colorSpace.numberOfComponents > 1
+        let bitmapInfo = isColor
+            ? CGBitmapInfo(rawValue: CGImageAlphaInfo.noneSkipLast.rawValue)
+            : CGBitmapInfo(rawValue: CGImageAlphaInfo.none.rawValue)
         guard let ctx = CGContext(
             data: nil,
             width: thumbW,
             height: thumbH,
             bitsPerComponent: 8,
             bytesPerRow: 0,
-            space: cgImage.colorSpace ?? CGColorSpaceCreateDeviceGray(),
-            bitmapInfo: CGImageAlphaInfo.none.rawValue
+            space: colorSpace,
+            bitmapInfo: bitmapInfo.rawValue
         ) else { return nil }
 
         ctx.interpolationQuality = .medium
@@ -244,6 +294,126 @@ struct ImageStretcher {
         return NSImage(cgImage: cgImage, size: NSSize(width: width, height: height))
     }
 
+    // MARK: - Metal Bayer Path
+
+    /// GPU-accelerated Bayer demosaic + stretch using pre-computed clip bounds.
+    /// Call `computeBayerClips` first to obtain `clips`, then pass the median/shared
+    /// clips here for consistent stretch across a folder of images.
+    static func createBayerImage(inputBuffer: MTLBuffer, width: Int, height: Int,
+                                 rOffset: UInt32, clips: BayerClips,
+                                 maxDisplaySize: Int = 0) async -> NSImage? {
+        guard clips.isValid else { return nil }
+        return await metalBayerStretch(inputBuffer: inputBuffer, width: width, height: height,
+                                       rOffset: rOffset, clips: clips, maxDisplaySize: maxDisplaySize)
+    }
+
+    /// Compute per-channel Bayer clip bounds from a Metal shared buffer without rendering.
+    /// Store the result on `ImageEntry.bayerClips` during the grey-pass, then compute
+    /// per-folder medians and call `createBayerImage(inputBuffer:clips:)` for the colour pass.
+    static func computeBayerClips(_ buffer: MTLBuffer, width: Int, height: Int,
+                                   rOffset: UInt32) -> BayerClips {
+        let ptr = buffer.contents().assumingMemoryBound(to: Float.self)
+        return estimateBayerPerChannelPercentiles(ptr, width: width, height: height, rOffset: rOffset)
+    }
+
+    private static func metalBayerStretch(
+        inputBuffer: MTLBuffer, width: Int, height: Int,
+        rOffset: UInt32, clips: BayerClips,
+        maxDisplaySize: Int = 0
+    ) async -> NSImage? {
+        guard let device = metalDevice,
+              let commandQueue = commandQueue,
+              let pipelineState = bayerPipelineState else { return nil }
+
+        // Output: RGBA UInt8, 4 bytes/pixel
+        let outputByteCount = width * height * 4
+        guard let outputBuffer = device.makeBuffer(length: outputByteCount, options: .storageModeShared) else {
+            return nil
+        }
+
+        var params = BayerStretchParams(
+            lowClipR: clips.loR, highClipR: clips.hiR,
+            lowClipG: clips.loG, highClipG: clips.hiG,
+            lowClipB: clips.loB, highClipB: clips.hiB,
+            width: UInt32(width), height: UInt32(height),
+            rOffset: rOffset
+        )
+
+        guard let commandBuffer = commandQueue.makeCommandBuffer(),
+              let encoder = commandBuffer.makeComputeCommandEncoder() else { return nil }
+
+        encoder.setComputePipelineState(pipelineState)
+        encoder.setBuffer(inputBuffer, offset: 0, index: 0)
+        encoder.setBuffer(outputBuffer, offset: 0, index: 1)
+        encoder.setBytes(&params, length: MemoryLayout<BayerStretchParams>.stride, index: 2)
+
+        let threadgroupSize = MTLSize(
+            width: min(16, pipelineState.maxTotalThreadsPerThreadgroup),
+            height: min(16, pipelineState.maxTotalThreadsPerThreadgroup / 16),
+            depth: 1
+        )
+        encoder.dispatchThreads(MTLSize(width: width, height: height, depth: 1),
+                                threadsPerThreadgroup: threadgroupSize)
+        encoder.endEncoding()
+
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            commandBuffer.addCompletedHandler { _ in continuation.resume() }
+            commandBuffer.commit()
+        }
+
+        let colorSpace = CGColorSpaceCreateDeviceRGB()
+        let bitmapInfo = CGBitmapInfo(rawValue: CGImageAlphaInfo.noneSkipLast.rawValue)
+        let needsScale = maxDisplaySize > 0 && max(width, height) > maxDisplaySize
+
+        if needsScale {
+            let scale = Float(maxDisplaySize) / Float(max(width, height))
+            let finalW = max(1, Int(Float(width) * scale))
+            let finalH = max(1, Int(Float(height) * scale))
+            let scaledData = UnsafeMutablePointer<UInt8>.allocate(capacity: finalW * finalH * 4)
+            var srcBuf = vImage_Buffer(data: outputBuffer.contents(),
+                                       height: vImagePixelCount(height),
+                                       width: vImagePixelCount(width),
+                                       rowBytes: width * 4)
+            var dstBuf = vImage_Buffer(data: scaledData,
+                                       height: vImagePixelCount(finalH),
+                                       width: vImagePixelCount(finalW),
+                                       rowBytes: finalW * 4)
+            // vImageScale_ARGB8888 works on any 4-byte/pixel data (channel-independent)
+            vImageScale_ARGB8888(&srcBuf, &dstBuf, nil, vImage_Flags(kvImageHighQualityResampling))
+
+            let dataProvider = CGDataProvider(dataInfo: scaledData, data: scaledData,
+                                              size: finalW * finalH * 4) { rawPtr, _, _ in
+                rawPtr?.assumingMemoryBound(to: UInt8.self).deallocate()
+            }
+            guard let provider = dataProvider else { scaledData.deallocate(); return nil }
+            guard let cgImage = CGImage(
+                width: finalW, height: finalH,
+                bitsPerComponent: 8, bitsPerPixel: 32, bytesPerRow: finalW * 4,
+                space: colorSpace, bitmapInfo: bitmapInfo,
+                provider: provider, decode: nil, shouldInterpolate: true, intent: .defaultIntent
+            ) else { return nil }
+            return NSImage(cgImage: cgImage, size: NSSize(width: finalW, height: finalH))
+        }
+
+        // Zero-copy path: CGDataProvider reads directly from Metal shared buffer
+        let retained = Unmanaged.passRetained(outputBuffer as AnyObject)
+        let dataProvider = CGDataProvider(
+            dataInfo: retained.toOpaque(),
+            data: outputBuffer.contents(),
+            size: outputByteCount
+        ) { info, _, _ in
+            if let info { Unmanaged<AnyObject>.fromOpaque(info).release() }
+        }
+        guard let provider = dataProvider else { retained.release(); return nil }
+        guard let cgImage = CGImage(
+            width: width, height: height,
+            bitsPerComponent: 8, bitsPerPixel: 32, bytesPerRow: width * 4,
+            space: colorSpace, bitmapInfo: bitmapInfo,
+            provider: provider, decode: nil, shouldInterpolate: true, intent: .defaultIntent
+        ) else { return nil }
+        return NSImage(cgImage: cgImage, size: NSSize(width: width, height: height))
+    }
+
     // MARK: - CPU Stretch
 
     /// 4096-entry interpolated LUT: maps [0,1] → pow(x, 1/2.2).
@@ -350,8 +520,78 @@ struct ImageStretcher {
 
     // MARK: - Percentile Estimation
 
+    /// Estimate percentile clip bounds separately for each Bayer channel (R, G, B).
+    /// Each channel is sampled independently so per-channel stretch eliminates colour casts.
+    /// R and B each occupy ~1/4 of pixels; G occupies ~1/2.
+    static func estimateBayerPerChannelPercentiles(
+        _ ptr: UnsafePointer<Float>, width: Int, height: Int, rOffset: UInt32
+    ) -> BayerClips {
+        let rx = Int(rOffset & 1)
+        let ry = Int((rOffset >> 1) & 1)
+        let bx = 1 - rx
+        let by = 1 - ry
+
+        // Channel pixel counts
+        let rCount = (width / 2) * (height / 2)
+        let gCount = width * height / 2
+        let rSubstride = max(1, rCount / percentileSampleCount)
+        let gSubstride = max(1, gCount / percentileSampleCount)
+
+        var rSamples = [Float](); rSamples.reserveCapacity(percentileSampleCount)
+        var gSamples = [Float](); gSamples.reserveCapacity(percentileSampleCount)
+        var bSamples = [Float](); bSamples.reserveCapacity(percentileSampleCount)
+
+        // R pixels: every (rx, ry) position in 2×2 cell
+        var i = 0
+        for row in stride(from: ry, to: height, by: 2) {
+            let rowBase = row * width
+            for col in stride(from: rx, to: width, by: 2) {
+                if i % rSubstride == 0 { rSamples.append(ptr[rowBase + col]) }
+                i += 1
+            }
+        }
+        // B pixels: every (bx, by) position in 2×2 cell
+        i = 0
+        for row in stride(from: by, to: height, by: 2) {
+            let rowBase = row * width
+            for col in stride(from: bx, to: width, by: 2) {
+                if i % rSubstride == 0 { bSamples.append(ptr[rowBase + col]) }
+                i += 1
+            }
+        }
+        // G pixels: the two remaining positions per 2×2 cell
+        i = 0
+        for row in stride(from: ry, to: height, by: 2) {
+            let rowBase = row * width
+            for col in stride(from: bx, to: width, by: 2) { // (bx, ry) — G in R-row
+                if i % gSubstride == 0 { gSamples.append(ptr[rowBase + col]) }
+                i += 1
+            }
+        }
+        for row in stride(from: by, to: height, by: 2) {
+            let rowBase = row * width
+            for col in stride(from: rx, to: width, by: 2) { // (rx, by) — G in B-row
+                if i % gSubstride == 0 { gSamples.append(ptr[rowBase + col]) }
+                i += 1
+            }
+        }
+
+        func clips(_ s: inout [Float]) -> (Float, Float) {
+            guard !s.isEmpty else { return (0, 1) }
+            vDSP.sort(&s, sortOrder: .ascending)
+            let lo = s[Int(Float(s.count) * 0.001)]
+            let hi = s[Int(Float(s.count - 1) * 0.999)]
+            return (lo, hi > lo ? hi : lo + 1)
+        }
+
+        let (loR, hiR) = clips(&rSamples)
+        let (loG, hiG) = clips(&gSamples)
+        let (loB, hiB) = clips(&bSamples)
+        return BayerClips(loR: loR, hiR: hiR, loG: loG, hiG: hiG, loB: loB, hiB: hiB)
+    }
+
     /// Estimate from a raw pointer (for Metal buffer path — no array copy needed)
-    private static func estimatePercentiles(_ ptr: UnsafePointer<Float>, count: Int) -> (low: Float, high: Float) {
+    static func estimatePercentiles(_ ptr: UnsafePointer<Float>, count: Int) -> (low: Float, high: Float) {
         if count <= percentileSampleCount {
             var sample = [Float](repeating: 0, count: count)
             memcpy(&sample, ptr, count * MemoryLayout<Float>.stride)

@@ -89,6 +89,24 @@ struct SessionChartView: View {
         }
     }
 
+    /// Y-axis domain computed from the visible data so the chart fills the available height.
+    /// Starts 10% below the minimum value (never below 0 for counts/scores) and ends
+    /// 10% above the maximum, so data always occupies most of the plot area.
+    private var yAxisDomain: ClosedRange<Double> {
+        // Include both data points and median lines so neither gets clipped.
+        let pointValues  = chartPoints.map(\.value)
+        let medianValues = groupMedians.map(\.median)
+        let allValues    = pointValues + medianValues
+        guard let minVal = allValues.min(), let maxVal = allValues.max(), minVal < maxVal else {
+            return 0...1
+        }
+        let range   = maxVal - minVal
+        let padding = max(range * 0.10, 0.01)  // at least a tiny margin for flat data
+        let lower   = max(0, minVal - padding)
+        let upper   = maxVal + padding
+        return lower...upper
+    }
+
     /// Per-group median of the active metric, used for threshold lines.
     /// Groups with fewer than two data points are skipped.
     private var groupMedians: [(group: FilterGroup, median: Double)] {
@@ -251,6 +269,7 @@ struct SessionChartView: View {
                 }
             }
         }
+        .chartYScale(domain: yAxisDomain)
         .chartYAxis {
             AxisMarks(values: .automatic(desiredCount: 4)) { _ in
                 AxisGridLine().foregroundStyle(.secondary.opacity(0.25))

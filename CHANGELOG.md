@@ -4,6 +4,21 @@ All notable changes to Simple Claude FITS Viewer are recorded here.
 
 ---
 
+## 2026-03-08 — Bayer debayering + chart improvements (v1.11)
+
+### Added
+- **GPU Bayer debayering**: colour FITS images (BAYERPAT/COLORTYP/CFA_PAT header) can now be displayed in colour using a single-pass Metal compute shader (`bayerDebayerAndStretch`). Bilinear demosaicing with per-channel percentile stretch eliminates green cast. Toggle in Settings → Image Display.
+- **Per-folder colour normalisation**: Bayer images load as greyscale first (instant display), then after the full batch is loaded the app computes per-channel median clip bounds per subfolder and re-renders all images in colour with a consistent shared stretch. File re-reads are fast from the warm OS page cache.
+- **`BayerPattern` enum** with `rOffset` bit-encoding and automatic FITS header detection.
+- **Resizable session chart**: replaced `VSplitView` with a custom drag handle; chart height defaults to 200 px and is remembered across launches via `@AppStorage`.
+- **Dynamic y-axis**: the chart's y-axis now starts near the data minimum (with 10% padding) rather than at zero, so data fills the available chart height.
+
+### Changed
+- Settings gains a new **Image Display** tab containing Sizes and Colour Images settings (moved from User Interface).
+- Settings window height reduced now that User Interface tab is shorter.
+
+---
+
 ## 2026-03-08 — Fix 'Include subfolders' checkbox in Open Folder panel
 
 ### Fixed

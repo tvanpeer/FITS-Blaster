@@ -90,6 +90,14 @@ final class ImageEntry: Identifiable {
     /// Canonical filter group derived from the raw FILTER header value.
     var filterGroup: FilterGroup { FilterGroup.normalise(filterName) }
 
+    /// True if this image contains raw Bayer CFA data (BAYERPAT/COLORTYP/CFA_PAT header present).
+    var isBayer: Bool { BayerPattern.parse(from: headers) != nil }
+
+    /// Per-channel clip bounds computed during the grey-pass for Bayer images.
+    /// Used by the post-batch normalisation step to compute per-folder median clips
+    /// before re-rendering in colour with a consistent shared stretch.
+    var bayerClips: BayerClips?
+
     /// Relative path from the opened root folder to this file's parent directory.
     /// Empty string means the file sits directly in the opened root folder.
     /// Example: "Ha" for `root/Ha/frame.fits`, "Lights/Ha" for deeper nesting.
@@ -676,7 +684,8 @@ final class ImageStore {
         openFiles(collected, directoryBookmark: dirBookmark,
                   maxDisplaySize: settings.maxDisplaySize,
                   maxThumbnailSize: settings.maxThumbnailSize,
-                  metricsConfig: settings.effectiveMetricsConfig)
+                  metricsConfig: settings.effectiveMetricsConfig,
+                  debayerColorImages: settings.debayerColorImages)
     }
 
     /// Opens dropped URLs (folders and/or individual FITS files) from a drag & drop operation.
@@ -727,7 +736,8 @@ final class ImageStore {
         openFiles(collected, directoryBookmark: dirBookmark,
                   maxDisplaySize: settings.maxDisplaySize,
                   maxThumbnailSize: settings.maxThumbnailSize,
-                  metricsConfig: settings.effectiveMetricsConfig)
+                  metricsConfig: settings.effectiveMetricsConfig,
+                  debayerColorImages: settings.debayerColorImages)
     }
 
     func openFilesPanel(settings: AppSettings) {
@@ -760,7 +770,8 @@ final class ImageStore {
         openFiles(fitsURLs, directoryBookmark: dirBookmark,
                   maxDisplaySize: settings.maxDisplaySize,
                   maxThumbnailSize: settings.maxThumbnailSize,
-                  metricsConfig: settings.effectiveMetricsConfig)
+                  metricsConfig: settings.effectiveMetricsConfig,
+                  debayerColorImages: settings.debayerColorImages)
     }
 
     // MARK: - Loading
@@ -768,18 +779,21 @@ final class ImageStore {
     /// Convenience wrapper for callers that provide a flat list without subfolder info.
     func openFiles(_ urls: [URL], directoryBookmark: Data? = nil,
                    maxDisplaySize: Int = 1024, maxThumbnailSize: Int = 120,
-                   metricsConfig: MetricsConfig = MetricsConfig()) {
+                   metricsConfig: MetricsConfig = MetricsConfig(),
+                   debayerColorImages: Bool = false) {
         openFiles(urls.map { (url: $0, subfolderPath: "") },
                   directoryBookmark: directoryBookmark,
                   maxDisplaySize: maxDisplaySize,
                   maxThumbnailSize: maxThumbnailSize,
-                  metricsConfig: metricsConfig)
+                  metricsConfig: metricsConfig,
+                  debayerColorImages: debayerColorImages)
     }
 
     func openFiles(_ urlsWithPaths: [(url: URL, subfolderPath: String)],
                    directoryBookmark: Data? = nil,
                    maxDisplaySize: Int = 1024, maxThumbnailSize: Int = 120,
-                   metricsConfig: MetricsConfig = MetricsConfig()) {
+                   metricsConfig: MetricsConfig = MetricsConfig(),
+                   debayerColorImages: Bool = false) {
         let selectFirst = (selectedEntry == nil)
 
         var newEntries: [ImageEntry] = []
@@ -821,7 +835,8 @@ final class ImageStore {
             await processParallel(newEntries, selectFirst: selectFirst,
                                   maxDisplaySize: maxDisplaySize,
                                   maxThumbnailSize: maxThumbnailSize,
-                                  metricsConfig: metricsConfig)
+                                  metricsConfig: metricsConfig,
+                                  debayerColorImages: debayerColorImages)
             batchElapsed = CFAbsoluteTimeGetCurrent() - startTime
             isBatchProcessing = false
         }
@@ -850,7 +865,8 @@ final class ImageStore {
             await processParallel(entriesToProcess, selectFirst: false,
                                   maxDisplaySize: settings.maxDisplaySize,
                                   maxThumbnailSize: settings.maxThumbnailSize,
-                                  metricsConfig: settings.metricsConfig)
+                                  metricsConfig: settings.metricsConfig,
+                                  debayerColorImages: settings.debayerColorImages)
             batchElapsed = CFAbsoluteTimeGetCurrent() - startTime
             isBatchProcessing = false
             for dirURL in accessedDirs { dirURL.stopAccessingSecurityScopedResource() }
@@ -974,7 +990,8 @@ final class ImageStore {
     /// The user sees the image while metrics are being computed in the background.
     private func processParallel(_ entriesToProcess: [ImageEntry], selectFirst: Bool,
                                   maxDisplaySize: Int = 1024, maxThumbnailSize: Int = 120,
-                                  metricsConfig: MetricsConfig = MetricsConfig()) async {
+                                  metricsConfig: MetricsConfig = MetricsConfig(),
+                                  debayerColorImages: Bool = false) async {
 
         // Scale concurrency to core count, leaving 2 cores for the UI and system.
         // Each task holds ~80 MB in MTLBuffers, so even 18 tasks on a Mac Studio Ultra
@@ -999,7 +1016,8 @@ final class ImageStore {
                     // ── Phase A: I/O + histogram + GPU stretch ────────────────
                     let fast = await Self.loadFast(url: url,
                                                    maxDisplaySize: maxDisplaySize,
-                                                   maxThumbnailSize: maxThumbnailSize)
+                                                   maxThumbnailSize: maxThumbnailSize,
+                                                   debayerColorImages: debayerColorImages)
                     await MainActor.run { [weak self] in
                         entry.displayImage = fast.display
                         entry.thumbnail    = fast.thumb
@@ -1007,6 +1025,7 @@ final class ImageStore {
                         entry.errorMessage = fast.error
                         entry.histogram    = fast.histogram
                         entry.headers      = fast.headers
+                        entry.bayerClips   = fast.bayerClips
                         entry.isProcessing = false   // ← image visible now
 
                         if selectFirst, entry === entriesToProcess.first, fast.display != nil {
@@ -1041,6 +1060,84 @@ final class ImageStore {
         }
 
         updateGroupStatistics()
+
+        // After the full batch is loaded, re-render Bayer images in colour using
+        // per-folder median clip bounds so all frames share a consistent stretch.
+        if debayerColorImages {
+            await normalizeBayerStretch(entriesToProcess,
+                                        maxDisplaySize: maxDisplaySize,
+                                        maxThumbnailSize: maxThumbnailSize)
+        }
+    }
+
+    /// Post-batch colour normalisation for Bayer images.
+    ///
+    /// Groups Bayer entries by subfolder, computes per-channel median clip bounds,
+    /// then re-renders each image in colour with the shared clips.
+    /// File re-reads are cheap because the OS page cache is warm.
+    private func normalizeBayerStretch(_ entries: [ImageEntry],
+                                        maxDisplaySize: Int, maxThumbnailSize: Int) async {
+        // Collect entries that have Bayer clips (means debayerColorImages was true during load)
+        let bayerEntries = entries.filter { $0.bayerClips != nil }
+        guard !bayerEntries.isEmpty else { return }
+
+        // Group by subfolder so each folder gets its own median stretch
+        let folderGroups = Dictionary(grouping: bayerEntries, by: \.subfolderPath)
+
+        let concurrency = max(4, ProcessInfo.processInfo.activeProcessorCount - 2)
+
+        await withTaskGroup(of: Void.self) { group in
+            var activeCount = 0
+            for (_, folderEntries) in folderGroups {
+                let allClips = folderEntries.compactMap(\.bayerClips)
+                let sharedClips = BayerClips.median(of: allClips)
+                guard sharedClips.isValid else { continue }
+
+                for entry in folderEntries {
+                    if activeCount >= concurrency {
+                        await group.next()
+                        activeCount -= 1
+                    }
+                    let url      = entry.url
+                    let headers  = entry.headers
+                    group.addTask {
+                        guard let pattern = BayerPattern.parse(from: headers) else { return }
+                        guard let (display, thumb) = await Self.recolorBayerEntry(
+                            url: url, rOffset: pattern.rOffset, clips: sharedClips,
+                            maxDisplaySize: maxDisplaySize, maxThumbnailSize: maxThumbnailSize
+                        ) else { return }
+                        await MainActor.run {
+                            entry.displayImage = display
+                            entry.thumbnail    = thumb
+                        }
+                    }
+                    activeCount += 1
+                }
+            }
+        }
+    }
+
+    /// Re-reads a single FITS file and renders it in colour with the given shared clip bounds.
+    /// Called by `normalizeBayerStretch`; file reads are fast from the warm OS page cache.
+    private nonisolated static func recolorBayerEntry(
+        url: URL, rOffset: UInt32, clips: BayerClips,
+        maxDisplaySize: Int, maxThumbnailSize: Int
+    ) async -> (display: NSImage, thumb: NSImage?)? {
+        let didStart = url.startAccessingSecurityScopedResource()
+        defer { if didStart { url.stopAccessingSecurityScopedResource() } }
+
+        guard let device = ImageStretcher.metalDevice,
+              let result = try? FITSReader.readIntoBuffer(from: url, device: device)
+        else { return nil }
+
+        guard let display = await ImageStretcher.createBayerImage(
+            inputBuffer: result.metalBuffer,
+            width: result.metadata.width, height: result.metadata.height,
+            rOffset: rOffset, clips: clips, maxDisplaySize: maxDisplaySize
+        ) else { return nil }
+
+        let thumb = ImageStretcher.createThumbnail(from: display, maxSize: maxThumbnailSize)
+        return (display, thumb)
     }
 
     /// Phase A of the loading pipeline: read the FITS file, compute the histogram,
@@ -1050,7 +1147,8 @@ final class ImageStore {
     /// Metal buffer, keeping the two phases independent.
     private nonisolated static func loadFast(url: URL,
                                               maxDisplaySize: Int = 1024,
-                                              maxThumbnailSize: Int = 120) async -> FastLoadResult {
+                                              maxThumbnailSize: Int = 120,
+                                              debayerColorImages: Bool = false) async -> FastLoadResult {
         let didStart = url.startAccessingSecurityScopedResource()
         defer { if didStart { url.stopAccessingSecurityScopedResource() } }
 
@@ -1062,16 +1160,30 @@ final class ImageStore {
                                                                count: meta.width * meta.height,
                                                                minVal: meta.minValue,
                                                                maxVal: meta.maxValue)
+
+            // Always render a greyscale image immediately so the UI shows something fast.
+            // For Bayer images with debayering enabled, also compute per-channel clip bounds
+            // so the post-batch normalise pass can re-render in colour with shared median clips.
             let display = await ImageStretcher.createImage(inputBuffer: bufferResult.metalBuffer,
                                                            width: meta.width, height: meta.height,
                                                            maxDisplaySize: maxDisplaySize)
+            let bayerClips: BayerClips?
+            if debayerColorImages, let pattern = BayerPattern.parse(from: meta.headers) {
+                bayerClips = ImageStretcher.computeBayerClips(bufferResult.metalBuffer,
+                                                              width: meta.width, height: meta.height,
+                                                              rOffset: pattern.rOffset)
+            } else {
+                bayerClips = nil
+            }
+
             let thumb = display.flatMap { ImageStretcher.createThumbnail(from: $0, maxSize: maxThumbnailSize) }
             return FastLoadResult(
                 display: display, thumb: thumb,
                 info: "\(meta.width) × \(meta.height)  |  BITPIX: \(meta.bitpix)",
                 error: nil, histogram: histogram, headers: meta.headers,
                 metalBuffer: bufferResult.metalBuffer, metalDevice: device,
-                width: meta.width, height: meta.height, bitpix: meta.bitpix)
+                width: meta.width, height: meta.height, bitpix: meta.bitpix,
+                bayerClips: bayerClips)
         }
 
         do {
@@ -1088,11 +1200,13 @@ final class ImageStore {
             let thumb = display.flatMap { ImageStretcher.createThumbnail(from: $0, maxSize: maxThumbnailSize) }
             return FastLoadResult(display: display, thumb: thumb, info: info, error: nil,
                                   histogram: histogram, headers: headers,
-                                  metalBuffer: nil, metalDevice: nil, width: w, height: h, bitpix: fits.bitpix)
+                                  metalBuffer: nil, metalDevice: nil, width: w, height: h, bitpix: fits.bitpix,
+                                  bayerClips: nil)
         } catch {
             return FastLoadResult(display: nil, thumb: nil, info: "", error: error.localizedDescription,
                                   histogram: nil, headers: [:],
-                                  metalBuffer: nil, metalDevice: nil, width: 0, height: 0, bitpix: 0)
+                                  metalBuffer: nil, metalDevice: nil, width: 0, height: 0, bitpix: 0,
+                                  bayerClips: nil)
         }
     }
 }
@@ -1115,5 +1229,8 @@ private struct FastLoadResult {
     /// Original FITS BITPIX value — forwarded to MetricsCalculator so it can
     /// skip NMS for integer images (BITPIX > 0) where it is not needed.
     let bitpix:      Int
+    /// Per-channel Bayer clip bounds computed during the grey-pass.
+    /// `nil` for non-Bayer images or when `debayerColorImages` is false.
+    let bayerClips:  BayerClips?
 }
 

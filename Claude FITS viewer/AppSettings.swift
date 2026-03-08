@@ -120,6 +120,15 @@ final class AppSettings {
         didSet { UserDefaults.standard.set(includeSubfolders, forKey: "includeSubfolders") }
     }
 
+    // MARK: - Colour Settings
+
+    /// When true, colour FITS images with a BAYERPAT/COLORTYP/CFA_PAT header are
+    /// debayered using the GPU (bilinear interpolation) and displayed in colour.
+    /// When false, Bayer images are displayed as greyscale (raw sensor data).
+    var debayerColorImages: Bool = false {
+        didSet { UserDefaults.standard.set(debayerColorImages, forKey: "debayerColorImages") }
+    }
+
     /// Subfolder names (case-insensitive, exact match) that are never recursed into.
     var excludedSubfolderNames: [String] = ["FLAT", "DARK", "BIAS", "CALIB"] {
         didSet { UserDefaults.standard.set(excludedSubfolderNames, forKey: "excludedSubfolderNames") }
@@ -154,6 +163,7 @@ final class AppSettings {
            let mode = AppearanceMode(rawValue: raw) { appearanceMode = mode }
         if let v = UserDefaults.standard.object(forKey: "includeSubfolders")  as? Bool { includeSubfolders  = v }
         if let v = UserDefaults.standard.stringArray(forKey: "excludedSubfolderNames") { excludedSubfolderNames = v }
+        if let v = UserDefaults.standard.object(forKey: "debayerColorImages") as? Bool { debayerColorImages = v }
         if let idx = UserDefaults.standard.object(forKey: "dynamicTypeSize") as? Int,
            Self.availableTypeSizes.indices.contains(idx) { dynamicTypeSize = Self.availableTypeSizes[idx] }
     }

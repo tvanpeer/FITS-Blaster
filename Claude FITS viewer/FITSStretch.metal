@@ -48,6 +48,124 @@ kernel void sqrtStretch(
     outputPixels[dstIndex] = value;
 }
 
+// MARK: - Bayer debayer + stretch
+
+/// Parameters for the Bayer demosaicing + stretch kernel. Must match the Swift
+/// BayerStretchParams struct exactly (field order, types, no padding).
+struct BayerStretchParams {
+    /// Per-channel percentile clip bounds — computed separately for R, G, B pixels
+    /// so each channel is stretched independently (eliminates green cast).
+    float lowClipR;
+    float highClipR;
+    float lowClipG;
+    float highClipG;
+    float lowClipB;
+    float highClipB;
+    uint  width;
+    uint  height;
+    /// R-pixel position in the 2×2 Bayer cell, encoded as two bits:
+    ///   bit 0 = column parity of R  (0 = even, 1 = odd)
+    ///   bit 1 = row parity of R     (0 = even, 1 = odd)
+    /// RGGB=0  GRBG=1  GBRG=2  BGGR=3
+    uint  rOffset;
+};
+
+/// Clamp-read: return the float pixel at (x, y), clamping to image borders.
+static inline float bayerRead(device const float* pixels,
+                               uint width, uint height, int x, int y) {
+    uint cx = (uint)clamp(x, 0, (int)width  - 1);
+    uint cy = (uint)clamp(y, 0, (int)height - 1);
+    return pixels[cy * width + cx];
+}
+
+/// Stretch a single channel value to UInt8 with percentile clip + gamma 2.2.
+static inline uchar bayerStretchByte(float raw, float lo, float hi) {
+    float range = hi - lo;
+    float t = clamp((raw - lo) / range, 0.0f, 1.0f);
+    return uchar(pow(t, 1.0f / 2.2f) * 255.0f);
+}
+
+/// Single-pass kernel:
+///   1. Bilinear Bayer demosaic using rOffset to identify each pixel's colour
+///   2. Per-channel percentile-clip + gamma-2.2 stretch
+///   3. Vertical flip (FITS rows are stored bottom-to-top)
+///
+/// Output: RGBA UInt8, 4 bytes/pixel (A = 255), packed row-major.
+kernel void bayerDebayerAndStretch(
+    device const float*           inputPixels  [[ buffer(0) ]],
+    device       uchar4*          outputPixels [[ buffer(1) ]],
+    constant BayerStretchParams&  params       [[ buffer(2) ]],
+    uint2 gid [[ thread_position_in_grid ]]
+) {
+    uint x = gid.x;
+    uint y = gid.y;
+    if (x >= params.width || y >= params.height) return;
+
+    uint W  = params.width;
+    uint H  = params.height;
+    uint ro = params.rOffset;
+
+    // Determine colour of this pixel using rOffset bit encoding.
+    // XOR pixel parity with R-pixel parity:
+    //   (0,0) → R,  (1,1) → B,  else → G
+    uint rx = ro & 1u;
+    uint ry = (ro >> 1u) & 1u;
+    uint cx = (x & 1u) ^ rx;
+    uint cy = (y & 1u) ^ ry;
+
+    float R, G, B;
+
+    if (cx == 0u && cy == 0u) {
+        // R pixel — interpolate G (cross) and B (diagonal)
+        R = bayerRead(inputPixels, W, H, (int)x, (int)y);
+        G = (bayerRead(inputPixels, W, H, (int)x-1, (int)y) +
+             bayerRead(inputPixels, W, H, (int)x+1, (int)y) +
+             bayerRead(inputPixels, W, H, (int)x, (int)y-1) +
+             bayerRead(inputPixels, W, H, (int)x, (int)y+1)) * 0.25f;
+        B = (bayerRead(inputPixels, W, H, (int)x-1, (int)y-1) +
+             bayerRead(inputPixels, W, H, (int)x+1, (int)y-1) +
+             bayerRead(inputPixels, W, H, (int)x-1, (int)y+1) +
+             bayerRead(inputPixels, W, H, (int)x+1, (int)y+1)) * 0.25f;
+    } else if (cx == 1u && cy == 1u) {
+        // B pixel — mirror of R case
+        B = bayerRead(inputPixels, W, H, (int)x, (int)y);
+        G = (bayerRead(inputPixels, W, H, (int)x-1, (int)y) +
+             bayerRead(inputPixels, W, H, (int)x+1, (int)y) +
+             bayerRead(inputPixels, W, H, (int)x, (int)y-1) +
+             bayerRead(inputPixels, W, H, (int)x, (int)y+1)) * 0.25f;
+        R = (bayerRead(inputPixels, W, H, (int)x-1, (int)y-1) +
+             bayerRead(inputPixels, W, H, (int)x+1, (int)y-1) +
+             bayerRead(inputPixels, W, H, (int)x-1, (int)y+1) +
+             bayerRead(inputPixels, W, H, (int)x+1, (int)y+1)) * 0.25f;
+    } else {
+        // G pixel. Whether R or B is horizontal depends on which row the G sits in.
+        // If this row has the same parity as the R row (ry), R is horizontal.
+        G = bayerRead(inputPixels, W, H, (int)x, (int)y);
+        bool gInRRow = ((y & 1u) == ry);
+        if (gInRRow) {
+            // G in R-row: R neighbours are horizontal, B neighbours are vertical
+            R = (bayerRead(inputPixels, W, H, (int)x-1, (int)y) +
+                 bayerRead(inputPixels, W, H, (int)x+1, (int)y)) * 0.5f;
+            B = (bayerRead(inputPixels, W, H, (int)x, (int)y-1) +
+                 bayerRead(inputPixels, W, H, (int)x, (int)y+1)) * 0.5f;
+        } else {
+            // G in B-row: B neighbours are horizontal, R neighbours are vertical
+            B = (bayerRead(inputPixels, W, H, (int)x-1, (int)y) +
+                 bayerRead(inputPixels, W, H, (int)x+1, (int)y)) * 0.5f;
+            R = (bayerRead(inputPixels, W, H, (int)x, (int)y-1) +
+                 bayerRead(inputPixels, W, H, (int)x, (int)y+1)) * 0.5f;
+        }
+    }
+
+    uchar r8 = bayerStretchByte(R, params.lowClipR, params.highClipR);
+    uchar g8 = bayerStretchByte(G, params.lowClipG, params.highClipG);
+    uchar b8 = bayerStretchByte(B, params.lowClipB, params.highClipB);
+
+    // Vertical flip: FITS stores rows bottom-to-top
+    uint dstY = H - 1u - y;
+    outputPixels[dstY * W + x] = uchar4(r8, g8, b8, 255);
+}
+
 // MARK: - Local-maximum detection
 
 /// CPU-side parameters for the detection kernel. Must match the Swift

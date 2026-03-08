@@ -46,6 +46,8 @@ struct FITSMetadata {
     let minValue: Float
     let maxValue: Float
     let headers: [String: String]
+    /// Non-nil when the FITS headers declare a recognised Bayer CFA pattern.
+    let bayerPattern: BayerPattern?
 }
 
 /// Result of reading FITS data directly into a Metal shared buffer
@@ -65,6 +67,8 @@ struct FITSImage {
     let minValue: Float
     let maxValue: Float
     let headers: [String: String]
+    /// Non-nil when the FITS headers declare a recognised Bayer CFA pattern.
+    let bayerPattern: BayerPattern?
 }
 
 /// Reads and parses FITS (Flexible Image Transport System) files
@@ -317,7 +321,8 @@ struct FITSReader {
             bscale: header.bscale,
             minValue: minValue,
             maxValue: maxValue,
-            headers: header.headers
+            headers: header.headers,
+            bayerPattern: BayerPattern.parse(from: header.headers)
         )
 
         return FITSBufferResult(metadata: metadata, metalBuffer: metalBuffer)
@@ -412,7 +417,8 @@ struct FITSReader {
             pixelValues: pixelValues,
             minValue: 0,
             maxValue: 0,
-            headers: header.headers
+            headers: header.headers,
+            bayerPattern: BayerPattern.parse(from: header.headers)
         )
     }
 }

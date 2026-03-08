@@ -17,11 +17,14 @@ struct SettingsView: View {
             Tab("User Interface", systemImage: "keyboard") {
                 UISettingsTab()
             }
+            Tab("Image Display", systemImage: "photo") {
+                ImageDisplayTab()
+            }
             Tab("Files & Folders", systemImage: "folder") {
                 FilesAndFoldersTab()
             }
         }
-        .frame(width: 500, height: 620)
+        .frame(width: 500, height: 540)
         .environment(\.fontSizeMultiplier, settings.fontSizeMultiplier)
     }
 }
@@ -30,22 +33,6 @@ struct SettingsView: View {
 
 struct UISettingsTab: View {
     @Environment(AppSettings.self) private var settings
-    @Environment(ImageStore.self) private var store
-
-    @State private var displaySize: Int = 1024
-    @State private var thumbnailSize: Int = 120
-    @State private var displaySizeText: String = "1024"
-    @State private var thumbnailSizeText: String = "120"
-
-    private var parsedDisplaySize: Int {
-        Int(displaySizeText).map { max(512, min($0, 8192)) } ?? displaySize
-    }
-    private var parsedThumbnailSize: Int {
-        Int(thumbnailSizeText).map { max(40, min($0, 400)) } ?? thumbnailSize
-    }
-    private var isDirty: Bool {
-        parsedDisplaySize != settings.maxDisplaySize || parsedThumbnailSize != settings.maxThumbnailSize
-    }
 
     var body: some View {
         @Bindable var settings = settings
@@ -113,6 +100,36 @@ struct UISettingsTab: View {
                 }
             }
 
+        }
+        .formStyle(.grouped)
+    }
+}
+
+// MARK: - Image Display tab
+
+struct ImageDisplayTab: View {
+    @Environment(AppSettings.self) private var settings
+    @Environment(ImageStore.self) private var store
+
+    @State private var displaySize: Int = 1024
+    @State private var thumbnailSize: Int = 120
+    @State private var displaySizeText: String = "1024"
+    @State private var thumbnailSizeText: String = "120"
+
+    private var parsedDisplaySize: Int {
+        Int(displaySizeText).map { max(512, min($0, 8192)) } ?? displaySize
+    }
+    private var parsedThumbnailSize: Int {
+        Int(thumbnailSizeText).map { max(40, min($0, 400)) } ?? thumbnailSize
+    }
+    private var isDirty: Bool {
+        parsedDisplaySize != settings.maxDisplaySize || parsedThumbnailSize != settings.maxThumbnailSize
+    }
+
+    var body: some View {
+        @Bindable var settings = settings
+
+        Form {
             Section("Sizes") {
                 LabeledContent("Max display size") {
                     SizeField(value: $displaySize, text: $displaySizeText,
@@ -128,6 +145,13 @@ struct UISettingsTab: View {
                         .buttonStyle(.borderedProminent)
                         .disabled(!isDirty)
                 }
+            }
+
+            Section("Colour Images") {
+                Toggle("Debayer colour FITS images", isOn: $settings.debayerColorImages)
+                Text("When enabled, images with a Bayer CFA pattern (BAYERPAT/COLORTYP/CFA_PAT header) are displayed in colour using GPU-accelerated bilinear debayering. Requires Reprocess All to take effect on already-loaded images.")
+                    .scaledFont(size: 10)
+                    .foregroundStyle(.secondary)
             }
         }
         .formStyle(.grouped)
@@ -161,7 +185,7 @@ struct UISettingsTab: View {
 
         let sidebarW:   CGFloat = 165
         let inspectorW: CGFloat = settings.showInspector ? 260 : 0
-        let chromeH:    CGFloat = 90   // toolbar + info bar
+        let chromeH:    CGFloat = 90
 
         let wantedW = sidebarW + CGFloat(maxSize) + inspectorW + 20
         let wantedH = CGFloat(maxSize) + chromeH
@@ -199,6 +223,7 @@ struct FilesAndFoldersTab: View {
                 }
                 .alignmentGuide(.firstTextBaseline) { $0[.top] + 8 }
             }
+
         }
         .formStyle(.grouped)
     }
