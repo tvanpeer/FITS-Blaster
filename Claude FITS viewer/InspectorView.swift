@@ -40,7 +40,7 @@ private struct InspectorHistogramSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("Histogram")
-                .font(.caption.bold())
+                .scaledFont(size: 10, weight: .bold)
                 .foregroundStyle(.secondary)
 
             if let histogram {
@@ -68,17 +68,16 @@ private struct InspectorMetricsSection: View {
 
         VStack(alignment: .leading, spacing: 8) {
             Text("Quality Metrics")
-                .font(.caption.bold())
+                .scaledFont(size: 10, weight: .bold)
                 .foregroundStyle(.secondary)
 
             HStack(spacing: 4) {
-                Toggle("FWHM", isOn: $settings.computeFWHM)
-                Toggle("Ecc", isOn: $settings.computeEccentricity)
-                Toggle("SNR", isOn: $settings.computeSNR)
-                Toggle("Stars", isOn: $settings.computeStarCount)
+                Toggle(isOn: $settings.computeFWHM)   { Text("FWHM").scaledFont(size: 10) }
+                Toggle(isOn: $settings.computeEccentricity) { Text("Ecc").scaledFont(size: 10) }
+                Toggle(isOn: $settings.computeSNR)    { Text("SNR").scaledFont(size: 10) }
+                Toggle(isOn: $settings.computeStarCount)   { Text("Stars").scaledFont(size: 10) }
             }
             .toggleStyle(.button)
-            .font(.caption)
 
             if let metrics, metrics.hasData {
                 VStack(spacing: 0) {
@@ -103,11 +102,11 @@ private struct InspectorMetricsSection: View {
                 }
             } else if config.needsStarDetection {
                 Text(isProcessing ? "Computing…" : "No stars detected")
-                    .font(.caption)
+                    .scaledFont(size: 10)
                     .foregroundStyle(.secondary)
             } else {
                 Text("All metrics disabled")
-                    .font(.caption)
+                    .scaledFont(size: 10)
                     .foregroundStyle(.tertiary)
             }
         }
@@ -122,11 +121,11 @@ private struct MetricRow: View {
     var body: some View {
         HStack {
             Text(label)
-                .font(.caption)
+                .scaledFont(size: 10)
                 .foregroundStyle(.secondary)
             Spacer()
             Text(value)
-                .font(.caption.monospacedDigit())
+                .scaledFont(size: 10, monospaced: true)
         }
         .padding(.vertical, 2)
     }
@@ -164,23 +163,23 @@ private struct InspectorHeadersSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("FITS Headers")
-                .font(.caption.bold())
+                .scaledFont(size: 10, weight: .bold)
                 .foregroundStyle(.secondary)
 
             if orderedPairs.isEmpty {
                 Text("No headers available")
-                    .font(.caption)
+                    .scaledFont(size: 10)
                     .foregroundStyle(.tertiary)
             } else {
                 VStack(spacing: 0) {
                     ForEach(orderedPairs, id: \.0) { key, value in
                         HStack(alignment: .top) {
                             Text(key)
-                                .font(.caption.monospaced())
+                                .scaledFont(size: 10, monospaced: true)
                                 .foregroundStyle(.secondary)
                                 .frame(minWidth: 70, alignment: .leading)
                             Text(value)
-                                .font(.caption)
+                                .scaledFont(size: 10)
                                 .textSelection(.enabled)
                                 .multilineTextAlignment(.trailing)
                             Spacer(minLength: 0)

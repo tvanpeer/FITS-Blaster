@@ -99,7 +99,7 @@ private struct SheetHeader: View {
                 Text("Auto-Flag Frames")
                     .font(.headline)
                 Text("Flag frames below quality thresholds for rejection.")
-                    .font(.caption)
+                    .scaledFont(size: 10)
                     .foregroundStyle(.secondary)
             }
             Spacer()
@@ -128,7 +128,7 @@ private struct ModePicker: View {
                     Text("Thresholds are fixed numeric values. Useful when you know the expected performance of your setup.")
                 }
             }
-            .font(.caption)
+            .scaledFont(size: 10)
             .foregroundStyle(.secondary)
         }
     }

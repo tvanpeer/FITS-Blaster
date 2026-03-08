@@ -50,6 +50,7 @@ struct ContentView: View {
             set: { settings.isSimpleMode = $0 }
         ))
         .frame(minWidth: minWindowWidth, minHeight: 400)
+        .environment(\.fontSizeMultiplier, settings.fontSizeMultiplier)
         .preferredColorScheme(settings.preferredColorScheme)
         .background(WindowAccessor { hostingWindow = $0 })
         .onChange(of: settings.metricsConfig) { _, newConfig in
@@ -190,7 +191,7 @@ struct ThumbnailSidebar: View {
                 // Sort controls (Geek mode only)
                 HStack(spacing: 4) {
                     Text("Sort")
-                        .font(.caption)
+                        .scaledFont(size: 10)
                         .foregroundStyle(.secondary)
                     Picker("Sort", selection: $store.thumbnailSortOrder) {
                         ForEach(ThumbnailSortOrder.allCases, id: \.self) { order in
@@ -199,14 +200,14 @@ struct ThumbnailSidebar: View {
                     }
                     .labelsHidden()
                     .pickerStyle(.menu)
-                    .font(.caption)
+                    .scaledFont(size: 10)
                     Button(store.thumbnailSortAscending ? "Sort Ascending" : "Sort Descending",
                            systemImage: store.thumbnailSortAscending ? "arrow.up" : "arrow.down") {
                         store.thumbnailSortAscending.toggle()
                     }
                     .labelStyle(.iconOnly)
                     .buttonStyle(.borderless)
-                    .font(.caption)
+                    .scaledFont(size: 10)
                 }
                 .padding(.horizontal)
                 .padding(.vertical, 6)
@@ -372,7 +373,7 @@ struct FilterChip: View {
     var body: some View {
         Button(action: action) {
             Text(label)
-                .font(.caption2.bold())
+                .scaledFont(size: 9, weight: .bold)
                 .padding(.horizontal, 7)
                 .padding(.vertical, 3)
                 .background(isSelected ? color : color.opacity(0.15))
@@ -407,19 +408,19 @@ struct FilterGroupHeader: View {
                 .fill(group.color)
                 .frame(width: 8, height: 8)
             Text(group.rawValue)
-                .font(.caption.bold())
+                .scaledFont(size: 10, weight: .bold)
             Text("\(entries.count)")
-                .font(.caption)
+                .scaledFont(size: 10)
                 .foregroundStyle(.secondary)
             Spacer()
             if let fwhm = medianFWHM {
                 Text("\(fwhm, format: .number.precision(.fractionLength(1)))px")
-                    .font(.caption2.monospacedDigit())
+                    .scaledFont(size: 9, monospaced: true)
                     .foregroundStyle(.secondary)
             }
             if let score = medianScore {
                 Text("▸\(score)")
-                    .font(.caption2.monospacedDigit())
+                    .scaledFont(size: 9, monospaced: true)
                     .foregroundStyle(.secondary)
             }
         }
@@ -440,17 +441,17 @@ struct FolderSectionHeader: View {
         Button(action: onToggle) {
             HStack(spacing: 5) {
                 Image(systemName: "chevron.right")
-                    .font(.caption2)
+                    .scaledFont(size: 9)
                     .foregroundStyle(.secondary)
                     .rotationEffect(.degrees(isCollapsed ? 0 : 90))
                     .animation(.easeInOut(duration: 0.15), value: isCollapsed)
                 Image(systemName: "folder")
-                    .font(.caption)
+                    .scaledFont(size: 10)
                     .foregroundStyle(.secondary)
                 Text(folderGroup.folderDisplayName)
-                    .font(.caption.bold())
+                    .scaledFont(size: 10, weight: .bold)
                 Text("\(folderGroup.totalCount)")
-                    .font(.caption)
+                    .scaledFont(size: 10)
                     .foregroundStyle(.secondary)
                 Spacer()
             }
@@ -474,9 +475,9 @@ struct FolderFilterSubHeader: View {
                 .fill(group.color)
                 .frame(width: 6, height: 6)
             Text(group.rawValue)
-                .font(.caption2.bold())
+                .scaledFont(size: 9, weight: .bold)
             Text("\(count)")
-                .font(.caption2)
+                .scaledFont(size: 9)
                 .foregroundStyle(.secondary)
             Spacer()
         }
@@ -515,7 +516,7 @@ struct FITSToolbar: View {
             if store.selectedEntryIDs.count > 1 {
                 Divider().frame(height: 20)
                 Text("\(store.selectedEntryIDs.count) selected")
-                    .font(.caption)
+                    .scaledFont(size: 10)
                     .foregroundStyle(.secondary)
             }
 
@@ -572,7 +573,7 @@ struct MainContent: View {
             } else if let displayImage = entry.displayImage {
                 VStack(spacing: 0) {
                     Text(entry.fileName)
-                        .font(.caption)
+                        .scaledFont(size: 10)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                         .truncationMode(.middle)
@@ -595,7 +596,7 @@ struct MainContent: View {
                         .font(.largeTitle)
                         .foregroundStyle(.red)
                     Text(error)
-                        .font(.caption)
+                        .scaledFont(size: 10)
                         .foregroundStyle(.secondary)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -610,7 +611,7 @@ struct MainContent: View {
                     .font(.title3)
                     .foregroundStyle(.secondary)
                 Text("Use the button above or \u{2318}O")
-                    .font(.caption)
+                    .scaledFont(size: 10)
                     .foregroundStyle(.tertiary)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -629,10 +630,10 @@ private struct InfoBar: View {
         HStack {
             if store.isBatchProcessing {
                 ProgressView().scaleEffect(0.5).frame(width: 12, height: 12)
-                Text("Processing…").font(.caption).foregroundStyle(.secondary)
+                Text("Processing…").scaledFont(size: 10).foregroundStyle(.secondary)
             } else if let elapsed = store.batchElapsed {
                 Text("\(elapsed, format: .number.precision(.fractionLength(2)))s for \(store.entries.count) images")
-                    .font(.caption.monospacedDigit())
+                    .scaledFont(size: 10, monospaced: true)
                     .foregroundStyle(.secondary)
             }
 
@@ -650,7 +651,7 @@ private struct InfoBar: View {
 
             if !entry.imageInfo.isEmpty {
                 Text(entry.imageInfo)
-                    .font(.caption)
+                    .scaledFont(size: 10)
                     .foregroundStyle(.secondary)
             }
         }
@@ -667,7 +668,7 @@ private struct MetricChip: View {
             Text(label).foregroundStyle(.secondary)
             Text(value)
         }
-        .font(.caption.monospacedDigit())
+        .scaledFont(size: 10, monospaced: true)
     }
 }
 
@@ -700,7 +701,7 @@ struct ThumbnailCell: View {
             }
 
             Text(entry.fileName)
-                .font(.caption2)
+                .scaledFont(size: 9)
                 .lineLimit(1)
                 .truncationMode(.middle)
 
@@ -708,7 +709,7 @@ struct ThumbnailCell: View {
                 HStack(spacing: 4) {
                     if let filter = entry.filterName {
                         Text(filter)
-                            .font(.caption2)
+                            .scaledFont(size: 9)
                             .foregroundStyle(.secondary)
                     }
                     Spacer(minLength: 0)
@@ -762,10 +763,10 @@ struct QualityBadge: View {
         HStack(spacing: 2) {
             if let problem {
                 Image(systemName: problem.systemImage)
-                    .font(.system(size: 7))
+                    .scaledFont(size: 7)
             }
             Text("\(score)")
-                .font(.caption2.bold())
+                .scaledFont(size: 9, weight: .bold)
         }
         .padding(.horizontal, 3)
         .padding(.vertical, 1)

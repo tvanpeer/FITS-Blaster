@@ -54,6 +54,7 @@ struct Simple_Claude_fits_viewerApp: App {
         .defaultSize(width: 900, height: 700)
         .environment(settings)
         .environment(store)
+        .environment(\.dynamicTypeSize, settings.dynamicTypeSize)
         .commands {
             CommandGroup(after: .newItem) {
                 SettingsMenuCommand()
@@ -67,6 +68,7 @@ struct Simple_Claude_fits_viewerApp: App {
             SettingsView()
                 .environment(settings)
                 .environment(store)
+                .environment(\.dynamicTypeSize, settings.dynamicTypeSize)
         }
         .windowResizability(.contentSize)
     }

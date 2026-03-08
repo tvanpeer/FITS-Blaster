@@ -30,7 +30,7 @@ struct ExportSheet: View {
             .formStyle(.grouped)
 
             Text("\(keptCount) frame\(keptCount == 1 ? "" : "s") will be exported")
-                .font(.caption)
+                .scaledFont(size: 10)
                 .foregroundStyle(.secondary)
                 .padding(.bottom, 8)
 

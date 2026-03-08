@@ -84,6 +84,35 @@ final class AppSettings {
         didSet { UserDefaults.standard.set(appearanceMode.rawValue, forKey: "appearanceMode") }
     }
 
+    // MARK: - Text Size
+
+    /// The subset of DynamicTypeSize values exposed in Settings, from smallest to largest.
+    static let availableTypeSizes: [DynamicTypeSize] = [
+        .xSmall, .small, .medium, .large, .xLarge, .xxLarge, .xxxLarge
+    ]
+
+    var dynamicTypeSize: DynamicTypeSize = .medium {
+        didSet {
+            let idx = Self.availableTypeSizes.firstIndex(of: dynamicTypeSize) ?? 2
+            UserDefaults.standard.set(idx, forKey: "dynamicTypeSize")
+        }
+    }
+
+    /// Scale multiplier derived from the current step. Used by `scaledFont(size:)` throughout the UI
+    /// because macOS does not scale semantic SwiftUI fonts via `dynamicTypeSize`.
+    var fontSizeMultiplier: CGFloat {
+        switch dynamicTypeSize {
+        case .xSmall:   return 0.75
+        case .small:    return 0.875
+        case .medium:   return 1.0
+        case .large:    return 1.15
+        case .xLarge:   return 1.30
+        case .xxLarge:  return 1.50
+        case .xxxLarge: return 1.75
+        default:        return 1.0
+        }
+    }
+
     // MARK: - Subfolder Settings
 
     /// When true, opening a folder also recursively loads FITS files from subfolders.
@@ -125,6 +154,8 @@ final class AppSettings {
            let mode = AppearanceMode(rawValue: raw) { appearanceMode = mode }
         if let v = UserDefaults.standard.object(forKey: "includeSubfolders")  as? Bool { includeSubfolders  = v }
         if let v = UserDefaults.standard.stringArray(forKey: "excludedSubfolderNames") { excludedSubfolderNames = v }
+        if let idx = UserDefaults.standard.object(forKey: "dynamicTypeSize") as? Int,
+           Self.availableTypeSizes.indices.contains(idx) { dynamicTypeSize = Self.availableTypeSizes[idx] }
     }
 
     // MARK: - Key Equivalents: navigation & actions

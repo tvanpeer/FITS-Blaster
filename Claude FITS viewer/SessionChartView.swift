@@ -140,10 +140,12 @@ struct SessionChartView: View {
         HStack(spacing: 4) {
             // Metric selector
             ForEach(ChartMetric.allCases) { metric in
-                Button(metric.rawValue) { selectedMetric = metric }
-                    .buttonStyle(.bordered)
-                    .controlSize(.mini)
-                    .tint(selectedMetric == metric ? .accentColor : nil)
+                Button { selectedMetric = metric } label: {
+                    Text(metric.rawValue).scaledFont(size: 10)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.mini)
+                .tint(selectedMetric == metric ? .accentColor : nil)
             }
 
             Spacer()
@@ -155,7 +157,7 @@ struct SessionChartView: View {
                         .fill(group.color)
                         .frame(width: 7, height: 7)
                     Text(group.rawValue)
-                        .font(.caption2)
+                        .scaledFont(size: 9)
                         .foregroundStyle(.secondary)
                 }
             }
@@ -205,7 +207,7 @@ struct SessionChartView: View {
             message = "No \(selectedMetric.rawValue) data for this session"
         }
         return Text(message)
-            .font(.caption)
+            .scaledFont(size: 10)
             .foregroundStyle(.tertiary)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
     }

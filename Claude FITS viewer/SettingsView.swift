@@ -22,6 +22,7 @@ struct SettingsView: View {
             }
         }
         .frame(width: 500, height: 620)
+        .environment(\.fontSizeMultiplier, settings.fontSizeMultiplier)
     }
 }
 
@@ -102,6 +103,9 @@ struct ImageSettingsTab: View {
                         }
                     }
                     .pickerStyle(.segmented)
+                    LabeledContent("Text Size") {
+                        DynamicTypeSizePicker(selection: $settings.dynamicTypeSize)
+                    }
                 }
 
                 Section("Sizes") {
@@ -203,13 +207,13 @@ private struct SubfolderExclusionField: View {
                         ForEach(tags, id: \.self) { tag in
                             HStack(spacing: 3) {
                                 Text(tag)
-                                    .font(.caption)
+                                    .scaledFont(size: 10)
                                 Button("Remove \(tag)", systemImage: "xmark") {
                                     tags.removeAll { $0 == tag }
                                 }
                                 .labelStyle(.iconOnly)
                                 .buttonStyle(.plain)
-                                .font(.system(size: 9))
+                                .scaledFont(size: 9)
                                 .foregroundStyle(.secondary)
                             }
                             .padding(.horizontal, 6)
@@ -226,7 +230,7 @@ private struct SubfolderExclusionField: View {
                 .onSubmit { addTag() }
                 .frame(maxWidth: 260)
             Text("Case-insensitive, exact folder name match.")
-                .font(.caption2)
+                .scaledFont(size: 9)
                 .foregroundStyle(.tertiary)
         }
     }
@@ -268,5 +272,49 @@ private struct SizeField: View {
         guard let parsed = Int(text) else { text = String(value); return }
         value = max(range.lowerBound, min(parsed, range.upperBound))
         text = String(value)
+    }
+}
+
+// MARK: - Dynamic type size picker
+
+/// A row of "A" buttons of increasing size, matching the style used in
+/// macOS System Settings → Displays → Text Size.
+private struct DynamicTypeSizePicker: View {
+    @Binding var selection: DynamicTypeSize
+
+    /// Display font size for each step — purely visual, not tied to actual pt values.
+    private let steps: [(size: DynamicTypeSize, fontSize: CGFloat)] = [
+        (.xSmall,   10),
+        (.small,    12),
+        (.medium,   14),
+        (.large,    17),
+        (.xLarge,   20),
+        (.xxLarge,  23),
+        (.xxxLarge, 27),
+    ]
+
+    var body: some View {
+        HStack(spacing: 0) {
+            ForEach(steps, id: \.size) { step in
+                let isSelected = selection == step.size
+                Button {
+                    selection = step.size
+                } label: {
+                    Text("A")
+                        .font(.system(size: step.fontSize))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 3)
+                        .background(isSelected ? Color.accentColor : Color.clear)
+                        .foregroundStyle(isSelected ? Color.white : Color.primary)
+                }
+                .buttonStyle(.plain)
+                if step.size != steps.last?.size {
+                    Divider()
+                }
+            }
+        }
+        .background(.quaternary)
+        .clipShape(.rect(cornerRadius: 6))
+        .frame(maxWidth: 260)
     }
 }
