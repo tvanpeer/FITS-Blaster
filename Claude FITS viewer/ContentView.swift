@@ -14,6 +14,7 @@ struct ContentView: View {
 
     @State private var hostingWindow: NSWindow?
     @State private var isDragTarget = false
+    @State private var keyMonitor: Any?
 
     var body: some View {
         HSplitView {
@@ -95,39 +96,75 @@ struct ContentView: View {
         } message: {
             Text(store.errorMessage ?? "")
         }
-        .focusable()
-        .focusEffectDisabled()
-        // Navigation
-        .onKeyPress(settings.firstImageKeyEquivalent) { store.selectFirst();          return .handled }
-        .onKeyPress(settings.lastImageKeyEquivalent)  { store.selectLast();           return .handled }
-        .onKeyPress(settings.prevKeyEquivalent)       { store.selectPrevious();       return .handled }
-        .onKeyPress(settings.nextKeyEquivalent)       { store.selectNext();           return .handled }
-        .onKeyPress(settings.rejectKeyEquivalent) {
-            if settings.useToggleReject { store.toggleRejectSelected() } else { store.rejectSelected() }
-            return .handled
-        }
-        .onKeyPress(settings.undoKeyEquivalent) {
-            guard !settings.useToggleReject else { return .ignored }
-            store.undoRejectSelected()
-            return .handled
-        }
-        .onKeyPress(settings.toggleModeKeyEquivalent) {
-            settings.isSimpleMode.toggle()
-            return .handled
-        }
-        .onKeyPress(settings.removeKeyEquivalent) {
-            store.removeSelected()
-            return .handled
-        }
-        .onKeyPress(settings.debayerKeyEquivalent) {
-            settings.debayerColorImages.toggle()
-            return .handled
-        }
+        .onAppear { installKeyMonitor() }
+        .onDisappear { removeKeyMonitor() }
     }
 
     private var minWindowWidth: CGFloat {
         if settings.isSimpleMode { return 500 }
         return settings.showInspector ? 960 : 700
+    }
+
+    // MARK: - Key handling
+
+    /// Installs a window-level key monitor so navigation keys work regardless of
+    /// which subview (e.g. the sidebar List) currently holds keyboard focus.
+    private func installKeyMonitor() {
+        keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            MainActor.assumeIsolated {
+                // Don't steal from text inputs.
+                guard !(NSApp.keyWindow?.firstResponder is NSText) else { return event }
+                // Don't intercept events with command/option/control modifiers.
+                guard event.modifierFlags.intersection([.command, .option, .control]).isEmpty else { return event }
+                guard let key = Self.keyString(from: event) else { return event }
+                return self.handleKey(key) ? nil : event
+            }
+        }
+    }
+
+    private func removeKeyMonitor() {
+        if let monitor = keyMonitor {
+            NSEvent.removeMonitor(monitor)
+            keyMonitor = nil
+        }
+    }
+
+    /// Converts an NSEvent to the key-string format used by AppSettings (e.g. "↑", "x", " ").
+    private static func keyString(from event: NSEvent) -> String? {
+        if let special = event.specialKey {
+            switch special {
+            case .upArrow:    return "↑"
+            case .downArrow:  return "↓"
+            case .leftArrow:  return "←"
+            case .rightArrow: return "→"
+            case .home:       return "⇱"
+            case .end:        return "⇲"
+            default:          return nil
+            }
+        }
+        return event.characters?.lowercased()
+    }
+
+    /// Returns true and performs the action if the key matches a configured binding.
+    @discardableResult
+    private func handleKey(_ key: String) -> Bool {
+        switch key {
+        case settings.firstImageKey:  store.selectFirst();  return true
+        case settings.lastImageKey:   store.selectLast();   return true
+        case settings.prevImageKey:   store.selectPrevious(); return true
+        case settings.nextImageKey:   store.selectNext();   return true
+        case settings.rejectKey:
+            if settings.useToggleReject { store.toggleRejectSelected() } else { store.rejectSelected() }
+            return true
+        case settings.undoKey:
+            guard !settings.useToggleReject else { return false }
+            store.undoRejectSelected()
+            return true
+        case settings.toggleModeKey:  settings.isSimpleMode.toggle();          return true
+        case settings.removeKey:      store.removeSelected();                   return true
+        case settings.debayerKey:     settings.debayerColorImages.toggle();     return true
+        default:                      return false
+        }
     }
 
     private func handleDrop(providers: [NSItemProvider]) {

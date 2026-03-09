@@ -4,6 +4,13 @@ All notable changes to Simple Claude FITS Viewer are recorded here.
 
 ---
 
+## 2026-03-09 — Fix keyboard shortcuts not working after sidebar click (v1.11.3)
+
+### Fixed
+- Navigation and action keys (arrow keys, reject, etc.) now work regardless of which subview has keyboard focus. Previously, clicking a thumbnail in the sidebar moved focus to the List, causing all key bindings to produce the macOS error chime. Replaced `onKeyPress` (requires the host view to be first responder) with an `NSEvent` local monitor that intercepts key events before the responder chain.
+
+---
+
 ## 2026-03-09 — Colour toggle UX improvements (v1.11.2)
 
 ### Fixed
