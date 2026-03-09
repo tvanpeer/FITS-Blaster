@@ -258,6 +258,7 @@ struct FITSReader {
             case 16:
                 // memcpy + vectorized byte-swap + convert Int16→Float
                 let temp16 = UnsafeMutablePointer<UInt16>.allocate(capacity: pixelCount)
+                defer { temp16.deallocate() }
                 memcpy(temp16, base, pixelCount * 2)
                 var swapBuf = vImage_Buffer(data: temp16, height: vImagePixelCount(header.height),
                                             width: vImagePixelCount(header.width), rowBytes: header.width * 2)
@@ -268,11 +269,11 @@ struct FITSReader {
                     of: UnsafeBufferPointer(start: int16Ptr, count: pixelCount),
                     to: &destBuf16
                 )
-                temp16.deallocate()
 
             case 32:
                 // Bulk memcpy + vectorized byte-swap via ARGB permute [3,2,1,0], then convert Int32→Float
                 let temp32 = UnsafeMutablePointer<UInt32>.allocate(capacity: pixelCount)
+                defer { temp32.deallocate() }
                 memcpy(temp32, base, pixelCount * 4)
                 var swapBuf32 = vImage_Buffer(data: temp32, height: vImagePixelCount(header.height),
                                               width: vImagePixelCount(header.width), rowBytes: header.width * 4)
@@ -284,7 +285,6 @@ struct FITSReader {
                     of: UnsafeBufferPointer(start: intPtr, count: pixelCount),
                     to: &destBuf32
                 )
-                temp32.deallocate()
 
             default:
                 break  // unreachable: parseHeader rejects unsupported bitpix values
@@ -353,6 +353,7 @@ struct FITSReader {
             pixelValues = [Float](unsafeUninitializedCapacity: pixelCount) { floatBuf, count in
                 // Allocate temp buffer, memcpy, then vectorized byte-swap
                 let temp = UnsafeMutablePointer<UInt16>.allocate(capacity: pixelCount)
+                defer { temp.deallocate() }
                 data.withUnsafeBytes { rawPtr in
                     let base = rawPtr.baseAddress!.advanced(by: header.dataOffset)
                     memcpy(temp, base, pixelCount * 2)
@@ -365,7 +366,6 @@ struct FITSReader {
                 let int16Ptr = UnsafeMutableRawPointer(temp).assumingMemoryBound(to: Int16.self)
                 vDSP.convertElements(of: UnsafeBufferPointer(start: int16Ptr, count: pixelCount),
                                      to: &floatBuf)
-                temp.deallocate()
                 count = pixelCount
             }
 
@@ -373,6 +373,7 @@ struct FITSReader {
             pixelValues = data.withUnsafeBytes { rawPtr -> [Float] in
                 let base = rawPtr.baseAddress!.advanced(by: header.dataOffset)
                 let temp = UnsafeMutablePointer<UInt32>.allocate(capacity: pixelCount)
+                defer { temp.deallocate() }
                 memcpy(temp, base, pixelCount * 4)
                 // Vectorized byte-swap via ARGB permute [3,2,1,0] — same trick as BITPIX=-32
                 var swapBuf = vImage_Buffer(data: temp, height: vImagePixelCount(header.height),
@@ -382,7 +383,6 @@ struct FITSReader {
                 let intPtr = UnsafeMutableRawPointer(temp).assumingMemoryBound(to: Int32.self)
                 var result = [Float](repeating: 0, count: pixelCount)
                 vDSP.convertElements(of: UnsafeBufferPointer(start: intPtr, count: pixelCount), to: &result)
-                temp.deallocate()
                 return result
             }
 
@@ -408,6 +408,16 @@ struct FITSReader {
             }
         }
 
+        // Compute min/max while the buffer is hot in cache, matching what
+        // readIntoBuffer does. Enables the CPU-path histogram to skip its
+        // own two full-buffer vDSP passes.
+        var minValue: Float = 0
+        var maxValue: Float = 0
+        pixelValues.withUnsafeBufferPointer { buf in
+            vDSP_minv(buf.baseAddress!, 1, &minValue, vDSP_Length(pixelCount))
+            vDSP_maxv(buf.baseAddress!, 1, &maxValue, vDSP_Length(pixelCount))
+        }
+
         return FITSImage(
             width: header.width,
             height: header.height,
@@ -415,8 +425,8 @@ struct FITSReader {
             bzero: header.bzero,
             bscale: header.bscale,
             pixelValues: pixelValues,
-            minValue: 0,
-            maxValue: 0,
+            minValue: minValue,
+            maxValue: maxValue,
             headers: header.headers,
             bayerPattern: BayerPattern.parse(from: header.headers)
         )

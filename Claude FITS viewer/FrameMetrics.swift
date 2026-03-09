@@ -49,8 +49,10 @@ enum BadgeProblem {
 /// in badge colouring and auto-reject.
 struct GroupStats {
     let medianFWHM: Float?
+    let medianEccentricity: Float?
     let medianStarCount: Int?
     let medianSNR: Float?
+    let medianScore: Int?
     /// Minimum score required to place a frame in the top third of this group.
     /// Nil when the group has fewer than three frames with score data.
     let topThirdScoreFloor: Int?

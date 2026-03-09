@@ -4,6 +4,22 @@ All notable changes to Simple Claude FITS Viewer are recorded here.
 
 ---
 
+## 2026-03-09 — View menu fixes + colour toggle cache
+
+### Added
+- **Colour/greyscale render cache**: toggling colour mode now caches both the greyscale and colour renders per Bayer image. After the first toggle, subsequent switches are instant (no file re-reads). Initial greyscale load is pre-cached so the very first toggle to colour only needs one pass. Memory overhead is ~3 MB per image (downscaled display size).
+
+### Fixed
+- **Duplicate View menu**: Simple Mode and Colour Images commands are now injected into the system View menu via `CommandGroup(after: .sidebar)` instead of creating a second View menu with `CommandMenu`.
+- **Greyed-out View menu items**: switched from `focusedValue`/`@FocusedValue` to `focusedSceneValue` (set side) so bindings propagate to menu commands regardless of which subview holds keyboard focus.
+- **View menu keyboard shortcuts**: Simple Mode and Colour Images now display the user-configured key binding in the menu (read from `AppSettings` via focused scene values) instead of the hardcoded `⌘⇧M`.
+- **Toolbar tooltip**: Simple/Geek mode toggle button now shows the actual configured key in its tooltip instead of the hardcoded `⌘⇧M`.
+
+### Changed
+- "Rendering colour…" / "Rendering greyscale…" status is suppressed entirely on subsequent toggles when cached renders are available.
+
+---
+
 ## 2026-03-08 — Bayer debayering + chart improvements (v1.11)
 
 ### Added

@@ -44,6 +44,9 @@ final class AppSettings {
     var removeKey: String = "r" {
         didSet { UserDefaults.standard.set(removeKey, forKey: "removeKey") }
     }
+    var debayerKey: String = "c" {
+        didSet { UserDefaults.standard.set(debayerKey, forKey: "debayerKey") }
+    }
 
     // MARK: - Image Sizes
 
@@ -147,6 +150,7 @@ final class AppSettings {
         if let v = UserDefaults.standard.string(forKey: "lastImageKey")  { lastImageKey  = v }
         if let v = UserDefaults.standard.string(forKey: "toggleModeKey") { toggleModeKey = v }
         if let v = UserDefaults.standard.string(forKey: "removeKey")     { removeKey     = v }
+        if let v = UserDefaults.standard.string(forKey: "debayerKey")    { debayerKey    = v }
         // Sizes
         let display = UserDefaults.standard.integer(forKey: "maxDisplaySize")
         if display > 0 { maxDisplaySize = display }
@@ -178,6 +182,7 @@ final class AppSettings {
     var lastImageKeyEquivalent:   KeyEquivalent { keyEquivalent(for: lastImageKey,   fallback: .end) }
     var toggleModeKeyEquivalent:  KeyEquivalent { keyEquivalent(for: toggleModeKey,  fallback: KeyEquivalent("g")) }
     var removeKeyEquivalent:      KeyEquivalent { keyEquivalent(for: removeKey,      fallback: KeyEquivalent("r")) }
+    var debayerKeyEquivalent:     KeyEquivalent { keyEquivalent(for: debayerKey,     fallback: KeyEquivalent("c")) }
 
     // MARK: - Appearance helper
 
@@ -237,6 +242,18 @@ final class AppSettings {
 extension FocusedValues {
     /// Exposes `AppSettings.isSimpleMode` as a Binding so menu commands can toggle it.
     @Entry var simpleModeBinding: Binding<Bool>? = nil
+
+    /// Exposes `AppSettings.debayerColorImages` as a Binding so the View menu command
+    /// can toggle it. ContentView watches this value and triggers reprocessAll on change.
+    @Entry var debayerColorBinding: Binding<Bool>? = nil
+
+    /// The raw key string for "Toggle Simple/Geek Mode", so the View menu command can
+    /// display the correct user-configured shortcut.
+    @Entry var toggleModeKeyString: String? = nil
+
+    /// The raw key string for "Toggle Colour Images", so the View menu command can
+    /// display the correct user-configured shortcut.
+    @Entry var debayerKeyString: String? = nil
 }
 
 // MARK: - AppearanceMode

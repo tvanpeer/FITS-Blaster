@@ -98,6 +98,16 @@ final class ImageEntry: Identifiable {
     /// before re-rendering in colour with a consistent shared stretch.
     var bayerClips: BayerClips?
 
+    /// Cached greyscale render (display + thumbnail) for Bayer images.
+    /// Populated on first greyscale render; reused on subsequent toggles to avoid re-reads.
+    var cachedGreyscaleDisplay: NSImage?
+    var cachedGreyscaleThumb: NSImage?
+
+    /// Cached colour render (display + thumbnail) for Bayer images.
+    /// Populated on first colour render; reused on subsequent toggles to avoid re-reads.
+    var cachedColourDisplay: NSImage?
+    var cachedColourThumb: NSImage?
+
     /// Relative path from the opened root folder to this file's parent directory.
     /// Empty string means the file sits directly in the opened root folder.
     /// Example: "Ha" for `root/Ha/frame.fits`, "Lights/Ha" for deeper nesting.
@@ -143,6 +153,8 @@ final class ImageStore {
     var selectedEntryIDs: Set<UUID> = []
     var batchElapsed: Double?
     var isBatchProcessing: Bool = false
+    /// Non-nil while a Bayer re-render pass is running; the value is the status message to display.
+    private(set) var recolouringMessage: String? = nil
     var errorMessage: String?
     var thumbnailSortOrder: ThumbnailSortOrder = .filename {
         didSet { updateCachedSort() }
@@ -176,6 +188,12 @@ final class ImageStore {
     /// Stored (not computed) to avoid O(n) Set creation on every sidebar render.
     /// Updated at batch boundaries via `updateActiveFilterGroups()`.
     private(set) var activeFilterGroups: [FilterGroup] = []
+
+    /// True when more than one filter type is present in the loaded session.
+    var isMultiFilter: Bool { activeFilterGroups.count > 1 }
+
+    /// True when entries span more than one subfolder.
+    var isMultiFolder: Bool { activeFolderPaths.count > 1 }
 
     private func updateActiveFilterGroups() {
         let present = Set(entries.map { $0.filterGroup })
@@ -267,13 +285,16 @@ final class ImageStore {
         for group in FilterGroup.allCases {
             guard let groupEntries = grouped[group], !groupEntries.isEmpty else { continue }
             let fwhms  = groupEntries.compactMap { $0.metrics?.fwhm }.sorted()
+            let eccs   = groupEntries.compactMap { $0.metrics?.eccentricity }.sorted()
             let stars  = groupEntries.compactMap { $0.metrics?.starCount }.sorted()
             let snrs   = groupEntries.compactMap { $0.metrics?.snr }.sorted()
             let scores = groupEntries.compactMap { $0.metrics?.qualityScore }.sorted()
             result[group] = GroupStats(
                 medianFWHM:         fwhms.isEmpty  ? nil : fwhms[fwhms.count / 2],
+                medianEccentricity: eccs.isEmpty   ? nil : eccs[eccs.count / 2],
                 medianStarCount:    stars.isEmpty  ? nil : stars[stars.count / 2],
                 medianSNR:          snrs.isEmpty   ? nil : snrs[snrs.count / 2],
+                medianScore:        scores.isEmpty ? nil : scores[scores.count / 2],
                 topThirdScoreFloor: scores.count < 3 ? nil : scores[scores.count * 2 / 3],
                 isNarrowband:       group.isNarrowband
             )
@@ -1026,6 +1047,15 @@ final class ImageStore {
                         entry.histogram    = fast.histogram
                         entry.headers      = fast.headers
                         entry.bayerClips   = fast.bayerClips
+                        // Pre-populate the appropriate render cache so the first toggle is instant.
+                        if fast.bayerClips != nil {
+                            // Loaded with debayer ON — this is the colour render (clips available).
+                            // Colour cache is populated by normalizeBayerStretch after the batch.
+                        } else if BayerPattern.parse(from: fast.headers) != nil {
+                            // Loaded with debayer OFF — this is the greyscale render.
+                            entry.cachedGreyscaleDisplay = fast.display
+                            entry.cachedGreyscaleThumb   = fast.thumb
+                        }
                         entry.isProcessing = false   // ← image visible now
 
                         if selectFirst, entry === entriesToProcess.first, fast.display != nil {
@@ -1070,6 +1100,99 @@ final class ImageStore {
         }
     }
 
+    /// Re-renders only display images and thumbnails for Bayer frames when the
+    /// colour debayering preference is toggled. Does NOT touch metrics or histograms.
+    ///
+    /// - Colour ON:  computes missing per-channel clip bounds (if images were loaded
+    ///               with debayer off), then re-renders with per-folder median clips.
+    /// - Colour OFF: re-renders Bayer images as greyscale.
+    func recolorImages(settings: AppSettings) {
+        let debayer          = settings.debayerColorImages
+        let maxDisplaySize   = settings.maxDisplaySize
+        let maxThumbnailSize = settings.maxThumbnailSize
+        let bayerEntries     = entries.filter { $0.isBayer }
+        guard !bayerEntries.isEmpty else { return }
+
+        let accessedDirs = bayerEntries.compactMap { accessDirectory(for: $0) }
+
+        Task { [weak self] in
+            guard let self else { return }
+            defer { for d in accessedDirs { d.stopAccessingSecurityScopedResource() } }
+
+            if debayer {
+                // Compute clip bounds for any entry loaded before debayer was enabled.
+                let concurrency = max(4, ProcessInfo.processInfo.activeProcessorCount - 2)
+                await withTaskGroup(of: Void.self) { group in
+                    var active = 0
+                    for entry in bayerEntries where entry.bayerClips == nil {
+                        if active >= concurrency { await group.next(); active -= 1 }
+                        let url     = entry.url
+                        let headers = entry.headers
+                        group.addTask {
+                            let didStart = url.startAccessingSecurityScopedResource()
+                            defer { if didStart { url.stopAccessingSecurityScopedResource() } }
+                            guard let pattern = BayerPattern.parse(from: headers),
+                                  let device  = ImageStretcher.metalDevice,
+                                  let result  = try? FITSReader.readIntoBuffer(from: url, device: device)
+                            else { return }
+                            let clips = ImageStretcher.computeBayerClips(
+                                result.metalBuffer,
+                                width: result.metadata.width, height: result.metadata.height,
+                                rOffset: pattern.rOffset)
+                            await MainActor.run { entry.bayerClips = clips }
+                        }
+                        active += 1
+                    }
+                }
+                // Re-render in colour with per-folder median clips.
+                await normalizeBayerStretch(bayerEntries, maxDisplaySize: maxDisplaySize,
+                                            maxThumbnailSize: maxThumbnailSize)
+            } else {
+                // Re-render Bayer images as greyscale; metrics and histogram are unchanged.
+                // Use cached greyscale renders if available to avoid file re-reads.
+                let needsRender = bayerEntries.filter { $0.cachedGreyscaleDisplay == nil }
+                if !needsRender.isEmpty {
+                    recolouringMessage = "Rendering greyscale…"
+                    defer { recolouringMessage = nil }
+                    let concurrency = max(4, ProcessInfo.processInfo.activeProcessorCount - 2)
+                    await withTaskGroup(of: Void.self) { group in
+                        var active = 0
+                        for entry in needsRender {
+                            if active >= concurrency { await group.next(); active -= 1 }
+                            let url = entry.url
+                            group.addTask {
+                                let didStart = url.startAccessingSecurityScopedResource()
+                                defer { if didStart { url.stopAccessingSecurityScopedResource() } }
+                                guard let device = ImageStretcher.metalDevice,
+                                      let result = try? FITSReader.readIntoBuffer(from: url, device: device)
+                                else { return }
+                                let display = await ImageStretcher.createImage(
+                                    inputBuffer: result.metalBuffer,
+                                    width: result.metadata.width, height: result.metadata.height,
+                                    maxDisplaySize: maxDisplaySize)
+                                let thumb = display.flatMap {
+                                    ImageStretcher.createThumbnail(from: $0, maxSize: maxThumbnailSize)
+                                }
+                                await MainActor.run {
+                                    entry.cachedGreyscaleDisplay = display
+                                    entry.cachedGreyscaleThumb   = thumb
+                                    if let d = display { entry.displayImage = d }
+                                    if let t = thumb   { entry.thumbnail    = t }
+                                }
+                            }
+                            active += 1
+                        }
+                    }
+                }
+                // Apply cached renders for entries that already had them.
+                for entry in bayerEntries where entry.cachedGreyscaleDisplay != nil && !needsRender.contains(where: { $0 === entry }) {
+                    entry.displayImage = entry.cachedGreyscaleDisplay
+                    entry.thumbnail    = entry.cachedGreyscaleThumb
+                }
+            }
+        }
+    }
+
     /// Post-batch colour normalisation for Bayer images.
     ///
     /// Groups Bayer entries by subfolder, computes per-channel median clip bounds,
@@ -1080,12 +1203,16 @@ final class ImageStore {
         // Collect entries that have Bayer clips (means debayerColorImages was true during load)
         let bayerEntries = entries.filter { $0.bayerClips != nil }
         guard !bayerEntries.isEmpty else { return }
+        recolouringMessage = "Rendering colour…"
+        defer { recolouringMessage = nil }
 
         // Group by subfolder so each folder gets its own median stretch
         let folderGroups = Dictionary(grouping: bayerEntries, by: \.subfolderPath)
 
         let concurrency = max(4, ProcessInfo.processInfo.activeProcessorCount - 2)
 
+        // Invalidate cached colour renders when the shared clips change (new images added, etc.)
+        // We detect this by checking if any entry in a folder lacks a cached colour render.
         await withTaskGroup(of: Void.self) { group in
             var activeCount = 0
             for (_, folderEntries) in folderGroups {
@@ -1093,10 +1220,26 @@ final class ImageStore {
                 let sharedClips = BayerClips.median(of: allClips)
                 guard sharedClips.isValid else { continue }
 
+                // If all entries in this folder already have a cached colour render, just swap.
+                let needsRender = folderEntries.filter { $0.cachedColourDisplay == nil }
+                if needsRender.isEmpty {
+                    for entry in folderEntries {
+                        entry.displayImage = entry.cachedColourDisplay
+                        entry.thumbnail    = entry.cachedColourThumb
+                    }
+                    continue
+                }
+
                 for entry in folderEntries {
                     if activeCount >= concurrency {
                         await group.next()
                         activeCount -= 1
+                    }
+                    // If this specific entry is cached, apply immediately without a task.
+                    if entry.cachedColourDisplay != nil && !needsRender.contains(where: { $0 === entry }) {
+                        entry.displayImage = entry.cachedColourDisplay
+                        entry.thumbnail    = entry.cachedColourThumb
+                        continue
                     }
                     let url      = entry.url
                     let headers  = entry.headers
@@ -1107,6 +1250,8 @@ final class ImageStore {
                             maxDisplaySize: maxDisplaySize, maxThumbnailSize: maxThumbnailSize
                         ) else { return }
                         await MainActor.run {
+                            entry.cachedColourDisplay = display
+                            entry.cachedColourThumb   = thumb
                             entry.displayImage = display
                             entry.thumbnail    = thumb
                         }
@@ -1189,7 +1334,7 @@ final class ImageStore {
         do {
             var fits  = try FITSReader.read(from: url)
             let histogram = MetricsCalculator.computeHistogram(pixels: fits.pixelValues,
-                                                               width: fits.width, height: fits.height)
+                                                               minVal: fits.minValue, maxVal: fits.maxValue)
             let display = ImageStretcher.createImage(from: &fits.pixelValues,
                                                      width: fits.width, height: fits.height,
                                                      maxDisplaySize: maxDisplaySize)

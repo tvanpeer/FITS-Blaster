@@ -41,10 +41,16 @@ struct ContentView: View {
             handleDrop(providers: providers)
             return true
         }
-        .focusedValue(\.simpleModeBinding, Binding(
+        .focusedSceneValue(\.simpleModeBinding, Binding(
             get: { settings.isSimpleMode },
             set: { settings.isSimpleMode = $0 }
         ))
+        .focusedSceneValue(\.debayerColorBinding, Binding(
+            get: { settings.debayerColorImages },
+            set: { settings.debayerColorImages = $0 }
+        ))
+        .focusedSceneValue(\.toggleModeKeyString, settings.toggleModeKey)
+        .focusedSceneValue(\.debayerKeyString, settings.debayerKey)
         .frame(minWidth: minWindowWidth, minHeight: 400)
         .environment(\.fontSizeMultiplier, settings.fontSizeMultiplier)
         .preferredColorScheme(settings.preferredColorScheme)
@@ -52,6 +58,10 @@ struct ContentView: View {
         .onChange(of: settings.metricsConfig) { _, newConfig in
             guard !settings.isSimpleMode else { return }
             store.recomputeMetrics(metricsConfig: newConfig)
+        }
+        .onChange(of: settings.debayerColorImages) { _, _ in
+            guard !store.entries.isEmpty else { return }
+            store.recolorImages(settings: settings)
         }
         .onChange(of: settings.isSimpleMode) { _, isSimple in
             if !isSimple {
@@ -107,6 +117,10 @@ struct ContentView: View {
         }
         .onKeyPress(settings.removeKeyEquivalent) {
             store.removeSelected()
+            return .handled
+        }
+        .onKeyPress(settings.debayerKeyEquivalent) {
+            settings.debayerColorImages.toggle()
             return .handled
         }
     }
@@ -215,11 +229,11 @@ struct ThumbnailSidebar: View {
         if settings.isSimpleMode { return store.entries }
         // A filter is selected, or there's only one folder and one filter: show flat filtered list.
         if store.sidebarFilterGroup != nil
-            || (store.activeFilterGroups.count <= 1 && store.activeFolderPaths.count <= 1) {
+            || (!store.isMultiFilter && !store.isMultiFolder) {
             return store.filteredSortedEntries
         }
         // Multi-folder mode: return entries in folder → filter section order, skipping collapsed.
-        if store.activeFolderPaths.count > 1 {
+        if store.isMultiFolder {
             return store.groupedByFolderAndFilter
                 .filter { !collapsedFolderPaths.contains($0.folderPath) }
                 .flatMap { folder in folder.filterGroups.flatMap { $0.1 } }
@@ -256,7 +270,7 @@ struct ThumbnailSidebar: View {
                 .padding(.vertical, 6)
 
                 // Filter strip — only shown when multiple filter groups are present
-                if store.activeFilterGroups.count > 1 {
+                if store.isMultiFilter {
                     Divider()
                     FilterStrip(store: store)
                 }
@@ -273,12 +287,12 @@ struct ThumbnailSidebar: View {
                                 thumbnailButton(for: entry)
                             }
                         } else if store.sidebarFilterGroup != nil
-                            || (store.activeFilterGroups.count <= 1 && store.activeFolderPaths.count <= 1) {
+                            || (!store.isMultiFilter && !store.isMultiFolder) {
                             // Flat list: a filter is selected, or there's only one folder+filter
                             ForEach(store.filteredSortedEntries) { entry in
                                 thumbnailButton(for: entry)
                             }
-                        } else if store.activeFolderPaths.count > 1 {
+                        } else if store.isMultiFolder {
                             // Folder mode: one section per subfolder, with optional filter sub-headers
                             ForEach(store.groupedByFolderAndFilter) { folderGroup in
                                 let isCollapsed = collapsedFolderPaths.contains(folderGroup.folderPath)
@@ -582,7 +596,7 @@ struct FITSToolbar: View {
             Button("", systemImage: settings.isSimpleMode ? "dial.high" : "dial.low") {
                 settings.isSimpleMode.toggle()
             }
-            .help(settings.isSimpleMode ? "Switch to Geek Mode (⌘⇧M)" : "Switch to Simple Mode (⌘⇧M)")
+            .help(settings.isSimpleMode ? "Switch to Geek Mode (\(AppSettings.displayString(for: settings.toggleModeKey)))" : "Switch to Simple Mode (\(AppSettings.displayString(for: settings.toggleModeKey)))")
 
             if !settings.isSimpleMode {
                 Button("", systemImage: "sidebar.right") {
@@ -674,6 +688,9 @@ private struct InfoBar: View {
             if store.isBatchProcessing {
                 ProgressView().scaleEffect(0.5).frame(width: 12, height: 12)
                 Text("Processing…").scaledFont(size: 10).foregroundStyle(.secondary)
+            } else if let msg = store.recolouringMessage {
+                ProgressView().scaleEffect(0.5).frame(width: 12, height: 12)
+                Text(msg).scaledFont(size: 10).foregroundStyle(.secondary)
             } else if let elapsed = store.batchElapsed {
                 Text("\(elapsed, format: .number.precision(.fractionLength(2)))s for \(store.entries.count) images")
                     .scaledFont(size: 10, monospaced: true)
@@ -830,12 +847,12 @@ private struct WindowAccessor: NSViewRepresentable {
 
     func makeNSView(context: Context) -> NSView {
         let view = NSView()
-        DispatchQueue.main.async { self.onWindow(view.window) }
+        Task { @MainActor in self.onWindow(view.window) }
         return view
     }
 
     func updateNSView(_ nsView: NSView, context: Context) {
-        DispatchQueue.main.async { self.onWindow(nsView.window) }
+        Task { @MainActor in self.onWindow(nsView.window) }
     }
 }
 

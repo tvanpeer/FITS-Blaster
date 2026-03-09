@@ -44,6 +44,7 @@ struct UISettingsTab: View {
             ("Undo",                    $settings.undoKey),
             ("Toggle Simple/Geek Mode", $settings.toggleModeKey),
             ("Remove from List",        $settings.removeKey),
+            ("Toggle Colour Images",    $settings.debayerKey),
         ]
 
         Form {
@@ -82,6 +83,10 @@ struct UISettingsTab: View {
                 LabeledContent("Remove from List") {
                     KeyRecorderButton(keyString: $settings.removeKey,
                                       conflictingKeys: allKeys.filter { $0.label != "Remove from List" }.map(\.key))
+                }
+                LabeledContent("Toggle Colour Images") {
+                    KeyRecorderButton(keyString: $settings.debayerKey,
+                                      conflictingKeys: allKeys.filter { $0.label != "Toggle Colour Images" }.map(\.key))
                 }
             }
 

@@ -36,6 +36,18 @@ enum ChartMetric: String, CaseIterable, Identifiable {
         }
     }
 
+    /// Look up the pre-computed per-group median for this metric from cached GroupStats.
+    /// Returns nil when the metric was not computed or has no data for the group.
+    func median(from stats: GroupStats) -> Double? {
+        switch self {
+        case .score:        return stats.medianScore.map(Double.init)
+        case .fwhm:         return stats.medianFWHM.map(Double.init)
+        case .eccentricity: return stats.medianEccentricity.map(Double.init)
+        case .snr:          return stats.medianSNR.map(Double.init)
+        case .starCount:    return stats.medianStarCount.map(Double.init)
+        }
+    }
+
     /// True when a lower value represents a better frame (inverts threshold shading).
     var isLowerBetter: Bool {
         switch self {
@@ -57,7 +69,7 @@ enum ChartMetric: String, CaseIterable, Identifiable {
 struct SessionChartView: View {
     @Environment(ImageStore.self) private var store
 
-    @State private var selectedMetric: ChartMetric = .score
+    @AppStorage("sessionChartMetric") private var selectedMetric: ChartMetric = .score
     /// View-space X positions tracked during a drag gesture.
     @State private var dragStartX: CGFloat?
     @State private var dragCurrentX: CGFloat?
@@ -74,7 +86,7 @@ struct SessionChartView: View {
     /// Entries shown in the chart strip, filtered by `selectedFolderPaths`.
     /// When no folders are selected (or only one folder exists), all entries are returned.
     private var chartEntries: [ImageEntry] {
-        guard !selectedFolderPaths.isEmpty, store.activeFolderPaths.count > 1 else {
+        guard !selectedFolderPaths.isEmpty, store.isMultiFolder else {
             return store.entries
         }
         return store.entries.filter { selectedFolderPaths.contains($0.subfolderPath) }
@@ -109,7 +121,20 @@ struct SessionChartView: View {
 
     /// Per-group median of the active metric, used for threshold lines.
     /// Groups with fewer than two data points are skipped.
+    ///
+    /// Uses pre-cached values from `ImageStore.groupStatistics` when no folder filter
+    /// is active (the common case), avoiding an O(n log n) sort on every render pass.
+    /// Falls back to a live per-render computation when a folder filter is selected.
     private var groupMedians: [(group: FilterGroup, median: Double)] {
+        if selectedFolderPaths.isEmpty || !store.isMultiFolder {
+            // Fast path: read pre-computed medians — no sort needed.
+            return FilterGroup.allCases.compactMap { group in
+                guard let stats = store.groupStatistics[group],
+                      let median = selectedMetric.median(from: stats) else { return nil }
+                return (group: group, median: median)
+            }
+        }
+        // Folder-filtered subset: compute from the visible entries.
         let grouped = Dictionary(grouping: chartEntries) { $0.filterGroup }
         return FilterGroup.allCases.compactMap { group in
             let values = (grouped[group] ?? [])
@@ -125,7 +150,7 @@ struct SessionChartView: View {
     var body: some View {
         VStack(spacing: 0) {
             header
-            if store.activeFolderPaths.count > 1 {
+            if store.isMultiFolder {
                 Divider()
                 folderStrip
             }

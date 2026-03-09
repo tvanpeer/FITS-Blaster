@@ -31,8 +31,22 @@ struct MetricsCalculator {
         var y: UInt32
     }
 
+    // MARK: - Tuning constants
+
+    /// Controls star detection and measurement limits.
+    private enum Constants {
+        /// Must match MAX_DETECTION_CANDIDATES in FITSStretch.metal.
+        static let maxDetectionCandidates  = 50_000
+        /// Number of stratified samples for background estimation.
+        static let backgroundSampleCount   = 5_000
+        /// Top N candidates used for full shape measurement (FWHM, ecc, SNR).
+        static let topCandidatesForShape   = 200
+        /// Additional candidates checked in the fast star-count pass (Phase 2).
+        static let fallbackCandidateCount  = 6_000
+    }
+
     /// Must match MAX_DETECTION_CANDIDATES in FITSStretch.metal.
-    private static let maxDetectionCandidates = 50_000
+    private static let maxDetectionCandidates = Constants.maxDetectionCandidates
 
     // Pipeline state is created once per process and reused for every image.
     // MTLCreateSystemDefaultDevice() is idempotent — it always returns the same
@@ -176,14 +190,14 @@ struct MetricsCalculator {
         var shapeCount   = 0    // non-saturated candidates used for shape stats
         var topVerified  = 0    // PSF-verified count within the top-300 pass
 
-        for candidate in allCandidates.prefix(200) {
+        for candidate in allCandidates.prefix(Constants.topCandidatesForShape) {
             let (fwhm, ecc, snr) = measureShape(
                 pixels: pixels, width: width, height: height,
                 cx: candidate.x, cy: candidate.y,
                 background: background, sigma: sigma)
             guard fwhm >= 0.5, fwhm <= 20 else { continue }
             topVerified += 1
-            if needMeasure && shapeCount < 200 {
+            if needMeasure && shapeCount < Constants.topCandidatesForShape {
                 if config.computeFWHM         { fwhmValues.append(fwhm) }
                 if config.computeEccentricity { eccValues.append(ecc) }
                 if config.computeSNR          { snrValues.append(snr) }
@@ -204,8 +218,8 @@ struct MetricsCalculator {
 
         var verifiedCount = topVerified
 
-        if config.computeStarCount, allCandidates.count > 200 {
-            let remaining = allCandidates.dropFirst(200).prefix(6000)
+        if config.computeStarCount, allCandidates.count > Constants.topCandidatesForShape {
+            let remaining = allCandidates.dropFirst(Constants.topCandidatesForShape).prefix(Constants.fallbackCandidateCount)
             for c in remaining {
                 let fwhm = measureFWHMOnly(pixels: pixels, width: width, height: height,
                                             cx: c.x, cy: c.y, background: background)
@@ -263,6 +277,14 @@ struct MetricsCalculator {
         return computeHistogram(ptr: ptr, count: count, minVal: minVal, maxVal: maxVal)
     }
 
+    /// Compute a 256-bin histogram from a Float array using pre-computed min/max.
+    /// Use this overload when bounds are already known (e.g. from FITSReader.read()).
+    static func computeHistogram(pixels: [Float], minVal: Float, maxVal: Float) -> [Int] {
+        pixels.withUnsafeBufferPointer { buf in
+            computeHistogram(ptr: buf.baseAddress!, count: buf.count, minVal: minVal, maxVal: maxVal)
+        }
+    }
+
     /// Compute a 256-bin histogram from a Float array. Delegates to the pointer overload.
     static func computeHistogram(pixels: [Float], width: Int, height: Int) -> [Int] {
         pixels.withUnsafeBufferPointer { buf in
@@ -275,7 +297,7 @@ struct MetricsCalculator {
     /// Robust background estimate using stratified sampling + median/MAD.
     private static func estimateBackground(_ pixels: UnsafeBufferPointer<Float>, width: Int, height: Int) -> (median: Float, sigma: Float) {
         let n = pixels.count
-        let sampleCount = min(n, 5000)
+        let sampleCount = min(n, Constants.backgroundSampleCount)
         let stride = max(1, n / sampleCount)
 
         var samples = [Float](repeating: 0, count: sampleCount)

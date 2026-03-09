@@ -59,8 +59,10 @@ struct Simple_Claude_fits_viewerApp: App {
             CommandGroup(after: .newItem) {
                 SettingsMenuCommand()
             }
-            CommandMenu("View") {
+            CommandGroup(after: .sidebar) {
+                Divider()
                 SimpleModeCommand()
+                DebayerColourCommand()
             }
         }
 
@@ -86,15 +88,33 @@ private struct SettingsMenuCommand: View {
     }
 }
 
+/// Toggles colour debayering from the View menu.
+/// ContentView's onChange(of: settings.debayerColorImages) triggers the reprocess.
+private struct DebayerColourCommand: View {
+    @FocusedValue(\.debayerColorBinding) var debayerColor
+    @FocusedValue(\.debayerKeyString) var keyString
+
+    var body: some View {
+        let equiv: KeyEquivalent = keyString.flatMap(\.first).map { KeyEquivalent($0) } ?? KeyEquivalent("c")
+        Button(debayerColor?.wrappedValue == true ? "✓ Colour Images" : "Colour Images") {
+            debayerColor?.wrappedValue.toggle()
+        }
+        .disabled(debayerColor == nil)
+        .keyboardShortcut(equiv, modifiers: [])
+    }
+}
+
 /// Toggles Simple/Geek mode from the View menu using the focused window's binding.
 private struct SimpleModeCommand: View {
     @FocusedValue(\.simpleModeBinding) var isSimpleMode
+    @FocusedValue(\.toggleModeKeyString) var keyString
 
     var body: some View {
+        let equiv: KeyEquivalent = keyString.flatMap(\.first).map { KeyEquivalent($0) } ?? KeyEquivalent("g")
         Button(isSimpleMode?.wrappedValue == true ? "✓ Simple Mode" : "Simple Mode") {
             isSimpleMode?.wrappedValue.toggle()
         }
         .disabled(isSimpleMode == nil)
-        .keyboardShortcut("m", modifiers: [.command, .shift])
+        .keyboardShortcut(equiv, modifiers: [])
     }
 }

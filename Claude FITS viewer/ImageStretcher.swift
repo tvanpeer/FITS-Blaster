@@ -26,10 +26,13 @@ struct BayerClips: Sendable {
     static func median(of clips: [BayerClips]) -> BayerClips {
         guard !clips.isEmpty else { return BayerClips(loR: 0, hiR: 1, loG: 0, hiG: 1, loB: 0, hiB: 1) }
         let mid = clips.count / 2
+        func med(_ kp: KeyPath<BayerClips, Float>) -> Float {
+            clips.map { $0[keyPath: kp] }.sorted()[mid]
+        }
         return BayerClips(
-            loR: clips.map(\.loR).sorted()[mid], hiR: clips.map(\.hiR).sorted()[mid],
-            loG: clips.map(\.loG).sorted()[mid], hiG: clips.map(\.hiG).sorted()[mid],
-            loB: clips.map(\.loB).sorted()[mid], hiB: clips.map(\.hiB).sorted()[mid]
+            loR: med(\.loR), hiR: med(\.hiR),
+            loG: med(\.loG), hiG: med(\.hiG),
+            loB: med(\.loB), hiB: med(\.hiB)
         )
     }
 
@@ -590,22 +593,24 @@ struct ImageStretcher {
         return BayerClips(loR: loR, hiR: hiR, loG: loG, hiG: hiG, loB: loB, hiB: hiB)
     }
 
-    /// Estimate from a raw pointer (for Metal buffer path — no array copy needed)
+    /// Estimate from a raw pointer (for Metal buffer path — no array copy needed).
+    /// Always uses stride-sampling: avoids a full copy for small images while
+    /// giving equivalent accuracy to sorting the entire array.
     static func estimatePercentiles(_ ptr: UnsafePointer<Float>, count: Int) -> (low: Float, high: Float) {
-        if count <= percentileSampleCount {
-            var sample = [Float](repeating: 0, count: count)
-            memcpy(&sample, ptr, count * MemoryLayout<Float>.stride)
-            vDSP.sort(&sample, sortOrder: .ascending)
-            return (sample[Int(Float(count) * 0.001)], sample[Int(Float(count - 1) * 0.999)])
-        }
-
-        let stride = count / percentileSampleCount
-        var sample = [Float](repeating: 0, count: percentileSampleCount)
-        for i in 0..<percentileSampleCount {
-            sample[i] = ptr[i * stride]
+        guard count > 0 else { return (0, 1) }
+        let sampleStride = max(1, count / percentileSampleCount)
+        var sample = [Float]()
+        sample.reserveCapacity(min(count, percentileSampleCount))
+        var i = 0
+        while i < count {
+            sample.append(ptr[i])
+            i += sampleStride
         }
         vDSP.sort(&sample, sortOrder: .ascending)
-        return (sample[Int(Float(percentileSampleCount) * 0.001)], sample[Int(Float(percentileSampleCount - 1) * 0.999)])
+        let n = sample.count
+        let lo = sample[Int(Float(n) * 0.001)]
+        let hi = sample[Int(Float(n - 1) * 0.999)]
+        return (lo, hi > lo ? hi : lo + 1)
     }
 
     /// Estimate from an array (for fallback path)
