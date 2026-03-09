@@ -258,7 +258,7 @@
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 37;
+				CURRENT_PROJECT_VERSION = 38;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -282,7 +282,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 1.11.2;
+				MARKETING_VERSION = 1.11.3;
 				PRODUCT_BUNDLE_IDENTIFIER = "legeglazen.nl.Simple-Claude-fits-viewer";
 				PRODUCT_NAME = "Claude FITS Viewer";
 				REGISTER_APP_GROUPS = YES;
@@ -303,7 +303,7 @@
 				"CODE_SIGN_ENTITLEMENTS[sdk=*]" = "Claude fits viewer/Claude fits viewer.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 37;
+				CURRENT_PROJECT_VERSION = 38;
 				DEVELOPMENT_TEAM = 6GBJ9SAJ6Y;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -327,7 +327,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 1.11.2;
+				MARKETING_VERSION = 1.11.3;
 				PRODUCT_BUNDLE_IDENTIFIER = "legeglazen.nl.Simple-Claude-fits-viewer";
 				PRODUCT_NAME = "Claude FITS Viewer";
 				REGISTER_APP_GROUPS = YES;
