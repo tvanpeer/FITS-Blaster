@@ -89,7 +89,7 @@ struct SessionChartView: View {
         guard !selectedFolderPaths.isEmpty, store.isMultiFolder else {
             return store.entries
         }
-        return store.entries.filter { selectedFolderPaths.contains($0.subfolderPath) }
+        return store.entries.filter { selectedFolderPaths.contains($0.qualifiedFolderPath) }
     }
 
     /// All frames that have at least a partial metric value for the active metric,

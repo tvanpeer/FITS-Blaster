@@ -113,6 +113,19 @@ final class ImageEntry: Identifiable {
     /// Example: "Ha" for `root/Ha/frame.fits`, "Lights/Ha" for deeper nesting.
     var subfolderPath: String = ""
 
+    /// Display name of the root folder this entry was loaded from.
+    /// Used to disambiguate identically-named subfolders across different root folders.
+    var rootFolderName: String = ""
+
+    /// Fully qualified folder path combining root folder name and subfolder path.
+    /// Used as the grouping key in sidebar and chart to prevent name collisions
+    /// when multiple root folders contain subfolders with the same name.
+    var qualifiedFolderPath: String {
+        if rootFolderName.isEmpty { return subfolderPath }
+        if subfolderPath.isEmpty  { return rootFolderName }
+        return "\(rootFolderName)/\(subfolderPath)"
+    }
+
     init(url: URL, directoryBookmark: Data? = nil) {
         self.url = url
         self.originalURL = url
@@ -125,7 +138,10 @@ final class ImageEntry: Identifiable {
 
 /// One subfolder's worth of entries, pre-grouped by filter for sidebar rendering.
 struct FolderGroup: Identifiable {
-    /// Relative path from the opened root — empty string for root-level files.
+    /// Display name of the root folder this group belongs to.
+    let rootFolderName: String
+    /// Qualified path: "\(rootFolderName)/\(subfolderPath)", or just subfolderPath
+    /// when there is only one root folder. Used as the stable unique identifier.
     let folderPath: String
     /// Short name shown in section headers and folder pills.
     let folderDisplayName: String
@@ -172,6 +188,10 @@ final class ImageStore {
     /// Display name of the root folder most recently opened via the panel or drag-drop.
     /// Shown as the section header for root-level files in subfolder mode.
     private(set) var rootFolderName: String = ""
+
+    /// Root folder URLs that have been opened in this session.
+    /// Used to detect when the user opens the same directory a second time.
+    private var knownRootURLs: Set<URL> = []
 
     /// Sorted list of unique subfolder paths present across all loaded entries.
     /// Empty string ("") represents root-level files. Updated at batch boundaries.
@@ -305,7 +325,9 @@ final class ImageStore {
     }
 
     private func updateGroupedByFolderAndFilter() {
-        let byFolder = Dictionary(grouping: sortedEntries) { $0.subfolderPath }
+        // Group by qualifiedFolderPath so identically-named subfolders from different
+        // root folders are kept separate (e.g. "Session A/lights" vs "Session B/lights").
+        let byFolder = Dictionary(grouping: sortedEntries) { $0.qualifiedFolderPath }
         let allPaths = byFolder.keys.sorted { lhs, rhs in
             if lhs.isEmpty { return true }   // root-level files sort first
             if rhs.isEmpty { return false }
@@ -313,15 +335,29 @@ final class ImageStore {
         }
         activeFolderPaths = allPaths
 
-        groupedByFolderAndFilter = allPaths.compactMap { path in
-            guard let pathEntries = byFolder[path], !pathEntries.isEmpty else { return nil }
-            let displayName = path.isEmpty ? rootFolderName : path
+        let hasMultipleRoots = Set(sortedEntries.map { $0.rootFolderName }).count > 1
+
+        groupedByFolderAndFilter = allPaths.compactMap { qualifiedPath in
+            guard let pathEntries = byFolder[qualifiedPath], !pathEntries.isEmpty else { return nil }
+            let first = pathEntries[0]
+
+            // Build a display name that is unambiguous across multiple root folders.
+            let displayName: String
+            if hasMultipleRoots {
+                displayName = first.subfolderPath.isEmpty
+                    ? first.rootFolderName
+                    : "\(first.rootFolderName) / \(first.subfolderPath)"
+            } else {
+                displayName = first.subfolderPath.isEmpty ? rootFolderName : first.subfolderPath
+            }
+
             let byFilter = Dictionary(grouping: pathEntries) { $0.filterGroup }
             let filterGroups: [(FilterGroup, [ImageEntry])] = FilterGroup.allCases.compactMap { group in
                 guard let groupEntries = byFilter[group], !groupEntries.isEmpty else { return nil }
                 return (group, groupEntries)
             }
-            return FolderGroup(folderPath: path,
+            return FolderGroup(rootFolderName: first.rootFolderName,
+                               folderPath: qualifiedPath,
                                folderDisplayName: displayName,
                                filterGroups: filterGroups)
         }
@@ -368,6 +404,7 @@ final class ImageStore {
         activeFilterGroups = []
         cachedSortedEntries = []
         rootFolderName = ""
+        knownRootURLs = []
         activeFolderPaths = []
         groupedByFolderAndFilter = []
     }
@@ -701,8 +738,20 @@ final class ImageStore {
             return
         }
 
+        // Warn the user if this directory has already been loaded in this session.
+        if knownRootURLs.contains(folderURL) {
+            let alert = NSAlert()
+            alert.messageText = "Folder Already Loaded"
+            alert.informativeText = "\"\(folderURL.lastPathComponent)\" is already in your session. Any duplicate files will be skipped automatically."
+            alert.addButton(withTitle: "Open Anyway")
+            alert.addButton(withTitle: "Cancel")
+            guard alert.runModal() == .alertFirstButtonReturn else { return }
+        }
+        knownRootURLs.insert(folderURL)
+
         rootFolderName = folderURL.lastPathComponent
-        openFiles(collected, directoryBookmark: dirBookmark,
+        openFiles(collected, rootFolderName: folderURL.lastPathComponent,
+                  directoryBookmark: dirBookmark,
                   maxDisplaySize: settings.maxDisplaySize,
                   maxThumbnailSize: settings.maxThumbnailSize,
                   metricsConfig: settings.effectiveMetricsConfig,
@@ -752,9 +801,20 @@ final class ImageStore {
                 relativeTo: nil)
         }
 
-        if let name = singleDroppedFolderName { rootFolderName = name }
+        let folderRootName = singleDroppedFolderName ?? ""
+        if !folderRootName.isEmpty { rootFolderName = folderRootName }
 
-        openFiles(collected, directoryBookmark: dirBookmark,
+        // Track dropped folder URLs so we can detect if the same folder is dropped again.
+        for url in urls {
+            var isDir: ObjCBool = false
+            if FileManager.default.fileExists(atPath: url.path(percentEncoded: false), isDirectory: &isDir),
+               isDir.boolValue {
+                knownRootURLs.insert(url)
+            }
+        }
+
+        openFiles(collected, rootFolderName: folderRootName,
+                  directoryBookmark: dirBookmark,
                   maxDisplaySize: settings.maxDisplaySize,
                   maxThumbnailSize: settings.maxThumbnailSize,
                   metricsConfig: settings.effectiveMetricsConfig,
@@ -798,11 +858,12 @@ final class ImageStore {
     // MARK: - Loading
 
     /// Convenience wrapper for callers that provide a flat list without subfolder info.
-    func openFiles(_ urls: [URL], directoryBookmark: Data? = nil,
+    func openFiles(_ urls: [URL], rootFolderName: String = "", directoryBookmark: Data? = nil,
                    maxDisplaySize: Int = 1024, maxThumbnailSize: Int = 120,
                    metricsConfig: MetricsConfig = MetricsConfig(),
                    debayerColorImages: Bool = false) {
         openFiles(urls.map { (url: $0, subfolderPath: "") },
+                  rootFolderName: rootFolderName,
                   directoryBookmark: directoryBookmark,
                   maxDisplaySize: maxDisplaySize,
                   maxThumbnailSize: maxThumbnailSize,
@@ -811,17 +872,24 @@ final class ImageStore {
     }
 
     func openFiles(_ urlsWithPaths: [(url: URL, subfolderPath: String)],
+                   rootFolderName: String = "",
                    directoryBookmark: Data? = nil,
                    maxDisplaySize: Int = 1024, maxThumbnailSize: Int = 120,
                    metricsConfig: MetricsConfig = MetricsConfig(),
                    debayerColorImages: Bool = false) {
         let selectFirst = (selectedEntry == nil)
 
+        // Build a set of already-loaded URLs so we can skip duplicates.
+        let existingURLs = Set(entries.map { $0.originalURL })
+
         var newEntries: [ImageEntry] = []
         var skippedFloat: [String] = []
+        var skippedDuplicates = 0
         for item in urlsWithPaths {
             let url = item.url
             guard ["fits", "fit", "fts"].contains(url.pathExtension.lowercased()) else { continue }
+            // Skip files already present in the session.
+            if existingURLs.contains(url) { skippedDuplicates += 1; continue }
             // Skip float FITS files (BITPIX < 0) before creating an entry so they
             // never appear in the sidebar even briefly.
             if let bitpix = FITSReader.peekBitpix(url: url), ![8, 16, 32].contains(bitpix) {
@@ -830,6 +898,7 @@ final class ImageStore {
             }
             let entry = ImageEntry(url: url, directoryBookmark: directoryBookmark)
             entry.subfolderPath = item.subfolderPath
+            entry.rootFolderName = rootFolderName
             entries.append(entry)
             newEntries.append(entry)
         }
@@ -1206,8 +1275,10 @@ final class ImageStore {
         recolouringMessage = "Rendering colour…"
         defer { recolouringMessage = nil }
 
-        // Group by subfolder so each folder gets its own median stretch
-        let folderGroups = Dictionary(grouping: bayerEntries, by: \.subfolderPath)
+        // Group by qualifiedFolderPath so each root+subfolder combination gets its own
+        // median stretch — prevents cross-root colour normalisation when multiple root
+        // folders contain identically-named subfolders.
+        let folderGroups = Dictionary(grouping: bayerEntries, by: \.qualifiedFolderPath)
 
         let concurrency = max(4, ProcessInfo.processInfo.activeProcessorCount - 2)
 
