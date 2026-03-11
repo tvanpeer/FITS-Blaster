@@ -212,30 +212,27 @@ struct SessionChartView: View {
     // MARK: - Folder strip
 
     private var folderStrip: some View {
-        ScrollView(.horizontal) {
-            HStack(spacing: 4) {
-                FilterChip(label: "All", color: .accentColor,
-                           isSelected: selectedFolderPaths.isEmpty) {
-                    selectedFolderPaths = []
-                }
-                ForEach(store.activeFolderPaths, id: \.self) { path in
-                    let displayName = store.groupedByFolderAndFilter
-                        .first { $0.folderPath == path }?.folderDisplayName ?? path
-                    FilterChip(label: displayName.isEmpty ? "Root" : displayName,
-                               color: .accentColor,
-                               isSelected: selectedFolderPaths.contains(path)) {
-                        if selectedFolderPaths.contains(path) {
-                            selectedFolderPaths.remove(path)
-                        } else {
-                            selectedFolderPaths.insert(path)
-                        }
+        WrappingChips(spacing: 4) {
+            FilterChip(label: "All", color: .accentColor,
+                       isSelected: selectedFolderPaths.isEmpty) {
+                selectedFolderPaths = []
+            }
+            ForEach(store.activeFolderPaths, id: \.self) { path in
+                let displayName = store.groupedByFolderAndFilter
+                    .first { $0.folderPath == path }?.folderDisplayName ?? path
+                FilterChip(label: displayName.isEmpty ? "Root" : displayName,
+                           color: .accentColor,
+                           isSelected: selectedFolderPaths.contains(path)) {
+                    if selectedFolderPaths.contains(path) {
+                        selectedFolderPaths.remove(path)
+                    } else {
+                        selectedFolderPaths.insert(path)
                     }
                 }
             }
-            .padding(.horizontal)
-            .padding(.vertical, 4)
         }
-        .scrollIndicators(.hidden)
+        .padding(.horizontal)
+        .padding(.vertical, 4)
     }
 
     // MARK: - Placeholder
@@ -264,11 +261,6 @@ struct SessionChartView: View {
                 RuleMark(y: .value("Median", item.median))
                     .foregroundStyle(item.group.color.opacity(0.40))
                     .lineStyle(StrokeStyle(lineWidth: 1, dash: [5, 4]))
-                    .annotation(position: .trailing, alignment: .center) {
-                        Text(item.group.rawValue)
-                            .font(.system(size: 7))
-                            .foregroundStyle(item.group.color.opacity(0.70))
-                    }
             }
 
             // One dot per frame
@@ -294,6 +286,7 @@ struct SessionChartView: View {
                 }
             }
         }
+        .chartXScale(domain: 1...max(1, chartPoints.count))
         .chartYScale(domain: yAxisDomain)
         .chartYAxis {
             AxisMarks(values: .automatic(desiredCount: 4)) { _ in

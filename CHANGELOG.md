@@ -4,6 +4,15 @@ All notable changes to Simple Claude FITS Viewer are recorded here.
 
 ---
 
+## 2026-03-11 — Session chart layout fixes (v1.11.5)
+
+### Fixed
+- **Folder pills wrap** instead of overflowing when many folders are loaded — uses a new `WrappingChips` flow layout.
+- **Empty space to the right of the chart** removed — median `RuleMark` trailing annotations were reserving a right-side margin; they are now omitted (the colour legend in the header already identifies each group).
+- **X axis no longer rounds up** — chart domain is now constrained to exactly the number of loaded frames, eliminating the gap at the right edge.
+
+---
+
 ## 2026-03-11 — Fix duplicate entries and subfolder name collisions (v1.11.4)
 
 ### Fixed
