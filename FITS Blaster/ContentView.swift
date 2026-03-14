@@ -11,6 +11,7 @@ import UniformTypeIdentifiers
 struct ContentView: View {
     @Environment(ImageStore.self) private var store
     @Environment(AppSettings.self) private var settings
+    @Environment(PurchaseManager.self) private var purchases
 
     @State private var hostingWindow: NSWindow?
     @State private var isDragTarget = false
@@ -52,6 +53,8 @@ struct ContentView: View {
         ))
         .focusedSceneValue(\.toggleModeKeyString, settings.toggleModeKey)
         .focusedSceneValue(\.debayerKeyString, settings.debayerKey)
+        .focusedSceneValue(\.openFolderAction) { store.openFolderPanel(settings: settings) }
+        .focusedSceneValue(\.openFilesAction)  { store.openFilesPanel(settings: settings) }
         .frame(minWidth: minWindowWidth, minHeight: 400)
         .environment(\.fontSizeMultiplier, settings.fontSizeMultiplier)
         .preferredColorScheme(settings.preferredColorScheme)
@@ -95,6 +98,13 @@ struct ContentView: View {
             Button("OK") { store.errorMessage = nil }
         } message: {
             Text(store.errorMessage ?? "")
+        }
+        .sheet(isPresented: Binding(
+            get: { store.hitFrameLimit },
+            set: { if !$0 { store.hitFrameLimit = false } }
+        )) {
+            PaywallView()
+                .environment(purchases)
         }
         .onAppear { installKeyMonitor() }
         .onDisappear { removeKeyMonitor() }
@@ -701,10 +711,10 @@ struct MainContent: View {
                     .font(.largeTitle)
                     .imageScale(.large)
                     .foregroundStyle(.tertiary)
-                Text("Open a folder of FITS files to view them")
+                Text("Ready to Blast through your frames?")
                     .font(.title3)
                     .foregroundStyle(.secondary)
-                Text("Use the button above or \u{2318}O")
+                Text("Open a folder with \u{2318}O or drag it onto the window")
                     .scaledFont(size: 10)
                     .foregroundStyle(.tertiary)
             }

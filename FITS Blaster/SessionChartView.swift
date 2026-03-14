@@ -240,7 +240,7 @@ struct SessionChartView: View {
     private var placeholder: some View {
         let message: String
         if store.entries.isEmpty {
-            message = "Open a folder of FITS files to see the session chart"
+            message = "Open a folder with ⌘O to Blast through your session"
         } else if store.isBatchProcessing {
             message = "Computing metrics…"
         } else {

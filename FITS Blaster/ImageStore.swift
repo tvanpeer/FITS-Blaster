@@ -164,6 +164,13 @@ struct FolderGroup: Identifiable {
 final class ImageStore {
     var entries: [ImageEntry] = []
     var selectedEntry: ImageEntry?
+
+    /// Set to `true` by `PurchaseManager` when an active subscription is verified.
+    var isUnlocked: Bool = false
+
+    /// Set to `true` when a load attempt is capped by the free-tier frame limit.
+    /// Observed by `ContentView` to present the paywall sheet.
+    var hitFrameLimit: Bool = false
     /// IDs of all entries in the multi-selection. When this contains more than
     /// one entry, reject/undo operations apply to the whole set.
     var selectedEntryIDs: Set<UUID> = []
@@ -882,21 +889,32 @@ final class ImageStore {
         // Build a set of already-loaded URLs so we can skip duplicates.
         let existingURLs = Set(entries.map { $0.originalURL })
 
-        var newEntries: [ImageEntry] = []
+        // Collect all valid, non-duplicate candidates before applying the free-tier cap.
+        let freeLimit = 50
+        var validItems: [(url: URL, subfolderPath: String)] = []
         var skippedFloat: [String] = []
         var skippedDuplicates = 0
         for item in urlsWithPaths {
             let url = item.url
             guard ["fits", "fit", "fts"].contains(url.pathExtension.lowercased()) else { continue }
-            // Skip files already present in the session.
             if existingURLs.contains(url) { skippedDuplicates += 1; continue }
-            // Skip float FITS files (BITPIX < 0) before creating an entry so they
-            // never appear in the sidebar even briefly.
             if let bitpix = FITSReader.peekBitpix(url: url), ![8, 16, 32].contains(bitpix) {
                 skippedFloat.append(url.lastPathComponent)
                 continue
             }
-            let entry = ImageEntry(url: url, directoryBookmark: directoryBookmark)
+            validItems.append(item)
+        }
+
+        // Apply free-tier frame cap.
+        let remaining = isUnlocked ? Int.max : max(0, freeLimit - entries.count)
+        if !isUnlocked && validItems.count > remaining {
+            hitFrameLimit = true
+        }
+        let itemsToLoad = isUnlocked ? validItems : Array(validItems.prefix(remaining))
+
+        var newEntries: [ImageEntry] = []
+        for item in itemsToLoad {
+            let entry = ImageEntry(url: item.url, directoryBookmark: directoryBookmark)
             entry.subfolderPath = item.subfolderPath
             entry.rootFolderName = rootFolderName
             entries.append(entry)

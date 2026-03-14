@@ -5,6 +5,7 @@
 //  Created by Tom van Peer on 01/03/2026.
 //
 
+import StoreKit
 import SwiftUI
 
 // MARK: - Settings root
@@ -20,9 +21,72 @@ struct SettingsView: View {
                 .tabItem { Label("Image Display", systemImage: "photo") }
             FilesAndFoldersTab()
                 .tabItem { Label("Files & Folders", systemImage: "folder") }
+            SubscriptionTab()
+                .tabItem { Label("Subscription", systemImage: "star.circle") }
         }
         .frame(width: 500, height: 540)
         .environment(\.fontSizeMultiplier, settings.fontSizeMultiplier)
+    }
+}
+
+// MARK: - Subscription tab
+
+struct SubscriptionTab: View {
+    @Environment(PurchaseManager.self) private var purchases
+
+    var body: some View {
+        Form {
+            Section("Status") {
+                LabeledContent("Plan") {
+                    Text(purchases.isUnlocked ? "FITS Blaster Pro" : "Free (50 frames)")
+                        .foregroundStyle(purchases.isUnlocked ? .primary : .secondary)
+                }
+                if purchases.isUnlocked {
+                    LabeledContent("Renewal period") {
+                        Text("Annual")
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+
+            if !purchases.isUnlocked {
+                Section {
+                    Button("Subscribe — \(purchases.product?.displayPrice ?? "…") / year") {
+                        Task { await purchases.purchase() }
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(purchases.product == nil || purchases.isPurchasing)
+                }
+            }
+
+            Section {
+                Button("Restore Purchases") {
+                    Task { await purchases.restorePurchases() }
+                }
+                .disabled(purchases.isPurchasing)
+
+                Button("Manage Subscription…") {
+                    if let url = URL(string: "itms-apps://apps.apple.com/account/subscriptions") {
+                        NSWorkspace.shared.open(url)
+                    }
+                }
+            }
+
+            if let error = purchases.errorMessage {
+                Section {
+                    Text(error)
+                        .foregroundStyle(.red)
+                        .scaledFont(size: 11)
+                }
+            }
+        }
+        .formStyle(.grouped)
+        .disabled(purchases.isPurchasing)
+        .overlay {
+            if purchases.isPurchasing {
+                ProgressView()
+            }
+        }
     }
 }
 

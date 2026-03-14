@@ -41,6 +41,7 @@ struct FitsBlasterApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @State private var settings = AppSettings()
     @State private var store = ImageStore()
+    @State private var purchases = PurchaseManager()
 
     var body: some Scene {
         WindowGroup {
@@ -50,13 +51,21 @@ struct FitsBlasterApp: App {
                         store.openDroppedItems(urls, settings: settings)
                     }
                 }
+                .task { await purchases.load() }
+                .onChange(of: purchases.isUnlocked) { _, unlocked in
+                    store.isUnlocked = unlocked
+                }
         }
         .defaultSize(width: 900, height: 700)
         .environment(settings)
         .environment(store)
+        .environment(purchases)
         .environment(\.dynamicTypeSize, settings.dynamicTypeSize)
         .commands {
-            CommandGroup(after: .newItem) {
+            CommandGroup(replacing: .newItem) {
+                OpenFolderCommand()
+                OpenFilesCommand()
+                Divider()
                 SettingsMenuCommand()
             }
             CommandGroup(after: .sidebar) {
@@ -70,6 +79,7 @@ struct FitsBlasterApp: App {
             SettingsView()
                 .environment(settings)
                 .environment(store)
+                .environment(purchases)
                 .environment(\.dynamicTypeSize, settings.dynamicTypeSize)
         }
         .windowResizability(.contentSize)
@@ -101,6 +111,28 @@ private struct DebayerColourCommand: View {
         }
         .disabled(debayerColor == nil)
         .keyboardShortcut(equiv, modifiers: [])
+    }
+}
+
+/// Opens the folder panel via the File menu (⌘O).
+private struct OpenFolderCommand: View {
+    @FocusedValue(\.openFolderAction) var action
+
+    var body: some View {
+        Button("Open Folder…") { action?() }
+            .keyboardShortcut("o", modifiers: .command)
+            .disabled(action == nil)
+    }
+}
+
+/// Opens the files panel via the File menu (⌘⇧O).
+private struct OpenFilesCommand: View {
+    @FocusedValue(\.openFilesAction) var action
+
+    var body: some View {
+        Button("Open File(s)…") { action?() }
+            .keyboardShortcut("o", modifiers: [.command, .shift])
+            .disabled(action == nil)
     }
 }
 

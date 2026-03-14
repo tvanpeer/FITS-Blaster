@@ -254,6 +254,10 @@ extension FocusedValues {
     /// The raw key string for "Toggle Colour Images", so the View menu command can
     /// display the correct user-configured shortcut.
     @Entry var debayerKeyString: String? = nil
+
+    /// Actions for opening a folder or files, wired to the active window's ImageStore.
+    @Entry var openFolderAction: (() -> Void)? = nil
+    @Entry var openFilesAction: (() -> Void)? = nil
 }
 
 // MARK: - AppearanceMode

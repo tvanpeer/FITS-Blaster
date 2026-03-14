@@ -4,6 +4,20 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-03-14 — Freemium subscription & paywall (v1.12.0)
+
+### Added
+- Annual auto-renewable subscription (StoreKit 2) — `PurchaseManager` handles product loading, purchase flow, transaction listener, and receipt verification
+- Paywall sheet shown when the 50-frame free-tier limit is reached; dismissed automatically on successful purchase
+- Settings → Subscription tab: current plan status, subscribe button with live price, restore purchases, and manage subscription link
+- File menu: "Open Folder…" (⌘O) and "Open File(s)…" (⌘⇧O) commands wired to the active window via `FocusedValues`
+- Empty-state and chart placeholder copy updated to include the word "Blast"
+
+### Changed
+- Free tier capped at 50 frames per session; `isUnlocked` synced from `PurchaseManager` to `ImageStore`
+
+---
+
 ## 2026-03-14 — Rename to FITS Blaster, FWHM investigation (v1.11.6)
 
 ### Changed
