@@ -1,0 +1,14 @@
+# App Store / internal planning docs
+readiness.md
+privacy-policy.md
+
+# Xcode
+*.xcuserstate
+xcuserdata/
+*.xcworkspace/xcuserdata/
+
+# Duplicate project folder
+Simple Claude fits viewer.xcodeproj/
+
+# Claude Code settings
+.claude/settings.local.json
