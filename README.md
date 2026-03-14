@@ -1,4 +1,4 @@
-# Claude FITS Viewer
+# FITS Blaster
 
 A fast, native macOS app for culling FITS astronomical image files. Open a folder, navigate with the keyboard, reject bad frames, export a list of keepers.
 
@@ -27,4 +27,4 @@ A fast, native macOS app for culling FITS astronomical image files. Open a folde
 
 ## Build
 
-Open `Claude FITS viewer.xcodeproj` in Xcode and press ⌘R.
+Open `FITS Blaster.xcodeproj` in Xcode and press ⌘R.

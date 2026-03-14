@@ -11,7 +11,7 @@
 - [x] Enrol in the Apple Developer Program ($99/yr) at developer.apple.com
 - [x] Decide on a legal entity — personal / sole trader; name "Tom van Peer" will appear as Seller
 - [ ] Complete tax and banking setup in App Store Connect (required before IAP revenue can be received)
-- [ ] Choose a final app name (current name "Claude FITS Viewer" contains Anthropic's registered trademark — must change before submission)
+- [x] Choose a final app name — **FITS Blaster** (previous name "Claude FITS Viewer" contained Anthropic's registered trademark)
 - [x] Write a Privacy Policy — drafted in `privacy-policy.md`; needs final app name, support URL, and a home on the website before submission
 - [ ] Decide on support e-mail address — will create once domain is registered (section 8)
 

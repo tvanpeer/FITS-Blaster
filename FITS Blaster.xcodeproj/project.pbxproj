@@ -11,9 +11,9 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		65BA7E932F52EE16002B50D4 /* Claude FITS viewer */ = {
+		65BA7E932F52EE16002B50D4 /* FITS Blaster */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = "Claude FITS viewer";
+			path = "FITS Blaster";
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -32,7 +32,7 @@
 		65BA7E882F52EE16002B50D4 = {
 			isa = PBXGroup;
 			children = (
-				65BA7E932F52EE16002B50D4 /* Claude FITS viewer */,
+				65BA7E932F52EE16002B50D4 /* FITS Blaster */,
 				65BA7E922F52EE16002B50D4 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -61,7 +61,7 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				65BA7E932F52EE16002B50D4 /* Claude FITS viewer */,
+				65BA7E932F52EE16002B50D4 /* FITS Blaster */,
 			);
 			name = "FITS Blaster";
 			packageProductDependencies = (

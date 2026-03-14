@@ -1,6 +1,6 @@
 //
 //  FITSStretch.metal
-//  Simple Claude fits viewer
+//  FITS Blaster
 //
 //  Created by Tom van Peer on 28/02/2026.
 //

@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to Simple Claude FITS Viewer are recorded here.
+All notable changes to FITS Blaster are recorded here.
 
 ---
 
