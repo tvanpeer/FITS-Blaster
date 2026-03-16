@@ -171,6 +171,19 @@ final class ImageStore {
     /// Set to `true` when a load attempt is capped by the free-tier frame limit.
     /// Observed by `ContentView` to present the paywall sheet.
     var hitFrameLimit: Bool = false
+
+    // Parameters captured when a load is cut short by the free-tier cap,
+    // so they can be resumed automatically once the user subscribes.
+    private struct PendingLoad {
+        let items: [(url: URL, subfolderPath: String)]
+        let rootFolderName: String
+        let directoryBookmark: Data?
+        let maxDisplaySize: Int
+        let maxThumbnailSize: Int
+        let metricsConfig: MetricsConfig
+        let debayerColorImages: Bool
+    }
+    private var pendingLoad: PendingLoad?
     /// IDs of all entries in the multi-selection. When this contains more than
     /// one entry, reject/undo operations apply to the whole set.
     var selectedEntryIDs: Set<UUID> = []
@@ -414,6 +427,21 @@ final class ImageStore {
         knownRootURLs = []
         activeFolderPaths = []
         groupedByFolderAndFilter = []
+        pendingLoad = nil
+    }
+
+    /// Called after the user successfully subscribes. Loads any frames that were
+    /// held back by the free-tier cap during the previous `openFiles` call.
+    func loadPendingItems(settings: AppSettings) {
+        guard let pending = pendingLoad else { return }
+        pendingLoad = nil
+        openFiles(pending.items,
+                  rootFolderName: pending.rootFolderName,
+                  directoryBookmark: pending.directoryBookmark,
+                  maxDisplaySize: pending.maxDisplaySize,
+                  maxThumbnailSize: pending.maxThumbnailSize,
+                  metricsConfig: settings.effectiveMetricsConfig,
+                  debayerColorImages: pending.debayerColorImages)
     }
 
     // MARK: - Navigation
@@ -909,6 +937,15 @@ final class ImageStore {
         let remaining = isUnlocked ? Int.max : max(0, freeLimit - entries.count)
         if !isUnlocked && validItems.count > remaining {
             hitFrameLimit = true
+            // Stash the items that couldn't load so we can resume after subscribing.
+            pendingLoad = PendingLoad(
+                items: Array(validItems.dropFirst(remaining)),
+                rootFolderName: rootFolderName,
+                directoryBookmark: directoryBookmark,
+                maxDisplaySize: maxDisplaySize,
+                maxThumbnailSize: maxThumbnailSize,
+                metricsConfig: metricsConfig,
+                debayerColorImages: debayerColorImages)
         }
         let itemsToLoad = isUnlocked ? validItems : Array(validItems.prefix(remaining))
 

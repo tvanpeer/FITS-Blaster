@@ -54,6 +54,9 @@ struct FitsBlasterApp: App {
                 .task { await purchases.load() }
                 .onChange(of: purchases.isUnlocked) { _, unlocked in
                     store.isUnlocked = unlocked
+                    if unlocked {
+                        store.loadPendingItems(settings: settings)
+                    }
                 }
         }
         .defaultSize(width: 900, height: 700)
@@ -82,7 +85,6 @@ struct FitsBlasterApp: App {
                 .environment(purchases)
                 .environment(\.dynamicTypeSize, settings.dynamicTypeSize)
         }
-        .windowResizability(.contentSize)
     }
 }
 

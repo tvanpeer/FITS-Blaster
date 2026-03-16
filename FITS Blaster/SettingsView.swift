@@ -16,15 +16,15 @@ struct SettingsView: View {
     var body: some View {
         TabView {
             UISettingsTab()
-                .tabItem { Label("User Interface", systemImage: "keyboard") }
+                .tabItem { Label("Interface", systemImage: "keyboard") }
             ImageDisplayTab()
-                .tabItem { Label("Image Display", systemImage: "photo") }
+                .tabItem { Label("Display", systemImage: "photo") }
             FilesAndFoldersTab()
                 .tabItem { Label("Files & Folders", systemImage: "folder") }
             SubscriptionTab()
                 .tabItem { Label("Subscription", systemImage: "star.circle") }
         }
-        .frame(width: 500, height: 540)
+        .frame(minWidth: 580, minHeight: 400)
         .environment(\.fontSizeMultiplier, settings.fontSizeMultiplier)
     }
 }

@@ -83,7 +83,7 @@ final class AppSettings {
         didSet { UserDefaults.standard.set(isSimpleMode, forKey: "isSimpleMode") }
     }
 
-    var appearanceMode: AppearanceMode = .system {
+    var appearanceMode: AppearanceMode = .dark {
         didSet { UserDefaults.standard.set(appearanceMode.rawValue, forKey: "appearanceMode") }
     }
 
