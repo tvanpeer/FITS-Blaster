@@ -4,6 +4,17 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-03-16 — Post-subscribe auto-load & FAQ (v1.12.1)
+
+### Fixed
+- Remaining frames now load automatically after subscribing — no need to re-open the folder manually
+
+### Added
+- FAQ page on website (site/faq.html) with collapsible sections and jump navigation
+- Website favicon and Apple touch icon using the app icon
+
+---
+
 ## 2026-03-14 — Freemium subscription & paywall (v1.12.0)
 
 ### Added
