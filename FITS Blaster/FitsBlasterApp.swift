@@ -44,7 +44,7 @@ struct FitsBlasterApp: App {
     @State private var purchases = PurchaseManager()
 
     var body: some Scene {
-        WindowGroup {
+        WindowGroup(id: "main") {
             ContentView()
                 .onAppear {
                     appDelegate.openURLsHandler = { [store, settings] urls in
@@ -66,10 +66,16 @@ struct FitsBlasterApp: App {
         .environment(\.dynamicTypeSize, settings.dynamicTypeSize)
         .commands {
             CommandGroup(replacing: .newItem) {
+                MainWindowCommand()
+                Divider()
                 OpenFolderCommand()
                 OpenFilesCommand()
                 Divider()
                 SettingsMenuCommand()
+            }
+            CommandGroup(after: .windowArrangement) {
+                Divider()
+                CloseWindowCommand()
             }
             CommandGroup(after: .sidebar) {
                 Divider()
@@ -85,6 +91,37 @@ struct FitsBlasterApp: App {
                 .environment(purchases)
                 .environment(\.dynamicTypeSize, settings.dynamicTypeSize)
         }
+    }
+}
+
+/// Opens the main window (⌘N). If a main window is already open or miniaturised
+/// it is brought to the front rather than opening a second instance.
+private struct MainWindowCommand: View {
+    @Environment(\.openWindow) private var openWindow
+
+    var body: some View {
+        Button("Main Window") {
+            if let win = NSApp.windows.first(where: {
+                $0.identifier?.rawValue != "settings" && ($0.isVisible || $0.isMiniaturized)
+            }) {
+                win.deminiaturize(nil)
+                win.makeKeyAndOrderFront(nil)
+            } else {
+                openWindow(id: "main")
+            }
+        }
+        .keyboardShortcut("n", modifiers: .command)
+    }
+}
+
+/// Adds an explicit Close Window (⌘W) item. macOS provides this automatically,
+/// but making it visible in the menu satisfies App Review guidelines.
+private struct CloseWindowCommand: View {
+    var body: some View {
+        Button("Close Window") {
+            NSApp.keyWindow?.close()
+        }
+        .keyboardShortcut("w", modifiers: .command)
     }
 }
 

@@ -786,6 +786,7 @@ struct ThumbnailCell: View {
     let isSelected: Bool
     @Environment(ImageStore.self) private var store
     @Environment(AppSettings.self) private var settings
+    @AppStorage("sessionChartMetric") private var selectedMetric: ChartMetric = .score
 
     private var groupStats: GroupStats? {
         store.groupStatistics[entry.filterGroup]
@@ -820,6 +821,11 @@ struct ThumbnailCell: View {
                             .foregroundStyle(.secondary)
                     }
                     Spacer(minLength: 0)
+                    if let value = selectedMetric.value(for: entry.metrics) {
+                        Text("\(selectedMetric.shortLabel) \(selectedMetric.formattedValue(value))")
+                            .scaledFont(size: 9)
+                            .foregroundStyle(.secondary)
+                    }
                 }
             }
         }

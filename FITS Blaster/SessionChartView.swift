@@ -48,6 +48,29 @@ enum ChartMetric: String, CaseIterable, Identifiable {
         }
     }
 
+    /// Short label used when displaying the value alongside thumbnails.
+    var shortLabel: String {
+        switch self {
+        case .score:        return "Score"
+        case .fwhm:         return "FWHM"
+        case .eccentricity: return "Ecc"
+        case .snr:          return "SNR"
+        case .starCount:    return "Stars"
+        }
+    }
+
+    /// Formats a raw Double value for compact display next to a thumbnail.
+    func formattedValue(_ value: Double) -> String {
+        switch self {
+        case .score, .starCount:
+            return value.formatted(.number.precision(.fractionLength(0)))
+        case .fwhm, .snr:
+            return value.formatted(.number.precision(.fractionLength(1)))
+        case .eccentricity:
+            return value.formatted(.number.precision(.fractionLength(2)))
+        }
+    }
+
     /// True when a lower value represents a better frame (inverts threshold shading).
     var isLowerBetter: Bool {
         switch self {
@@ -87,9 +110,9 @@ struct SessionChartView: View {
     /// When no folders are selected (or only one folder exists), all entries are returned.
     private var chartEntries: [ImageEntry] {
         guard !selectedFolderPaths.isEmpty, store.isMultiFolder else {
-            return store.entries
+            return store.cachedSortedEntries
         }
-        return store.entries.filter { selectedFolderPaths.contains($0.qualifiedFolderPath) }
+        return store.cachedSortedEntries.filter { selectedFolderPaths.contains($0.qualifiedFolderPath) }
     }
 
     /// All frames that have at least a partial metric value for the active metric,

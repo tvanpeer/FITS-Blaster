@@ -4,6 +4,18 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-03-23 — Window commands, chart sorting & thumbnail metric (v1.12.2)
+
+### Added
+- File menu: Main Window (⌘N) — focuses the existing window or opens a new one if closed
+- Window menu: Close Window (⌘W) — explicit menu item alongside the built-in shortcut
+- Thumbnail cells now show the active chart metric value (e.g. "FWHM 4.2") in Geek mode
+
+### Changed
+- Session chart now follows the sidebar sort order — drag-to-reject selects contiguous worst/best frames when sorted by a metric
+
+---
+
 ## 2026-03-16 — Post-subscribe auto-load & FAQ (v1.12.1)
 
 ### Fixed
