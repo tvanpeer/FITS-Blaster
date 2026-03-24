@@ -1147,35 +1147,33 @@ final class ImageStore {
 
     /// Two-phase pipeline per image:
     ///
-    /// **Phase A** — I/O + GPU stretch (fast, ~100–300 ms): image becomes visible
-    /// immediately after the file is read and stretched. The Metal buffer is kept
-    /// alive in `FastLoadResult` so Phase B can read from it without a second disk hit.
+    /// **Phase A** — I/O + GPU stretch + crop extraction (~100–300 ms total):
+    /// image becomes visible immediately. Star crops are extracted from the
+    /// MTLBuffer before it is released, so no second file read is needed.
     ///
-    /// **Phase B** — quality metrics (slower, runs after Phase A returns): star
-    /// detection + shape measurement computed from the already-loaded buffer.
-    /// The user sees the image while metrics are being computed in the background.
+    /// **Phase B** — GPU star-detection + Moffat fitting: runs in a detached
+    /// task using the retained MTLBuffer. Concurrency is bounded by
+    /// `phaseBSemaphore` (acquired in the group task after Phase A, before
+    /// the slot is freed), keeping live MTLBuffer count and memory predictable.
     private func processParallel(_ entriesToProcess: [ImageEntry], selectFirst: Bool,
                                   maxDisplaySize: Int = 1024, maxThumbnailSize: Int = 120,
                                   metricsConfig: MetricsConfig = MetricsConfig(),
                                   debayerColorImages: Bool = false) async {
 
-        // Each slot holds a live MTLBuffer (~80 MB) for the duration of Phase A + B, so
-        // bound concurrency to avoid memory pressure while still pipelining across all cores.
-        let concurrency = max(4, ProcessInfo.processInfo.activeProcessorCount - 2)
+        // Phase A: high I/O concurrency keeps the SSD pipeline full.
+        // Phase B: bounded separately to prevent CPU/memory over-subscription.
+        let ioConcurrency   = max(8, ProcessInfo.processInfo.activeProcessorCount)
+        let phaseBSemaphore = AsyncSemaphore(count: max(4, ProcessInfo.processInfo.activeProcessorCount - 2))
+        var phaseBTasks: [Task<Void, Never>] = []
 
-        // Task group returns (entry, metrics) so Phase B results are applied
-        // directly on the main actor in the collection loop — no second
-        // MainActor.run hop, halving the number of SwiftUI render triggers.
-        await withTaskGroup(of: (ImageEntry, FrameMetrics?).self) { group in
+        await withTaskGroup(of: (ImageEntry, Task<Void, Never>?).self) { group in
             var activeCount = 0
             for entry in entriesToProcess {
-                // Stop queueing new work if the batch was cancelled.
                 if Task.isCancelled { break }
 
-                if activeCount >= concurrency {
-                    if let (e, m) = await group.next() {
-                        e.metrics       = m
-                        e.cachedMetrics = m
+                if activeCount >= ioConcurrency {
+                    if let (_, phaseB) = await group.next() {
+                        if let t = phaseB { phaseBTasks.append(t) }
                     }
                     activeCount -= 1
                 }
@@ -1195,8 +1193,6 @@ final class ImageStore {
                         entry.headers      = fast.headers
                         entry.bayerClips   = fast.bayerClips
                         // Pre-populate the greyscale cache so any toggle to grey is instant.
-                        // loadFast always produces a greyscale render regardless of debayerColorImages,
-                        // so this is free — the image is already computed and on screen.
                         if BayerPattern.parse(from: fast.headers) != nil {
                             entry.cachedGreyscaleDisplay = fast.display
                             entry.cachedGreyscaleThumb   = fast.thumb
@@ -1208,36 +1204,47 @@ final class ImageStore {
                         }
                     }
 
-                    // ── Phase B: quality metrics ──────────────────────────────
-                    // Reuses the Metal buffer from Phase A (no second file read).
-                    // Falls back to loadMetricsOnly only when Metal was unavailable.
-                    let metrics: FrameMetrics?
-                    if let buffer = fast.metalBuffer, let device = fast.metalDevice {
-                        metrics = await MetricsCalculator.compute(
-                            metalBuffer: buffer, device: device,
-                            width: fast.width, height: fast.height,
-                            config: metricsConfig)
-                    } else if metricsConfig.needsStarDetection {
-                        metrics = await Self.loadMetricsOnly(url: url, config: metricsConfig)
-                    } else {
-                        metrics = nil
-                    }
+                    // ── Phase B: GPU detection + Moffat fitting ───────────────
+                    // Acquire a Phase B slot before spawning the detached task.
+                    // This bounds the number of live MTLBuffers to phaseBSemaphore.count
+                    // while still freeing this group slot immediately after.
+                    guard metricsConfig.needsStarDetection else { return (entry, nil) }
+                    await phaseBSemaphore.wait()
+                    let phaseB = Task(priority: .utility) {
+                        defer { Task { await phaseBSemaphore.signal() } }
 
-                    return (entry, metrics)
+                        let metrics: FrameMetrics?
+                        if let buffer = fast.metalBuffer, let device = fast.metalDevice {
+                            metrics = await MetricsCalculator.compute(
+                                metalBuffer: buffer, device: device,
+                                width: fast.width, height: fast.height, config: metricsConfig)
+                        } else {
+                            // CPU fallback: Metal was unavailable during Phase A.
+                            metrics = await Self.loadMetricsOnly(url: url, config: metricsConfig)
+                        }
+                        await MainActor.run {
+                            entry.metrics       = metrics
+                            entry.cachedMetrics = metrics
+                        }
+                    }
+                    return (entry, phaseB)
                 }
                 activeCount += 1
             }
-            // Drain remaining tasks, applying metrics on the main actor directly.
-            for await (e, m) in group {
-                e.metrics       = m
-                e.cachedMetrics = m
+            for await (_, phaseB) in group {
+                if let t = phaseB { phaseBTasks.append(t) }
             }
+        }
+
+        // Wait for all Phase B tasks. On cancellation, break early — queued
+        // tasks will complete in the background and harmlessly update entries.
+        for task in phaseBTasks {
+            if Task.isCancelled { break }
+            await task.value
         }
 
         updateGroupStatistics()
 
-        // After the full batch is loaded, re-render Bayer images in colour using
-        // per-folder median clip bounds so all frames share a consistent stretch.
         if !Task.isCancelled, debayerColorImages {
             await normalizeBayerStretch(entriesToProcess,
                                         maxDisplaySize: maxDisplaySize,
@@ -1437,8 +1444,8 @@ final class ImageStore {
     /// Phase A of the loading pipeline: read the FITS file, compute the histogram,
     /// and GPU-stretch to produce the display image and thumbnail.
     ///
-    /// Does NOT compute quality metrics — those run in Phase B from the returned
-    /// Metal buffer, keeping the two phases independent.
+    /// The returned `FastLoadResult.metalBuffer` is retained so Phase B can run
+    /// GPU star-detection on the same buffer without a second file read.
     private nonisolated static func loadFast(url: URL,
                                               maxDisplaySize: Int = 1024,
                                               maxThumbnailSize: Int = 120,
@@ -1471,6 +1478,7 @@ final class ImageStore {
             }
 
             let thumb = display.flatMap { ImageStretcher.createThumbnail(from: $0, maxSize: maxThumbnailSize) }
+            // metalBuffer is retained in FastLoadResult so Phase B can use it.
             return FastLoadResult(
                 display: display, thumb: thumb,
                 info: "\(meta.width) × \(meta.height)  |  BITPIX: \(meta.bitpix)",
@@ -1494,12 +1502,14 @@ final class ImageStore {
             let thumb = display.flatMap { ImageStretcher.createThumbnail(from: $0, maxSize: maxThumbnailSize) }
             return FastLoadResult(display: display, thumb: thumb, info: info, error: nil,
                                   histogram: histogram, headers: headers,
-                                  metalBuffer: nil, metalDevice: nil, width: w, height: h, bitpix: fits.bitpix,
+                                  metalBuffer: nil, metalDevice: nil,
+                                  width: w, height: h, bitpix: fits.bitpix,
                                   bayerClips: nil)
         } catch {
             return FastLoadResult(display: nil, thumb: nil, info: "", error: error.localizedDescription,
                                   histogram: nil, headers: [:],
-                                  metalBuffer: nil, metalDevice: nil, width: 0, height: 0, bitpix: 0,
+                                  metalBuffer: nil, metalDevice: nil,
+                                  width: 0, height: 0, bitpix: 0,
                                   bayerClips: nil)
         }
     }
@@ -1514,17 +1524,46 @@ private struct FastLoadResult {
     let error:       String?
     let histogram:   [Int]?
     let headers:     [String: String]
-    /// Raw FITS float pixels — kept alive so Phase B (metrics) can read them
-    /// without a second file read. `nil` when the CPU fallback was used.
+    /// Raw FITS float pixels in a Metal shared buffer. Passed to Phase B so
+    /// GPU detection and Moffat fitting can run without a second file read.
+    /// Released when the Phase B task ends. `nil` when the CPU fallback path
+    /// was used (Metal unavailable).
     let metalBuffer: MTLBuffer?
     let metalDevice: MTLDevice?
     let width:       Int
     let height:      Int
-    /// Original FITS BITPIX value — forwarded to MetricsCalculator so it can
-    /// skip NMS for integer images (BITPIX > 0) where it is not needed.
+    /// Original FITS BITPIX value.
     let bitpix:      Int
     /// Per-channel Bayer clip bounds computed during the grey-pass.
     /// `nil` for non-Bayer images or when `debayerColorImages` is false.
     let bayerClips:  BayerClips?
+}
+
+// MARK: - AsyncSemaphore
+
+/// Async-friendly counting semaphore. Callers that exceed the concurrency cap
+/// are suspended and resumed in FIFO order as earlier callers call `signal()`.
+private actor AsyncSemaphore {
+    private var count: Int
+    private var waiters: [CheckedContinuation<Void, Never>] = []
+
+    init(count: Int) { self.count = count }
+
+    func wait() async {
+        if count > 0 {
+            count -= 1
+        } else {
+            await withCheckedContinuation { waiters.append($0) }
+        }
+    }
+
+    func signal() {
+        if let waiter = waiters.first {
+            waiters.removeFirst()
+            waiter.resume()
+        } else {
+            count += 1
+        }
+    }
 }
 

@@ -617,6 +617,15 @@ struct FITSToolbar: View {
             }
             .disabled(store.entries.isEmpty)
 
+            Button(settings.debayerColorImages ? "Colour" : "Grey") {
+                settings.debayerColorImages.toggle()
+            }
+
+            Button("Cancel") {
+                store.cancelProcessing()
+            }
+            .disabled(!store.isBatchProcessing)
+
             if store.selectedEntryIDs.count > 1 {
                 Divider().frame(height: 20)
                 Text("\(store.selectedEntryIDs.count) selected")

@@ -48,6 +48,12 @@ struct MetricsCalculator {
     /// Must match MAX_DETECTION_CANDIDATES in FITSStretch.metal.
     private static let maxDetectionCandidates = Constants.maxDetectionCandidates
 
+    /// Half-width of the pixel crop extracted around each star candidate.
+    /// 12 → 25×25 crop; covers the ±10-px Moffat fit window plus the ±2-px
+    /// centroid window, with one pixel to spare for bilinear interpolation.
+    private static let cropHalf = 12
+    private static let cropSide = 2 * cropHalf + 1
+
     // Pipeline state is created once per process and reused for every image.
     // MTLCreateSystemDefaultDevice() is idempotent — it always returns the same
     // device object, so the buffer created by ImageStretcher (also using the
@@ -69,6 +75,32 @@ struct MetricsCalculator {
               let function = library.makeFunction(name: "detectLocalMaxima") else { return nil }
         return try? device.makeComputePipelineState(function: function)
     }()
+
+    // MARK: - Crop-based public types
+
+    /// All data Phase B needs to measure a single star candidate.
+    /// Extracted from the full-resolution MTLBuffer while it is still alive;
+    /// the buffer can be released as soon as all crops are captured.
+    struct StarMeasurementCandidate: Sendable {
+        let x:        Int
+        let y:        Int
+        let peak:     Float
+        /// (2*cropHalf+1)² pixel crop, row-major, star centre at (cropHalf, cropHalf).
+        let crop:     [Float]
+        let cropHalf: Int
+    }
+
+    /// Output of the Phase A star-detection step. Holds no MTLBuffer reference —
+    /// only small pixel crops — so it is safe to retain across buffer deallocation.
+    struct StarDetectionData: Sendable {
+        let background:      Float
+        let sigma:           Float
+        /// Top ≤200 brightest candidates, used for FWHM / eccentricity / SNR.
+        let shapeCandidates: [StarMeasurementCandidate]
+        /// Next ≤5800 candidates used only for the fast star-count pass.
+        let countCandidates: [StarMeasurementCandidate]
+        let totalFound:      Int
+    }
 
     // MARK: - Public entry points
 
@@ -139,6 +171,154 @@ struct MetricsCalculator {
         guard config.needsStarDetection, count > 0 else { return nil }
         let pixels = UnsafeBufferPointer(start: ptr, count: count)
         return await computeImpl(pixels: pixels, width: width, height: height, config: config)
+    }
+
+    // MARK: - Crop-based Phase A / Phase B entry points
+
+    /// Phase A: detect stars and extract pixel crops from the live MTLBuffer.
+    /// Returns `StarDetectionData` whose crops carry all pixel data needed for
+    /// Phase B shape measurement. The MTLBuffer may be released immediately after
+    /// this method returns — no buffer pointer is retained in the result.
+    static func extractStarData(metalBuffer: MTLBuffer, width: Int, height: Int,
+                                 config: MetricsConfig) async -> StarDetectionData? {
+        guard config.needsStarDetection else { return nil }
+        let count = width * height
+        guard count > 0 else { return nil }
+
+        let floatPtr = metalBuffer.contents().assumingMemoryBound(to: Float.self)
+        let pixels   = UnsafeBufferPointer(start: floatPtr, count: count)
+
+        let (background, sigma) = estimateBackground(pixels, width: width, height: height)
+        let threshold = background + 5 * sigma
+
+        let allCandidates: [StarCandidate]
+        let totalFound: Int
+        if let result = await findLocalMaximaGPU(metalBuffer: metalBuffer,
+                                                  width: width, height: height,
+                                                  threshold: threshold) {
+            allCandidates = nonMaximumSuppression(result.candidates, imageWidth: width)
+            totalFound    = result.totalFound
+        } else {
+            let cpu = findLocalMaxima(pixels: pixels, width: width, height: height,
+                                      cropX: 0, cropY: 0,
+                                      cropW: width, cropH: height,
+                                      threshold: threshold)
+            allCandidates = nonMaximumSuppression(cpu, imageWidth: width)
+            totalFound    = allCandidates.count
+        }
+
+        guard !allCandidates.isEmpty else { return nil }
+
+        // Extract crops while the buffer is still live.
+        let shapeCount  = min(allCandidates.count, Constants.topCandidatesForShape)
+        let countOffset = Constants.topCandidatesForShape
+        let countCount  = min(max(0, allCandidates.count - countOffset),
+                              Constants.fallbackCandidateCount)
+
+        let shapeCandidates = allCandidates.prefix(shapeCount).map { c in
+            StarMeasurementCandidate(
+                x: c.x, y: c.y, peak: c.peak,
+                crop: extractCrop(from: pixels, width: width, height: height,
+                                  cx: c.x, cy: c.y, cropHalf: cropHalf),
+                cropHalf: cropHalf)
+        }
+        let countCandidates = allCandidates.dropFirst(countOffset).prefix(countCount).map { c in
+            StarMeasurementCandidate(
+                x: c.x, y: c.y, peak: c.peak,
+                crop: extractCrop(from: pixels, width: width, height: height,
+                                  cx: c.x, cy: c.y, cropHalf: cropHalf),
+                cropHalf: cropHalf)
+        }
+
+        return StarDetectionData(background: background, sigma: sigma,
+                                 shapeCandidates: Array(shapeCandidates),
+                                 countCandidates: Array(countCandidates),
+                                 totalFound: totalFound)
+    }
+
+    /// Phase B: measure star quality from pre-extracted crops.
+    /// No MTLBuffer or file access needed — all pixel data lives in `starData`.
+    static func measureFromCrops(starData: StarDetectionData,
+                                  config: MetricsConfig) async -> FrameMetrics? {
+        let background  = starData.background
+        let sigma       = starData.sigma
+        let needMeasure = config.computeFWHM || config.computeEccentricity || config.computeSNR
+
+        var fwhmValues: [Float] = []
+        var eccValues:  [Float] = []
+        var snrValues:  [Float] = []
+        var topVerified = 0
+
+        await withTaskGroup(of: (Float, Float, Float)?.self) { group in
+            let innerConcurrency = 4
+            var active = 0
+            for candidate in starData.shapeCandidates {
+                if active >= innerConcurrency {
+                    if let r = await group.next(), let (fwhm, ecc, snr) = r {
+                        topVerified += 1
+                        if needMeasure {
+                            if config.computeFWHM         { fwhmValues.append(fwhm) }
+                            if config.computeEccentricity { eccValues.append(ecc) }
+                            if config.computeSNR          { snrValues.append(snr) }
+                        }
+                    }
+                    active -= 1
+                }
+                let c = candidate
+                group.addTask {
+                    let (fwhm, ecc, snr) = Self.measureShapeFromCrop(
+                        crop: c.crop, cropHalf: c.cropHalf,
+                        background: background, sigma: sigma)
+                    guard fwhm >= 0.5, fwhm <= 20 else { return nil }
+                    return (fwhm, ecc, snr)
+                }
+                active += 1
+            }
+            for await r in group {
+                if let (fwhm, ecc, snr) = r {
+                    topVerified += 1
+                    if needMeasure {
+                        if config.computeFWHM         { fwhmValues.append(fwhm) }
+                        if config.computeEccentricity { eccValues.append(ecc) }
+                        if config.computeSNR          { snrValues.append(snr) }
+                    }
+                }
+            }
+        }
+
+        var verifiedCount = topVerified
+        if config.computeStarCount, !starData.countCandidates.isEmpty {
+            await withTaskGroup(of: Int.self) { group in
+                let innerConcurrency = 4
+                var active = 0
+                for c in starData.countCandidates {
+                    if active >= innerConcurrency {
+                        verifiedCount += await group.next() ?? 0
+                        active -= 1
+                    }
+                    group.addTask {
+                        let fwhm = Self.measureFWHMOnlyFromCrop(
+                            crop: c.crop, cropHalf: c.cropHalf, background: background)
+                        return (fwhm >= 0.5 && fwhm <= 20) ? 1 : 0
+                    }
+                    active += 1
+                }
+                for await n in group { verifiedCount += n }
+            }
+        }
+
+        let fwhm         = config.computeFWHM         ? median(fwhmValues) : nil
+        let eccentricity = config.computeEccentricity ? median(eccValues)  : nil
+        let snr          = config.computeSNR          ? median(snrValues)  : nil
+        let starCount    = config.computeStarCount    ? verifiedCount      : nil
+
+        let score = qualityScore(fwhm:         config.computeFWHM         ? fwhm         : nil,
+                                 eccentricity: config.computeEccentricity ? eccentricity : nil,
+                                 snr:          config.computeSNR          ? snr          : nil,
+                                 starCount:    config.computeStarCount    ? starCount    : nil)
+
+        return FrameMetrics(fwhm: fwhm, eccentricity: eccentricity,
+                            snr: snr, starCount: starCount, qualityScore: score)
     }
 
     /// CPU-only implementation. Scans a centre crop capped at 4096² (16× larger
@@ -841,6 +1021,183 @@ struct MetricsCalculator {
 
         guard totalWeight > 0 else { return 0 }
         return Int((weightedSum / totalWeight) * 100)
+    }
+
+    // MARK: - Crop extraction
+
+    /// Extract a (2*cropHalf+1)² pixel crop centred on (cx, cy).
+    /// Out-of-bounds pixels are filled with 0.
+    private static func extractCrop(from pixels: UnsafeBufferPointer<Float>,
+                                     width: Int, height: Int,
+                                     cx: Int, cy: Int, cropHalf: Int) -> [Float] {
+        let side = 2 * cropHalf + 1
+        var crop = [Float](repeating: 0, count: side * side)
+        for dy in -cropHalf...cropHalf {
+            for dx in -cropHalf...cropHalf {
+                let sx = cx + dx, sy = cy + dy
+                guard sx >= 0, sx < width, sy >= 0, sy < height else { continue }
+                crop[(dy + cropHalf) * side + (dx + cropHalf)] = pixels[sy * width + sx]
+            }
+        }
+        return crop
+    }
+
+    // MARK: - Crop-based shape measurement
+
+    /// FWHM, eccentricity, and SNR from a pre-extracted crop.
+    /// Mirrors `measureShape` exactly but reads from the local crop array
+    /// instead of a full-frame UnsafeBufferPointer.
+    private static func measureShapeFromCrop(crop: [Float], cropHalf: Int,
+                                              background: Float,
+                                              sigma: Float) -> (fwhm: Float, eccentricity: Float, snr: Float) {
+        let side = 2 * cropHalf + 1
+        let cx = cropHalf, cy = cropHalf
+        let peakIndex = cy * side + cx
+        guard peakIndex < crop.count, crop[peakIndex] > background else { return (0, 0, 0) }
+
+        let centHalf = 2
+        var sumI: Float = 0, sumXI: Float = 0, sumYI: Float = 0
+        for dy in -centHalf...centHalf {
+            for dx in -centHalf...centHalf {
+                let px = cx + dx, py = cy + dy
+                guard px >= 0 && px < side && py >= 0 && py < side else { continue }
+                let val = max(0, crop[py * side + px] - background)
+                sumI  += val
+                sumXI += Float(dx) * val
+                sumYI += Float(dy) * val
+            }
+        }
+        guard sumI > 0 else { return (0, 0, 0) }
+        let centX = Float(cx) + sumXI / sumI
+        let centY = Float(cy) + sumYI / sumI
+
+        let peakVal = bilinearCrop(crop: crop, cropSide: side, x: centX, y: centY) - background
+        guard peakVal > 0 else { return (0, 0, 0) }
+
+        guard let fwhmX = fitMoffat1DCrop(crop: crop, cropSide: side,
+                                           centX: centX, centY: centY, peakVal: peakVal,
+                                           background: background, horizontal: true),
+              let fwhmY = fitMoffat1DCrop(crop: crop, cropSide: side,
+                                           centX: centX, centY: centY, peakVal: peakVal,
+                                           background: background, horizontal: false)
+        else { return (0, 0, 0) }
+
+        let fwhm = sqrt(fwhmX * fwhmY)
+
+        let halfW = 10
+        var sumI2: Float = 0, sumXXI: Float = 0, sumYYI: Float = 0, sumXYI: Float = 0
+        for dy in -halfW...halfW {
+            for dx in -halfW...halfW {
+                let px = cx + dx, py = cy + dy
+                guard px >= 0 && px < side && py >= 0 && py < side else { continue }
+                let val = max(0, crop[py * side + px] - background)
+                let fdx = Float(px) - centX
+                let fdy = Float(py) - centY
+                sumI2  += val
+                sumXXI += fdx * fdx * val
+                sumYYI += fdy * fdy * val
+                sumXYI += fdx * fdy * val
+            }
+        }
+        let eccentricity: Float
+        if sumI2 > 0 {
+            let m20  = sumXXI / sumI2
+            let m02  = sumYYI / sumI2
+            let m11  = sumXYI / sumI2
+            let half = (m20 + m02) * 0.5
+            let disc = (((m20 - m02) * 0.5) * ((m20 - m02) * 0.5) + m11 * m11).squareRoot()
+            let lambdaMax = half + disc
+            let lambdaMin = half - disc
+            eccentricity = lambdaMax > 0 ? sqrt(max(0, 1 - lambdaMin / lambdaMax)) : 0
+        } else {
+            eccentricity = 0
+        }
+
+        let snr: Float = peakVal / sigma
+        return (fwhm, eccentricity, snr)
+    }
+
+    /// Lightweight FWHM check from a pre-extracted crop.
+    /// Mirrors `measureFWHMOnly` but reads from the local crop array.
+    private static func measureFWHMOnlyFromCrop(crop: [Float], cropHalf: Int,
+                                                 background: Float) -> Float {
+        let side = 2 * cropHalf + 1
+        let cx = cropHalf, cy = cropHalf
+        let rowStart = cy * side
+        guard rowStart + cx < crop.count else { return 0 }
+        let peak = crop[rowStart + cx] - background
+        guard peak > 0 else { return 0 }
+
+        let minWing = peak * 0.05
+        let l = cx > 0        ? crop[rowStart + cx - 1]        - background : -1
+        let r = cx + 1 < side ? crop[rowStart + cx + 1]        - background : -1
+        let u = cy > 0        ? crop[(cy - 1) * side + cx]     - background : -1
+        let d = cy + 1 < side ? crop[(cy + 1) * side + cx]     - background : -1
+        guard l > minWing, r > minWing, u > minWing, d > minWing else { return 0 }
+
+        let halfW    = 10
+        let minFrac: Float = 0.02
+        var num: Float = 0, den: Float = 0
+
+        for offset in -halfW...halfW where offset != 0 {
+            let px = cx + offset
+            guard px >= 0, px < side else { continue }
+            let val = crop[rowStart + px] - background
+            guard val > peak * minFrac, val < peak else { continue }
+            let ratio = peak / val
+            let z  = ratio.squareRoot().squareRoot() - 1
+            let x2 = Float(offset * offset)
+            num += val * z  * x2
+            den += val * x2 * x2
+        }
+
+        guard den > 0, num > 0 else { return 0 }
+        let alpha      = (den / num).squareRoot()
+        let fwhmFactor = 2 * (pow(Float(2), Float(0.25)) - 1).squareRoot()
+        return alpha * fwhmFactor
+    }
+
+    /// 1D Moffat β=4 fit from a pre-extracted crop.
+    private static func fitMoffat1DCrop(crop: [Float], cropSide: Int,
+                                         centX: Float, centY: Float, peakVal: Float,
+                                         background: Float, horizontal: Bool) -> Float? {
+        let halfW    = 10
+        let minFrac: Float = 0.02
+        var num: Float = 0, den: Float = 0
+
+        for offset in -halfW...halfW where offset != 0 {
+            let fx  = horizontal ? centX + Float(offset) : centX
+            let fy  = horizontal ? centY                 : centY + Float(offset)
+            let val = bilinearCrop(crop: crop, cropSide: cropSide, x: fx, y: fy) - background
+            guard val > peakVal * minFrac, val < peakVal else { continue }
+            let ratio = peakVal / val
+            let z  = ratio.squareRoot().squareRoot() - 1
+            let x2 = Float(offset * offset)
+            let w  = val
+            num += w * z  * x2
+            den += w * x2 * x2
+        }
+
+        guard den > 0, num > 0 else { return nil }
+        let alpha = sqrt(den / num)
+        let fwhmFactor = 2 * sqrt(pow(Float(2), Float(0.25)) - 1)
+        return alpha * fwhmFactor
+    }
+
+    /// Bilinear interpolation into a crop array.
+    private static func bilinearCrop(crop: [Float], cropSide: Int, x: Float, y: Float) -> Float {
+        let x0 = Int(x), y0 = Int(y)
+        let x1 = x0 + 1, y1 = y0 + 1
+        guard x0 >= 0 && x1 < cropSide && y0 >= 0 && y1 < cropSide else { return 0 }
+        let fx = x - Float(x0), fy = y - Float(y0)
+        let p00 = crop[y0 * cropSide + x0]
+        let p10 = crop[y0 * cropSide + x1]
+        let p01 = crop[y1 * cropSide + x0]
+        let p11 = crop[y1 * cropSide + x1]
+        return p00 * (1 - fx) * (1 - fy)
+             + p10 * fx       * (1 - fy)
+             + p01 * (1 - fx) * fy
+             + p11 * fx       * fy
     }
 
     // MARK: - Helpers

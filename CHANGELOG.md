@@ -4,6 +4,29 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-03-24 — Pipeline fix + toolbar buttons (v1.12.5)
+
+### Fixed
+- Geek-mode load time regression (100 s → 62 s on M1 Air, 592 images): GPU star-detection moved back to Phase B alongside Moffat fitting, keeping Phase A as I/O + GPU stretch only.
+- Phase B semaphore raised from `max(2, cpuCount/4)` to `max(4, cpuCount-2)` (2 → 6 on M1 Air), restoring Phase B throughput to match v1.12.3.
+- MTLBuffer is now retained through `FastLoadResult` and passed to Phase B directly, eliminating the intermediate crop-extraction step in Phase A.
+
+### Added
+- Colour/Grey toggle button in the toolbar (next to Reset); always enabled so the preference can be set before loading.
+- Cancel button in the toolbar (next to Reset); always visible, greyed out when no batch is running.
+
+---
+
+## 2026-03-24 — Phase A/B pipeline decoupling (v1.12.4)
+
+### Improved
+- Loading pipeline now decouples I/O from metrics computation. Phase A (FITS I/O + GPU stretch) extracts small 25×25 px star crops from the MTLBuffer before releasing it, then displays the image immediately. Phase B (Moffat fitting) runs in detached tasks bounded by an `AsyncSemaphore`, concurrently with subsequent Phase A tasks.
+- Phase A concurrency raised to `max(8, cpuCount)` (was `max(4, cpuCount-2)`) — keeps the SSD pipeline fuller since slots are no longer held by CPU-bound metrics work.
+- Peak memory reduced: the 100 MB MTLBuffer per image is released after crop extraction rather than being held for the full Phase A+B duration.
+- `MetricsCalculator` gains `extractStarData(metalBuffer:)` (Phase A) and `measureFromCrops(starData:)` (Phase B) as the new crop-based entry points.
+
+---
+
 ## 2026-03-24 — GPU downscale + parallel Moffat fitting (v1.12.3)
 
 ### Improved
