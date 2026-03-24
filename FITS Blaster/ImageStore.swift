@@ -189,6 +189,8 @@ final class ImageStore {
     var selectedEntryIDs: Set<UUID> = []
     var batchElapsed: Double?
     var isBatchProcessing: Bool = false
+    /// The currently running load / reprocess task. Stored so it can be cancelled by the user.
+    private(set) var processingTask: Task<Void, Never>?
     /// Non-nil while a Bayer re-render pass is running; the value is the status message to display.
     private(set) var recolouringMessage: String? = nil
     var errorMessage: String?
@@ -318,6 +320,19 @@ final class ImageStore {
     /// do not cause every visible ThumbnailCell to re-render and recompute O(n) stats.
     /// Updated only at batch boundaries via `updateGroupStatistics()`.
     private(set) var groupStatistics: [FilterGroup: GroupStats] = [:]
+
+    /// Cancels any in-progress loading or recompute batch.
+    /// In-flight GPU/I/O tasks run to completion (they can't be interrupted mid-flight),
+    /// but no new work is started and the UI is cleaned up immediately.
+    func cancelProcessing() {
+        processingTask?.cancel()
+        processingTask = nil
+        for entry in entries where entry.isProcessing {
+            entry.isProcessing = false
+        }
+        isBatchProcessing = false
+        batchElapsed = nil
+    }
 
     private func updateGroupStatistics() {
         let grouped = Dictionary(grouping: entries) { $0.filterGroup }
@@ -975,15 +990,17 @@ final class ImageStore {
         isBatchProcessing = true
         let startTime = CFAbsoluteTimeGetCurrent()
 
-        Task(priority: .utility) { [weak self] in
+        processingTask = Task(priority: .utility) { [weak self] in
             guard let self else { return }
             await processParallel(newEntries, selectFirst: selectFirst,
                                   maxDisplaySize: maxDisplaySize,
                                   maxThumbnailSize: maxThumbnailSize,
                                   metricsConfig: metricsConfig,
                                   debayerColorImages: debayerColorImages)
+            guard !Task.isCancelled else { return }
             batchElapsed = CFAbsoluteTimeGetCurrent() - startTime
             isBatchProcessing = false
+            processingTask = nil
         }
     }
 
@@ -1005,16 +1022,18 @@ final class ImageStore {
         isBatchProcessing = true
         let startTime = CFAbsoluteTimeGetCurrent()
 
-        Task { [weak self] in
+        processingTask = Task { [weak self] in
             guard let self else { return }
             await processParallel(entriesToProcess, selectFirst: false,
                                   maxDisplaySize: settings.maxDisplaySize,
                                   maxThumbnailSize: settings.maxThumbnailSize,
                                   metricsConfig: settings.metricsConfig,
                                   debayerColorImages: settings.debayerColorImages)
+            for dirURL in accessedDirs { dirURL.stopAccessingSecurityScopedResource() }
+            guard !Task.isCancelled else { return }
             batchElapsed = CFAbsoluteTimeGetCurrent() - startTime
             isBatchProcessing = false
-            for dirURL in accessedDirs { dirURL.stopAccessingSecurityScopedResource() }
+            processingTask = nil
         }
     }
 
@@ -1056,7 +1075,7 @@ final class ImageStore {
         isBatchProcessing = true
         let startTime = CFAbsoluteTimeGetCurrent()
 
-        Task(priority: .utility) { [weak self] in
+        processingTask = Task(priority: .utility) { [weak self] in
             guard let self else { return }
             // Scale to core count, same policy as processParallel.
             let maxConcurrency = max(4, ProcessInfo.processInfo.activeProcessorCount - 2)
@@ -1091,10 +1110,12 @@ final class ImageStore {
                 }
             }
 
+            for dirURL in accessedDirs { dirURL.stopAccessingSecurityScopedResource() }
+            guard !Task.isCancelled else { return }
             updateGroupStatistics()
             batchElapsed = CFAbsoluteTimeGetCurrent() - startTime
             isBatchProcessing = false
-            for dirURL in accessedDirs { dirURL.stopAccessingSecurityScopedResource() }
+            processingTask = nil
         }
     }
 
@@ -1138,9 +1159,8 @@ final class ImageStore {
                                   metricsConfig: MetricsConfig = MetricsConfig(),
                                   debayerColorImages: Bool = false) async {
 
-        // Scale concurrency to core count, leaving 2 cores for the UI and system.
-        // Each task holds ~80 MB in MTLBuffers, so even 18 tasks on a Mac Studio Ultra
-        // uses only ~1.4 GB — well within available memory on any supported machine.
+        // Each slot holds a live MTLBuffer (~80 MB) for the duration of Phase A + B, so
+        // bound concurrency to avoid memory pressure while still pipelining across all cores.
         let concurrency = max(4, ProcessInfo.processInfo.activeProcessorCount - 2)
 
         // Task group returns (entry, metrics) so Phase B results are applied
@@ -1149,9 +1169,12 @@ final class ImageStore {
         await withTaskGroup(of: (ImageEntry, FrameMetrics?).self) { group in
             var activeCount = 0
             for entry in entriesToProcess {
+                // Stop queueing new work if the batch was cancelled.
+                if Task.isCancelled { break }
+
                 if activeCount >= concurrency {
                     if let (e, m) = await group.next() {
-                        e.metrics      = m
+                        e.metrics       = m
                         e.cachedMetrics = m
                     }
                     activeCount -= 1
@@ -1206,7 +1229,7 @@ final class ImageStore {
             }
             // Drain remaining tasks, applying metrics on the main actor directly.
             for await (e, m) in group {
-                e.metrics      = m
+                e.metrics       = m
                 e.cachedMetrics = m
             }
         }
@@ -1215,7 +1238,7 @@ final class ImageStore {
 
         // After the full batch is loaded, re-render Bayer images in colour using
         // per-folder median clip bounds so all frames share a consistent stretch.
-        if debayerColorImages {
+        if !Task.isCancelled, debayerColorImages {
             await normalizeBayerStretch(entriesToProcess,
                                         maxDisplaySize: maxDisplaySize,
                                         maxThumbnailSize: maxThumbnailSize)

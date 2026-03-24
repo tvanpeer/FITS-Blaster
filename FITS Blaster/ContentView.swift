@@ -735,6 +735,10 @@ private struct InfoBar: View {
             if store.isBatchProcessing {
                 ProgressView().scaleEffect(0.5).frame(width: 12, height: 12)
                 Text("Processing…").scaledFont(size: 10).foregroundStyle(.secondary)
+                Button("Cancel", action: store.cancelProcessing)
+                    .scaledFont(size: 10)
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.secondary)
             } else if let msg = store.recolouringMessage {
                 ProgressView().scaleEffect(0.5).frame(width: 12, height: 12)
                 Text(msg).scaledFont(size: 10).foregroundStyle(.secondary)

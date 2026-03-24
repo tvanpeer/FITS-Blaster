@@ -4,6 +4,16 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-03-24 — GPU downscale + parallel Moffat fitting (v1.12.3)
+
+### Improved
+- Metal stretch kernels now downsample directly to display size (1024 px) in a single GPU pass using a box filter, eliminating the post-GPU CPU vImageScale step. Grey+Simple load time: 53 s → 28 s; Colour+Simple: 168 s → 82 s
+- Bayer colour kernel averages R, G, B pixels separately within each output footprint — alias-free demosaicing with no cross-channel contamination
+- Moffat star fitting (`measureCandidates`) now uses a 4-wide inner task group for both the shape-measurement pass (top 200 candidates) and the fast-FWHM count pass (up to 6 000 candidates), reducing Geek-mode Phase B time
+- Cancel button added to the info bar to abort an in-progress load; loading pipeline honours `Task.isCancelled` at each image boundary
+
+---
+
 ## 2026-03-23 — Window commands, chart sorting & thumbnail metric (v1.12.2)
 
 ### Added

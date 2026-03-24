@@ -179,29 +179,52 @@ struct MetricsCalculator {
 
         let needMeasure = config.computeFWHM || config.computeEccentricity || config.computeSNR
 
-        // ── Phase 1: shape statistics (sequential, top 300 candidates) ──────────
+        // ── Phase 1: shape statistics (parallel, top 200 candidates) ────────────
         //
-        // Candidates are sorted brightest-first, so the top 300 reliably contain
-        // 200 unsaturated stars for stable median FWHM/eccentricity/SNR estimates.
+        // Candidates are sorted brightest-first, so the top 200 reliably contain
+        // enough unsaturated stars for stable median FWHM/eccentricity/SNR estimates.
+        // measureShape is pure (no shared mutable state), so fits can run 4-wide
+        // across the cooperative thread pool without any synchronisation overhead.
 
         var fwhmValues:  [Float] = []
         var eccValues:   [Float] = []
         var snrValues:   [Float] = []
-        var shapeCount   = 0    // non-saturated candidates used for shape stats
-        var topVerified  = 0    // PSF-verified count within the top-300 pass
+        var topVerified  = 0    // PSF-verified count within the top-200 pass
 
-        for candidate in allCandidates.prefix(Constants.topCandidatesForShape) {
-            let (fwhm, ecc, snr) = measureShape(
-                pixels: pixels, width: width, height: height,
-                cx: candidate.x, cy: candidate.y,
-                background: background, sigma: sigma)
-            guard fwhm >= 0.5, fwhm <= 20 else { continue }
-            topVerified += 1
-            if needMeasure && shapeCount < Constants.topCandidatesForShape {
-                if config.computeFWHM         { fwhmValues.append(fwhm) }
-                if config.computeEccentricity { eccValues.append(ecc) }
-                if config.computeSNR          { snrValues.append(snr) }
-                shapeCount += 1
+        await withTaskGroup(of: (Float, Float, Float)?.self) { group in
+            let innerConcurrency = 4
+            var active = 0
+            for candidate in allCandidates.prefix(Constants.topCandidatesForShape) {
+                if active >= innerConcurrency {
+                    if let r = await group.next(), let (fwhm, ecc, snr) = r {
+                        topVerified += 1
+                        if needMeasure {
+                            if config.computeFWHM         { fwhmValues.append(fwhm) }
+                            if config.computeEccentricity { eccValues.append(ecc) }
+                            if config.computeSNR          { snrValues.append(snr) }
+                        }
+                    }
+                    active -= 1
+                }
+                let c = candidate
+                group.addTask {
+                    let (fwhm, ecc, snr) = Self.measureShape(
+                        pixels: pixels, width: width, height: height,
+                        cx: c.x, cy: c.y, background: background, sigma: sigma)
+                    guard fwhm >= 0.5, fwhm <= 20 else { return nil }
+                    return (fwhm, ecc, snr)
+                }
+                active += 1
+            }
+            for await r in group {
+                if let (fwhm, ecc, snr) = r {
+                    topVerified += 1
+                    if needMeasure {
+                        if config.computeFWHM         { fwhmValues.append(fwhm) }
+                        if config.computeEccentricity { eccValues.append(ecc) }
+                        if config.computeSNR          { snrValues.append(snr) }
+                    }
+                }
             }
         }
 
@@ -215,15 +238,31 @@ struct MetricsCalculator {
         // multiplied by ~49 700 remaining candidates adds ~497 phantom stars.
         // Direct counting limits noise contamination to at most a few dozen stars
         // regardless of how large the candidate list is.
+        //
+        // measureFWHMOnly is also pure, so we run it 4-wide as well.
 
         var verifiedCount = topVerified
 
         if config.computeStarCount, allCandidates.count > Constants.topCandidatesForShape {
-            let remaining = allCandidates.dropFirst(Constants.topCandidatesForShape).prefix(Constants.fallbackCandidateCount)
-            for c in remaining {
-                let fwhm = measureFWHMOnly(pixels: pixels, width: width, height: height,
-                                            cx: c.x, cy: c.y, background: background)
-                if fwhm >= 0.5 && fwhm <= 20 { verifiedCount += 1 }
+            let remaining = allCandidates.dropFirst(Constants.topCandidatesForShape)
+                                         .prefix(Constants.fallbackCandidateCount)
+            await withTaskGroup(of: Int.self) { group in
+                let innerConcurrency = 4
+                var active = 0
+                for c in remaining {
+                    if active >= innerConcurrency {
+                        verifiedCount += await group.next() ?? 0
+                        active -= 1
+                    }
+                    group.addTask {
+                        let fwhm = Self.measureFWHMOnly(
+                            pixels: pixels, width: width, height: height,
+                            cx: c.x, cy: c.y, background: background)
+                        return (fwhm >= 0.5 && fwhm <= 20) ? 1 : 0
+                    }
+                    active += 1
+                }
+                for await count in group { verifiedCount += count }
             }
         }
 

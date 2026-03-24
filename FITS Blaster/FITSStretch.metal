@@ -12,40 +12,63 @@ using namespace metal;
 struct StretchParams {
     float lowClip;      // 0.1% percentile value
     float highClip;     // 99.9% percentile value
-    uint  width;
-    uint  height;
+    uint  srcWidth;     // full-resolution input dimensions
+    uint  srcHeight;
+    uint  dstWidth;     // output (display) dimensions — may be downscaled
+    uint  dstHeight;
 };
 
 /// Single-pass compute kernel that performs:
-///   1. Percentile-clipped normalization: [lowClip, highClip] → [0, 1]
-///   2. Square root stretch: sqrt(t) — hardware-accelerated single instruction
-///   3. Float → UInt8 conversion (0.0–1.0 → 0–255)
-///   4. Vertical flip (FITS stores rows bottom-to-top)
+///   1. Box-filter downsample from full-resolution input to display size
+///   2. Vertical flip (FITS stores rows bottom-to-top)
+///   3. Percentile-clipped normalization: [lowClip, highClip] → [0, 1]
+///   4. Gamma 2.2 stretch + Float → UInt8
+///
+/// Each thread averages all source pixels whose centres fall within the output
+/// pixel's footprint, giving alias-free downsampling equivalent to vImageScale
+/// kvImageHighQualityResampling. At 1:1 (dstWidth == srcWidth) the footprint
+/// shrinks to exactly one source pixel and the result is identical to a direct
+/// point-sample kernel.
 kernel void sqrtStretch(
     device const float*   inputPixels  [[ buffer(0) ]],
     device       uchar*   outputPixels [[ buffer(1) ]],
     constant StretchParams& params     [[ buffer(2) ]],
     uint2 gid [[ thread_position_in_grid ]]
 ) {
-    if (gid.x >= params.width || gid.y >= params.height) return;
+    if (gid.x >= params.dstWidth || gid.y >= params.dstHeight) return;
 
-    uint srcIndex = gid.y * params.width + gid.x;
-    float raw = inputPixels[srcIndex];
+    float scaleX = float(params.srcWidth)  / float(params.dstWidth);
+    float scaleY = float(params.srcHeight) / float(params.dstHeight);
 
-    // Normalize to [0, 1] with clipping
+    // Source column range for this output pixel [sxStart, sxEnd] (inclusive).
+    uint sxStart   = uint(float(gid.x)        * scaleX);
+    uint sxEndExcl = uint(float(gid.x + 1u)   * scaleX);
+    uint sxEnd     = min(sxEndExcl > sxStart ? sxEndExcl - 1u : sxStart,
+                         params.srcWidth - 1u);
+
+    // Source row range with FITS vertical flip.
+    // gid.y = 0 → top of display → highest source rows (sky top = last FITS rows).
+    uint flippedY  = params.dstHeight - 1u - gid.y;
+    uint syStart   = uint(float(flippedY)      * scaleY);
+    uint syEndExcl = uint(float(flippedY + 1u) * scaleY);
+    uint syEnd     = min(syEndExcl > syStart ? syEndExcl - 1u : syStart,
+                         params.srcHeight - 1u);
+
+    float sum = 0.0f;
+    uint  n   = 0u;
+    for (uint sy = syStart; sy <= syEnd; sy++) {
+        uint rowBase = sy * params.srcWidth;
+        for (uint sx = sxStart; sx <= sxEnd; sx++) {
+            sum += inputPixels[rowBase + sx];
+            n++;
+        }
+    }
+    float raw = sum / float(max(n, 1u));
+
+    // Normalize to [0, 1] with clipping, then gamma stretch
     float range = params.highClip - params.lowClip;
     float t = clamp((raw - params.lowClip) / range, 0.0f, 1.0f);
-
-    // Gamma stretch: pow(x, 1/2.2) — equivalent to sqrt + display gamma
-    float stretched = pow(t, 1.0f / 2.2f);
-
-    // Convert to UInt8
-    uchar value = uchar(stretched * 255.0f);
-
-    // Write to vertically flipped position
-    uint dstY = params.height - 1 - gid.y;
-    uint dstIndex = dstY * params.width + gid.x;
-    outputPixels[dstIndex] = value;
+    outputPixels[gid.y * params.dstWidth + gid.x] = uchar(pow(t, 1.0f / 2.2f) * 255.0f);
 }
 
 // MARK: - Bayer debayer + stretch
@@ -61,22 +84,16 @@ struct BayerStretchParams {
     float highClipG;
     float lowClipB;
     float highClipB;
-    uint  width;
-    uint  height;
+    uint  srcWidth;     // full-resolution input dimensions
+    uint  srcHeight;
+    uint  dstWidth;     // output (display) dimensions — may be downscaled
+    uint  dstHeight;
     /// R-pixel position in the 2×2 Bayer cell, encoded as two bits:
     ///   bit 0 = column parity of R  (0 = even, 1 = odd)
     ///   bit 1 = row parity of R     (0 = even, 1 = odd)
     /// RGGB=0  GRBG=1  GBRG=2  BGGR=3
     uint  rOffset;
 };
-
-/// Clamp-read: return the float pixel at (x, y), clamping to image borders.
-static inline float bayerRead(device const float* pixels,
-                               uint width, uint height, int x, int y) {
-    uint cx = (uint)clamp(x, 0, (int)width  - 1);
-    uint cy = (uint)clamp(y, 0, (int)height - 1);
-    return pixels[cy * width + cx];
-}
 
 /// Stretch a single channel value to UInt8 with percentile clip + gamma 2.2.
 static inline uchar bayerStretchByte(float raw, float lo, float hi) {
@@ -86,9 +103,14 @@ static inline uchar bayerStretchByte(float raw, float lo, float hi) {
 }
 
 /// Single-pass kernel:
-///   1. Bilinear Bayer demosaic using rOffset to identify each pixel's colour
-///   2. Per-channel percentile-clip + gamma-2.2 stretch
-///   3. Vertical flip (FITS rows are stored bottom-to-top)
+///   1. Box-filter downsample from full-resolution input to display size
+///   2. Vertical flip (FITS rows are stored bottom-to-top)
+///   3. Per-channel (R/G/B) box average across the source footprint
+///   4. Per-channel percentile-clip + gamma-2.2 stretch
+///
+/// Averaging the R, G, B Bayer pixels separately within each output footprint
+/// gives alias-free demosaicing without any cross-channel contamination.
+/// No neighbourhood interpolation is needed — the box average is the demosaic.
 ///
 /// Output: RGBA UInt8, 4 bytes/pixel (A = 255), packed row-major.
 kernel void bayerDebayerAndStretch(
@@ -97,73 +119,51 @@ kernel void bayerDebayerAndStretch(
     constant BayerStretchParams&  params       [[ buffer(2) ]],
     uint2 gid [[ thread_position_in_grid ]]
 ) {
-    uint x = gid.x;
-    uint y = gid.y;
-    if (x >= params.width || y >= params.height) return;
+    uint outX = gid.x;
+    uint outY = gid.y;
+    if (outX >= params.dstWidth || outY >= params.dstHeight) return;
 
-    uint W  = params.width;
-    uint H  = params.height;
+    uint W  = params.srcWidth;
+    uint H  = params.srcHeight;
     uint ro = params.rOffset;
-
-    // Determine colour of this pixel using rOffset bit encoding.
-    // XOR pixel parity with R-pixel parity:
-    //   (0,0) → R,  (1,1) → B,  else → G
     uint rx = ro & 1u;
     uint ry = (ro >> 1u) & 1u;
-    uint cx = (x & 1u) ^ rx;
-    uint cy = (y & 1u) ^ ry;
 
-    float R, G, B;
+    float scaleX = float(W) / float(params.dstWidth);
+    float scaleY = float(H) / float(params.dstHeight);
 
-    if (cx == 0u && cy == 0u) {
-        // R pixel — interpolate G (cross) and B (diagonal)
-        R = bayerRead(inputPixels, W, H, (int)x, (int)y);
-        G = (bayerRead(inputPixels, W, H, (int)x-1, (int)y) +
-             bayerRead(inputPixels, W, H, (int)x+1, (int)y) +
-             bayerRead(inputPixels, W, H, (int)x, (int)y-1) +
-             bayerRead(inputPixels, W, H, (int)x, (int)y+1)) * 0.25f;
-        B = (bayerRead(inputPixels, W, H, (int)x-1, (int)y-1) +
-             bayerRead(inputPixels, W, H, (int)x+1, (int)y-1) +
-             bayerRead(inputPixels, W, H, (int)x-1, (int)y+1) +
-             bayerRead(inputPixels, W, H, (int)x+1, (int)y+1)) * 0.25f;
-    } else if (cx == 1u && cy == 1u) {
-        // B pixel — mirror of R case
-        B = bayerRead(inputPixels, W, H, (int)x, (int)y);
-        G = (bayerRead(inputPixels, W, H, (int)x-1, (int)y) +
-             bayerRead(inputPixels, W, H, (int)x+1, (int)y) +
-             bayerRead(inputPixels, W, H, (int)x, (int)y-1) +
-             bayerRead(inputPixels, W, H, (int)x, (int)y+1)) * 0.25f;
-        R = (bayerRead(inputPixels, W, H, (int)x-1, (int)y-1) +
-             bayerRead(inputPixels, W, H, (int)x+1, (int)y-1) +
-             bayerRead(inputPixels, W, H, (int)x-1, (int)y+1) +
-             bayerRead(inputPixels, W, H, (int)x+1, (int)y+1)) * 0.25f;
-    } else {
-        // G pixel. Whether R or B is horizontal depends on which row the G sits in.
-        // If this row has the same parity as the R row (ry), R is horizontal.
-        G = bayerRead(inputPixels, W, H, (int)x, (int)y);
-        bool gInRRow = ((y & 1u) == ry);
-        if (gInRRow) {
-            // G in R-row: R neighbours are horizontal, B neighbours are vertical
-            R = (bayerRead(inputPixels, W, H, (int)x-1, (int)y) +
-                 bayerRead(inputPixels, W, H, (int)x+1, (int)y)) * 0.5f;
-            B = (bayerRead(inputPixels, W, H, (int)x, (int)y-1) +
-                 bayerRead(inputPixels, W, H, (int)x, (int)y+1)) * 0.5f;
-        } else {
-            // G in B-row: B neighbours are horizontal, R neighbours are vertical
-            B = (bayerRead(inputPixels, W, H, (int)x-1, (int)y) +
-                 bayerRead(inputPixels, W, H, (int)x+1, (int)y)) * 0.5f;
-            R = (bayerRead(inputPixels, W, H, (int)x, (int)y-1) +
-                 bayerRead(inputPixels, W, H, (int)x, (int)y+1)) * 0.5f;
+    // Source column range for this output pixel (inclusive, with FITS vertical flip)
+    uint sxStart   = uint(float(outX)        * scaleX);
+    uint sxEndExcl = uint(float(outX + 1u)   * scaleX);
+    uint sxEnd     = min(sxEndExcl > sxStart ? sxEndExcl - 1u : sxStart, W - 1u);
+
+    uint flippedY  = params.dstHeight - 1u - outY;
+    uint syStart   = uint(float(flippedY)      * scaleY);
+    uint syEndExcl = uint(float(flippedY + 1u) * scaleY);
+    uint syEnd     = min(syEndExcl > syStart ? syEndExcl - 1u : syStart, H - 1u);
+
+    // Accumulate R, G, B channels separately across the source footprint.
+    float sumR = 0.0f, sumG = 0.0f, sumB = 0.0f;
+    uint  nR   = 0u,   nG   = 0u,   nB   = 0u;
+    for (uint sy = syStart; sy <= syEnd; sy++) {
+        for (uint sx = sxStart; sx <= sxEnd; sx++) {
+            float v  = inputPixels[sy * W + sx];
+            uint  cx = (sx & 1u) ^ rx;
+            uint  cy = (sy & 1u) ^ ry;
+            if      (cx == 0u && cy == 0u) { sumR += v; nR++; }
+            else if (cx == 1u && cy == 1u) { sumB += v; nB++; }
+            else                           { sumG += v; nG++; }
         }
     }
+    float R = (nR > 0u) ? sumR / float(nR) : 0.0f;
+    float G = (nG > 0u) ? sumG / float(nG) : 0.0f;
+    float B = (nB > 0u) ? sumB / float(nB) : 0.0f;
 
     uchar r8 = bayerStretchByte(R, params.lowClipR, params.highClipR);
     uchar g8 = bayerStretchByte(G, params.lowClipG, params.highClipG);
     uchar b8 = bayerStretchByte(B, params.lowClipB, params.highClipB);
 
-    // Vertical flip: FITS stores rows bottom-to-top
-    uint dstY = H - 1u - y;
-    outputPixels[dstY * W + x] = uchar4(r8, g8, b8, 255);
+    outputPixels[outY * params.dstWidth + outX] = uchar4(r8, g8, b8, 255);
 }
 
 // MARK: - Local-maximum detection

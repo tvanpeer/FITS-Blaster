@@ -73,11 +73,13 @@ struct ImageStretcher {
     private struct StretchParams {
         var lowClip: Float
         var highClip: Float
-        var width: UInt32
-        var height: UInt32
+        var srcWidth: UInt32
+        var srcHeight: UInt32
+        var dstWidth: UInt32
+        var dstHeight: UInt32
     }
 
-    /// Parameters struct matching the Metal shader's BayerStretchParams (9 × 4 bytes = 36 bytes)
+    /// Parameters struct matching the Metal shader's BayerStretchParams (11 × 4 bytes = 44 bytes)
     private struct BayerStretchParams {
         var lowClipR: Float
         var highClipR: Float
@@ -85,8 +87,10 @@ struct ImageStretcher {
         var highClipG: Float
         var lowClipB: Float
         var highClipB: Float
-        var width: UInt32
-        var height: UInt32
+        var srcWidth: UInt32
+        var srcHeight: UInt32
+        var dstWidth: UInt32
+        var dstHeight: UInt32
         var rOffset: UInt32
     }
 
@@ -175,9 +179,9 @@ struct ImageStretcher {
 
     // MARK: - Metal Path
 
-    /// GPU-accelerated stretch. For images within maxDisplaySize the output Metal buffer is used
-    /// directly by CGDataProvider (zero-copy). For oversized images a post-GPU vImageScale_Planar8
-    /// pass scales the output to maxDisplaySize before CGImage creation.
+    /// GPU-accelerated stretch. The kernel downsamples directly to the display size in a
+    /// single pass — no post-GPU CPU scaling needed. Output Metal buffer is zero-copy into
+    /// CGDataProvider.
     private static func metalStretch(
         inputBuffer: MTLBuffer, width: Int, height: Int,
         lowClip: Float, highClip: Float, maxDisplaySize: Int = 0
@@ -186,18 +190,27 @@ struct ImageStretcher {
               let commandQueue = commandQueue,
               let pipelineState = pipelineState else { return nil }
 
-        let pixelCount = width * height
-        let outputByteCount = pixelCount
+        // Compute output dimensions: the kernel writes directly at display size.
+        let dstW: Int
+        let dstH: Int
+        if maxDisplaySize > 0 && max(width, height) > maxDisplaySize {
+            let scale = Float(maxDisplaySize) / Float(max(width, height))
+            dstW = max(1, Int(Float(width) * scale))
+            dstH = max(1, Int(Float(height) * scale))
+        } else {
+            dstW = width
+            dstH = height
+        }
 
+        let outputByteCount = dstW * dstH
         guard let outputBuffer = device.makeBuffer(length: outputByteCount, options: .storageModeShared) else {
             return nil
         }
 
         var params = StretchParams(
-            lowClip: lowClip,
-            highClip: highClip,
-            width: UInt32(width),
-            height: UInt32(height)
+            lowClip: lowClip, highClip: highClip,
+            srcWidth: UInt32(width), srcHeight: UInt32(height),
+            dstWidth: UInt32(dstW), dstHeight: UInt32(dstH)
         )
 
         guard let commandBuffer = commandQueue.makeCommandBuffer(),
@@ -213,8 +226,9 @@ struct ImageStretcher {
             height: min(16, pipelineState.maxTotalThreadsPerThreadgroup / 16),
             depth: 1
         )
-        let gridSize = MTLSize(width: width, height: height, depth: 1)
-        encoder.dispatchThreads(gridSize, threadsPerThreadgroup: threadgroupSize)
+        // Dispatch at output size — each thread writes exactly one output pixel.
+        encoder.dispatchThreads(MTLSize(width: dstW, height: dstH, depth: 1),
+                                threadsPerThreadgroup: threadgroupSize)
         encoder.endEncoding()
 
         // Non-blocking GPU wait: releases the cooperative thread while the GPU runs
@@ -225,51 +239,16 @@ struct ImageStretcher {
             commandBuffer.commit()
         }
 
-        let colorSpace = CGColorSpaceCreateDeviceGray()
-        let needsScale = maxDisplaySize > 0 && max(width, height) > maxDisplaySize
-
-        if needsScale {
-            // Post-GPU scale: copy GPU output → vImageScale_Planar8 → smaller CGImage.
-            // This sacrifices zero-copy for large images to keep NSImage memory manageable.
-            let scale = Float(maxDisplaySize) / Float(max(width, height))
-            let finalW = max(1, Int(Float(width) * scale))
-            let finalH = max(1, Int(Float(height) * scale))
-            let scaledData = UnsafeMutablePointer<UInt8>.allocate(capacity: finalW * finalH)
-            var srcBuf = vImage_Buffer(data: outputBuffer.contents(),
-                                       height: vImagePixelCount(height),
-                                       width: vImagePixelCount(width),
-                                       rowBytes: width)
-            var dstBuf = vImage_Buffer(data: scaledData,
-                                       height: vImagePixelCount(finalH),
-                                       width: vImagePixelCount(finalW),
-                                       rowBytes: finalW)
-            vImageScale_Planar8(&srcBuf, &dstBuf, nil, vImage_Flags(kvImageHighQualityResampling))
-
-            let dataProvider = CGDataProvider(dataInfo: scaledData, data: scaledData,
-                                              size: finalW * finalH) { rawPtr, _, _ in
-                rawPtr?.assumingMemoryBound(to: UInt8.self).deallocate()
-            }
-            guard let provider = dataProvider else { scaledData.deallocate(); return nil }
-            guard let cgImage = CGImage(
-                width: finalW, height: finalH,
-                bitsPerComponent: 8, bitsPerPixel: 8, bytesPerRow: finalW,
-                space: colorSpace,
-                bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.none.rawValue),
-                provider: provider, decode: nil, shouldInterpolate: true, intent: .defaultIntent
-            ) else { return nil }
-            return NSImage(cgImage: cgImage, size: NSSize(width: finalW, height: finalH))
-        }
-
         // Zero-copy: CGDataProvider reads directly from the Metal shared buffer.
         // We pass the MTLBuffer as an Unmanaged retained reference so it stays alive
         // until the CGImage is deallocated.
+        let colorSpace = CGColorSpaceCreateDeviceGray()
         let retained = Unmanaged.passRetained(outputBuffer as AnyObject)
         let dataProvider = CGDataProvider(
             dataInfo: retained.toOpaque(),
             data: outputBuffer.contents(),
             size: outputByteCount
         ) { info, _, _ in
-            // Release the MTLBuffer when the CGImage is done with it
             if let info {
                 Unmanaged<AnyObject>.fromOpaque(info).release()
             }
@@ -281,20 +260,14 @@ struct ImageStretcher {
         }
 
         guard let cgImage = CGImage(
-            width: width,
-            height: height,
-            bitsPerComponent: 8,
-            bitsPerPixel: 8,
-            bytesPerRow: width,
+            width: dstW, height: dstH,
+            bitsPerComponent: 8, bitsPerPixel: 8, bytesPerRow: dstW,
             space: colorSpace,
             bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.none.rawValue),
-            provider: provider,
-            decode: nil,
-            shouldInterpolate: true,
-            intent: .defaultIntent
+            provider: provider, decode: nil, shouldInterpolate: true, intent: .defaultIntent
         ) else { return nil }
 
-        return NSImage(cgImage: cgImage, size: NSSize(width: width, height: height))
+        return NSImage(cgImage: cgImage, size: NSSize(width: dstW, height: dstH))
     }
 
     // MARK: - Metal Bayer Path
@@ -328,8 +301,20 @@ struct ImageStretcher {
               let commandQueue = commandQueue,
               let pipelineState = bayerPipelineState else { return nil }
 
-        // Output: RGBA UInt8, 4 bytes/pixel
-        let outputByteCount = width * height * 4
+        // Compute output dimensions: the kernel writes directly at display size.
+        let dstW: Int
+        let dstH: Int
+        if maxDisplaySize > 0 && max(width, height) > maxDisplaySize {
+            let scale = Float(maxDisplaySize) / Float(max(width, height))
+            dstW = max(1, Int(Float(width) * scale))
+            dstH = max(1, Int(Float(height) * scale))
+        } else {
+            dstW = width
+            dstH = height
+        }
+
+        // Output: RGBA UInt8, 4 bytes/pixel, at display size
+        let outputByteCount = dstW * dstH * 4
         guard let outputBuffer = device.makeBuffer(length: outputByteCount, options: .storageModeShared) else {
             return nil
         }
@@ -338,7 +323,8 @@ struct ImageStretcher {
             lowClipR: clips.loR, highClipR: clips.hiR,
             lowClipG: clips.loG, highClipG: clips.hiG,
             lowClipB: clips.loB, highClipB: clips.hiB,
-            width: UInt32(width), height: UInt32(height),
+            srcWidth: UInt32(width), srcHeight: UInt32(height),
+            dstWidth: UInt32(dstW), dstHeight: UInt32(dstH),
             rOffset: rOffset
         )
 
@@ -355,7 +341,8 @@ struct ImageStretcher {
             height: min(16, pipelineState.maxTotalThreadsPerThreadgroup / 16),
             depth: 1
         )
-        encoder.dispatchThreads(MTLSize(width: width, height: height, depth: 1),
+        // Dispatch at output size — each thread writes exactly one output pixel.
+        encoder.dispatchThreads(MTLSize(width: dstW, height: dstH, depth: 1),
                                 threadsPerThreadgroup: threadgroupSize)
         encoder.endEncoding()
 
@@ -366,37 +353,6 @@ struct ImageStretcher {
 
         let colorSpace = CGColorSpaceCreateDeviceRGB()
         let bitmapInfo = CGBitmapInfo(rawValue: CGImageAlphaInfo.noneSkipLast.rawValue)
-        let needsScale = maxDisplaySize > 0 && max(width, height) > maxDisplaySize
-
-        if needsScale {
-            let scale = Float(maxDisplaySize) / Float(max(width, height))
-            let finalW = max(1, Int(Float(width) * scale))
-            let finalH = max(1, Int(Float(height) * scale))
-            let scaledData = UnsafeMutablePointer<UInt8>.allocate(capacity: finalW * finalH * 4)
-            var srcBuf = vImage_Buffer(data: outputBuffer.contents(),
-                                       height: vImagePixelCount(height),
-                                       width: vImagePixelCount(width),
-                                       rowBytes: width * 4)
-            var dstBuf = vImage_Buffer(data: scaledData,
-                                       height: vImagePixelCount(finalH),
-                                       width: vImagePixelCount(finalW),
-                                       rowBytes: finalW * 4)
-            // vImageScale_ARGB8888 works on any 4-byte/pixel data (channel-independent)
-            vImageScale_ARGB8888(&srcBuf, &dstBuf, nil, vImage_Flags(kvImageHighQualityResampling))
-
-            let dataProvider = CGDataProvider(dataInfo: scaledData, data: scaledData,
-                                              size: finalW * finalH * 4) { rawPtr, _, _ in
-                rawPtr?.assumingMemoryBound(to: UInt8.self).deallocate()
-            }
-            guard let provider = dataProvider else { scaledData.deallocate(); return nil }
-            guard let cgImage = CGImage(
-                width: finalW, height: finalH,
-                bitsPerComponent: 8, bitsPerPixel: 32, bytesPerRow: finalW * 4,
-                space: colorSpace, bitmapInfo: bitmapInfo,
-                provider: provider, decode: nil, shouldInterpolate: true, intent: .defaultIntent
-            ) else { return nil }
-            return NSImage(cgImage: cgImage, size: NSSize(width: finalW, height: finalH))
-        }
 
         // Zero-copy path: CGDataProvider reads directly from Metal shared buffer
         let retained = Unmanaged.passRetained(outputBuffer as AnyObject)
@@ -409,12 +365,12 @@ struct ImageStretcher {
         }
         guard let provider = dataProvider else { retained.release(); return nil }
         guard let cgImage = CGImage(
-            width: width, height: height,
-            bitsPerComponent: 8, bitsPerPixel: 32, bytesPerRow: width * 4,
+            width: dstW, height: dstH,
+            bitsPerComponent: 8, bitsPerPixel: 32, bytesPerRow: dstW * 4,
             space: colorSpace, bitmapInfo: bitmapInfo,
             provider: provider, decode: nil, shouldInterpolate: true, intent: .defaultIntent
         ) else { return nil }
-        return NSImage(cgImage: cgImage, size: NSSize(width: width, height: height))
+        return NSImage(cgImage: cgImage, size: NSSize(width: dstW, height: dstH))
     }
 
     // MARK: - CPU Stretch
