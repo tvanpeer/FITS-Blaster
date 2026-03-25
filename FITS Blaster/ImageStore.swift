@@ -186,7 +186,18 @@ final class ImageStore {
     private var pendingLoad: PendingLoad?
     /// IDs of all entries in the multi-selection. When this contains more than
     /// one entry, reject/undo operations apply to the whole set.
-    var selectedEntryIDs: Set<UUID> = []
+    /// Any newly added IDs are automatically added to `flaggedEntryIDs` as well.
+    var selectedEntryIDs: Set<UUID> = [] {
+        didSet {
+            let added = selectedEntryIDs.subtracting(oldValue)
+            if !added.isEmpty { flaggedEntryIDs = flaggedEntryIDs.union(added) }
+        }
+    }
+    /// IDs of entries flagged for inspection (drives the "Selected" sidebar filter).
+    /// Populated by chart drag-select and Auto-Flag; independent of the multi-selection.
+    var flaggedEntryIDs: Set<UUID> = [] {
+        didSet { updateVisibilityFilteredEntries() }
+    }
     var batchElapsed: Double?
     var isBatchProcessing: Bool = false
     /// The currently running load / reprocess task. Stored so it can be cancelled by the user.
@@ -203,7 +214,14 @@ final class ImageStore {
 
     /// The filter group currently highlighted in the sidebar filter strip.
     /// `nil` means "show all groups". Cleared on reset.
-    var sidebarFilterGroup: FilterGroup? = nil
+    var sidebarFilterGroup: FilterGroup? = nil {
+        didSet { updateVisibilityFilteredEntries() }
+    }
+
+    /// Controls which images are visible in the sidebar and session chart.
+    var rejectionVisibility: RejectionVisibility = .all {
+        didSet { updateVisibilityFilteredEntries() }
+    }
 
     // MARK: - Folder grouping
 
@@ -241,6 +259,13 @@ final class ImageStore {
         let present = Set(entries.map { $0.filterGroup })
         activeFilterGroups = FilterGroup.allCases.filter { present.contains($0) }
     }
+
+    /// IDs of all entries rejected during this session.
+    /// Stored as a `Set<UUID>` so `visibilityFilteredEntries` and related computed
+    /// properties can read it directly — giving the `@Observable` system a concrete
+    /// stored-property dependency to track, rather than relying on per-`ImageEntry`
+    /// observation which `ImageStore` cannot register.
+    private(set) var rejectedEntryIDs: Set<UUID> = []
 
     /// Cached sorted result of `entries` — avoids an O(n log n) sort on every render.
     /// Updated when sort settings change (`didSet`) or at batch boundaries.
@@ -295,6 +320,7 @@ final class ImageStore {
             }
         }
         updateGroupedByFolderAndFilter()
+        updateVisibilityFilteredEntries()
     }
 
     /// `sortedEntries` filtered to the sidebar selection, or all entries when no
@@ -302,6 +328,55 @@ final class ImageStore {
     var filteredSortedEntries: [ImageEntry] {
         guard let group = sidebarFilterGroup else { return sortedEntries }
         return sortedEntries.filter { $0.filterGroup == group }
+    }
+
+    /// Whether `entry` should be shown given the current `rejectionVisibility`.
+    /// Uses stored-property sets so callers that read this method from a SwiftUI view
+    /// body establish a proper `@Observable` dependency on `ImageStore`.
+    func isVisible(_ entry: ImageEntry) -> Bool {
+        switch rejectionVisibility {
+        case .all:      return true
+        case .selected: return flaggedEntryIDs.contains(entry.id)
+        case .rejected: return rejectedEntryIDs.contains(entry.id)
+        }
+    }
+
+    /// Sidebar-visible entries: `filteredSortedEntries` filtered by `rejectionVisibility`.
+    ///
+    /// **Stored property** — never computed on-demand. Updated synchronously by
+    /// `updateVisibilityFilteredEntries()` which is called from every write path that
+    /// affects its value: reject/undo, picker change (`rejectionVisibility.didSet`),
+    /// filter-strip change (`sidebarFilterGroup.didSet`), and sort/load boundaries.
+    /// Storing rather than computing ensures SwiftUI sees a plain stored-property mutation
+    /// and reliably invalidates every view that reads it.
+    private(set) var visibilityFilteredEntries: [ImageEntry] = []
+
+    private func updateVisibilityFilteredEntries() {
+        let base = filteredSortedEntries
+        switch rejectionVisibility {
+        case .all:      visibilityFilteredEntries = base
+        case .selected: visibilityFilteredEntries = base.filter { flaggedEntryIDs.contains($0.id) }
+        case .rejected: visibilityFilteredEntries = base.filter { rejectedEntryIDs.contains($0.id) }
+        }
+    }
+
+    /// `sortedEntries` grouped by filter group, in canonical FilterGroup order,
+    /// filtered by `rejectionVisibility`. Groups with no visible entries are omitted.
+    var visibilityGroupedSortedEntries: [(group: FilterGroup, entries: [ImageEntry])] {
+        let rejIDs = rejectedEntryIDs
+        let flgIDs = flaggedEntryIDs
+        let vis = rejectionVisibility
+        let grouped = Dictionary(grouping: sortedEntries) { $0.filterGroup }
+        return FilterGroup.allCases.compactMap { group in
+            guard let all = grouped[group] else { return nil }
+            let visible: [ImageEntry]
+            switch vis {
+            case .all:      visible = all
+            case .selected: visible = all.filter { flgIDs.contains($0.id) }
+            case .rejected: visible = all.filter { rejIDs.contains($0.id) }
+            }
+            return visible.isEmpty ? nil : (group: group, entries: visible)
+        }
     }
 
     /// `sortedEntries` grouped by filter group, in canonical FilterGroup order.
@@ -431,6 +506,8 @@ final class ImageStore {
         entries = []
         selectedEntry = nil
         selectedEntryIDs = []
+        flaggedEntryIDs = []
+        rejectedEntryIDs = []
         batchElapsed = nil
         isBatchProcessing = false
         errorMessage = nil
@@ -442,6 +519,7 @@ final class ImageStore {
         knownRootURLs = []
         activeFolderPaths = []
         groupedByFolderAndFilter = []
+        visibilityFilteredEntries = []
         pendingLoad = nil
     }
 
@@ -459,20 +537,85 @@ final class ImageStore {
                   debayerColorImages: pending.debayerColorImages)
     }
 
+    // MARK: - Multi-selection helpers
+
+    /// Adds all currently-visible entries (respecting filter group and rejection visibility)
+    /// to the multi-selection. The focused entry is preserved.
+    func selectAllVisible() {
+        let visible = visibilityFilteredEntries
+        guard !visible.isEmpty else { return }
+        selectedEntryIDs = Set(visible.map { $0.id })
+        if selectedEntry == nil || !selectedEntryIDs.contains(selectedEntry!.id) {
+            selectedEntry = visible.first
+        }
+    }
+
+    /// Clears the multi-selection and focused entry.
+    func deselectAll() {
+        selectedEntryIDs = []
+        selectedEntry = nil
+    }
+
+    /// Inverts the multi-selection within the currently-visible entries.
+    /// Previously-selected entries are deselected; unselected ones become selected.
+    func invertSelection() {
+        let visible = visibilityFilteredEntries
+        guard !visible.isEmpty else { return }
+        let currentIDs = selectedEntryIDs.isEmpty
+            ? (selectedEntry.map { [$0.id] } ?? [])
+            : Array(selectedEntryIDs)
+        let currentSet = Set(currentIDs)
+        let inverted = Set(visible.map { $0.id }).subtracting(currentSet)
+        selectedEntryIDs = inverted
+        if let entry = selectedEntry, inverted.contains(entry.id) {
+            // keep current focused entry if it's still in the new selection
+        } else {
+            selectedEntry = visible.first { inverted.contains($0.id) }
+        }
+    }
+
+    // MARK: - Extend selection
+
+    /// Extends the multi-selection one step toward earlier entries in the visible list.
+    func extendSelectionPrevious() {
+        let ordered = visibilityFilteredEntries
+        guard let current = selectedEntry,
+              let index = ordered.firstIndex(where: { $0 === current }) else { return }
+        guard index > 0 else { NSSound.beep(); return }
+        let target = ordered[index - 1]
+        if selectedEntryIDs.isEmpty { selectedEntryIDs.insert(current.id) }
+        selectedEntryIDs.insert(target.id)
+        selectedEntry = target
+    }
+
+    /// Extends the multi-selection one step toward later entries in the visible list.
+    func extendSelectionNext() {
+        let ordered = visibilityFilteredEntries
+        guard let current = selectedEntry,
+              let index = ordered.firstIndex(where: { $0 === current }) else { return }
+        guard index < ordered.count - 1 else { NSSound.beep(); return }
+        let target = ordered[index + 1]
+        if selectedEntryIDs.isEmpty { selectedEntryIDs.insert(current.id) }
+        selectedEntryIDs.insert(target.id)
+        selectedEntry = target
+    }
+
     // MARK: - Navigation
 
     func selectFirst() {
-        guard let first = sortedEntries.first else { return }
+        let ordered = visibilityFilteredEntries
+        guard let first = ordered.first else { return }
         if selectedEntry === first { NSSound.beep() } else { selectedEntry = first; selectedEntryIDs = [] }
     }
 
     func selectLast() {
-        guard let last = sortedEntries.last else { return }
+        let ordered = visibilityFilteredEntries
+        guard let last = ordered.last else { return }
         if selectedEntry === last { NSSound.beep() } else { selectedEntry = last; selectedEntryIDs = [] }
     }
 
     func selectPrevious() {
-        let ordered = sortedEntries
+        let ordered = visibilityFilteredEntries
         guard !ordered.isEmpty else { return }
         guard let current = selectedEntry,
               let index = ordered.firstIndex(where: { $0 === current }) else {
@@ -487,7 +630,7 @@ final class ImageStore {
     }
 
     func selectNext() {
-        let ordered = sortedEntries
+        let ordered = visibilityFilteredEntries
         guard !ordered.isEmpty else { return }
         guard let current = selectedEntry,
               let index = ordered.firstIndex(where: { $0 === current }) else {
@@ -539,9 +682,26 @@ final class ImageStore {
         }
     }
 
-    /// Batch-reject multiple entries. Used by the session chart drag-select action.
+
+    /// Batch-reject multiple entries.
     func rejectEntries(_ entriesToReject: [ImageEntry]) {
         for entry in entriesToReject { rejectEntry(entry) }
+    }
+
+    /// Adds entries to the flagged set (drives the "Selected" filter) without rejecting.
+    func flagEntries(_ entriesToFlag: [ImageEntry]) {
+        flaggedEntryIDs = flaggedEntryIDs.union(entriesToFlag.map(\.id))
+    }
+
+    /// Removes IDs from the flagged set. Used by cmd+click in "Selected" mode.
+    func unflagEntries(_ ids: Set<UUID>) {
+        flaggedEntryIDs.subtract(ids)
+        selectedEntryIDs.subtract(ids)
+    }
+
+    /// Flags all frames that match `config` by adding them to the selection.
+    func applyAutoFlag(config: AutoRejectConfig) {
+        flagEntries(previewAutoReject(config: config))
     }
 
     private func rejectEntry(_ entry: ImageEntry) {
@@ -562,6 +722,8 @@ final class ImageStore {
             try FileManager.default.moveItem(at: originalURL, to: destinationURL)
             entry.url = destinationURL
             entry.isRejected = true
+            rejectedEntryIDs.insert(entry.id)
+            updateVisibilityFilteredEntries()
         } catch {
             errorMessage = "Failed to reject \(entry.fileName): \(error.localizedDescription)"
         }
@@ -632,6 +794,8 @@ final class ImageStore {
             try FileManager.default.moveItem(at: currentURL, to: originalURL)
             entry.url = originalURL
             entry.isRejected = false
+            rejectedEntryIDs.remove(entry.id)
+            updateVisibilityFilteredEntries()
 
             let rejectedDir = currentURL.deletingLastPathComponent()
             let contents = try? FileManager.default.contentsOfDirectory(

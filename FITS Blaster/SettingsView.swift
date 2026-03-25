@@ -109,6 +109,9 @@ struct UISettingsTab: View {
             ("Toggle Simple/Geek Mode", $settings.toggleModeKey),
             ("Remove from List",        $settings.removeKey),
             ("Toggle Colour Images",    $settings.debayerKey),
+            ("Select All",              $settings.selectAllKey),
+            ("Deselect All",            $settings.deselectAllKey),
+            ("Inverse Selection",       $settings.invertSelectionKey),
         ]
 
         Form {
@@ -151,6 +154,30 @@ struct UISettingsTab: View {
                 LabeledContent("Toggle Colour Images") {
                     KeyRecorderButton(keyString: $settings.debayerKey,
                                       conflictingKeys: allKeys.filter { $0.label != "Toggle Colour Images" }.map(\.key))
+                }
+            }
+
+            Section("Selection") {
+                LabeledContent("Select All") {
+                    SelectionShortcutRow(
+                        keyString: $settings.selectAllKey,
+                        usesShift: $settings.selectAllShift,
+                        conflictingKeys: allKeys.filter { $0.label != "Select All" }.map(\.key)
+                    )
+                }
+                LabeledContent("Deselect All") {
+                    SelectionShortcutRow(
+                        keyString: $settings.deselectAllKey,
+                        usesShift: $settings.deselectAllShift,
+                        conflictingKeys: allKeys.filter { $0.label != "Deselect All" }.map(\.key)
+                    )
+                }
+                LabeledContent("Inverse Selection") {
+                    SelectionShortcutRow(
+                        keyString: $settings.invertSelectionKey,
+                        usesShift: $settings.invertSelectionShift,
+                        conflictingKeys: allKeys.filter { $0.label != "Inverse Selection" }.map(\.key)
+                    )
                 }
             }
 
@@ -419,5 +446,27 @@ private struct DynamicTypeSizePicker: View {
         .background(.quaternary)
         .clipShape(.rect(cornerRadius: 6))
         .frame(maxWidth: 260)
+    }
+}
+
+// MARK: - Selection shortcut row
+
+/// A row showing a modifier picker (⌘ / ⌘⇧) alongside a key recorder.
+private struct SelectionShortcutRow: View {
+    @Binding var keyString: String
+    @Binding var usesShift: Bool
+    var conflictingKeys: [Binding<String>]
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Picker("Modifier", selection: $usesShift) {
+                Text("⌘").tag(false)
+                Text("⌘⇧").tag(true)
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .frame(width: 80)
+            KeyRecorderButton(keyString: $keyString, conflictingKeys: conflictingKeys)
+        }
     }
 }

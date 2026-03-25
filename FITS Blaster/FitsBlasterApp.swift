@@ -82,6 +82,11 @@ struct FitsBlasterApp: App {
                 SimpleModeCommand()
                 DebayerColourCommand()
             }
+            CommandMenu("Select") {
+                SelectAllCommand()
+                DeselectAllCommand()
+                InvertSelectionCommand()
+            }
         }
 
         Window("Settings", id: "settings") {
@@ -172,6 +177,51 @@ private struct OpenFilesCommand: View {
         Button("Open File(s)…") { action?() }
             .keyboardShortcut("o", modifiers: [.command, .shift])
             .disabled(action == nil)
+    }
+}
+
+/// Selects all visible frames in the active window.
+private struct SelectAllCommand: View {
+    @FocusedValue(\.selectAllAction)   var action
+    @FocusedValue(\.selectAllKeyString) var keyString
+    @FocusedValue(\.selectAllShiftFV)   var usesShift
+
+    var body: some View {
+        let equiv: KeyEquivalent = keyString.flatMap(\.first).map { KeyEquivalent($0) } ?? KeyEquivalent("a")
+        let mods: EventModifiers = usesShift == true ? [.command, .shift] : .command
+        Button("Select All") { action?() }
+            .disabled(action == nil)
+            .keyboardShortcut(equiv, modifiers: mods)
+    }
+}
+
+/// Deselects all frames.
+private struct DeselectAllCommand: View {
+    @FocusedValue(\.deselectAllAction)   var action
+    @FocusedValue(\.deselectAllKeyString) var keyString
+    @FocusedValue(\.deselectAllShiftFV)   var usesShift
+
+    var body: some View {
+        let equiv: KeyEquivalent = keyString.flatMap(\.first).map { KeyEquivalent($0) } ?? KeyEquivalent("d")
+        let mods: EventModifiers = usesShift == true ? [.command, .shift] : .command
+        Button("Deselect All") { action?() }
+            .disabled(action == nil)
+            .keyboardShortcut(equiv, modifiers: mods)
+    }
+}
+
+/// Inverts the selection within visible frames.
+private struct InvertSelectionCommand: View {
+    @FocusedValue(\.invertSelectionAction)   var action
+    @FocusedValue(\.invertSelectionKeyString) var keyString
+    @FocusedValue(\.invertSelectionShiftFV)   var usesShift
+
+    var body: some View {
+        let equiv: KeyEquivalent = keyString.flatMap(\.first).map { KeyEquivalent($0) } ?? KeyEquivalent("i")
+        let mods: EventModifiers = usesShift == true ? [.command, .shift] : .command
+        Button("Inverse Selection") { action?() }
+            .disabled(action == nil)
+            .keyboardShortcut(equiv, modifiers: mods)
     }
 }
 

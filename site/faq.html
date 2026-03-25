@@ -413,8 +413,8 @@
                 <li><strong>Open your folder</strong> — use ⌘O or drag it onto the window. FITS Blaster starts loading and measuring quality metrics immediately; you can begin reviewing before the full set has loaded.</li>
                 <li><strong>Scan the session chart</strong> — the horizontal strip across the bottom plots all frames in time order, coloured by quality. A cluster of red or amber dots usually points to a specific problem period (clouds, a focus drift, a gust of wind).</li>
                 <li><strong>Review suspect frames</strong> — click a dot in the chart to jump to that frame, or step through the sidebar with the arrow keys. The main view shows the stretched image; the inspector on the right shows the exact metric values.</li>
-                <li><strong>Reject bad frames</strong> — press your reject key (default: X, or spacebar if you use toggle mode) to move a frame to the <code>REJECTED/</code> subfolder. Drag across the chart to reject a whole run of bad frames at once.</li>
-                <li><strong>Use Auto-Reject for bulk cleanup</strong> — set a threshold (e.g. FWHM &gt; 7 px) and preview the result before committing.</li>
+                <li><strong>Flag suspect frames</strong> — drag across the chart to flag a run of bad frames, or use <strong>Auto-Flag</strong> to set a quality threshold (e.g. FWHM &gt; 7 px) and flag matching frames automatically.</li>
+                <li><strong>Inspect and reject</strong> — switch to the <strong>Selected</strong> view in the sidebar to see only your flagged frames. Step through them, then press your reject key (default: X) to move the bad ones to <code>REJECTED/</code>.</li>
                 <li><strong>Hand off to your stacking tool</strong> — point PixInsight, Siril, or AstroPixelProcessor at the same folder. The rejected frames are now in <code>REJECTED/</code> and will not be picked up by a folder scan.</li>
             </ol>
         </div>
@@ -426,7 +426,7 @@
             <p>The session chart is a horizontal strip showing one dot per frame, in the order they were captured. The dot colour matches the quality badge (green / amber / red / grey). You can:</p>
             <ul>
                 <li><strong>Click</strong> a dot to select and display that frame</li>
-                <li><strong>Drag</strong> across a range of dots to select multiple frames, then reject them all with one keypress</li>
+                <li><strong>Drag</strong> across a range of dots to flag a range of frames for closer inspection in the Selected view</li>
                 <li><strong>Filter by folder or filter group</strong> using the pill buttons above the chart, to focus on one subset at a time</li>
             </ul>
             <p>The chart makes it easy to spot patterns — a run of red dots typically means a passing cloud, a focus shift, or a tracking problem at a specific point in the session.</p>
@@ -443,7 +443,29 @@
     <details>
         <summary>Can I reject multiple frames at once?</summary>
         <div class="answer">
-            <p>Yes. Hold <strong>⌘</strong> or <strong>⇧</strong> to build a multi-selection in the sidebar, then press the reject key. You can also drag across the session chart to select and reject a range of frames in one gesture.</p>
+            <p>Yes. Hold <strong>⌘</strong> or <strong>⇧</strong> to build a multi-selection in the sidebar, then press the reject key. In the <strong>Selected</strong> view you can also build a multi-selection with ⇧ and reject the whole group at once.</p>
+        </div>
+    </details>
+
+    <details>
+        <summary>What is the Selected view?</summary>
+        <div class="answer">
+            <p>The <strong>Selected</strong> view (the segmented control at the bottom of the sidebar, between All and Rejected) shows a curated list of frames you have flagged for closer inspection — without committing to rejection yet.</p>
+            <p><strong>How frames enter the Selected view:</strong></p>
+            <ul>
+                <li><strong>⌘+click</strong> a frame in the All or Rejected view</li>
+                <li><strong>⇧+click</strong> or <strong>⇧+arrow keys</strong> to flag a range</li>
+                <li><strong>Drag across the session chart</strong> to flag a run of frames</li>
+                <li><strong>Auto-Flag</strong> — flags all frames that fall below your chosen quality thresholds</li>
+            </ul>
+            <p><strong>Working inside the Selected view:</strong></p>
+            <ul>
+                <li><strong>Click</strong> a frame to view it without affecting the list</li>
+                <li><strong>⇧+click</strong> or <strong>⇧+arrow keys</strong> to build a sub-selection for batch rejection</li>
+                <li><strong>Reject key</strong> — rejects the current frame (or the whole sub-selection). Rejected frames stay visible in the Selected view so you can review and undo.</li>
+                <li><strong>⌘+click</strong> — removes the frame (or the current sub-selection) from the Selected list entirely without rejecting it</li>
+            </ul>
+            <p>The flagged list persists when you switch between All, Selected, and Rejected views, and is only cleared when you open a new folder.</p>
         </div>
     </details>
 
@@ -482,9 +504,9 @@
     </details>
 
     <details>
-        <summary>What is Auto-Reject?</summary>
+        <summary>What is Auto-Flag?</summary>
         <div class="answer">
-            <p>Auto-reject lets you set thresholds (e.g. "reject all frames with FWHM &gt; 7 px") and preview how many frames would be affected before committing. Access it from the toolbar.</p>
+            <p>Auto-Flag lets you set quality thresholds (e.g. "flag all frames with FWHM &gt; 7 px") and preview how many frames match before applying. The matching frames are added to the <strong>Selected</strong> view so you can inspect them individually and decide which ones to actually reject. Access it from the toolbar.</p>
         </div>
     </details>
 
@@ -536,9 +558,9 @@
         <div class="answer">
             <ol>
                 <li>Load the folder in <strong>greyscale + geek mode</strong>. Greyscale loads faster than colour; geek mode computes quality metrics and populates the session chart.</li>
-                <li>Glance at the session chart — drag-select any obvious bad runs and reject them in one go.</li>
-                <li>Switch the sidebar sort to <strong>quality score</strong>. Your worst frames are now grouped at one end; select them as a block and reject.</li>
-                <li>Step through remaining amber frames with the <strong>arrow keys</strong>, rejecting with a single keypress. You rarely need to look at every frame individually.</li>
+                <li>Glance at the session chart — drag-select any obvious bad runs to flag them, then use <strong>Auto-Flag</strong> to catch anything you missed.</li>
+                <li>Switch to the <strong>Selected</strong> view. Step through the flagged frames and press the reject key on the ones you want to move to <code>REJECTED/</code>.</li>
+                <li>For the remainder, switch the sidebar sort to <strong>quality score</strong>. Your worst frames are now at one end; ⇧+click to select them as a block and reject.</li>
             </ol>
             <p>If you only want a quick visual pass without metrics, <strong>simple mode</strong> loads faster but the session chart is not available.</p>
         </div>

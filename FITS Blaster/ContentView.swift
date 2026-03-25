@@ -18,8 +18,89 @@ struct ContentView: View {
     @State private var keyMonitor: Any?
 
     var body: some View {
+        contentWithFocus
+            .onChange(of: settings.metricsConfig) { _, newConfig in
+                guard !settings.isSimpleMode else { return }
+                store.recomputeMetrics(metricsConfig: newConfig)
+            }
+            .onChange(of: settings.debayerColorImages) { _, _ in
+                guard !store.entries.isEmpty else { return }
+                store.recolorImages(settings: settings)
+            }
+            .onChange(of: settings.isSimpleMode) { _, isSimple in
+                if !isSimple {
+                    store.recomputeMetrics(metricsConfig: settings.metricsConfig)
+                }
+                guard let window = hostingWindow else { return }
+                var frame = window.frame
+                if isSimple {
+                    if settings.showInspector { frame.size.width -= 260 }
+                    frame.size.width = max(frame.size.width, 500)
+                } else {
+                    if settings.showInspector { frame.size.width += 260 }
+                    frame.size.width = max(frame.size.width, settings.showInspector ? 960 : 700)
+                }
+                window.setFrame(frame, display: true, animate: true)
+            }
+            .onChange(of: settings.showInspector) { _, shown in
+                guard !settings.isSimpleMode, let window = hostingWindow else { return }
+                let delta: CGFloat = 260
+                var frame = window.frame
+                frame.size.width += shown ? delta : -delta
+                frame.size.width = max(frame.size.width, shown ? 960 : 700)
+                window.setFrame(frame, display: true, animate: true)
+            }
+            .alert("Error", isPresented: Binding(
+                get: { store.errorMessage != nil },
+                set: { if !$0 { store.errorMessage = nil } }
+            )) {
+                Button("OK") { store.errorMessage = nil }
+            } message: {
+                Text(store.errorMessage ?? "")
+            }
+            .sheet(isPresented: Binding(
+                get: { store.hitFrameLimit },
+                set: { if !$0 { store.hitFrameLimit = false } }
+            )) {
+                PaywallView()
+                    .environment(purchases)
+            }
+            .onAppear { installKeyMonitor() }
+            .onDisappear { removeKeyMonitor() }
+    }
+
+    private var contentWithFocus: some View {
+        splitContent
+            .focusedSceneValue(\.simpleModeBinding, Binding(
+                get: { settings.isSimpleMode },
+                set: { settings.isSimpleMode = $0 }
+            ))
+            .focusedSceneValue(\.debayerColorBinding, Binding(
+                get: { settings.debayerColorImages },
+                set: { settings.debayerColorImages = $0 }
+            ))
+            .focusedSceneValue(\.toggleModeKeyString, settings.toggleModeKey)
+            .focusedSceneValue(\.debayerKeyString, settings.debayerKey)
+            .focusedSceneValue(\.openFolderAction) { store.openFolderPanel(settings: settings) }
+            .focusedSceneValue(\.openFilesAction)  { store.openFilesPanel(settings: settings) }
+            .focusedSceneValue(\.selectAllAction)       { store.selectAllVisible() }
+            .focusedSceneValue(\.deselectAllAction)     { store.deselectAll() }
+            .focusedSceneValue(\.invertSelectionAction) { store.invertSelection() }
+            .focusedSceneValue(\.selectAllKeyString,       settings.selectAllKey)
+            .focusedSceneValue(\.deselectAllKeyString,     settings.deselectAllKey)
+            .focusedSceneValue(\.invertSelectionKeyString, settings.invertSelectionKey)
+            .focusedSceneValue(\.selectAllShiftFV,       settings.selectAllShift)
+            .focusedSceneValue(\.deselectAllShiftFV,     settings.deselectAllShift)
+            .focusedSceneValue(\.invertSelectionShiftFV, settings.invertSelectionShift)
+            .frame(minWidth: minWindowWidth, minHeight: 400)
+            .environment(\.fontSizeMultiplier, settings.fontSizeMultiplier)
+            .preferredColorScheme(settings.preferredColorScheme)
+            .background(WindowAccessor { hostingWindow = $0 })
+    }
+
+    private var splitContent: some View {
         HSplitView {
-            ThumbnailSidebar(store: store)
+            ThumbnailSidebar()
                 .frame(minWidth: 140, idealWidth: 165, maxWidth: 220)
 
             VStack(spacing: 0) {
@@ -43,71 +124,6 @@ struct ContentView: View {
             handleDrop(providers: providers)
             return true
         }
-        .focusedSceneValue(\.simpleModeBinding, Binding(
-            get: { settings.isSimpleMode },
-            set: { settings.isSimpleMode = $0 }
-        ))
-        .focusedSceneValue(\.debayerColorBinding, Binding(
-            get: { settings.debayerColorImages },
-            set: { settings.debayerColorImages = $0 }
-        ))
-        .focusedSceneValue(\.toggleModeKeyString, settings.toggleModeKey)
-        .focusedSceneValue(\.debayerKeyString, settings.debayerKey)
-        .focusedSceneValue(\.openFolderAction) { store.openFolderPanel(settings: settings) }
-        .focusedSceneValue(\.openFilesAction)  { store.openFilesPanel(settings: settings) }
-        .frame(minWidth: minWindowWidth, minHeight: 400)
-        .environment(\.fontSizeMultiplier, settings.fontSizeMultiplier)
-        .preferredColorScheme(settings.preferredColorScheme)
-        .background(WindowAccessor { hostingWindow = $0 })
-        .onChange(of: settings.metricsConfig) { _, newConfig in
-            guard !settings.isSimpleMode else { return }
-            store.recomputeMetrics(metricsConfig: newConfig)
-        }
-        .onChange(of: settings.debayerColorImages) { _, _ in
-            guard !store.entries.isEmpty else { return }
-            store.recolorImages(settings: settings)
-        }
-        .onChange(of: settings.isSimpleMode) { _, isSimple in
-            if !isSimple {
-                // Switching to Geek: restore cached metrics instantly (no I/O if already computed)
-                store.recomputeMetrics(metricsConfig: settings.metricsConfig)
-            }
-            guard let window = hostingWindow else { return }
-            var frame = window.frame
-            if isSimple {
-                if settings.showInspector { frame.size.width -= 260 }
-                frame.size.width = max(frame.size.width, 500)
-            } else {
-                if settings.showInspector { frame.size.width += 260 }
-                frame.size.width = max(frame.size.width, settings.showInspector ? 960 : 700)
-            }
-            window.setFrame(frame, display: true, animate: true)
-        }
-        .onChange(of: settings.showInspector) { _, shown in
-            guard !settings.isSimpleMode, let window = hostingWindow else { return }
-            let delta: CGFloat = 260
-            var frame = window.frame
-            frame.size.width += shown ? delta : -delta
-            frame.size.width = max(frame.size.width, shown ? 960 : 700)
-            window.setFrame(frame, display: true, animate: true)
-        }
-        .alert("Error", isPresented: Binding(
-            get: { store.errorMessage != nil },
-            set: { if !$0 { store.errorMessage = nil } }
-        )) {
-            Button("OK") { store.errorMessage = nil }
-        } message: {
-            Text(store.errorMessage ?? "")
-        }
-        .sheet(isPresented: Binding(
-            get: { store.hitFrameLimit },
-            set: { if !$0 { store.hitFrameLimit = false } }
-        )) {
-            PaywallView()
-                .environment(purchases)
-        }
-        .onAppear { installKeyMonitor() }
-        .onDisappear { removeKeyMonitor() }
     }
 
     private var minWindowWidth: CGFloat {
@@ -124,8 +140,43 @@ struct ContentView: View {
             MainActor.assumeIsolated {
                 // Don't steal from text inputs.
                 guard !(NSApp.keyWindow?.firstResponder is NSText) else { return event }
+
+                let mods = event.modifierFlags
+                let shift = mods.contains(.shift)
+
+                // ⌘(⇧) + configured key — selection shortcuts.
+                if mods.contains(.command),
+                   !mods.contains(.option),
+                   !mods.contains(.control),
+                   let key = event.characters?.lowercased() {
+                    if shift == self.settings.selectAllShift,
+                       key == self.settings.selectAllKey {
+                        self.store.selectAllVisible(); return nil
+                    }
+                    if shift == self.settings.deselectAllShift,
+                       key == self.settings.deselectAllKey {
+                        self.store.deselectAll(); return nil
+                    }
+                    if shift == self.settings.invertSelectionShift,
+                       key == self.settings.invertSelectionKey {
+                        self.store.invertSelection(); return nil
+                    }
+                }
+
+                // ⇧ + configured nav key — extend selection.
+                if shift, !mods.contains(.command), !mods.contains(.option), !mods.contains(.control) {
+                    if let key = Self.keyString(from: event) {
+                        if key == self.settings.prevImageKey {
+                            self.store.extendSelectionPrevious(); return nil
+                        }
+                        if key == self.settings.nextImageKey {
+                            self.store.extendSelectionNext(); return nil
+                        }
+                    }
+                }
+
                 // Don't intercept events with command/option/control modifiers.
-                guard event.modifierFlags.intersection([.command, .option, .control]).isEmpty else { return event }
+                guard mods.intersection([.command, .option, .control]).isEmpty else { return event }
                 guard let key = Self.keyString(from: event) else { return event }
                 return self.handleKey(key) ? nil : event
             }
@@ -262,7 +313,7 @@ struct DropTargetOverlay: View {
 // MARK: - Thumbnail Sidebar
 
 struct ThumbnailSidebar: View {
-    @Bindable var store: ImageStore
+    @Environment(ImageStore.self) private var store
     @Environment(AppSettings.self) private var settings
 
     /// The last entry that received a plain or cmd+click — used as the anchor for shift+click range.
@@ -273,23 +324,23 @@ struct ThumbnailSidebar: View {
 
     /// Ordered list of entries currently rendered in the sidebar, used for shift+click range.
     private var visibleEntries: [ImageEntry] {
-        if settings.isSimpleMode { return store.entries }
-        // A filter is selected, or there's only one folder and one filter: show flat filtered list.
-        if store.sidebarFilterGroup != nil
+        if settings.isSimpleMode || store.sidebarFilterGroup != nil
             || (!store.isMultiFilter && !store.isMultiFolder) {
-            return store.filteredSortedEntries
+            return store.visibilityFilteredEntries
         }
         // Multi-folder mode: return entries in folder → filter section order, skipping collapsed.
         if store.isMultiFolder {
             return store.groupedByFolderAndFilter
                 .filter { !collapsedFolderPaths.contains($0.folderPath) }
                 .flatMap { folder in folder.filterGroups.flatMap { $0.1 } }
+                .filter { store.isVisible($0) }
         }
-        // Single folder, multi-filter: existing filter-grouped order.
-        return store.groupedSortedEntries.flatMap { $0.entries }
+        // Single folder, multi-filter: visibility-grouped order.
+        return store.visibilityGroupedSortedEntries.flatMap { $0.entries }
     }
 
     var body: some View {
+        @Bindable var bindableStore = store
         VStack(spacing: 0) {
             if !settings.isSimpleMode {
                 // Sort controls (Geek mode only)
@@ -297,7 +348,7 @@ struct ThumbnailSidebar: View {
                     Text("Sort")
                         .scaledFont(size: 10)
                         .foregroundStyle(.secondary)
-                    Picker("Sort", selection: $store.thumbnailSortOrder) {
+                    Picker("Sort", selection: $bindableStore.thumbnailSortOrder) {
                         ForEach(ThumbnailSortOrder.allCases, id: \.self) { order in
                             Text(order.rawValue).tag(order)
                         }
@@ -319,7 +370,7 @@ struct ThumbnailSidebar: View {
                 // Filter strip — only shown when multiple filter groups are present
                 if store.isMultiFilter {
                     Divider()
-                    FilterStrip(store: store)
+                    FilterStrip(store: bindableStore)
                 }
 
                 Divider()
@@ -328,15 +379,18 @@ struct ThumbnailSidebar: View {
             ScrollViewReader { proxy in
                 ScrollView {
                     LazyVStack(spacing: 0, pinnedViews: .sectionHeaders) {
+                        // Note: .id(store.rejectionVisibility) below forces complete
+                        // recreation of the lazy container when the filter changes,
+                        // ensuring stale views don't persist across filter switches.
                         if settings.isSimpleMode {
                             // Simple mode: plain filename-ordered flat list, no grouping
-                            ForEach(store.entries) { entry in
+                            ForEach(store.visibilityFilteredEntries) { entry in
                                 thumbnailButton(for: entry)
                             }
                         } else if store.sidebarFilterGroup != nil
                             || (!store.isMultiFilter && !store.isMultiFolder) {
                             // Flat list: a filter is selected, or there's only one folder+filter
-                            ForEach(store.filteredSortedEntries) { entry in
+                            ForEach(store.visibilityFilteredEntries) { entry in
                                 thumbnailButton(for: entry)
                             }
                         } else if store.isMultiFolder {
@@ -347,13 +401,16 @@ struct ThumbnailSidebar: View {
                                     if !isCollapsed {
                                         if folderGroup.filterGroups.count > 1 {
                                             ForEach(folderGroup.filterGroups, id: \.0) { group, groupEntries in
-                                                FolderFilterSubHeader(group: group, count: groupEntries.count)
-                                                ForEach(groupEntries) { entry in
-                                                    thumbnailButton(for: entry)
+                                                let visibleGroupEntries = groupEntries.filter { store.isVisible($0) }
+                                                if !visibleGroupEntries.isEmpty {
+                                                    FolderFilterSubHeader(group: group, count: visibleGroupEntries.count)
+                                                    ForEach(visibleGroupEntries) { entry in
+                                                        thumbnailButton(for: entry)
+                                                    }
                                                 }
                                             }
                                         } else {
-                                            ForEach(folderGroup.filterGroups.first?.1 ?? []) { entry in
+                                            ForEach((folderGroup.filterGroups.first?.1 ?? []).filter { store.isVisible($0) }) { entry in
                                                 thumbnailButton(for: entry)
                                             }
                                         }
@@ -373,7 +430,7 @@ struct ThumbnailSidebar: View {
                             }
                         } else {
                             // Single folder, multiple filters: group by filter
-                            ForEach(store.groupedSortedEntries, id: \.group) { group, entries in
+                            ForEach(store.visibilityGroupedSortedEntries, id: \.group) { group, entries in
                                 Section {
                                     ForEach(entries) { entry in
                                         thumbnailButton(for: entry)
@@ -385,6 +442,7 @@ struct ThumbnailSidebar: View {
                         }
                     }
                     .padding(.vertical, 4)
+                    .id(store.rejectionVisibility)
                 }
                 .scrollIndicators(.hidden)
                 .background(.background)
@@ -393,6 +451,18 @@ struct ThumbnailSidebar: View {
                     withAnimation { proxy.scrollTo(id, anchor: .center) }
                 }
             }
+
+            Divider()
+            Picker("Show", selection: $bindableStore.rejectionVisibility) {
+                ForEach(RejectionVisibility.allCases, id: \.self) { v in
+                    Text(v.rawValue).tag(v)
+                }
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .scaledFont(size: 10)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 6)
         }
     }
 
@@ -400,16 +470,28 @@ struct ThumbnailSidebar: View {
         Button {
             let mods = NSEvent.modifierFlags
             if mods.contains(.command) {
-                // Cmd+click: toggle this entry in/out of the multi-selection.
-                if store.selectedEntryIDs.contains(entry.id) {
-                    store.selectedEntryIDs.remove(entry.id)
-                    if store.selectedEntry === entry {
-                        store.selectedEntry = store.entries.first { store.selectedEntryIDs.contains($0.id) }
+                if store.rejectionVisibility == .selected {
+                    // In "Selected" mode cmd+click unflag.
+                    // If a multi-selection exists unflag all of it; otherwise just this image.
+                    let toUnflag = store.selectedEntryIDs.isEmpty
+                        ? [entry.id]
+                        : store.selectedEntryIDs
+                    store.unflagEntries(toUnflag)
+                    if toUnflag.contains(store.selectedEntry?.id ?? UUID()) {
+                        store.selectedEntry = store.visibilityFilteredEntries.first
                     }
                 } else {
-                    if let current = store.selectedEntry { store.selectedEntryIDs.insert(current.id) }
-                    store.selectedEntryIDs.insert(entry.id)
-                    store.selectedEntry = entry
+                    // Cmd+click: toggle this entry in/out of the multi-selection.
+                    if store.selectedEntryIDs.contains(entry.id) {
+                        store.selectedEntryIDs.remove(entry.id)
+                        if store.selectedEntry === entry {
+                            store.selectedEntry = store.entries.first { store.selectedEntryIDs.contains($0.id) }
+                        }
+                    } else {
+                        if let current = store.selectedEntry { store.selectedEntryIDs.insert(current.id) }
+                        store.selectedEntryIDs.insert(entry.id)
+                        store.selectedEntry = entry
+                    }
                 }
                 lastClickedID = entry.id
             } else if mods.contains(.shift), let lastID = lastClickedID {

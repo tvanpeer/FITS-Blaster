@@ -96,9 +96,9 @@ struct SessionChartView: View {
     /// View-space X positions tracked during a drag gesture.
     @State private var dragStartX: CGFloat?
     @State private var dragCurrentX: CGFloat?
-    /// Frames staged for batch rejection after a drag-select.
-    @State private var pendingReject: [ImageEntry] = []
-    @State private var showRejectConfirm = false
+    /// Frames staged for batch flagging after a drag-select.
+    @State private var pendingFlag: [ImageEntry] = []
+    @State private var showFlagConfirm = false
 
     /// Subfolder paths whose entries are shown in the chart.
     /// Empty set means "All" — no folder filtering applied.
@@ -106,13 +106,16 @@ struct SessionChartView: View {
 
     // MARK: - Derived data
 
-    /// Entries shown in the chart strip, filtered by `selectedFolderPaths`.
-    /// When no folders are selected (or only one folder exists), all entries are returned.
+    /// Entries shown in the chart strip, filtered by `selectedFolderPaths` and `rejectionVisibility`.
+    /// When no folders are selected (or only one folder exists), all matching entries are returned.
     private var chartEntries: [ImageEntry] {
-        guard !selectedFolderPaths.isEmpty, store.isMultiFolder else {
-            return store.cachedSortedEntries
+        let base: [ImageEntry]
+        if !selectedFolderPaths.isEmpty, store.isMultiFolder {
+            base = store.cachedSortedEntries.filter { selectedFolderPaths.contains($0.qualifiedFolderPath) }
+        } else {
+            base = store.cachedSortedEntries
         }
-        return store.cachedSortedEntries.filter { selectedFolderPaths.contains($0.qualifiedFolderPath) }
+        return base.filter { store.isVisible($0) }
     }
 
     /// All frames that have at least a partial metric value for the active metric,
@@ -188,15 +191,15 @@ struct SessionChartView: View {
         .onChange(of: store.activeFolderPaths) { _, newPaths in
             selectedFolderPaths = selectedFolderPaths.filter { newPaths.contains($0) }
         }
-        .alert("Reject \(pendingReject.count) Frame\(pendingReject.count == 1 ? "" : "s")?",
-               isPresented: $showRejectConfirm) {
-            Button("Reject", role: .destructive) {
-                store.rejectEntries(pendingReject)
-                pendingReject = []
+        .alert("Select \(pendingFlag.count) Frame\(pendingFlag.count == 1 ? "" : "s")?",
+               isPresented: $showFlagConfirm) {
+            Button("Select") {
+                store.flagEntries(pendingFlag)
+                pendingFlag = []
             }
-            Button("Cancel", role: .cancel) { pendingReject = [] }
+            Button("Cancel", role: .cancel) { pendingFlag = [] }
         } message: {
-            Text("The selected frames will be moved to the REJECTED folder. You can undo individual frames with U.")
+            Text("The frames will be added to the selection. Switch to the Selected view to inspect and reject them.")
         }
     }
 
@@ -296,7 +299,8 @@ struct SessionChartView: View {
                 // Enlarge the selected frame's dot so it stands out
                 .symbolSize(store.selectedEntry === item.entry ? 90 : 28)
                 // Dim rejected frames so they recede visually
-                .opacity(item.entry.isRejected ? 0.25 : 1.0)
+                // Dim rejected dots only in "All" mode; in "Rejected" mode they're the focus.
+                .opacity(store.rejectionVisibility == .all && item.entry.isRejected ? 0.25 : 1.0)
             }
         }
         .chartXAxis {
@@ -309,7 +313,7 @@ struct SessionChartView: View {
                 }
             }
         }
-        .chartXScale(domain: 1...max(1, chartPoints.count))
+        .chartXScale(domain: 0...max(2, chartPoints.count + 1))
         .chartYScale(domain: yAxisDomain)
         .chartYAxis {
             AxisMarks(values: .automatic(desiredCount: 4)) { _ in
@@ -343,6 +347,9 @@ struct SessionChartView: View {
                                 dragCurrentX = nil
                             }
                     )
+
+                // Value tooltip shown while dragging
+                dragTooltip(proxy: proxy, geo: geo)
             }
         }
     }
@@ -380,6 +387,38 @@ struct SessionChartView: View {
         store.selectedEntry = entries[index]
     }
 
+    // MARK: - Drag tooltip
+
+    /// Returns the metric value and screen position for the frame currently under the drag cursor.
+    private func hoveredInfo(proxy: ChartProxy, geo: GeometryProxy) -> (label: String, x: CGFloat)? {
+        guard let currentX = dragCurrentX, let plotFrame = proxy.plotFrame else { return nil }
+        let plotRect = geo[plotFrame]
+        let xInPlot = currentX - plotRect.minX
+        guard let frameNumber: Int = proxy.value(atX: xInPlot, as: Int.self) else { return nil }
+        let index = frameNumber - 1
+        let entries = chartEntries
+        guard entries.indices.contains(index),
+              let value = selectedMetric.value(for: entries[index].metrics) else { return nil }
+        let label = "\(selectedMetric.shortLabel): \(selectedMetric.formattedValue(value))"
+        let clampedX = max(50, min(currentX, geo.size.width - 50))
+        return (label: label, x: clampedX)
+    }
+
+    @ViewBuilder
+    private func dragTooltip(proxy: ChartProxy, geo: GeometryProxy) -> some View {
+        if let info = hoveredInfo(proxy: proxy, geo: geo) {
+            Text(info.label)
+                .font(.system(size: 10))
+                .foregroundStyle(.primary)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 3)
+                .background(.regularMaterial, in: .rect(cornerRadius: 4))
+                .fixedSize()
+                .position(x: info.x, y: 14)
+                .allowsHitTesting(false)
+        }
+    }
+
     private func handleDragEnd(start: CGFloat, end: CGFloat,
                                proxy: ChartProxy, geo: GeometryProxy) {
         guard abs(end - start) > 6, let plotFrame = proxy.plotFrame else { return }
@@ -397,7 +436,7 @@ struct SessionChartView: View {
 
         let candidates = Array(entries[lo...hi]).filter { !$0.isRejected }
         guard !candidates.isEmpty else { return }
-        pendingReject    = candidates
-        showRejectConfirm = true
+        pendingFlag     = candidates
+        showFlagConfirm = true
     }
 }

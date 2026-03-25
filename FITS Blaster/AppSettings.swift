@@ -48,6 +48,29 @@ final class AppSettings {
         didSet { UserDefaults.standard.set(debayerKey, forKey: "debayerKey") }
     }
 
+    // MARK: - Selection Key Bindings (combined with ⌘ ± ⇧)
+
+    var selectAllKey: String = "a" {
+        didSet { UserDefaults.standard.set(selectAllKey, forKey: "selectAllKey") }
+    }
+    var selectAllShift: Bool = false {
+        didSet { UserDefaults.standard.set(selectAllShift, forKey: "selectAllShift") }
+    }
+
+    var deselectAllKey: String = "d" {
+        didSet { UserDefaults.standard.set(deselectAllKey, forKey: "deselectAllKey") }
+    }
+    var deselectAllShift: Bool = false {
+        didSet { UserDefaults.standard.set(deselectAllShift, forKey: "deselectAllShift") }
+    }
+
+    var invertSelectionKey: String = "i" {
+        didSet { UserDefaults.standard.set(invertSelectionKey, forKey: "invertSelectionKey") }
+    }
+    var invertSelectionShift: Bool = false {
+        didSet { UserDefaults.standard.set(invertSelectionShift, forKey: "invertSelectionShift") }
+    }
+
     // MARK: - Image Sizes
 
     var maxDisplaySize: Int = 1024 {
@@ -151,6 +174,12 @@ final class AppSettings {
         if let v = UserDefaults.standard.string(forKey: "toggleModeKey") { toggleModeKey = v }
         if let v = UserDefaults.standard.string(forKey: "removeKey")     { removeKey     = v }
         if let v = UserDefaults.standard.string(forKey: "debayerKey")    { debayerKey    = v }
+        if let v = UserDefaults.standard.string(forKey: "selectAllKey")       { selectAllKey       = v }
+        if let v = UserDefaults.standard.object(forKey: "selectAllShift")   as? Bool { selectAllShift   = v }
+        if let v = UserDefaults.standard.string(forKey: "deselectAllKey")     { deselectAllKey     = v }
+        if let v = UserDefaults.standard.object(forKey: "deselectAllShift") as? Bool { deselectAllShift = v }
+        if let v = UserDefaults.standard.string(forKey: "invertSelectionKey") { invertSelectionKey = v }
+        if let v = UserDefaults.standard.object(forKey: "invertSelectionShift") as? Bool { invertSelectionShift = v }
         // Sizes
         let display = UserDefaults.standard.integer(forKey: "maxDisplaySize")
         if display > 0 { maxDisplaySize = display }
@@ -183,6 +212,9 @@ final class AppSettings {
     var toggleModeKeyEquivalent:  KeyEquivalent { keyEquivalent(for: toggleModeKey,  fallback: KeyEquivalent("g")) }
     var removeKeyEquivalent:      KeyEquivalent { keyEquivalent(for: removeKey,      fallback: KeyEquivalent("r")) }
     var debayerKeyEquivalent:     KeyEquivalent { keyEquivalent(for: debayerKey,     fallback: KeyEquivalent("c")) }
+    var selectAllKeyEquivalent:       KeyEquivalent { keyEquivalent(for: selectAllKey,       fallback: KeyEquivalent("a")) }
+    var deselectAllKeyEquivalent:     KeyEquivalent { keyEquivalent(for: deselectAllKey,     fallback: KeyEquivalent("a")) }
+    var invertSelectionKeyEquivalent: KeyEquivalent { keyEquivalent(for: invertSelectionKey, fallback: KeyEquivalent("i")) }
 
     // MARK: - Appearance helper
 
@@ -258,6 +290,21 @@ extension FocusedValues {
     /// Actions for opening a folder or files, wired to the active window's ImageStore.
     @Entry var openFolderAction: (() -> Void)? = nil
     @Entry var openFilesAction: (() -> Void)? = nil
+
+    /// Selection actions wired to the active window's ImageStore.
+    @Entry var selectAllAction: (() -> Void)? = nil
+    @Entry var deselectAllAction: (() -> Void)? = nil
+    @Entry var invertSelectionAction: (() -> Void)? = nil
+
+    /// Key strings for the selection shortcuts, so menu commands can show the correct letter.
+    @Entry var selectAllKeyString: String? = nil
+    @Entry var deselectAllKeyString: String? = nil
+    @Entry var invertSelectionKeyString: String? = nil
+
+    /// Shift flags for the selection shortcuts (true = ⌘⇧, false = ⌘).
+    @Entry var selectAllShiftFV: Bool? = nil
+    @Entry var deselectAllShiftFV: Bool? = nil
+    @Entry var invertSelectionShiftFV: Bool? = nil
 }
 
 // MARK: - AppearanceMode

@@ -4,6 +4,27 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-03-25 — Selected view + selection overhaul (v1.14)
+
+### Added
+- **Selected view** — a dedicated sidebar filter that shows only flagged frames. Frames enter the list via ⌘+click, ⇧+click, chart drag-select, or Auto-Flag; ⌘+click inside the view removes them. Flagged frames persist across filter switches and are only cleared on folder reset.
+- **Flag-then-inspect workflow** — chart drag-select and Auto-Flag now add frames to the Selected list instead of rejecting them immediately. Rejection happens explicitly inside the Selected view after inspection.
+- **Select menu** — top-level menu with Select All, Deselect All, and Invert Selection, each with configurable key bindings (defaults: ⌘A / ⌘D / ⌘I).
+- **Shift+↑/↓ extend selection** — grows the multi-selection one step at a time using the configured navigation keys.
+- **Configurable selection key modifiers** — Settings → UI lets you choose ⌘ or ⌘⇧ independently for each selection shortcut.
+- **Drag tooltip** — while drag-selecting in the session chart, a floating label shows the metric value of the frame under the cursor.
+
+### Fixed
+- Arrow-key navigation (previous / next / first / last) now respects the active visibility filter, stopping at the boundary of the visible set rather than crossing into hidden frames.
+
+### Improved
+- Session chart left edge has breathing room before the first dot, making drag-select starting from frame 1 easier.
+
+### Updated
+- FAQ: new "What is the Selected view?" entry; updated chart drag-select and Auto-Flag descriptions to reflect the new workflow.
+
+---
+
 ## 2026-03-24 — Pipeline fix + toolbar buttons (v1.12.5)
 
 ### Fixed

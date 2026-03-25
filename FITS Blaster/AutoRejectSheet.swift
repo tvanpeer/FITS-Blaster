@@ -47,7 +47,6 @@ struct AutoRejectSheet: View {
     @Environment(ImageStore.self) private var store
 
     @State private var config = AutoRejectConfig()
-    @State private var showConfirm = false
 
     private var previewCount: Int {
         store.previewAutoReject(config: config).count
@@ -70,20 +69,11 @@ struct AutoRejectSheet: View {
             .formStyle(.grouped)
             Divider()
             SheetFooter(previewCount: previewCount,
-                        isPresented: $isPresented,
-                        showConfirm: $showConfirm)
+                        isPresented: $isPresented) {
+                store.applyAutoFlag(config: config)
+            }
         }
         .frame(minWidth: 420, minHeight: 500)
-        .alert("Flag \(previewCount) Frame\(previewCount == 1 ? "" : "s") for Rejection?",
-               isPresented: $showConfirm) {
-            Button("Move to REJECTED", role: .destructive) {
-                store.applyAutoReject(config: config)
-                isPresented = false
-            }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("Flagged frames will be moved to the REJECTED folder. You can undo individual frames with U.")
-        }
     }
 }
 
@@ -252,20 +242,21 @@ private struct ScoreSection: View {
 private struct SheetFooter: View {
     let previewCount: Int
     @Binding var isPresented: Bool
-    @Binding var showConfirm: Bool
+    let onFlag: () -> Void
 
     var body: some View {
         HStack {
             Text(previewCount == 0
                  ? "No frames match the current thresholds"
-                 : "\(previewCount) frame\(previewCount == 1 ? "" : "s") would be flagged")
+                 : "\(previewCount) frame\(previewCount == 1 ? "" : "s") would be selected")
                 .font(.callout)
                 .foregroundStyle(previewCount > 0 ? .primary : .secondary)
             Spacer()
             Button("Cancel") { isPresented = false }
                 .keyboardShortcut(.cancelAction)
-            Button("Flag \(previewCount) Frame\(previewCount == 1 ? "" : "s")", role: .destructive) {
-                showConfirm = true
+            Button("Select \(previewCount) Frame\(previewCount == 1 ? "" : "s")") {
+                onFlag()
+                isPresented = false
             }
             .disabled(previewCount == 0)
             .keyboardShortcut(.defaultAction)
