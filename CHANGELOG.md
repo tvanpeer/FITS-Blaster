@@ -4,6 +4,22 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-03-25 — Switch to donationware; remove StoreKit (v1.15)
+
+### Removed
+- `PurchaseManager`, `PaywallView`, and `Configuration.storekit` deleted entirely.
+- 50-frame free-tier cap removed from `ImageStore.openFiles` — all images load without restriction.
+- Subscription tab removed from Settings.
+- Paywall sheet and `PurchaseManager` environment removed from `ContentView` and `FitsBlasterApp`.
+
+### Fixed
+- Sandbox permission error on rejection: `accessDirectory(for:)` now falls back to creating a fresh
+  security-scoped bookmark from the entry's parent directory when the stored bookmark is missing or
+  stale. `rejectEntry` and `undoRejectEntry` now fail fast with a clear error message if directory
+  access cannot be established, instead of proceeding silently without sandbox scope.
+
+---
+
 ## 2026-03-25 — Selected view + selection overhaul (v1.14)
 
 ### Added

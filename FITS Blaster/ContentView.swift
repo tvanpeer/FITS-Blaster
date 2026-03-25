@@ -11,7 +11,6 @@ import UniformTypeIdentifiers
 struct ContentView: View {
     @Environment(ImageStore.self) private var store
     @Environment(AppSettings.self) private var settings
-    @Environment(PurchaseManager.self) private var purchases
 
     @State private var hostingWindow: NSWindow?
     @State private var isDragTarget = false
@@ -57,13 +56,6 @@ struct ContentView: View {
                 Button("OK") { store.errorMessage = nil }
             } message: {
                 Text(store.errorMessage ?? "")
-            }
-            .sheet(isPresented: Binding(
-                get: { store.hitFrameLimit },
-                set: { if !$0 { store.hitFrameLimit = false } }
-            )) {
-                PaywallView()
-                    .environment(purchases)
             }
             .onAppear { installKeyMonitor() }
             .onDisappear { removeKeyMonitor() }

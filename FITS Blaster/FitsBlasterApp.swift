@@ -41,7 +41,6 @@ struct FitsBlasterApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @State private var settings = AppSettings()
     @State private var store = ImageStore()
-    @State private var purchases = PurchaseManager()
 
     var body: some Scene {
         WindowGroup(id: "main") {
@@ -51,18 +50,10 @@ struct FitsBlasterApp: App {
                         store.openDroppedItems(urls, settings: settings)
                     }
                 }
-                .task { await purchases.load() }
-                .onChange(of: purchases.isUnlocked) { _, unlocked in
-                    store.isUnlocked = unlocked
-                    if unlocked {
-                        store.loadPendingItems(settings: settings)
-                    }
-                }
         }
         .defaultSize(width: 900, height: 700)
         .environment(settings)
         .environment(store)
-        .environment(purchases)
         .environment(\.dynamicTypeSize, settings.dynamicTypeSize)
         .commands {
             CommandGroup(replacing: .newItem) {
@@ -93,7 +84,6 @@ struct FitsBlasterApp: App {
             SettingsView()
                 .environment(settings)
                 .environment(store)
-                .environment(purchases)
                 .environment(\.dynamicTypeSize, settings.dynamicTypeSize)
         }
     }

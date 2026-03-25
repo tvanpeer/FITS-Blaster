@@ -165,25 +165,6 @@ final class ImageStore {
     var entries: [ImageEntry] = []
     var selectedEntry: ImageEntry?
 
-    /// Set to `true` by `PurchaseManager` when an active subscription is verified.
-    var isUnlocked: Bool = false
-
-    /// Set to `true` when a load attempt is capped by the free-tier frame limit.
-    /// Observed by `ContentView` to present the paywall sheet.
-    var hitFrameLimit: Bool = false
-
-    // Parameters captured when a load is cut short by the free-tier cap,
-    // so they can be resumed automatically once the user subscribes.
-    private struct PendingLoad {
-        let items: [(url: URL, subfolderPath: String)]
-        let rootFolderName: String
-        let directoryBookmark: Data?
-        let maxDisplaySize: Int
-        let maxThumbnailSize: Int
-        let metricsConfig: MetricsConfig
-        let debayerColorImages: Bool
-    }
-    private var pendingLoad: PendingLoad?
     /// IDs of all entries in the multi-selection. When this contains more than
     /// one entry, reject/undo operations apply to the whole set.
     /// Any newly added IDs are automatically added to `flaggedEntryIDs` as well.
@@ -520,21 +501,6 @@ final class ImageStore {
         activeFolderPaths = []
         groupedByFolderAndFilter = []
         visibilityFilteredEntries = []
-        pendingLoad = nil
-    }
-
-    /// Called after the user successfully subscribes. Loads any frames that were
-    /// held back by the free-tier cap during the previous `openFiles` call.
-    func loadPendingItems(settings: AppSettings) {
-        guard let pending = pendingLoad else { return }
-        pendingLoad = nil
-        openFiles(pending.items,
-                  rootFolderName: pending.rootFolderName,
-                  directoryBookmark: pending.directoryBookmark,
-                  maxDisplaySize: pending.maxDisplaySize,
-                  maxThumbnailSize: pending.maxThumbnailSize,
-                  metricsConfig: settings.effectiveMetricsConfig,
-                  debayerColorImages: pending.debayerColorImages)
     }
 
     // MARK: - Multi-selection helpers
@@ -663,13 +629,44 @@ final class ImageStore {
 
     /// Resolves the directory bookmark for an entry, granting security-scoped access.
     /// The caller must call `stopAccessingSecurityScopedResource()` on the returned URL.
+    ///
+    /// If the stored bookmark is missing or stale, falls back to creating a fresh bookmark
+    /// from the entry's parent directory — this succeeds when the user-selected.read-write
+    /// entitlement still covers that directory (i.e. during the same app session).
     private func accessDirectory(for entry: ImageEntry) -> URL? {
-        guard let bookmark = entry.directoryBookmark else { return nil }
-        var isStale = false
-        guard let dirURL = try? URL(resolvingBookmarkData: bookmark,
+        // Fast path: resolve the stored security-scoped bookmark.
+        if let bookmark = entry.directoryBookmark {
+            var isStale = false
+            if let dirURL = try? URL(resolvingBookmarkData: bookmark,
                                      options: .withSecurityScope,
                                      relativeTo: nil,
-                                     bookmarkDataIsStale: &isStale) else { return nil }
+                                     bookmarkDataIsStale: &isStale) {
+                _ = dirURL.startAccessingSecurityScopedResource()
+                if isStale {
+                    // Refresh the stored bookmark while we still have access.
+                    let fresh = try? dirURL.bookmarkData(
+                        options: .withSecurityScope,
+                        includingResourceValuesForKeys: nil,
+                        relativeTo: nil)
+                    entry.directoryBookmark = fresh
+                }
+                return dirURL
+            }
+        }
+
+        // Fallback: try creating a fresh bookmark from the entry's parent directory.
+        // Succeeds when user-selected.read-write still covers this location.
+        let parentDir = entry.url.deletingLastPathComponent()
+        guard let freshBookmark = try? parentDir.bookmarkData(
+                options: .withSecurityScope,
+                includingResourceValuesForKeys: nil,
+                relativeTo: nil) else { return nil }
+        entry.directoryBookmark = freshBookmark
+        var isStale = false
+        guard let dirURL = try? URL(resolvingBookmarkData: freshBookmark,
+                                    options: .withSecurityScope,
+                                    relativeTo: nil,
+                                    bookmarkDataIsStale: &isStale) else { return nil }
         _ = dirURL.startAccessingSecurityScopedResource()
         return dirURL
     }
@@ -707,8 +704,11 @@ final class ImageStore {
     private func rejectEntry(_ entry: ImageEntry) {
         guard !entry.isRejected else { return }
 
-        let dirURL = accessDirectory(for: entry)
-        defer { dirURL?.stopAccessingSecurityScopedResource() }
+        guard let dirURL = accessDirectory(for: entry) else {
+            errorMessage = "Failed to reject \(entry.fileName): folder access unavailable. Close and re-open the folder to restore access."
+            return
+        }
+        defer { dirURL.stopAccessingSecurityScopedResource() }
 
         let originalURL = entry.url
         let parentDir = originalURL.deletingLastPathComponent()
@@ -784,8 +784,11 @@ final class ImageStore {
     }
 
     private func undoRejectEntry(_ entry: ImageEntry) {
-        let dirURL = accessDirectory(for: entry)
-        defer { dirURL?.stopAccessingSecurityScopedResource() }
+        guard let dirURL = accessDirectory(for: entry) else {
+            errorMessage = "Failed to undo rejection of \(entry.fileName): folder access unavailable. Close and re-open the folder to restore access."
+            return
+        }
+        defer { dirURL.stopAccessingSecurityScopedResource() }
 
         let currentURL = entry.url
         let originalURL = entry.originalURL
@@ -1096,8 +1099,7 @@ final class ImageStore {
         // Build a set of already-loaded URLs so we can skip duplicates.
         let existingURLs = Set(entries.map { $0.originalURL })
 
-        // Collect all valid, non-duplicate candidates before applying the free-tier cap.
-        let freeLimit = 50
+        // Collect all valid, non-duplicate candidates.
         var validItems: [(url: URL, subfolderPath: String)] = []
         var skippedFloat: [String] = []
         var skippedDuplicates = 0
@@ -1111,22 +1113,7 @@ final class ImageStore {
             }
             validItems.append(item)
         }
-
-        // Apply free-tier frame cap.
-        let remaining = isUnlocked ? Int.max : max(0, freeLimit - entries.count)
-        if !isUnlocked && validItems.count > remaining {
-            hitFrameLimit = true
-            // Stash the items that couldn't load so we can resume after subscribing.
-            pendingLoad = PendingLoad(
-                items: Array(validItems.dropFirst(remaining)),
-                rootFolderName: rootFolderName,
-                directoryBookmark: directoryBookmark,
-                maxDisplaySize: maxDisplaySize,
-                maxThumbnailSize: maxThumbnailSize,
-                metricsConfig: metricsConfig,
-                debayerColorImages: debayerColorImages)
-        }
-        let itemsToLoad = isUnlocked ? validItems : Array(validItems.prefix(remaining))
+        let itemsToLoad = validItems
 
         var newEntries: [ImageEntry] = []
         for item in itemsToLoad {
