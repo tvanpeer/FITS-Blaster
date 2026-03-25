@@ -3,11 +3,13 @@
 ## Test environment
 
 - Machine: M1 Air (8 performance cores)
-- Test set: **592 images**
+- App restarted before each test
 
 ---
 
-## Results by version
+## Test set A — 592 colour images (IMX571 OSC), 51.9 MB each, 30.72 GB total
+
+### Results by version
 
 | Mode | v1.12.2 (baseline) | v1.12.3 (GPU downscale) | v1.12.4 (Phase A/B decouple) | v1.12.5 (fix regressions) |
 |---|---|---|---|---|
@@ -15,6 +17,23 @@
 | Grey + Geek | — | **62 s** | 100 s ❌ | **62 s** ✅ |
 | Colour + Simple | 168 s | **82 s** | **82 s** | **82 s** |
 | Colour + Geek | 184 s | **115 s** | 161 s ❌ | **121 s** ✅ |
+
+---
+
+## Test set B — 290 greyscale images (IMX585 mono), 16.8 MB each, 4.88 GB total
+
+### Results at v1.14
+
+| Mode | Time | Memory | SSD throughput |
+|---|---|---|---|
+| Grey + Simple | 4.79 s | 318 MB | ~1.0 GB/s |
+| Grey + Geek | 15.38 s | 346 MB | ~330 MB/s |
+
+### Observations
+
+- **Grey + Simple** saturates the SSD at ~1 GB/s — consistent with the 592-image colour result and confirming Phase A (I/O + GPU stretch only) is not CPU-bound.
+- **Grey + Geek** drops to ~330 MB/s. Phase B (GPU detection + Moffat fitting) is the bottleneck; the pattern matches the 592-image colour observations where Geek mode runs at roughly ¼–½ of Simple throughput on this machine.
+- Memory delta between Simple and Geek is small (318 → 346 MB), reflecting the limited number of live MTLBuffers held by the Phase B semaphore at any one time.
 
 ---
 
