@@ -13,6 +13,9 @@ Simple Claude fits viewer.xcodeproj/
 # Claude Code settings
 .claude/settings.local.json
 
+# App Store screenshots
+Screenshots/
+
 # Built app and installer artefacts
 bin/
 site/Downloads/
