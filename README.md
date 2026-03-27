@@ -28,3 +28,7 @@ A fast, native macOS app for culling FITS astronomical image files. Open a folde
 ## Build
 
 Open `FITS Blaster.xcodeproj` in Xcode and press ⌘R.
+
+## Support
+
+FITS Blaster is free. If it saves you time, [buy me a coffee on Ko-fi](https://ko-fi.com/tomvp) ☕
