@@ -1,6 +1,10 @@
 # App Store / internal planning docs
 readiness.md
 privacy-policy.md
+RAW-support.md
+Book of Galaxies.png
+make-dmg-background.swift
+Create-installer.sh
 
 # Xcode
 *.xcuserstate
@@ -18,7 +22,7 @@ Screenshots/
 
 # Built app and installer artefacts
 bin/
-site/Downloads/
+site/
 *.dmg
 *.icns
 installer-background.png
