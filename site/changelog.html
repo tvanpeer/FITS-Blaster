@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FITS Blaster — Changelog</title>
+    <link rel="icon" type="image/png" href="favicon.png">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background: #0a0a0f;
+            color: #e8e8f0;
+            line-height: 1.6;
+        }
+
+        header {
+            text-align: center;
+            padding: 80px 24px 60px;
+        }
+
+        header h1 {
+            font-size: 3rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            margin-bottom: 16px;
+        }
+
+        header p {
+            font-size: 1.2rem;
+            color: #9090aa;
+            max-width: 520px;
+            margin: 0 auto;
+        }
+
+        .content {
+            max-width: 720px;
+            margin: 0 auto;
+            padding: 0 24px 80px;
+        }
+
+        .entry {
+            border-top: 1px solid #1a1a2e;
+            padding: 40px 0;
+        }
+
+        .entry:first-child {
+            border-top: none;
+        }
+
+        .entry-header {
+            margin-bottom: 24px;
+        }
+
+        .entry-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #c8c8e0;
+            margin-bottom: 4px;
+        }
+
+        .entry-date {
+            font-size: 0.85rem;
+            color: #505068;
+        }
+
+        .section {
+            margin-bottom: 20px;
+        }
+
+        .section-label {
+            display: inline-block;
+            font-size: 0.7rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            padding: 2px 8px;
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+
+        .label-added    { background: #0d2b1a; color: #4ade80; }
+        .label-fixed    { background: #2b0d0d; color: #f87171; }
+        .label-improved { background: #0d1a2b; color: #60a5fa; }
+        .label-changed  { background: #2b230d; color: #fbbf24; }
+        .label-removed  { background: #1a1a1a; color: #9090aa; }
+        .label-updated  { background: #1a1a2e; color: #a78bfa; }
+
+        .section ul {
+            list-style: none;
+            display: grid;
+            gap: 10px;
+        }
+
+        .section li {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            color: #9090aa;
+            font-size: 0.95rem;
+        }
+
+        .section li::before {
+            content: "–";
+            color: #404058;
+            flex-shrink: 0;
+            margin-top: 1px;
+        }
+
+        .section li strong {
+            color: #c8c8e0;
+        }
+
+        .section li code {
+            font-family: "SF Mono", "Fira Code", monospace;
+            font-size: 0.85em;
+            background: #1a1a2e;
+            padding: 1px 5px;
+            border-radius: 3px;
+            color: #a0a0c0;
+        }
+
+        footer {
+            border-top: 1px solid #1a1a2e;
+            text-align: center;
+            padding: 32px 24px;
+            font-size: 0.85rem;
+            color: #505068;
+        }
+
+        footer a {
+            color: #7070cc;
+            text-decoration: none;
+        }
+
+        footer a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>Changelog</h1>
+    <p>What's new in FITS Blaster.</p>
+</header>
+
+<div class="content">
+
+    <!-- v1.15 -->
+    <div class="entry">
+        <div class="entry-header">
+            <div class="entry-title">Switch to donationware — v1.15</div>
+            <div class="entry-date">2026-03-25</div>
+        </div>
+        <div class="section">
+            <span class="section-label label-removed">Removed</span>
+            <ul>
+                <li>Subscription, paywall, and 50-frame free-tier limit — FITS Blaster is now free with no restrictions. If you find it useful, <a href="https://ko-fi.com/tomvp" target="_blank" rel="noopener" style="color:#7070cc;">buy me a coffee</a>.</li>
+            </ul>
+        </div>
+        <div class="section">
+            <span class="section-label label-fixed">Fixed</span>
+            <ul>
+                <li>Sandbox permission error when rejecting files: folder access is now re-established automatically when the stored bookmark is missing or stale, with a clear error message if access cannot be recovered.</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- v1.14 -->
+    <div class="entry">
+        <div class="entry-header">
+            <div class="entry-title">Selected view &amp; selection overhaul — v1.14</div>
+            <div class="entry-date">2026-03-25</div>
+        </div>
+        <div class="section">
+            <span class="section-label label-added">Added</span>
+            <ul>
+                <li><strong>Selected view</strong> — a sidebar filter showing only flagged frames. Add frames via ⌘+click, ⇧+click, chart drag-select, or Auto-Flag; remove them with ⌘+click inside the view.</li>
+                <li><strong>Flag-then-inspect workflow</strong> — chart drag-select and Auto-Flag now add frames to the Selected list for inspection before rejection, rather than rejecting immediately.</li>
+                <li><strong>Select menu</strong> — top-level menu with Select All, Deselect All, and Invert Selection (defaults: ⌘A / ⌘D / ⌘I), all configurable in Settings.</li>
+                <li><strong>Shift+↑/↓ extend selection</strong> — grows the multi-selection one step at a time.</li>
+                <li><strong>Drag tooltip</strong> — while drag-selecting in the session chart, a floating label shows the metric value of the frame under the cursor.</li>
+            </ul>
+        </div>
+        <div class="section">
+            <span class="section-label label-fixed">Fixed</span>
+            <ul>
+                <li>Arrow-key navigation now stops at the boundary of the visible set rather than crossing into hidden frames.</li>
+            </ul>
+        </div>
+        <div class="section">
+            <span class="section-label label-improved">Improved</span>
+            <ul>
+                <li>Session chart has breathing room before the first dot, making drag-select from frame 1 easier.</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- v1.12.5 -->
+    <div class="entry">
+        <div class="entry-header">
+            <div class="entry-title">Pipeline fix + toolbar buttons — v1.12.5</div>
+            <div class="entry-date">2026-03-24</div>
+        </div>
+        <div class="section">
+            <span class="section-label label-fixed">Fixed</span>
+            <ul>
+                <li>Geek-mode load time regression (100 s → 62 s on M1 Air, 592 images): GPU star-detection moved back to Phase B, keeping Phase A as I/O + GPU stretch only.</li>
+                <li>Phase B semaphore raised from 2 to 6 on M1 Air, restoring throughput to match v1.12.3.</li>
+            </ul>
+        </div>
+        <div class="section">
+            <span class="section-label label-added">Added</span>
+            <ul>
+                <li>Colour/Grey toggle button and Cancel button added to the toolbar.</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- v1.12.4 -->
+    <div class="entry">
+        <div class="entry-header">
+            <div class="entry-title">Phase A/B pipeline decoupling — v1.12.4</div>
+            <div class="entry-date">2026-03-24</div>
+        </div>
+        <div class="section">
+            <span class="section-label label-improved">Improved</span>
+            <ul>
+                <li>Loading pipeline decouples I/O from metrics: Phase A (FITS I/O + GPU stretch) displays each image immediately; Phase B (Moffat fitting) runs concurrently in detached tasks.</li>
+                <li>Phase A concurrency raised to <code>max(8, cpuCount)</code> — keeps the SSD pipeline fuller since slots are no longer held by CPU-bound metrics work.</li>
+                <li>Peak memory reduced: the ~100 MB Metal buffer per image is released after crop extraction rather than being held for the full Phase A+B duration.</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- v1.12.3 -->
+    <div class="entry">
+        <div class="entry-header">
+            <div class="entry-title">GPU downscale + parallel Moffat fitting — v1.12.3</div>
+            <div class="entry-date">2026-03-24</div>
+        </div>
+        <div class="section">
+            <span class="section-label label-improved">Improved</span>
+            <ul>
+                <li>Metal stretch kernels now downsample directly to display size in a single GPU pass using a box filter — Grey+Simple load time: 53 s → 28 s; Colour+Simple: 168 s → 82 s.</li>
+                <li>Moffat star fitting now uses a 4-wide inner task group, reducing Geek-mode Phase B time.</li>
+            </ul>
+        </div>
+        <div class="section">
+            <span class="section-label label-added">Added</span>
+            <ul>
+                <li>Cancel button in the info bar to abort an in-progress load.</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- v1.12.2 -->
+    <div class="entry">
+        <div class="entry-header">
+            <div class="entry-title">Window commands, chart sorting &amp; thumbnail metric — v1.12.2</div>
+            <div class="entry-date">2026-03-23</div>
+        </div>
+        <div class="section">
+            <span class="section-label label-added">Added</span>
+            <ul>
+                <li>File menu: <strong>Main Window (⌘N)</strong> — focuses the existing window or opens a new one.</li>
+                <li>Window menu: <strong>Close Window (⌘W)</strong> — explicit menu item alongside the built-in shortcut.</li>
+                <li>Thumbnail cells now show the active chart metric value (e.g. "FWHM 4.2") in Geek mode.</li>
+            </ul>
+        </div>
+        <div class="section">
+            <span class="section-label label-changed">Changed</span>
+            <ul>
+                <li>Session chart follows the sidebar sort order — drag-to-reject selects contiguous worst/best frames when sorted by a metric.</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- v1.11.6 -->
+    <div class="entry">
+        <div class="entry-header">
+            <div class="entry-title">Rename to FITS Blaster — v1.11.6</div>
+            <div class="entry-date">2026-03-14</div>
+        </div>
+        <div class="section">
+            <span class="section-label label-changed">Changed</span>
+            <ul>
+                <li>App renamed from "Claude FITS Viewer" to <strong>FITS Blaster</strong>.</li>
+            </ul>
+        </div>
+        <div class="section">
+            <span class="section-label label-fixed">Fixed</span>
+            <ul>
+                <li>Reverted erroneous FWHM scale factor for Bayer images; values now agree with PixInsight within ±10% for both narrowband and OSC images.</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- v1.11.5 -->
+    <div class="entry">
+        <div class="entry-header">
+            <div class="entry-title">Session chart layout fixes — v1.11.5</div>
+            <div class="entry-date">2026-03-11</div>
+        </div>
+        <div class="section">
+            <span class="section-label label-fixed">Fixed</span>
+            <ul>
+                <li>Folder pills now wrap instead of overflowing when many folders are loaded.</li>
+                <li>Empty space to the right of the chart removed — median lines no longer reserve a right-side margin.</li>
+                <li>X axis no longer rounds up — domain is constrained to exactly the number of loaded frames.</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- v1.11.4 -->
+    <div class="entry">
+        <div class="entry-header">
+            <div class="entry-title">Fix duplicate entries and subfolder name collisions — v1.11.4</div>
+            <div class="entry-date">2026-03-11</div>
+        </div>
+        <div class="section">
+            <span class="section-label label-fixed">Fixed</span>
+            <ul>
+                <li>Opening the same folder twice no longer adds duplicate frames.</li>
+                <li>An alert is shown if an already-loaded folder is opened again.</li>
+                <li>Two root folders containing a subfolder with the same name are now tracked separately and shown as distinct sections.</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- v1.11.3 -->
+    <div class="entry">
+        <div class="entry-header">
+            <div class="entry-title">Fix keyboard shortcuts after sidebar click — v1.11.3</div>
+            <div class="entry-date">2026-03-09</div>
+        </div>
+        <div class="section">
+            <span class="section-label label-fixed">Fixed</span>
+            <ul>
+                <li>Navigation and action keys now work regardless of which subview has keyboard focus. Replaced <code>onKeyPress</code> with an <code>NSEvent</code> local monitor.</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- v1.11.2 -->
+    <div class="entry">
+        <div class="entry-header">
+            <div class="entry-title">Colour toggle UX improvements — v1.11.2</div>
+            <div class="entry-date">2026-03-09</div>
+        </div>
+        <div class="section">
+            <span class="section-label label-fixed">Fixed</span>
+            <ul>
+                <li>Toggling back to grey after an initial grey→colour cycle is now instant — the greyscale render is cached on first load.</li>
+                <li>"Rendering colour…" status now appears immediately when the toggle is pressed.</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- v1.11 -->
+    <div class="entry">
+        <div class="entry-header">
+            <div class="entry-title">GPU Bayer debayering + resizable session chart — v1.11</div>
+            <div class="entry-date">2026-03-08</div>
+        </div>
+        <div class="section">
+            <span class="section-label label-added">Added</span>
+            <ul>
+                <li><strong>GPU Bayer debayering</strong> — colour FITS images can now be displayed in colour using a Metal compute shader with per-channel percentile stretch. Toggle in Settings → Image Display.</li>
+                <li><strong>Per-folder colour normalisation</strong> — images load as greyscale first, then re-render in colour with consistent per-subfolder stretch after the batch completes.</li>
+                <li><strong>Resizable session chart</strong> — drag handle replaces the fixed split; chart height is remembered across launches.</li>
+                <li><strong>Dynamic y-axis</strong> — chart y-axis starts near the data minimum rather than at zero.</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- v1.10 -->
+    <div class="entry">
+        <div class="entry-header">
+            <div class="entry-title">Settings reorganisation + key conflict detection — v1.10</div>
+            <div class="entry-date">2026-03-08</div>
+        </div>
+        <div class="section">
+            <span class="section-label label-added">Added</span>
+            <ul>
+                <li>Key conflict detection: assigning a key already in use beeps and keeps the recorder open.</li>
+            </ul>
+        </div>
+        <div class="section">
+            <span class="section-label label-changed">Changed</span>
+            <ul>
+                <li>Settings tabs reorganised: Keys → <strong>User Interface</strong>; Images → <strong>Files &amp; Folders</strong>.</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- v1.9 -->
+    <div class="entry">
+        <div class="entry-header">
+            <div class="entry-title">Text size control + recursive subfolder support — v1.9</div>
+            <div class="entry-date">2026-03-08</div>
+        </div>
+        <div class="section">
+            <span class="section-label label-added">Added</span>
+            <ul>
+                <li><strong>Text Size picker</strong> in Settings → User Interface: seven steps from xSmall to xxxLarge, matching macOS System Settings style.</li>
+                <li><strong>Include files from subfolders</strong> — opening a folder can now recursively scan subdirectories for FITS files (off by default).</li>
+                <li><strong>Excluded folder names</strong> — default exclusions: FLAT, DARK, BIAS, CALIB. REJECTED is always skipped.</li>
+                <li><strong>Collapsible folder sections</strong> in the thumbnail sidebar.</li>
+                <li><strong>Folder filter pills</strong> in the session chart to show only frames from selected folders.</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- early versions grouped -->
+    <div class="entry">
+        <div class="entry-header">
+            <div class="entry-title">Performance overhaul, multi-select &amp; quality badges — v1.0–v1.8</div>
+            <div class="entry-date">2026-03-04 – 2026-03-07</div>
+        </div>
+        <div class="section">
+            <span class="section-label label-added">Added</span>
+            <ul>
+                <li><strong>Simple / Geek mode</strong> — Simple mode shows a stripped-down UI with no metrics; Geek mode restores cached metrics instantly without re-reading files.</li>
+                <li><strong>Quality badges</strong> — colour-coded (red / amber / green / grey) with SF Symbol icon overlays indicating trailing, focus failure, or low star count.</li>
+                <li><strong>Auto-Flag sheet</strong> — configurable thresholds for FWHM, eccentricity, SNR, and score; live preview count before applying.</li>
+                <li><strong>Multi-select thumbnails</strong> — ⌘+click, ⇧+click, and batch reject/undo.</li>
+                <li><strong>Remove from list (R)</strong> — removes frames without touching files on disk.</li>
+                <li><strong>SNR threshold in Auto-Flag</strong> panel.</li>
+                <li><strong>Filename shown above the main image</strong> for clarity when multiple thumbnails are selected.</li>
+                <li><strong>Session chart</strong> — scrollable dot chart of any quality metric across the session, with tap-to-select.</li>
+                <li><strong>Filter-group sidebar</strong> — thumbnails grouped by filter (Ha, OIII, SII, RGB, etc.).</li>
+                <li><strong>Window and dock-icon drag &amp; drop</strong> for FITS files and folders.</li>
+                <li><strong>No wrap-around at list boundaries</strong> — pressing next on the last image beeps and stays.</li>
+                <li><strong>Single-key reject/undo toggle</strong> option in Settings.</li>
+                <li><strong>Space bar</strong> assignable as a key binding.</li>
+            </ul>
+        </div>
+        <div class="section">
+            <span class="section-label label-improved">Improved</span>
+            <ul>
+                <li>Star count accuracy: fixed inflated counts (~27×, ~3×) and undercounted results (~38%) through NMS tuning and pre-filter threshold adjustments.</li>
+                <li>Background task priority set to <code>.utility</code> for better UI responsiveness during large loads.</li>
+                <li><code>groupStatistics</code> converted to a stored property updated only at batch boundaries, eliminating O(n²) render churn.</li>
+                <li>GPU path used for Simple→Geek recompute (matches initial load speed).</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- initial commit -->
+    <div class="entry">
+        <div class="entry-header">
+            <div class="entry-title">Initial release</div>
+            <div class="entry-date">2026-03-04</div>
+        </div>
+        <div class="section">
+            <span class="section-label label-added">Added</span>
+            <ul>
+                <li>Full FITS file viewer for macOS 15.7+, written in Swift 6.2 / SwiftUI.</li>
+                <li>GPU-accelerated image stretching via Metal; CPU fallback using Accelerate.</li>
+                <li>Star quality metrics: FWHM, eccentricity, SNR, composite score 0–100.</li>
+                <li>Rejection workflow: moves files to a <code>REJECTED/</code> subdirectory; undo restores them.</li>
+                <li>Inspector with per-frame metrics, histogram, and FITS header table.</li>
+                <li>Configurable keyboard shortcuts, export to plain text or CSV.</li>
+            </ul>
+        </div>
+    </div>
+
+</div>
+
+<footer>
+    <p>&copy; 2026 Tom van Peer &nbsp;·&nbsp;
+       <a href="index.html">Home</a> &nbsp;·&nbsp;
+       <a href="faq.html">FAQ</a> &nbsp;·&nbsp;
+       <a href="privacy-policy.html">Privacy Policy</a> &nbsp;·&nbsp;
+       <a href="mailto:support@astrophoto-app.com">Support</a>
+    </p>
+</footer>
+
+</body>
+</html>

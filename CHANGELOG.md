@@ -4,6 +4,32 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-03-27 — Fix main-thread I/O hang on file open
+
+### Fixed
+- Opening a folder no longer blocks the main thread on slow I/O (iCloud Drive materialisation,
+  SMB mounts, heavy disk pressure). The BITPIX pre-flight check (`peekBitpix`) is now performed
+  in a `nonisolated` background function instead of synchronously on the main actor, eliminating
+  the spinning beach ball that occurred when files were stored in iCloud Drive.
+
+---
+
+## 2026-03-27 — Website updates
+
+### Added
+- `site/changelog.html` — full changelog web page styled to match the site, with colour-coded
+  section labels (Added / Fixed / Improved / Changed / Removed).
+- Download button on homepage linking to `Downloads/FITS-Blaster-1.15.dmg`.
+- Changelog link in homepage footer.
+
+### Changed
+- Replaced App Store badge with Ko-fi donation link (`https://ko-fi.com/tomvp`).
+- FAQ "Subscription" section replaced with "Support & Donations" (free app, Ko-fi link).
+- FAQ "Does FITS Blaster require an internet connection?" updated: no longer mentions subscription.
+- FAQ "What data does FITS Blaster collect?" updated: no longer mentions App Store network requests.
+
+---
+
 ## 2026-03-25 — Switch to donationware; remove StoreKit (v1.15)
 
 ### Removed
