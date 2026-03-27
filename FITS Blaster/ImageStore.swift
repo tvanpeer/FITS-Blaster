@@ -1096,46 +1096,8 @@ final class ImageStore {
                    debayerColorImages: Bool = false) {
         let selectFirst = (selectedEntry == nil)
 
-        // Build a set of already-loaded URLs so we can skip duplicates.
+        // Snapshot existing URLs now, on the main actor, before handing off to the task.
         let existingURLs = Set(entries.map { $0.originalURL })
-
-        // Collect all valid, non-duplicate candidates.
-        var validItems: [(url: URL, subfolderPath: String)] = []
-        var skippedFloat: [String] = []
-        var skippedDuplicates = 0
-        for item in urlsWithPaths {
-            let url = item.url
-            guard ["fits", "fit", "fts"].contains(url.pathExtension.lowercased()) else { continue }
-            if existingURLs.contains(url) { skippedDuplicates += 1; continue }
-            if let bitpix = FITSReader.peekBitpix(url: url), ![8, 16, 32].contains(bitpix) {
-                skippedFloat.append(url.lastPathComponent)
-                continue
-            }
-            validItems.append(item)
-        }
-        let itemsToLoad = validItems
-
-        var newEntries: [ImageEntry] = []
-        for item in itemsToLoad {
-            let entry = ImageEntry(url: item.url, directoryBookmark: directoryBookmark)
-            entry.subfolderPath = item.subfolderPath
-            entry.rootFolderName = rootFolderName
-            entries.append(entry)
-            newEntries.append(entry)
-        }
-        if !skippedFloat.isEmpty {
-            let preview = skippedFloat.prefix(5).joined(separator: ", ")
-            let suffix  = skippedFloat.count > 5 ? " and \(skippedFloat.count - 5) more" : ""
-            errorMessage = "Skipped \(skippedFloat.count) floating-point FITS file\(skippedFloat.count == 1 ? "" : "s") (not supported): \(preview)\(suffix)"
-        }
-        guard !newEntries.isEmpty else { return }
-
-        if selectFirst { selectedEntry = newEntries[0] }
-
-        // Populate the sort/filter cache so the sidebar renders immediately
-        // with loading spinners while the batch processes in the background.
-        updateActiveFilterGroups()
-        updateCachedSort()
 
         batchElapsed = nil
         isBatchProcessing = true
@@ -1143,6 +1105,41 @@ final class ImageStore {
 
         processingTask = Task(priority: .utility) { [weak self] in
             guard let self else { return }
+
+            // Phase 0: validate files off the main thread.
+            //
+            // peekBitpix does a synchronous FileHandle.read — moving it here via a
+            // nonisolated function ensures the main thread is never blocked by slow
+            // I/O (iCloud materialisation, SMB mounts, heavy disk pressure, etc.).
+            let (validItems, skippedFloat) = await Self.filterItems(
+                urlsWithPaths, existingURLs: existingURLs)
+
+            // Add entries on the main actor so the sidebar shows loading spinners.
+            var newEntries: [ImageEntry] = []
+            for item in validItems {
+                let entry = ImageEntry(url: item.url, directoryBookmark: directoryBookmark)
+                entry.subfolderPath = item.subfolderPath
+                entry.rootFolderName = rootFolderName
+                entries.append(entry)
+                newEntries.append(entry)
+            }
+            if !skippedFloat.isEmpty {
+                let preview = skippedFloat.prefix(5).joined(separator: ", ")
+                let suffix  = skippedFloat.count > 5 ? " and \(skippedFloat.count - 5) more" : ""
+                errorMessage = "Skipped \(skippedFloat.count) floating-point FITS file\(skippedFloat.count == 1 ? "" : "s") (not supported): \(preview)\(suffix)"
+            }
+            guard !newEntries.isEmpty else {
+                isBatchProcessing = false
+                processingTask = nil
+                return
+            }
+
+            if selectFirst { selectedEntry = newEntries[0] }
+
+            // Populate the sort/filter cache so the sidebar renders immediately.
+            updateActiveFilterGroups()
+            updateCachedSort()
+
             await processParallel(newEntries, selectFirst: selectFirst,
                                   maxDisplaySize: maxDisplaySize,
                                   maxThumbnailSize: maxThumbnailSize,
@@ -1153,6 +1150,32 @@ final class ImageStore {
             isBatchProcessing = false
             processingTask = nil
         }
+    }
+
+    /// Filters a list of candidate URLs off the main thread: strips unsupported
+    /// extensions, removes duplicates, and reads the first header block of each
+    /// remaining file to detect and reject floating-point FITS.
+    ///
+    /// This function is `nonisolated` so Swift runs it on the cooperative thread
+    /// pool rather than the main actor, keeping the UI responsive even when files
+    /// are stored on iCloud Drive, SMB mounts, or a loaded SSD.
+    private nonisolated static func filterItems(
+        _ items: [(url: URL, subfolderPath: String)],
+        existingURLs: Set<URL>
+    ) async -> (valid: [(url: URL, subfolderPath: String)], skippedFloat: [String]) {
+        var valid: [(url: URL, subfolderPath: String)] = []
+        var skippedFloat: [String] = []
+        for item in items {
+            let url = item.url
+            guard ["fits", "fit", "fts"].contains(url.pathExtension.lowercased()) else { continue }
+            guard !existingURLs.contains(url) else { continue }
+            if let bitpix = FITSReader.peekBitpix(url: url), ![8, 16, 32].contains(bitpix) {
+                skippedFloat.append(url.lastPathComponent)
+                continue
+            }
+            valid.append(item)
+        }
+        return (valid, skippedFloat)
     }
 
     /// Reprocesses all currently loaded images with updated settings.
