@@ -78,6 +78,13 @@ struct FitsBlasterApp: App {
                 DeselectAllCommand()
                 InvertSelectionCommand()
             }
+            CommandGroup(replacing: .help) {
+                Button("FITS Blaster Help") {
+                    if let url = URL(string: "https://astrophoto-app.com/faq.html") {
+                        NSWorkspace.shared.open(url)
+                    }
+                }
+            }
         }
 
         Window("Settings", id: "settings") {
