@@ -6,11 +6,16 @@ DMG_NAME="FITS-Blaster-1.15.1.dmg"
 
 test -f "$DMG_NAME" && rm "$DMG_NAME"
 
+# Regenerate the background image (matches the dark starfield theme).
+swift make-dmg-background.swift
+
 create-dmg \
   --volname "FITS Blaster Installer" \
   --volicon "Book of Galaxies.icns" \
+  --background "installer-background.png" \
   --window-pos 200 120 \
   --window-size 800 400 \
+  --icon-size 128 \
   --icon "FITS Blaster.app" 200 185 \
   --app-drop-link 600 185 \
   "$DMG_NAME" \
