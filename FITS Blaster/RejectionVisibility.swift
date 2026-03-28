@@ -11,7 +11,7 @@ enum RejectionVisibility: String, CaseIterable {
     case selected = "Selected"
     case rejected = "Rejected"
 
-    func matches(_ entry: ImageEntry) -> Bool {
+    @MainActor func matches(_ entry: ImageEntry) -> Bool {
         switch self {
         case .all:      return true
         case .selected: return !entry.isRejected
