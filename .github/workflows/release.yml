@@ -106,4 +106,6 @@ jobs:
           DA_USER: ${{ secrets.DA_USER }}
           DA_KEY: ${{ secrets.DA_KEY }}
           DA_DOMAIN: astrophoto-app.com
-        run: python3 scripts/deploy-site.py
+        run: |
+          pip install urllib3 --quiet
+          python3 scripts/deploy-site.py

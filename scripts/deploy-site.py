@@ -11,12 +11,12 @@ Usage (environment variables must be set):
     DA_DOMAIN  — Domain to deploy to, e.g. astrophoto-app.com
 """
 
-import base64
 import os
-import ssl
 import sys
-import urllib.request
+import urllib3
 from pathlib import Path
+
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -30,31 +30,22 @@ DOMAIN = os.environ["DA_DOMAIN"]
 REMOTE_ROOT = f"/home/{USER}/domains/{DOMAIN}/public_html"
 LOCAL_ROOT  = Path("site")
 
-# DirectAdmin port 2222 uses a self-signed certificate — skip verification.
-SSL_CTX = ssl.create_default_context()
-SSL_CTX.check_hostname = False
-SSL_CTX.verify_mode = ssl.CERT_NONE
-
-CREDENTIALS = base64.b64encode(f"{USER}:{KEY}".encode()).decode()
+http = urllib3.PoolManager(cert_reqs="CERT_NONE")
 
 # ---------------------------------------------------------------------------
 # Upload
 # ---------------------------------------------------------------------------
 
-def upload(local_path: Path, remote_path: str) -> int:
-    url = f"https://{HOST}:2222/api/files?path={remote_path}"
-    data = local_path.read_bytes()
-    req = urllib.request.Request(
-        url,
-        data=data,
-        headers={
-            "Authorization": f"Basic {CREDENTIALS}",
-            "Content-Type": "application/octet-stream",
-        },
-        method="PUT",
-    )
-    with urllib.request.urlopen(req, context=SSL_CTX) as resp:
-        return resp.status
+def upload(local_path: Path, remote_dir: str) -> int:
+    url = f"https://{HOST}:2222/api/files?path={remote_dir}"
+    with open(local_path, "rb") as f:
+        resp = http.request(
+            "POST",
+            url,
+            headers={"Authorization": urllib3.make_headers(basic_auth=f"{USER}:{KEY}")["authorization"]},
+            fields={"file": (local_path.name, f.read(), "application/octet-stream")},
+        )
+    return resp.status
 
 
 def main():
@@ -68,9 +59,9 @@ def main():
     errors = 0
     for local in files:
         relative = local.relative_to(LOCAL_ROOT)
-        remote = f"{REMOTE_ROOT}/{relative.as_posix()}"
+        remote_dir = f"{REMOTE_ROOT}/{relative.parent.as_posix()}".rstrip("/.")
         try:
-            status = upload(local, remote)
+            status = upload(local, remote_dir)
             print(f"  {status}  {relative}")
         except Exception as e:
             print(f"  ERR  {relative}  —  {e}")
