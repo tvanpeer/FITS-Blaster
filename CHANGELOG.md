@@ -4,6 +4,15 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-03-28 — Reorganise documentation layout
+
+### Improved
+- Markdown docs split into `docs/public/` (user-facing) and `docs/internal/` (developer notes).
+- Moved to `docs/public/`: `FAQ.md`.
+- Moved to `docs/internal/`: `FWHM-comparison.md`, `Score.md`, `performance.md`.
+
+---
+
 ## 2026-03-28 — Track website in repository
 
 ### Improved
