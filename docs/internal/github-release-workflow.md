@@ -15,16 +15,9 @@ GitHub then does the rest.
 
 ### 1. ExportOptions.plist
 
-Xcode needs a file that describes how to package the app for distribution.
-Generate it once by doing a manual export:
-
-1. In Xcode: **Product → Archive**
-2. In the Organiser window: **Distribute App**
-3. Choose **Direct Distribution**
-4. Step through the signing options
-5. On the final screen, export the plist and save it to the repo root as `ExportOptions.plist`
-
-This file is reused by the workflow on every release.
+Already created at the repo root. It tells xcodebuild to use Developer ID
+(direct distribution, outside the App Store) with automatic signing under
+team `6GBJ9SAJ6Y`. No action needed.
 
 ---
 
