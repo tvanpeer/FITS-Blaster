@@ -34,7 +34,6 @@ jobs:
             -scheme "FITS Blaster" \
             -configuration Release \
             -archivePath "$RUNNER_TEMP/FITS Blaster.xcarchive" \
-            CODE_SIGN_IDENTITY="${{ secrets.CODE_SIGN_IDENTITY }}" \
             DEVELOPMENT_TEAM="${{ secrets.DEVELOPMENT_TEAM }}"
 
       - name: Export app
