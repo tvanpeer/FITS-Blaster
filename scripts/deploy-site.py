@@ -3,6 +3,7 @@
 deploy-site.py
 
 Uploads all files in site/ to DirectAdmin hosting via the Evolution REST API.
+Uses only Python stdlib — no third-party packages required.
 
 Usage (environment variables must be set):
     DA_HOST    — DirectAdmin hostname, e.g. h58.mijn.host
@@ -11,12 +12,14 @@ Usage (environment variables must be set):
     DA_DOMAIN  — Domain to deploy to, e.g. astrophoto-app.com
 """
 
+import base64
+import http.client
 import os
+import ssl
 import sys
-import urllib3
+import uuid
+import urllib.parse
 from pathlib import Path
-
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -30,27 +33,50 @@ DOMAIN = os.environ["DA_DOMAIN"]
 REMOTE_ROOT = f"/home/{USER}/domains/{DOMAIN}/public_html"
 LOCAL_ROOT  = Path("site")
 
-http = urllib3.PoolManager(cert_reqs="CERT_NONE")
+SSL_CTX = ssl.create_default_context()
+SSL_CTX.check_hostname = False
+SSL_CTX.verify_mode = ssl.CERT_NONE
+
+AUTH = "Basic " + base64.b64encode(f"{USER}:{KEY}".encode()).decode()
+
+# ---------------------------------------------------------------------------
+# Multipart encoding
+# ---------------------------------------------------------------------------
+
+def build_multipart(filename: str, data: bytes) -> tuple[bytes, str]:
+    boundary = uuid.uuid4().hex
+    body = (
+        f"--{boundary}\r\n"
+        f'Content-Disposition: form-data; name="file"; filename="{filename}"\r\n'
+        f"Content-Type: application/octet-stream\r\n"
+        f"\r\n"
+    ).encode() + data + f"\r\n--{boundary}--\r\n".encode()
+    return body, f"multipart/form-data; boundary={boundary}"
 
 # ---------------------------------------------------------------------------
 # Upload
 # ---------------------------------------------------------------------------
 
 def upload(local_path: Path, remote_dir: str) -> int:
-    url = f"https://{HOST}:2222/api/files?path={remote_dir}"
-    with open(local_path, "rb") as f:
-        resp = http.request(
-            "POST",
-            url,
-            headers={"Authorization": urllib3.make_headers(basic_auth=f"{USER}:{KEY}")["authorization"]},
-            fields={"file": (local_path.name, f.read(), "application/octet-stream")},
-        )
+    body, content_type = build_multipart(local_path.name, local_path.read_bytes())
+    path = f"/api/files?path={urllib.parse.quote(remote_dir)}"
+
+    conn = http.client.HTTPSConnection(HOST, 2222, context=SSL_CTX)
+    conn.request("POST", path, body, {
+        "Authorization": AUTH,
+        "Content-Type": content_type,
+        "Content-Length": str(len(body)),
+    })
+    resp = conn.getresponse()
+    resp.read()  # drain
     return resp.status
 
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
 
 def main():
-    files = sorted(LOCAL_ROOT.rglob("*"))
-    files = [f for f in files if f.is_file()]
+    files = sorted(f for f in LOCAL_ROOT.rglob("*") if f.is_file())
 
     if not files:
         print("No files found in site/")
