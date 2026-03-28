@@ -60,6 +60,7 @@ jobs:
           create-dmg \
             --volname "FITS Blaster Installer" \
             --volicon "resources/Book of Galaxies.icns" \
+            --background "resources/installer-background.png" \
             --window-pos 200 120 \
             --window-size 800 400 \
             --icon "FITS Blaster.app" 200 185 \
