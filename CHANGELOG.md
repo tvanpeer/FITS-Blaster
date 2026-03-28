@@ -4,6 +4,13 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-03-28 — Track website in repository
+
+### Improved
+- `site/` is now committed to the repository (Option A); `site/Downloads/` remains gitignored so DMG binaries are never stored in git.
+
+---
+
 ## 2026-03-27 — Fix main-thread I/O hang on file open
 
 ### Fixed

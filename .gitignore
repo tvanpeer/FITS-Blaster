@@ -22,7 +22,7 @@ Screenshots/
 
 # Built app and installer artefacts
 bin/
-site/
+site/Downloads/
 *.dmg
 *.icns
 installer-background.png
