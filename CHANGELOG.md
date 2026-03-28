@@ -4,6 +4,13 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-03-28 — Track public docs in repository
+
+### Improved
+- `privacy-policy.md` and `RAW-support.md` moved to `docs/public/` and are now version-controlled.
+
+---
+
 ## 2026-03-28 — Reorganise documentation layout
 
 ### Improved
