@@ -4,6 +4,18 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-03-28 — Repository housekeeping
+
+### Improved
+- Source assets (`Book of Galaxies.png/icns`, `installer-background.png`) moved to `resources/` and are now tracked.
+- Installer scripts moved to `scripts/`.
+- Screenshots tracked in `Screenshots/`.
+- `.github/` added: bug report and feature request issue templates, and a `release.yml` workflow that builds, notarises, and uploads a DMG to GitHub Releases on version tags.
+- Removed stray DMG binary and legacy `Simple Claude fits viewer.xcodeproj/` from disk.
+- `.gitignore` cleaned up; only built artefacts (`bin/`, `site/Downloads/`, `*.dmg`) remain excluded.
+
+---
+
 ## 2026-03-28 — Track all remaining docs in repository
 
 ### Improved

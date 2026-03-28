@@ -1,7 +1,3 @@
-Book of Galaxies.png
-make-dmg-background.swift
-Create-installer.sh
-
 # Xcode
 *.xcuserstate
 xcuserdata/
@@ -13,12 +9,7 @@ Simple Claude fits viewer.xcodeproj/
 # Claude Code settings
 .claude/settings.local.json
 
-# App Store screenshots
-Screenshots/
-
 # Built app and installer artefacts
 bin/
 site/Downloads/
 *.dmg
-*.icns
-installer-background.png
