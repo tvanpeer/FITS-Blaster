@@ -4,6 +4,13 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-03-28 — Track all remaining docs in repository
+
+### Improved
+- `readiness.md` moved to `docs/internal/` and is now version-controlled. All markdown docs are now tracked.
+
+---
+
 ## 2026-03-28 — Track public docs in repository
 
 ### Improved
