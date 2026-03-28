@@ -27,14 +27,20 @@ jobs:
           security unlock-keychain -p "" build.keychain
           security set-key-partition-list -S apple-tool:,apple: -s -k "" build.keychain
 
+      - name: List schemes
+        run: xcodebuild -list -project "FITS Blaster.xcodeproj"
+
       - name: Build archive
         run: |
+          set -o pipefail
           xcodebuild archive \
             -project "FITS Blaster.xcodeproj" \
             -scheme "FITS Blaster" \
             -configuration Release \
             -archivePath "$RUNNER_TEMP/FITS Blaster.xcarchive" \
-            DEVELOPMENT_TEAM="${{ secrets.DEVELOPMENT_TEAM }}"
+            DEVELOPMENT_TEAM="${{ secrets.DEVELOPMENT_TEAM }}" \
+            2>&1 | tee /tmp/xcodebuild.log
+          exit ${PIPESTATUS[0]}
 
       - name: Export app
         run: |
