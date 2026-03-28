@@ -98,3 +98,11 @@ jobs:
           git add site/index.html site/changelog.html
           git diff --staged --quiet || git commit -m "release: update site for v${{ env.VERSION }} [skip ci]"
           git push origin HEAD:main
+
+      - name: Deploy site to hosting
+        env:
+          DA_HOST: h58.mijn.host
+          DA_USER: ${{ secrets.DA_USER }}
+          DA_KEY: ${{ secrets.DA_KEY }}
+          DA_DOMAIN: astrophoto-app.com
+        run: python3 scripts/deploy-site.py
