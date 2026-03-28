@@ -11,5 +11,4 @@ Simple Claude fits viewer.xcodeproj/
 
 # Built app and installer artefacts
 bin/
-site/Downloads/
 *.dmg
