@@ -79,3 +79,17 @@ jobs:
           name: "FITS Blaster ${{ env.VERSION }}"
           body_path: CHANGELOG.md
           files: ${{ env.DMG_PATH }}
+
+      - name: Update site
+        run: python3 scripts/update-site.py "${{ env.VERSION }}"
+
+      - name: Commit and push site updates
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/tvanpeer/FITS-Blaster.git"
+          git add site/index.html site/changelog.html
+          git diff --staged --quiet || git commit -m "release: update site for v${{ env.VERSION }} [skip ci]"
+          git push origin HEAD:main
