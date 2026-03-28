@@ -2,22 +2,11 @@
 
 ## Before tagging
 
-1. **Write release notes** — add a single clean entry at the top of `CHANGELOG.md`:
-   ```
-   ## YYYY-MM-DD — Short title
+Ask Claude to wrap up the session. Claude will:
 
-   ### Fixed
-   - Item
-
-   ### Added
-   - Item
-
-   ---
-   ```
-
-2. **Bump the version** — in Xcode, update `MARKETING_VERSION` under the project's Build Settings.
-
-3. **Commit** the changelog and any pending source changes.
+1. Update `CHANGELOG.md` with a clean release entry.
+2. Bump `MARKETING_VERSION` (and `CURRENT_PROJECT_VERSION`) in `project.pbxproj`.
+3. Commit everything.
 
 ## Publish
 
