@@ -30,7 +30,7 @@ USER   = os.environ["DA_USER"]
 KEY    = os.environ["DA_KEY"]
 DOMAIN = os.environ["DA_DOMAIN"]
 
-REMOTE_ROOT = f"/home/{USER}/domains/{DOMAIN}/public_html"
+REMOTE_ROOT = f"domains/{DOMAIN}/public_html"
 LOCAL_ROOT  = Path("site")
 
 SSL_CTX = ssl.create_default_context()
@@ -59,7 +59,11 @@ def build_multipart(filename: str, data: bytes) -> tuple[bytes, str]:
 
 def upload(local_path: Path, remote_dir: str) -> int:
     body, content_type = build_multipart(local_path.name, local_path.read_bytes())
-    path = f"/api/files?path={urllib.parse.quote(remote_dir)}"
+    path = (
+        f"/api/filemanager-actions/upload"
+        f"?dir={urllib.parse.quote(remote_dir)}"
+        f"&overwrite=true"
+    )
 
     conn = http.client.HTTPSConnection(HOST, 2222, context=SSL_CTX)
     conn.request("POST", path, body, {
@@ -88,7 +92,10 @@ def main():
         remote_dir = f"{REMOTE_ROOT}/{relative.parent.as_posix()}".rstrip("/.")
         try:
             status = upload(local, remote_dir)
-            print(f"  {status}  {relative}")
+            ok = status in (200, 204)
+            print(f"  {'OK ' if ok else status}  {relative}")
+            if not ok:
+                errors += 1
         except Exception as e:
             print(f"  ERR  {relative}  —  {e}")
             errors += 1
