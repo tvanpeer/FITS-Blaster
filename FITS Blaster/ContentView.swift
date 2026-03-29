@@ -731,7 +731,6 @@ struct FITSToolbar: View {
                             .symbolRenderingMode(.monochrome)
                     }
                 }
-                .labelStyle(.iconOnly)
             }
             .help(settings.debayerColorImages ? "Switch to greyscale" : "Switch to colour")
 
