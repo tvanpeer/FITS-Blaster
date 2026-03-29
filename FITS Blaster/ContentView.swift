@@ -144,10 +144,13 @@ struct ContentView: View {
                 let shift = mods.contains(.shift)
 
                 // ⌘(⇧) + configured key — selection shortcuts.
+                // Use charactersIgnoringModifiers for reliable key matching across
+                // keyboard layouts and macOS versions (Cmd+A can produce "\x01" via
+                // event.characters on some systems).
                 if mods.contains(.command),
                    !mods.contains(.option),
                    !mods.contains(.control),
-                   let key = event.characters?.lowercased() {
+                   let key = event.charactersIgnoringModifiers?.lowercased() {
                     if shift == self.settings.selectAllShift,
                        key == self.settings.selectAllKey {
                         self.store.selectAllVisible(); return nil
@@ -530,8 +533,7 @@ struct ThumbnailSidebar: View {
                 lastClickedID = entry.id
             }
         } label: {
-            ThumbnailCell(entry: entry,
-                          isSelected: store.selectedEntry === entry || store.selectedEntryIDs.contains(entry.id))
+            ThumbnailCell(entry: entry)
         }
         .buttonStyle(.plain)
         .id(entry.id)
@@ -909,10 +911,13 @@ private struct MetricChip: View {
 
 struct ThumbnailCell: View {
     let entry: ImageEntry
-    let isSelected: Bool
     @Environment(ImageStore.self) private var store
     @Environment(AppSettings.self) private var settings
     @AppStorage("sessionChartMetric") private var selectedMetric: ChartMetric = .score
+
+    private var isSelected: Bool {
+        store.selectedEntry === entry || store.selectedEntryIDs.contains(entry.id)
+    }
 
     private var groupStats: GroupStats? {
         store.groupStatistics[entry.filterGroup]

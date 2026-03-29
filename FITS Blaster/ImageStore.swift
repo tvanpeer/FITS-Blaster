@@ -127,9 +127,9 @@ final class ImageEntry: Identifiable {
         return "\(rootFolderName)/\(subfolderPath)"
     }
 
-    init(url: URL, directoryBookmark: Data? = nil) {
+    init(url: URL, originalURL: URL? = nil, directoryBookmark: Data? = nil) {
         self.url = url
-        self.originalURL = url
+        self.originalURL = originalURL ?? url
         self.fileName = url.lastPathComponent
         self.directoryBookmark = directoryBookmark
     }
@@ -885,7 +885,8 @@ final class ImageStore {
         in folder: URL,
         relativePath: String,
         excludedNames: Set<String>,
-        includeSubfolders: Bool
+        includeSubfolders: Bool,
+        includeRejected: Bool = false
     ) -> [(url: URL, subfolderPath: String)] {
         let fitsExtensions: Set<String> = ["fits", "fit", "fts"]
         guard let contents = try? FileManager.default.contentsOfDirectory(
@@ -902,16 +903,28 @@ final class ImageStore {
         for item in sorted {
             let isDir = (try? item.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory ?? false
             if isDir {
-                guard includeSubfolders else { continue }
                 let name = item.lastPathComponent
-                // Always skip REJECTED — that's where this app moves rejected files.
-                // Also skip any user-configured exclusion names (case-insensitive).
-                guard name.caseInsensitiveCompare("REJECTED") != .orderedSame,
-                      !excludedNames.contains(name.lowercased()) else { continue }
+                // REJECTED is handled before the includeSubfolders gate so it is picked up
+                // at every depth (root, and inside each subfolder) when includeRejected is on.
+                if name.caseInsensitiveCompare("REJECTED") == .orderedSame {
+                    if includeRejected {
+                        // Use the parent's relativePath so rejected files appear alongside
+                        // their siblings in the sidebar rather than in a separate section.
+                        results += collectFITSURLs(in: item, relativePath: relativePath,
+                                                   excludedNames: [],
+                                                   includeSubfolders: false,
+                                                   includeRejected: false)
+                    }
+                    continue
+                }
+                guard includeSubfolders else { continue }
+                // Skip any user-configured exclusion names (case-insensitive).
+                guard !excludedNames.contains(name.lowercased()) else { continue }
                 let childPath = relativePath.isEmpty ? name : "\(relativePath)/\(name)"
                 results += collectFITSURLs(in: item, relativePath: childPath,
                                            excludedNames: excludedNames,
-                                           includeSubfolders: true)
+                                           includeSubfolders: true,
+                                           includeRejected: includeRejected)
             } else if fitsExtensions.contains(item.pathExtension.lowercased()) {
                 results.append((item, relativePath))
             }
@@ -1029,20 +1042,18 @@ final class ImageStore {
         let dirBookmark = try? folderURL.bookmarkData(
             options: .withSecurityScope, includingResourceValuesForKeys: nil, relativeTo: nil)
 
-        var collected = Self.collectFITSURLs(in: folderURL, relativePath: "",
+        let collected = Self.collectFITSURLs(in: folderURL, relativePath: "",
                                              excludedNames: excludedSet,
-                                             includeSubfolders: includeSubfolders)
+                                             includeSubfolders: includeSubfolders,
+                                             includeRejected: includeRejected)
 
-        // Optionally scan the REJECTED subdirectory and track those URLs.
-        var rejectedURLs: Set<URL> = []
-        if includeRejected {
-            let rejectedDir = folderURL.appending(path: "REJECTED", directoryHint: .isDirectory)
-            let rejectedItems = Self.collectFITSURLs(in: rejectedDir, relativePath: "REJECTED",
-                                                     excludedNames: [],
-                                                     includeSubfolders: false)
-            rejectedURLs = Set(rejectedItems.map { $0.url })
-            collected += rejectedItems
-        }
+        // Any file whose immediate parent directory is named REJECTED is a rejected file.
+        let rejectedURLs: Set<URL> = includeRejected
+            ? Set(collected.filter {
+                $0.url.deletingLastPathComponent().lastPathComponent
+                    .caseInsensitiveCompare("REJECTED") == .orderedSame
+              }.map { $0.url })
+            : []
 
         if didAccess { folderURL.stopAccessingSecurityScopedResource() }
 
@@ -1217,10 +1228,16 @@ final class ImageStore {
             // Add entries on the main actor so the sidebar shows loading spinners.
             var newEntries: [ImageEntry] = []
             for item in validItems {
-                let entry = ImageEntry(url: item.url, directoryBookmark: directoryBookmark)
+                let isRejected = rejectedURLs.contains(item.url)
+                let computedOriginalURL: URL? = isRejected
+                    ? item.url.deletingLastPathComponent()  // …/Ha/REJECTED/
+                               .deletingLastPathComponent() // …/Ha/
+                               .appending(component: item.url.lastPathComponent) // …/Ha/image.fits
+                    : nil
+                let entry = ImageEntry(url: item.url, originalURL: computedOriginalURL, directoryBookmark: directoryBookmark)
                 entry.subfolderPath = item.subfolderPath
                 entry.rootFolderName = rootFolderName
-                if rejectedURLs.contains(item.url) {
+                if isRejected {
                     entry.isRejected = true
                     rejectedEntryIDs.insert(entry.id)
                 }
