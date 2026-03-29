@@ -716,11 +716,15 @@ struct FITSToolbar: View {
             }
             .disabled(store.entries.isEmpty)
 
-            Button(settings.debayerColorImages ? "Colour" : "Grey",
-                   systemImage: "camera.filters") {
+            Button {
                 settings.debayerColorImages.toggle()
+            } label: {
+                Label(settings.debayerColorImages ? "Colour" : "Grey") {
+                    Image(systemName: "camera.filters")
+                        .symbolRenderingMode(settings.debayerColorImages ? .multicolor : .monochrome)
+                }
+                .labelStyle(.iconOnly)
             }
-            .symbolRenderingMode(settings.debayerColorImages ? .multicolor : .monochrome)
             .help(settings.debayerColorImages ? "Switch to greyscale" : "Switch to colour")
 
             Button("Cancel") {

@@ -921,6 +921,23 @@ final class ImageStore {
 
     // MARK: - File Panels
 
+    /// Shows/hides the "applies to this session only" notice label whenever the
+    /// subfolders checkbox is toggled. Kept as a separate NSObject subclass because
+    /// NSButton holds only a weak reference to its target.
+    private final class SubfolderCheckboxHelper: NSObject {
+        private let defaultState: Bool
+        private weak var noticeLabel: NSTextField?
+
+        init(defaultState: Bool, noticeLabel: NSTextField) {
+            self.defaultState = defaultState
+            self.noticeLabel = noticeLabel
+        }
+
+        @objc func checkboxChanged(_ sender: NSButton) {
+            noticeLabel?.isHidden = (sender.state == .on) == defaultState
+        }
+    }
+
     func openFolderPanel(settings: AppSettings) {
         let panel = NSOpenPanel()
         panel.canChooseDirectories = true
@@ -931,44 +948,64 @@ final class ImageStore {
 
         // Accessory view: plain AppKit — NSHostingView doesn't wire @Observable correctly
         // when used outside a SwiftUI window hierarchy (NSOpenPanel accessory context).
+        let excludedNames = settings.excludedSubfolderNames
+
+        // Notice label (hidden until the checkbox state differs from the stored default).
+        let noticeLabel = NSTextField(labelWithString:
+            "Applies to this open only. To change the default, go to Settings → Files & Folders.")
+        noticeLabel.font = .systemFont(ofSize: 10)
+        noticeLabel.textColor = .systemOrange
+        noticeLabel.isHidden = true
+        noticeLabel.cell?.wraps = true
+        noticeLabel.maximumNumberOfLines = 2
+
         let checkbox = NSButton(checkboxWithTitle: "Include files from subfolders",
                                 target: nil, action: nil)
         checkbox.state = settings.includeSubfolders ? .on : .off
 
+        // Connect checkbox → helper so the notice appears immediately on toggle.
+        let checkboxHelper = SubfolderCheckboxHelper(
+            defaultState: settings.includeSubfolders,
+            noticeLabel: noticeLabel
+        )
+        checkbox.target = checkboxHelper
+        checkbox.action = #selector(SubfolderCheckboxHelper.checkboxChanged(_:))
+
         let container = NSView()
-        let excludedNames = settings.excludedSubfolderNames
-        let containerHeight: CGFloat = excludedNames.isEmpty ? 44 : 62
+        // Reserve space: checkbox + notice label + optional excluded-names hint.
+        let noticeHeight: CGFloat = 28
+        let excludedHeight: CGFloat = excludedNames.isEmpty ? 0 : 20
+        let containerHeight = 44 + noticeHeight + excludedHeight
         container.frame = NSRect(x: 0, y: 0, width: 480, height: containerHeight)
-        checkbox.frame = NSRect(x: 20, y: containerHeight - 28, width: 440, height: 20)
+
+        let checkboxY = containerHeight - 28
+        checkbox.frame = NSRect(x: 20, y: checkboxY, width: 440, height: 20)
+        noticeLabel.frame = NSRect(x: 22, y: excludedHeight + 2, width: 430, height: noticeHeight)
+
         container.addSubview(checkbox)
+        container.addSubview(noticeLabel)
 
         if !excludedNames.isEmpty {
             let hint = NSTextField(labelWithString:
                 "Skipping: \(excludedNames.joined(separator: ", "))  —  edit in Settings → Files & Folders")
             hint.font = .systemFont(ofSize: 10)
             hint.textColor = .secondaryLabelColor
-            hint.frame = NSRect(x: 22, y: 8, width: 440, height: 14)
+            hint.cell?.wraps = true
+            hint.maximumNumberOfLines = 2
+            hint.frame = NSRect(x: 22, y: 4, width: 430, height: 16)
             container.addSubview(hint)
         }
 
         panel.accessoryView = container
         panel.isAccessoryViewDisclosed = true
 
-        guard panel.runModal() == .OK, let folderURL = panel.url else { return }
+        // withExtendedLifetime keeps checkboxHelper alive for the duration of runModal()
+        // (NSButton holds only a weak reference to its target).
+        let result = withExtendedLifetime(checkboxHelper) { panel.runModal() }
+        guard result == .OK, let folderURL = panel.url else { return }
 
         // Use the checkbox value — intentionally NOT written back to settings.
         let includeSubfolders = checkbox.state == .on
-
-        // If the user picked a value that differs from their stored default, nudge
-        // them toward Settings so they know they can make it permanent.
-        if includeSubfolders != settings.includeSubfolders {
-            let hint = NSAlert()
-            hint.messageText = "Subfolder Setting Not Saved"
-            hint.informativeText = "This change applies to this open only. To make it permanent, go to Settings → Files & Folders."
-            hint.alertStyle = .informational
-            hint.addButton(withTitle: "OK")
-            hint.runModal()
-        }
         let excludedSet = Set(settings.excludedSubfolderNames.map { $0.lowercased() })
 
         let didAccess = folderURL.startAccessingSecurityScopedResource()
