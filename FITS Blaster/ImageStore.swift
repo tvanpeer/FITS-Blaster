@@ -921,20 +921,21 @@ final class ImageStore {
 
     // MARK: - File Panels
 
-    /// Shows/hides the "applies to this session only" notice label whenever the
-    /// subfolders checkbox is toggled. Kept as a separate NSObject subclass because
-    /// NSButton holds only a weak reference to its target.
-    private final class SubfolderCheckboxHelper: NSObject {
-        private let defaultState: Bool
+    /// Shows/hides the shared notice label when either panel checkbox is toggled
+    /// to a state that differs from its stored default. Kept as a separate NSObject
+    /// subclass because NSButton holds only a weak reference to its target.
+    private final class PanelAccessoryHelper: NSObject {
+        private let checkboxes: [(button: NSButton, defaultState: Bool)]
         private weak var noticeLabel: NSTextField?
 
-        init(defaultState: Bool, noticeLabel: NSTextField) {
-            self.defaultState = defaultState
+        init(checkboxes: [(NSButton, Bool)], noticeLabel: NSTextField) {
+            self.checkboxes = checkboxes
             self.noticeLabel = noticeLabel
         }
 
         @objc func checkboxChanged(_ sender: NSButton) {
-            noticeLabel?.isHidden = (sender.state == .on) == defaultState
+            let anyDiffers = checkboxes.contains { ($0.button.state == .on) != $0.defaultState }
+            noticeLabel?.isHidden = !anyDiffers
         }
     }
 
@@ -950,7 +951,18 @@ final class ImageStore {
         // when used outside a SwiftUI window hierarchy (NSOpenPanel accessory context).
         let excludedNames = settings.excludedSubfolderNames
 
-        // Notice label (hidden until the checkbox state differs from the stored default).
+        // Subfolders checkbox
+        let subfolderCheckbox = NSButton(checkboxWithTitle: "Include files from subfolders",
+                                         target: nil, action: nil)
+        subfolderCheckbox.state = settings.includeSubfolders ? .on : .off
+
+        // REJECTED folder checkbox
+        let rejectedCheckbox = NSButton(
+            checkboxWithTitle: "Include REJECTED folder (mark images as rejected)",
+            target: nil, action: nil)
+        rejectedCheckbox.state = settings.includeRejectedFolder ? .on : .off
+
+        // Shared notice label — appears when either checkbox differs from its stored default.
         let noticeLabel = NSTextField(labelWithString:
             "Applies to this open only. To change the default, go to Settings → Files & Folders.")
         noticeLabel.font = .systemFont(ofSize: 10)
@@ -959,30 +971,33 @@ final class ImageStore {
         noticeLabel.cell?.wraps = true
         noticeLabel.maximumNumberOfLines = 2
 
-        let checkbox = NSButton(checkboxWithTitle: "Include files from subfolders",
-                                target: nil, action: nil)
-        checkbox.state = settings.includeSubfolders ? .on : .off
-
-        // Connect checkbox → helper so the notice appears immediately on toggle.
-        let checkboxHelper = SubfolderCheckboxHelper(
-            defaultState: settings.includeSubfolders,
+        let panelHelper = PanelAccessoryHelper(
+            checkboxes: [(subfolderCheckbox, settings.includeSubfolders),
+                         (rejectedCheckbox,  settings.includeRejectedFolder)],
             noticeLabel: noticeLabel
         )
-        checkbox.target = checkboxHelper
-        checkbox.action = #selector(SubfolderCheckboxHelper.checkboxChanged(_:))
+        subfolderCheckbox.target = panelHelper
+        subfolderCheckbox.action = #selector(PanelAccessoryHelper.checkboxChanged(_:))
+        rejectedCheckbox.target = panelHelper
+        rejectedCheckbox.action = #selector(PanelAccessoryHelper.checkboxChanged(_:))
 
-        let container = NSView()
-        // Reserve space: checkbox + notice label + optional excluded-names hint.
+        // Layout (AppKit bottom-up). Reserve space for the notice label even when hidden.
         let noticeHeight: CGFloat = 28
         let excludedHeight: CGFloat = excludedNames.isEmpty ? 0 : 30
-        let containerHeight = 44 + noticeHeight + excludedHeight
+        let containerHeight: CGFloat = 88 + excludedHeight
+        let noticeLabelY: CGFloat = excludedHeight + 4
+        let rejectedCheckboxY: CGFloat = noticeLabelY + noticeHeight + 4
+        let subfolderCheckboxY: CGFloat = rejectedCheckboxY + 20 + 8
+
+        let container = NSView()
         container.frame = NSRect(x: 0, y: 0, width: 480, height: containerHeight)
 
-        let checkboxY = containerHeight - 28
-        checkbox.frame = NSRect(x: 20, y: checkboxY, width: 440, height: 20)
-        noticeLabel.frame = NSRect(x: 22, y: excludedHeight + 2, width: 430, height: noticeHeight)
+        subfolderCheckbox.frame = NSRect(x: 20, y: subfolderCheckboxY, width: 440, height: 20)
+        rejectedCheckbox.frame  = NSRect(x: 20, y: rejectedCheckboxY,  width: 440, height: 20)
+        noticeLabel.frame       = NSRect(x: 22, y: noticeLabelY,       width: 430, height: noticeHeight)
 
-        container.addSubview(checkbox)
+        container.addSubview(subfolderCheckbox)
+        container.addSubview(rejectedCheckbox)
         container.addSubview(noticeLabel)
 
         if !excludedNames.isEmpty {
@@ -1000,22 +1015,35 @@ final class ImageStore {
         panel.accessoryView = container
         panel.isAccessoryViewDisclosed = true
 
-        // withExtendedLifetime keeps checkboxHelper alive for the duration of runModal()
+        // withExtendedLifetime keeps panelHelper alive for the duration of runModal()
         // (NSButton holds only a weak reference to its target).
-        let result = withExtendedLifetime(checkboxHelper) { panel.runModal() }
+        let result = withExtendedLifetime(panelHelper) { panel.runModal() }
         guard result == .OK, let folderURL = panel.url else { return }
 
-        // Use the checkbox value — intentionally NOT written back to settings.
-        let includeSubfolders = checkbox.state == .on
+        // Use checkbox values — intentionally NOT written back to settings.
+        let includeSubfolders = subfolderCheckbox.state == .on
+        let includeRejected   = rejectedCheckbox.state == .on
         let excludedSet = Set(settings.excludedSubfolderNames.map { $0.lowercased() })
 
         let didAccess = folderURL.startAccessingSecurityScopedResource()
         let dirBookmark = try? folderURL.bookmarkData(
             options: .withSecurityScope, includingResourceValuesForKeys: nil, relativeTo: nil)
 
-        let collected = Self.collectFITSURLs(in: folderURL, relativePath: "",
+        var collected = Self.collectFITSURLs(in: folderURL, relativePath: "",
                                              excludedNames: excludedSet,
                                              includeSubfolders: includeSubfolders)
+
+        // Optionally scan the REJECTED subdirectory and track those URLs.
+        var rejectedURLs: Set<URL> = []
+        if includeRejected {
+            let rejectedDir = folderURL.appending(path: "REJECTED", directoryHint: .isDirectory)
+            let rejectedItems = Self.collectFITSURLs(in: rejectedDir, relativePath: "REJECTED",
+                                                     excludedNames: [],
+                                                     includeSubfolders: false)
+            rejectedURLs = Set(rejectedItems.map { $0.url })
+            collected += rejectedItems
+        }
+
         if didAccess { folderURL.stopAccessingSecurityScopedResource() }
 
         guard !collected.isEmpty else {
@@ -1035,7 +1063,8 @@ final class ImageStore {
         knownRootURLs.insert(folderURL)
 
         rootFolderName = folderURL.lastPathComponent
-        openFiles(collected, rootFolderName: folderURL.lastPathComponent,
+        openFiles(collected, rejectedURLs: rejectedURLs,
+                  rootFolderName: folderURL.lastPathComponent,
                   directoryBookmark: dirBookmark,
                   maxDisplaySize: settings.maxDisplaySize,
                   maxThumbnailSize: settings.maxThumbnailSize,
@@ -1143,11 +1172,13 @@ final class ImageStore {
     // MARK: - Loading
 
     /// Convenience wrapper for callers that provide a flat list without subfolder info.
-    func openFiles(_ urls: [URL], rootFolderName: String = "", directoryBookmark: Data? = nil,
+    func openFiles(_ urls: [URL], rejectedURLs: Set<URL> = [],
+                   rootFolderName: String = "", directoryBookmark: Data? = nil,
                    maxDisplaySize: Int = 1024, maxThumbnailSize: Int = 120,
                    metricsConfig: MetricsConfig = MetricsConfig(),
                    debayerColorImages: Bool = false) {
         openFiles(urls.map { (url: $0, subfolderPath: "") },
+                  rejectedURLs: rejectedURLs,
                   rootFolderName: rootFolderName,
                   directoryBookmark: directoryBookmark,
                   maxDisplaySize: maxDisplaySize,
@@ -1157,6 +1188,7 @@ final class ImageStore {
     }
 
     func openFiles(_ urlsWithPaths: [(url: URL, subfolderPath: String)],
+                   rejectedURLs: Set<URL> = [],
                    rootFolderName: String = "",
                    directoryBookmark: Data? = nil,
                    maxDisplaySize: Int = 1024, maxThumbnailSize: Int = 120,
@@ -1188,6 +1220,10 @@ final class ImageStore {
                 let entry = ImageEntry(url: item.url, directoryBookmark: directoryBookmark)
                 entry.subfolderPath = item.subfolderPath
                 entry.rootFolderName = rootFolderName
+                if rejectedURLs.contains(item.url) {
+                    entry.isRejected = true
+                    rejectedEntryIDs.insert(entry.id)
+                }
                 entries.append(entry)
                 newEntries.append(entry)
             }

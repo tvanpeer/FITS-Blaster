@@ -153,6 +153,12 @@ final class AppSettings {
         didSet { UserDefaults.standard.set(includeSubfolders, forKey: "includeSubfolders") }
     }
 
+    /// When true, opening a folder also scans the REJECTED subdirectory and
+    /// pre-marks those images as rejected.
+    var includeRejectedFolder: Bool = false {
+        didSet { UserDefaults.standard.set(includeRejectedFolder, forKey: "includeRejectedFolder") }
+    }
+
     // MARK: - Colour Settings
 
     /// When true, colour FITS images with a BAYERPAT/COLORTYP/CFA_PAT header are
@@ -203,7 +209,8 @@ final class AppSettings {
         if let v = UserDefaults.standard.object(forKey: "isSimpleMode")       as? Bool { isSimpleMode       = v }
         if let raw = UserDefaults.standard.string(forKey: "appearanceMode"),
            let mode = AppearanceMode(rawValue: raw) { appearanceMode = mode }
-        if let v = UserDefaults.standard.object(forKey: "includeSubfolders")  as? Bool { includeSubfolders  = v }
+        if let v = UserDefaults.standard.object(forKey: "includeSubfolders")      as? Bool { includeSubfolders      = v }
+        if let v = UserDefaults.standard.object(forKey: "includeRejectedFolder") as? Bool { includeRejectedFolder = v }
         if let v = UserDefaults.standard.stringArray(forKey: "excludedSubfolderNames") { excludedSubfolderNames = v }
         if let v = UserDefaults.standard.object(forKey: "debayerColorImages") as? Bool { debayerColorImages = v }
         if let idx = UserDefaults.standard.object(forKey: "dynamicTypeSize") as? Int,

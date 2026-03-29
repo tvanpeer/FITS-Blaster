@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Scores Work — FITS Blaster</title>
+    <link rel="icon" type="image/png" href="favicon.png">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background: #0a0a0f;
+            color: #e8e8f0;
+            line-height: 1.7;
+        }
+
+        .container {
+            max-width: 680px;
+            margin: 0 auto;
+            padding: 60px 24px 80px;
+        }
+
+        .back {
+            display: inline-block;
+            color: #7070cc;
+            text-decoration: none;
+            font-size: 0.9rem;
+            margin-bottom: 40px;
+        }
+
+        .back:hover { text-decoration: underline; }
+
+        h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .meta {
+            color: #505068;
+            font-size: 0.9rem;
+            margin-bottom: 48px;
+        }
+
+        nav.toc {
+            background: #1a1a2e;
+            border-left: 3px solid #5a5aff;
+            border-radius: 0 6px 6px 0;
+            padding: 16px 20px;
+            margin-bottom: 48px;
+        }
+
+        nav.toc p {
+            font-size: 0.85rem;
+            color: #505068;
+            margin-bottom: 8px;
+        }
+
+        nav.toc a {
+            display: inline-block;
+            color: #7070cc;
+            text-decoration: none;
+            font-size: 0.9rem;
+            margin-right: 16px;
+            margin-bottom: 4px;
+        }
+
+        nav.toc a:hover { text-decoration: underline; }
+
+        .top-link {
+            display: block;
+            text-align: right;
+            font-size: 0.8rem;
+            color: #505068;
+            text-decoration: none;
+            margin-top: 40px;
+        }
+
+        .top-link:hover { color: #7070cc; }
+
+        h2 {
+            font-size: 1.15rem;
+            font-weight: 600;
+            color: #c8c8e0;
+            margin: 48px 0 16px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #1a1a2e;
+        }
+
+        h3 {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #a0a0c8;
+            margin: 24px 0 10px;
+        }
+
+        p {
+            color: #9090aa;
+            font-size: 0.95rem;
+            margin-bottom: 14px;
+        }
+
+        p:last-child { margin-bottom: 0; }
+
+        ul, ol {
+            margin: 8px 0 14px 0;
+            padding-left: 0;
+            list-style: none;
+        }
+
+        ul li, ol li {
+            color: #9090aa;
+            font-size: 0.95rem;
+            padding: 3px 0 3px 20px;
+            position: relative;
+        }
+
+        ul li::before {
+            content: "–";
+            position: absolute;
+            left: 0;
+            color: #505068;
+        }
+
+        ol { counter-reset: score-counter; }
+        ol li { counter-increment: score-counter; }
+        ol li::before {
+            content: counter(score-counter) ".";
+            position: absolute;
+            left: 0;
+            color: #505068;
+        }
+
+        strong { color: #c8c8e0; }
+
+        code {
+            background: #1a1a2e;
+            border-radius: 4px;
+            padding: 1px 6px;
+            font-size: 0.9em;
+            color: #a0a0d0;
+        }
+
+        pre {
+            background: #1a1a2e;
+            border-radius: 6px;
+            padding: 14px 16px;
+            margin: 12px 0 16px;
+            overflow-x: auto;
+            font-size: 0.85rem;
+            color: #a0a0d0;
+            line-height: 1.6;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 12px 0 16px;
+            font-size: 0.9rem;
+        }
+
+        th {
+            text-align: left;
+            color: #c8c8e0;
+            padding: 6px 12px 6px 0;
+            border-bottom: 1px solid #2a2a4a;
+            font-weight: 600;
+        }
+
+        td {
+            padding: 6px 12px 6px 0;
+            color: #9090aa;
+            border-bottom: 1px solid #14141f;
+            vertical-align: top;
+        }
+
+        td code { font-size: 0.82rem; }
+
+        a { color: #7070cc; }
+        a:hover { text-decoration: underline; }
+
+        hr {
+            border: none;
+            border-top: 1px solid #1a1a2e;
+            margin: 36px 0;
+        }
+
+        footer {
+            text-align: center;
+            padding: 32px 24px;
+            font-size: 0.85rem;
+            color: #505068;
+            border-top: 1px solid #1a1a2e;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <a href="index.html" class="back">← FITS Blaster</a>
+
+    <h1 id="top">How the Quality Score Works</h1>
+    <p class="meta">FITS Blaster &nbsp;·&nbsp; Last updated: March 2026</p>
+
+    <p>The quality score is a single integer from <strong>0 to 100</strong> that summarises the optical quality of a FITS frame. It is a weighted average of up to four individual metrics: FWHM, eccentricity, SNR, and star count. Only the metrics enabled in Settings contribute; their weights are renormalised so they always sum to 1.0 regardless of which subset is active.</p>
+
+    <nav class="toc">
+        <p>Jump to section</p>
+        <a href="#background">Background Estimation</a>
+        <a href="#detection">Star Detection</a>
+        <a href="#shape">Shape Measurement</a>
+        <a href="#composite">Composite Score</a>
+        <a href="#badges">Badge Colours</a>
+    </nav>
+
+    <!-- ── Step 1 ── -->
+    <h2 id="background">Step 1 — Background Estimation</h2>
+
+    <p>Before any star is detected or measured, the image background level and noise are estimated using <strong>stratified sampling</strong>:</p>
+
+    <ol>
+        <li>5&nbsp;000 pixels are sampled at regular stride across the full frame.</li>
+        <li>The <strong>median</strong> of those samples is taken as the sky background level.</li>
+        <li>The <strong>median absolute deviation (MAD)</strong> of the samples is computed and converted to an equivalent Gaussian sigma:</li>
+    </ol>
+
+    <pre>σ = MAD × 1.4826</pre>
+
+    <p>The factor 1.4826 makes MAD a consistent estimator of the standard deviation for normally-distributed noise. A floor equal to 0.01&nbsp;% of the sampled data range is applied to avoid division by zero on pathological data.</p>
+
+    <p>The detection <strong>threshold</strong> is set at background&nbsp;+&nbsp;5&nbsp;σ, so only genuine stars (5-sigma detections) are considered.</p>
+
+    <!-- ── Step 2 ── -->
+    <h2 id="detection">Step 2 — Star Detection</h2>
+
+    <p>Stars are detected as <strong>local maxima</strong> above the 5&nbsp;σ threshold.</p>
+
+    <h3>GPU path (default on Apple Silicon)</h3>
+    <p>A Metal compute kernel scans the <strong>full frame</strong> in parallel. Each thread checks whether its pixel is above the threshold and is strictly greater than all 8 neighbours. Candidates are written to a compact shared buffer (capped at 50&nbsp;000 entries). The GPU step takes roughly 3–8&nbsp;ms for a 16–50&nbsp;MP image.</p>
+
+    <h3>CPU fallback</h3>
+    <p>When Metal is unavailable, a vectorised scan covers a <strong>4&nbsp;096&nbsp;×&nbsp;4&nbsp;096 centre crop</strong>. Each row is pre-filtered; rows where no pixel exceeds the threshold are skipped entirely (~50× faster than a naïve full-scan for typical star fields).</p>
+
+    <p>The detected star count is what is reported as the <strong>star-count metric</strong>.</p>
+
+    <!-- ── Step 3 ── -->
+    <h2 id="shape">Step 3 — Per-Star Shape Measurement</h2>
+
+    <p>Up to 200 of the brightest candidates are selected for shape fitting. Because the <strong>median</strong> is used to summarise each metric, occasional saturated stars at the top of the brightness ranking have negligible effect on the result.</p>
+
+    <h3>Sub-pixel centroid</h3>
+    <p>A 5&nbsp;×&nbsp;5 intensity-weighted window gives a sub-pixel centroid (cx,&nbsp;cy) and a bilinearly-interpolated peak value.</p>
+
+    <h3>FWHM — 1D Moffat β&nbsp;=&nbsp;4 fit</h3>
+    <p>A <strong>Moffat profile</strong> with fixed β&nbsp;=&nbsp;4 (the PixInsight standard) is fitted independently along the X and Y axes through the sub-pixel centroid, using a ±10-pixel window and a linearised weighted regression. FWHM per axis is:</p>
+
+    <pre>FWHM = 2α · √(2^(1/4) − 1)   ≈   α × 0.870 × 2</pre>
+
+    <p>The <strong>reported FWHM</strong> is the geometric mean of the two axes, matching PixInsight's single-value summary:</p>
+
+    <pre>FWHM = √(FWHM_x × FWHM_y)</pre>
+
+    <p>Units are <strong>pixels</strong>. Values below 0.5&nbsp;px (hot pixels) or above 20&nbsp;px (pathological blobs) are rejected.</p>
+
+    <h3>Eccentricity — 2D intensity-weighted moments</h3>
+    <p>Three second-order moments are accumulated over the same ±10-pixel window, measured from the sub-pixel centroid:</p>
+
+    <table>
+        <tr><th>Moment</th><th>Meaning</th></tr>
+        <tr><td><code>M₂₀ = Σ(dx² · I) / ΣI</code></td><td>spread along X</td></tr>
+        <tr><td><code>M₀₂ = Σ(dy² · I) / ΣI</code></td><td>spread along Y</td></tr>
+        <tr><td><code>M₁₁ = Σ(dx · dy · I) / ΣI</code></td><td>tilt / cross-axis correlation</td></tr>
+    </table>
+
+    <p>These form a 2&nbsp;×&nbsp;2 covariance matrix whose eigenvalues λ₁&nbsp;≥&nbsp;λ₂ are computed in closed form, giving eccentricity via the standard conic definition:</p>
+
+    <pre>e = √(1 − λ_min / λ_max)</pre>
+
+    <ul>
+        <li><strong>e = 0</strong> — perfectly round star</li>
+        <li><strong>e → 1</strong> — strongly elongated or trailed star</li>
+    </ul>
+
+    <p>This approach correctly detects elongation at any angle, including 45°, which a simple comparison of two axis-aligned FWHM values cannot do.</p>
+
+    <h3>SNR — aperture photometry</h3>
+    <p>A circular aperture of radius r&nbsp;=&nbsp;2&nbsp;×&nbsp;FWHM is placed at the centroid. The background-subtracted flux inside the aperture (I_net) and the pixel count (n_ap) are summed:</p>
+
+    <pre>SNR = I_net / √(I_net + n_ap · σ²_sky)</pre>
+
+    <p>This is the standard simplified CCD equation (Merline &amp; Howell 1995). Without a known camera gain, the result is a proportional proxy that correctly <strong>ranks frames relative to each other</strong> within a session on the same camera.</p>
+
+    <p>The <strong>median</strong> FWHM, eccentricity, and SNR across all accepted candidates are used as the frame values.</p>
+
+    <!-- ── Step 4 ── -->
+    <h2 id="composite">Step 4 — Composite Score</h2>
+
+    <p>Each metric is converted to a normalised sub-score <strong>s ∈ [0, 1]</strong> using a piecewise-linear mapping:</p>
+
+    <table>
+        <tr><th>Metric</th><th>Weight</th><th>Ideal</th><th>Bad at</th><th>Formula</th></tr>
+        <tr><td>FWHM</td><td>35&nbsp;%</td><td>≤&nbsp;2&nbsp;px</td><td>≥&nbsp;7&nbsp;px</td><td><code>clamp(1 − (FWHM − 2) / 5, 0, 1)</code></td></tr>
+        <tr><td>Eccentricity</td><td>35&nbsp;%</td><td>0</td><td>≥&nbsp;0.5</td><td><code>clamp(1 − e / 0.5, 0, 1)</code></td></tr>
+        <tr><td>SNR</td><td>20&nbsp;%</td><td>≥&nbsp;200</td><td>≤&nbsp;10</td><td><code>clamp((SNR − 10) / 190, 0, 1)</code></td></tr>
+        <tr><td>Star count</td><td>10&nbsp;%</td><td>≥&nbsp;500</td><td>0</td><td><code>clamp(log₁₀(n + 1) / log₁₀(501), 0, 1)</code></td></tr>
+    </table>
+
+    <p>Star count uses a <strong>log scale</strong> so that a frame with 50 stars is not penalised as harshly as a frame with 0 stars.</p>
+
+    <p>The weighted average of active sub-scores is scaled to 0–100:</p>
+
+    <pre>score = round( (Σ wᵢ · sᵢ) / (Σ wᵢ) × 100 )</pre>
+
+    <p>If no metrics are enabled, the score is 0.</p>
+
+    <!-- ── Badge colours ── -->
+    <h2 id="badges">Badge Colours</h2>
+
+    <p>The quality badge on each thumbnail is coloured by the <strong>worst detected problem</strong>, independent of the score:</p>
+
+    <table>
+        <tr><th>Colour</th><th>Condition</th></tr>
+        <tr><td><strong style="color:#ff5555;">Red</strong></td><td>Eccentricity &gt;&nbsp;0.5 (trailing), or FWHM &gt;&nbsp;1.5&nbsp;× group median (focus failure)</td></tr>
+        <tr><td><strong style="color:#d98c00;">Amber</strong></td><td>Star count &lt;&nbsp;40&nbsp;% of group median (&lt;&nbsp;30&nbsp;% for narrowband filters)</td></tr>
+        <tr><td><strong style="color:#44cc66;">Green</strong></td><td>No problem detected and score is in the top third of the filter group</td></tr>
+        <tr><td><strong style="color:#8c8c8c;">Grey</strong></td><td>No problem detected, not in top third</td></tr>
+    </table>
+
+    <p>Group medians are computed separately for each filter group (Hα, OIII, etc.) so that narrowband frames with naturally lower star counts are not unfairly compared against broadband frames.</p>
+
+    <a href="#top" class="top-link">↑ Back to top</a>
+</div>
+
+<footer>
+    &copy; 2026 Tom van Peer &nbsp;·&nbsp; <a href="index.html">FITS Blaster</a> &nbsp;·&nbsp; <a href="faq.html">FAQ</a> &nbsp;·&nbsp; <a href="privacy-policy.html">Privacy Policy</a> &nbsp;·&nbsp; <a href="mailto:support@astrophoto-app.com">Support</a>
+</footer>
+
+</body>
+</html>

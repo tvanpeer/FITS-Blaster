@@ -259,6 +259,7 @@ struct FilesAndFoldersTab: View {
                     SubfolderExclusionField(tags: $settings.excludedSubfolderNames)
                 }
                 .alignmentGuide(.firstTextBaseline) { $0[.top] + 8 }
+                Toggle("Include REJECTED folder (mark images as rejected)", isOn: $settings.includeRejectedFolder)
             }
 
         }
