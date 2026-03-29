@@ -974,7 +974,7 @@ final class ImageStore {
         let container = NSView()
         // Reserve space: checkbox + notice label + optional excluded-names hint.
         let noticeHeight: CGFloat = 28
-        let excludedHeight: CGFloat = excludedNames.isEmpty ? 0 : 20
+        let excludedHeight: CGFloat = excludedNames.isEmpty ? 0 : 30
         let containerHeight = 44 + noticeHeight + excludedHeight
         container.frame = NSRect(x: 0, y: 0, width: 480, height: containerHeight)
 
@@ -991,8 +991,9 @@ final class ImageStore {
             hint.font = .systemFont(ofSize: 10)
             hint.textColor = .secondaryLabelColor
             hint.cell?.wraps = true
+            hint.cell?.isScrollable = false
             hint.maximumNumberOfLines = 2
-            hint.frame = NSRect(x: 22, y: 4, width: 430, height: 16)
+            hint.frame = NSRect(x: 22, y: 4, width: 430, height: 26)
             container.addSubview(hint)
         }
 

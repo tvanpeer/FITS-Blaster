@@ -722,8 +722,14 @@ struct FITSToolbar: View {
                 Label {
                     Text(settings.debayerColorImages ? "Colour" : "Grey")
                 } icon: {
-                    Image(systemName: "camera.filters")
-                        .symbolRenderingMode(settings.debayerColorImages ? .multicolor : .monochrome)
+                    if settings.debayerColorImages {
+                        Image(systemName: "camera.filters")
+                            .symbolRenderingMode(.palette)
+                            .foregroundStyle(Color.red, Color.green, Color.blue)
+                    } else {
+                        Image(systemName: "camera.filters")
+                            .symbolRenderingMode(.monochrome)
+                    }
                 }
                 .labelStyle(.iconOnly)
             }
