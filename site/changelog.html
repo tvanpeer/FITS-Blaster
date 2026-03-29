@@ -168,6 +168,35 @@
 
 <div class="content">
 
+    <!-- v1.16.0 -->
+    <div class="entry">
+        <div class="entry-header">
+            <div class="entry-title">Include REJECTED, Select All Rejected &amp; more — v1.16.0</div>
+            <div class="entry-date">2026-03-29</div>
+        </div>
+        <div class="section">
+            <span class="section-label label-added">Added</span>
+            <ul>
+                <li><strong>Include REJECTED folder</strong> — checkbox in the Open Folder dialog loads FITS files inside any <code>REJECTED/</code> subfolder and marks them as rejected automatically. A permanent toggle is in Settings → Files &amp; Folders.</li>
+                <li><strong>Cmd+R — Select All Rejected</strong> — selects all rejected frames in one keystroke. Configurable in Settings → Keyboard.</li>
+                <li><strong>Sort by Rejected</strong> — new option in the thumbnail sort picker; rejected entries sort to the bottom (ascending) or top (descending).</li>
+                <li><strong>Ko-fi link</strong> added to the About FITS Blaster panel.</li>
+                <li><strong>"How Scores Work"</strong> page added to the website, explaining background estimation, star detection, shape measurement, the composite score formula, and badge-colour logic.</li>
+            </ul>
+        </div>
+        <div class="section">
+            <span class="section-label label-fixed">Fixed</span>
+            <ul>
+                <li>Reset now always switches back to "All frames" mode.</li>
+                <li>Cmd+click in "Selected" mode with an active multi-selection now toggles the clicked entry instead of unflagging everything.</li>
+                <li>Shift+click range selection now works from the very first open.</li>
+                <li>Session chart now enlarges dots for all multi-selected thumbnails.</li>
+                <li>Undo reject correctly moves files back to their pre-rejection folder when loaded via "Include REJECTED".</li>
+                <li>Cmd+A (Select All) and other command-key shortcuts now work reliably across all keyboard layouts.</li>
+            </ul>
+        </div>
+    </div>
+
     <!-- v1.15.1 -->
     <div class="entry">
         <div class="entry-header">
