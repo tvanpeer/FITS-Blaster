@@ -4,6 +4,23 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-03-29 — v1.16 bug fixes and features
+
+### Fixed
+- Reset now always switches back to "All frames" mode (was left in Selected/Rejected if active).
+- Cmd+click in "Selected" mode with an active multi-selection now toggles the clicked entry instead of unflagging everything (unflag-on-cmd-click is still the default for single-entry actions).
+- Shift+click range selection now works from the very first open; it no longer requires re-clicking the first image first.
+- Session chart now enlarges dots for all multi-selected thumbnails, not just the focused entry.
+
+### Added
+- **Sort by Rejected** added to the thumbnail sort picker; rejected entries sort to the bottom (ascending) or top (descending), with alphabetical tie-breaking.
+- **Cmd+R — Select All Rejected**: selects all rejected frames in one keystroke. Configurable in Settings → Keyboard.
+- **Colour/Grey toolbar button** now shows a `camera.filters` icon (multicolour in colour mode, monochrome in grey mode) instead of plain text.
+- **Ko-fi link** added to the About FITS Blaster panel.
+- Opening a folder with the subfolders checkbox set differently from Settings now shows a one-time info alert pointing to Settings → Files & Folders.
+
+---
+
 ## 2026-03-28 — Repository housekeeping
 
 ### Improved

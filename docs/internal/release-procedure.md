@@ -27,12 +27,12 @@ Ask Claude to wrap up the session. Claude will:
 
 ## After the workflow completes
 
-5. **Pull the updated site files:**
+5. **Pull the updated site files** (the workflow commits site changes back to `main`):
    ```
    git pull origin main
    ```
 
-6. **Upload `site/` to your hosting provider.**
+The workflow also deploys the updated site to astrophoto-app.com automatically — no manual upload needed.
 
 ## Version naming
 

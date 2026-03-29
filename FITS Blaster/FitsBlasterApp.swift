@@ -77,6 +77,21 @@ struct FitsBlasterApp: App {
                 SelectAllCommand()
                 DeselectAllCommand()
                 InvertSelectionCommand()
+                SelectAllRejectedCommand()
+            }
+            CommandGroup(replacing: .appInfo) {
+                Button("About FITS Blaster") {
+                    NSApp.orderFrontStandardAboutPanel(options: [
+                        .credits: NSAttributedString(
+                            string: "If FITS Blaster saves you time, consider supporting development on Ko-fi.",
+                            attributes: [
+                                .font: NSFont.systemFont(ofSize: NSFont.smallSystemFontSize),
+                                .foregroundColor: NSColor.secondaryLabelColor,
+                                .link: URL(string: "https://ko-fi.com/tomvp") as Any
+                            ]
+                        )
+                    ])
+                }
             }
             CommandGroup(replacing: .help) {
                 Button("FITS Blaster Help") {
@@ -217,6 +232,21 @@ private struct InvertSelectionCommand: View {
         let equiv: KeyEquivalent = keyString.flatMap(\.first).map { KeyEquivalent($0) } ?? KeyEquivalent("i")
         let mods: EventModifiers = usesShift == true ? [.command, .shift] : .command
         Button("Inverse Selection") { action?() }
+            .disabled(action == nil)
+            .keyboardShortcut(equiv, modifiers: mods)
+    }
+}
+
+/// Selects all rejected frames in the active window (⌘R by default).
+private struct SelectAllRejectedCommand: View {
+    @FocusedValue(\.selectAllRejectedAction)   var action
+    @FocusedValue(\.selectAllRejectedKeyString) var keyString
+    @FocusedValue(\.selectAllRejectedShiftFV)   var usesShift
+
+    var body: some View {
+        let equiv: KeyEquivalent = keyString.flatMap(\.first).map { KeyEquivalent($0) } ?? KeyEquivalent("r")
+        let mods: EventModifiers = usesShift == true ? [.command, .shift] : .command
+        Button("Select All Rejected") { action?() }
             .disabled(action == nil)
             .keyboardShortcut(equiv, modifiers: mods)
     }

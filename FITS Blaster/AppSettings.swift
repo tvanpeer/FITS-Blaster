@@ -71,6 +71,13 @@ final class AppSettings {
         didSet { UserDefaults.standard.set(invertSelectionShift, forKey: "invertSelectionShift") }
     }
 
+    var selectAllRejectedKey: String = "r" {
+        didSet { UserDefaults.standard.set(selectAllRejectedKey, forKey: "selectAllRejectedKey") }
+    }
+    var selectAllRejectedShift: Bool = false {
+        didSet { UserDefaults.standard.set(selectAllRejectedShift, forKey: "selectAllRejectedShift") }
+    }
+
     // MARK: - Image Sizes
 
     var maxDisplaySize: Int = 1024 {
@@ -180,6 +187,8 @@ final class AppSettings {
         if let v = UserDefaults.standard.object(forKey: "deselectAllShift") as? Bool { deselectAllShift = v }
         if let v = UserDefaults.standard.string(forKey: "invertSelectionKey") { invertSelectionKey = v }
         if let v = UserDefaults.standard.object(forKey: "invertSelectionShift") as? Bool { invertSelectionShift = v }
+        if let v = UserDefaults.standard.string(forKey: "selectAllRejectedKey") { selectAllRejectedKey = v }
+        if let v = UserDefaults.standard.object(forKey: "selectAllRejectedShift") as? Bool { selectAllRejectedShift = v }
         // Sizes
         let display = UserDefaults.standard.integer(forKey: "maxDisplaySize")
         if display > 0 { maxDisplaySize = display }
@@ -215,6 +224,7 @@ final class AppSettings {
     var selectAllKeyEquivalent:       KeyEquivalent { keyEquivalent(for: selectAllKey,       fallback: KeyEquivalent("a")) }
     var deselectAllKeyEquivalent:     KeyEquivalent { keyEquivalent(for: deselectAllKey,     fallback: KeyEquivalent("a")) }
     var invertSelectionKeyEquivalent: KeyEquivalent { keyEquivalent(for: invertSelectionKey, fallback: KeyEquivalent("i")) }
+    var selectAllRejectedKeyEquivalent: KeyEquivalent { keyEquivalent(for: selectAllRejectedKey, fallback: KeyEquivalent("r")) }
 
     // MARK: - Appearance helper
 
@@ -295,16 +305,19 @@ extension FocusedValues {
     @Entry var selectAllAction: (() -> Void)? = nil
     @Entry var deselectAllAction: (() -> Void)? = nil
     @Entry var invertSelectionAction: (() -> Void)? = nil
+    @Entry var selectAllRejectedAction: (() -> Void)? = nil
 
     /// Key strings for the selection shortcuts, so menu commands can show the correct letter.
     @Entry var selectAllKeyString: String? = nil
     @Entry var deselectAllKeyString: String? = nil
     @Entry var invertSelectionKeyString: String? = nil
+    @Entry var selectAllRejectedKeyString: String? = nil
 
     /// Shift flags for the selection shortcuts (true = ⌘⇧, false = ⌘).
     @Entry var selectAllShiftFV: Bool? = nil
     @Entry var deselectAllShiftFV: Bool? = nil
     @Entry var invertSelectionShiftFV: Bool? = nil
+    @Entry var selectAllRejectedShiftFV: Bool? = nil
 }
 
 // MARK: - AppearanceMode

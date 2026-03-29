@@ -297,7 +297,10 @@ struct SessionChartView: View {
                 )
                 .foregroundStyle(item.entry.filterGroup.color)
                 // Enlarge the selected frame's dot so it stands out
-                .symbolSize(store.selectedEntry === item.entry ? 90 : 28)
+                .symbolSize(
+                    (store.selectedEntry === item.entry || store.selectedEntryIDs.contains(item.entry.id))
+                    ? 90 : 28
+                )
                 // Dim rejected frames so they recede visually
                 // Dim rejected dots only in "All" mode; in "Rejected" mode they're the focus.
                 .opacity(store.rejectionVisibility == .all && item.entry.isRejected ? 0.25 : 1.0)

@@ -62,6 +62,26 @@ struct ContentView: View {
     }
 
     private var contentWithFocus: some View {
+        splitContentWithAppFocus
+            .focusedSceneValue(\.selectAllAction)          { store.selectAllVisible() }
+            .focusedSceneValue(\.deselectAllAction)        { store.deselectAll() }
+            .focusedSceneValue(\.invertSelectionAction)    { store.invertSelection() }
+            .focusedSceneValue(\.selectAllRejectedAction)  { store.selectAllRejected() }
+            .focusedSceneValue(\.selectAllKeyString,         settings.selectAllKey)
+            .focusedSceneValue(\.deselectAllKeyString,       settings.deselectAllKey)
+            .focusedSceneValue(\.invertSelectionKeyString,   settings.invertSelectionKey)
+            .focusedSceneValue(\.selectAllRejectedKeyString, settings.selectAllRejectedKey)
+            .focusedSceneValue(\.selectAllShiftFV,           settings.selectAllShift)
+            .focusedSceneValue(\.deselectAllShiftFV,         settings.deselectAllShift)
+            .focusedSceneValue(\.invertSelectionShiftFV,     settings.invertSelectionShift)
+            .focusedSceneValue(\.selectAllRejectedShiftFV,   settings.selectAllRejectedShift)
+            .frame(minWidth: minWindowWidth, minHeight: 400)
+            .environment(\.fontSizeMultiplier, settings.fontSizeMultiplier)
+            .preferredColorScheme(settings.preferredColorScheme)
+            .background(WindowAccessor { hostingWindow = $0 })
+    }
+
+    private var splitContentWithAppFocus: some View {
         splitContent
             .focusedSceneValue(\.simpleModeBinding, Binding(
                 get: { settings.isSimpleMode },
@@ -75,19 +95,6 @@ struct ContentView: View {
             .focusedSceneValue(\.debayerKeyString, settings.debayerKey)
             .focusedSceneValue(\.openFolderAction) { store.openFolderPanel(settings: settings) }
             .focusedSceneValue(\.openFilesAction)  { store.openFilesPanel(settings: settings) }
-            .focusedSceneValue(\.selectAllAction)       { store.selectAllVisible() }
-            .focusedSceneValue(\.deselectAllAction)     { store.deselectAll() }
-            .focusedSceneValue(\.invertSelectionAction) { store.invertSelection() }
-            .focusedSceneValue(\.selectAllKeyString,       settings.selectAllKey)
-            .focusedSceneValue(\.deselectAllKeyString,     settings.deselectAllKey)
-            .focusedSceneValue(\.invertSelectionKeyString, settings.invertSelectionKey)
-            .focusedSceneValue(\.selectAllShiftFV,       settings.selectAllShift)
-            .focusedSceneValue(\.deselectAllShiftFV,     settings.deselectAllShift)
-            .focusedSceneValue(\.invertSelectionShiftFV, settings.invertSelectionShift)
-            .frame(minWidth: minWindowWidth, minHeight: 400)
-            .environment(\.fontSizeMultiplier, settings.fontSizeMultiplier)
-            .preferredColorScheme(settings.preferredColorScheme)
-            .background(WindowAccessor { hostingWindow = $0 })
     }
 
     private var splitContent: some View {
@@ -152,6 +159,10 @@ struct ContentView: View {
                     if shift == self.settings.invertSelectionShift,
                        key == self.settings.invertSelectionKey {
                         self.store.invertSelection(); return nil
+                    }
+                    if shift == self.settings.selectAllRejectedShift,
+                       key == self.settings.selectAllRejectedKey {
+                        self.store.selectAllRejected(); return nil
                     }
                 }
 
@@ -463,14 +474,28 @@ struct ThumbnailSidebar: View {
             let mods = NSEvent.modifierFlags
             if mods.contains(.command) {
                 if store.rejectionVisibility == .selected {
-                    // In "Selected" mode cmd+click unflag.
-                    // If a multi-selection exists unflag all of it; otherwise just this image.
-                    let toUnflag = store.selectedEntryIDs.isEmpty
-                        ? [entry.id]
-                        : store.selectedEntryIDs
-                    store.unflagEntries(toUnflag)
-                    if toUnflag.contains(store.selectedEntry?.id ?? UUID()) {
-                        store.selectedEntry = store.visibilityFilteredEntries.first
+                    // In "Selected" mode cmd+click unflag — but only when this is a
+                    // deliberate single-item action (no multi-selection, or exactly this
+                    // entry is the only one selected). When a multi-selection exists
+                    // (e.g. after Cmd+A) treat as a normal toggle so the user can
+                    // adjust the selection before unflagging.
+                    let isMultiSelect = !store.selectedEntryIDs.isEmpty
+                        && store.selectedEntryIDs != [entry.id]
+                    if isMultiSelect {
+                        if store.selectedEntryIDs.contains(entry.id) {
+                            store.selectedEntryIDs.remove(entry.id)
+                            if store.selectedEntry === entry {
+                                store.selectedEntry = store.entries.first { store.selectedEntryIDs.contains($0.id) }
+                            }
+                        } else {
+                            store.selectedEntryIDs.insert(entry.id)
+                            store.selectedEntry = entry
+                        }
+                    } else {
+                        store.unflagEntries([entry.id])
+                        if store.selectedEntry === entry {
+                            store.selectedEntry = store.visibilityFilteredEntries.first
+                        }
                     }
                 } else {
                     // Cmd+click: toggle this entry in/out of the multi-selection.
@@ -486,7 +511,7 @@ struct ThumbnailSidebar: View {
                     }
                 }
                 lastClickedID = entry.id
-            } else if mods.contains(.shift), let lastID = lastClickedID {
+            } else if mods.contains(.shift), let lastID = lastClickedID ?? store.selectedEntry?.id {
                 // Shift+click: range-select from last clicked entry to this one.
                 let visible = visibleEntries
                 if let fromIdx = visible.firstIndex(where: { $0.id == lastID }),
@@ -691,9 +716,12 @@ struct FITSToolbar: View {
             }
             .disabled(store.entries.isEmpty)
 
-            Button(settings.debayerColorImages ? "Colour" : "Grey") {
+            Button(settings.debayerColorImages ? "Colour" : "Grey",
+                   systemImage: "camera.filters") {
                 settings.debayerColorImages.toggle()
             }
+            .symbolRenderingMode(settings.debayerColorImages ? .multicolor : .monochrome)
+            .help(settings.debayerColorImages ? "Switch to greyscale" : "Switch to colour")
 
             Button("Cancel") {
                 store.cancelProcessing()

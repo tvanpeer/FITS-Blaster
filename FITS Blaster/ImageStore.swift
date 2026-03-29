@@ -19,6 +19,7 @@ enum ThumbnailSortOrder: String, CaseIterable {
     case eccentricity = "Eccentricity"
     case snr          = "SNR"
     case starCount    = "Stars"
+    case rejected     = "Rejected"
 }
 
 // MARK: - Export format
@@ -299,6 +300,15 @@ final class ImageStore {
                 default:             return false
                 }
             }
+        case .rejected:
+            // Rejected entries sort to the bottom (asc) or top (desc).
+            // Within each group, alphabetical by filename.
+            cachedSortedEntries = entries.sorted { a, b in
+                if a.isRejected != b.isRejected {
+                    return asc ? !a.isRejected : a.isRejected
+                }
+                return a.fileName.localizedStandardCompare(b.fileName) == .orderedAscending
+            }
         }
         updateGroupedByFolderAndFilter()
         updateVisibilityFilteredEntries()
@@ -485,6 +495,7 @@ final class ImageStore {
 
     func reset() {
         entries = []
+        rejectionVisibility = .all
         selectedEntry = nil
         selectedEntryIDs = []
         flaggedEntryIDs = []
@@ -514,6 +525,14 @@ final class ImageStore {
         if selectedEntry == nil || !selectedEntryIDs.contains(selectedEntry!.id) {
             selectedEntry = visible.first
         }
+    }
+
+    /// Adds all rejected entries to the multi-selection and focuses the first one.
+    func selectAllRejected() {
+        let rejected = entries.filter { $0.isRejected }
+        guard !rejected.isEmpty else { NSSound.beep(); return }
+        selectedEntryIDs = Set(rejected.map { $0.id })
+        selectedEntry = rejected.first
     }
 
     /// Clears the multi-selection and focused entry.
@@ -939,6 +958,17 @@ final class ImageStore {
 
         // Use the checkbox value — intentionally NOT written back to settings.
         let includeSubfolders = checkbox.state == .on
+
+        // If the user picked a value that differs from their stored default, nudge
+        // them toward Settings so they know they can make it permanent.
+        if includeSubfolders != settings.includeSubfolders {
+            let hint = NSAlert()
+            hint.messageText = "Subfolder Setting Not Saved"
+            hint.informativeText = "This change applies to this open only. To make it permanent, go to Settings → Files & Folders."
+            hint.alertStyle = .informational
+            hint.addButton(withTitle: "OK")
+            hint.runModal()
+        }
         let excludedSet = Set(settings.excludedSubfolderNames.map { $0.lowercased() })
 
         let didAccess = folderURL.startAccessingSecurityScopedResource()

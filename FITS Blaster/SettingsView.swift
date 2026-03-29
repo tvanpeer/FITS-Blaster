@@ -48,6 +48,7 @@ struct UISettingsTab: View {
             ("Select All",              $settings.selectAllKey),
             ("Deselect All",            $settings.deselectAllKey),
             ("Inverse Selection",       $settings.invertSelectionKey),
+            ("Select All Rejected",     $settings.selectAllRejectedKey),
         ]
 
         Form {
@@ -113,6 +114,13 @@ struct UISettingsTab: View {
                         keyString: $settings.invertSelectionKey,
                         usesShift: $settings.invertSelectionShift,
                         conflictingKeys: allKeys.filter { $0.label != "Inverse Selection" }.map(\.key)
+                    )
+                }
+                LabeledContent("Select All Rejected") {
+                    SelectionShortcutRow(
+                        keyString: $settings.selectAllRejectedKey,
+                        usesShift: $settings.selectAllRejectedShift,
+                        conflictingKeys: allKeys.filter { $0.label != "Select All Rejected" }.map(\.key)
                     )
                 }
             }
