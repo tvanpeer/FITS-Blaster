@@ -99,6 +99,11 @@ struct FitsBlasterApp: App {
                         NSWorkspace.shared.open(url)
                     }
                 }
+                Button("Ask Support") {
+                    if let url = URL(string: "https://github.com/tvanpeer/FITS-Blaster/issues/new?template=bug_report.md") {
+                        NSWorkspace.shared.open(url)
+                    }
+                }
             }
         }
 

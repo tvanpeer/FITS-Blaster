@@ -4,6 +4,17 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-03-31 — v1.16.3 improvements
+
+### Added
+- Help menu: new "Ask Support" item opens the GitHub bug report form directly.
+
+### Improved
+- FAQ: added "What do the colours and brightness levels in the session chart mean?" entry explaining filter-group dot colours, dashed median lines, and the spotlight brightness hierarchy.
+- FAQ: corrected "What is the session chart?" — dot colour represents the filter group, not the quality badge.
+
+---
+
 ## 2026-03-31 — v1.16.2 improvements
 
 ### Fixed

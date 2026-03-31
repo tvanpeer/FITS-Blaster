@@ -423,13 +423,36 @@
     <details>
         <summary>What is the session chart?</summary>
         <div class="answer">
-            <p>The session chart is a horizontal strip showing one dot per frame, in the order they were captured. The dot colour matches the quality badge (green / amber / red / grey). You can:</p>
+            <p>The session chart is a horizontal strip showing one dot per frame, in the order they were captured. Dot colour represents the <strong>filter group</strong> (Ha, OIII, SII, Lum, RGB, and so on) — each filter gets its own consistent colour so you can see at a glance whether a quality problem affects one filter or all of them. You can:</p>
             <ul>
                 <li><strong>Click</strong> a dot to select and display that frame</li>
                 <li><strong>Drag</strong> across a range of dots to flag a range of frames for closer inspection in the Selected view</li>
                 <li><strong>Filter by folder or filter group</strong> using the pill buttons above the chart, to focus on one subset at a time</li>
             </ul>
-            <p>The chart makes it easy to spot patterns — a run of red dots typically means a passing cloud, a focus shift, or a tracking problem at a specific point in the session.</p>
+            <p>The chart makes it easy to spot patterns — a dip in a single filter's dots usually points to a filter-specific problem, while a decline across all colours suggests clouds, wind, or a tracking issue.</p>
+        </div>
+    </details>
+
+    <details>
+        <summary>What do the colours and brightness levels in the session chart mean?</summary>
+        <div class="answer">
+            <p><strong>Dot colour — filter group</strong><br>
+            Each dot is coloured by its filter group (Ha, OIII, SII, Lum, R, G, B, etc.). This lets you compare filters side by side and immediately see whether a quality dip is filter-specific or affects the whole session.</p>
+
+            <p><strong>Dashed horizontal lines — per-group medians</strong><br>
+            A dashed line is drawn at the median value of the active metric for each filter group. Use it as a reference: dots noticeably above or below the dashed line for their group are outliers worth inspecting.</p>
+
+            <p><strong>Dot brightness — selection state</strong><br>
+            When one or more frames are selected or flagged, the chart dims everything else to make the selection stand out:</p>
+            <ul>
+                <li><strong>Full brightness</strong> — the currently selected or flagged frame(s)</li>
+                <li><strong>Dimmed</strong> — frames that are not part of the current selection</li>
+                <li><strong>Darkest</strong> — frames that have already been rejected (moved to <code>REJECTED/</code>)</li>
+            </ul>
+            <p>When nothing is selected, only rejected frames are slightly dimmed; all other dots are shown at full brightness.</p>
+
+            <p><strong>Dot size</strong><br>
+            The currently active frame is drawn as a larger dot, making it easy to find your position in a dense chart.</p>
         </div>
     </details>
 
