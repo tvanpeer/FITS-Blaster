@@ -4,6 +4,17 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-03-31 — v1.16.1 bug fixes
+
+### Fixed
+- Website feature list said "drag-to-reject" and "Auto-reject" instead of "drag-to-select" and "Auto-select".
+- Folder count badge in the thumbnail sidebar showed the total file count regardless of the active view (All / Selected / Rejected); it now reflects only the entries visible in the current view.
+- Metric buttons above the session chart (Score, FWHM, Ecc, SNR, Stars) did not visually indicate the selected button; the active metric now uses a filled (prominent) button style.
+- Cmd+Click in the Selected view was toggling multi-selection instead of removing the entry from the selection; it now always unflag the clicked entry.
+- Shift-click multi-select did not work at first open until the user clicked the first thumbnail explicitly; the shift-click anchor is now seeded when the first image is auto-selected on load.
+
+---
+
 ## 2026-03-29 — Include REJECTED: undo and selection fixes
 
 ### Fixed

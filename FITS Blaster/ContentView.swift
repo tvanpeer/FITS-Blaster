@@ -422,8 +422,13 @@ struct ThumbnailSidebar: View {
                                         }
                                     }
                                 } header: {
+                                    let visibleCount = folderGroup.filterGroups
+                                        .flatMap { $0.1 }
+                                        .filter { store.isVisible($0) }
+                                        .count
                                     FolderSectionHeader(
                                         folderGroup: folderGroup,
+                                        visibleCount: visibleCount,
                                         isCollapsed: isCollapsed
                                     ) {
                                         if isCollapsed {
@@ -470,6 +475,13 @@ struct ThumbnailSidebar: View {
             .padding(.horizontal, 8)
             .padding(.vertical, 6)
         }
+        // When the first image is auto-selected at load time (nil → non-nil transition),
+        // seed lastClickedID so shift-click works without requiring an explicit prior click.
+        .onChange(of: store.selectedEntry?.id) { oldID, newID in
+            if oldID == nil, let id = newID {
+                lastClickedID = id
+            }
+        }
     }
 
     private func thumbnailButton(for entry: ImageEntry) -> some View {
@@ -477,29 +489,13 @@ struct ThumbnailSidebar: View {
             let mods = NSEvent.modifierFlags
             if mods.contains(.command) {
                 if store.rejectionVisibility == .selected {
-                    // In "Selected" mode cmd+click unflag — but only when this is a
-                    // deliberate single-item action (no multi-selection, or exactly this
-                    // entry is the only one selected). When a multi-selection exists
-                    // (e.g. after Cmd+A) treat as a normal toggle so the user can
-                    // adjust the selection before unflagging.
-                    let isMultiSelect = !store.selectedEntryIDs.isEmpty
-                        && store.selectedEntryIDs != [entry.id]
-                    if isMultiSelect {
-                        if store.selectedEntryIDs.contains(entry.id) {
-                            store.selectedEntryIDs.remove(entry.id)
-                            if store.selectedEntry === entry {
-                                store.selectedEntry = store.entries.first { store.selectedEntryIDs.contains($0.id) }
-                            }
-                        } else {
-                            store.selectedEntryIDs.insert(entry.id)
-                            store.selectedEntry = entry
-                        }
-                    } else {
-                        store.unflagEntries([entry.id])
-                        if store.selectedEntry === entry {
-                            store.selectedEntry = store.visibilityFilteredEntries.first
-                        }
+                    // In "Selected" mode cmd+click always removes the entry from the selection.
+                    store.unflagEntries([entry.id])
+                    if store.selectedEntry === entry {
+                        store.selectedEntry = store.visibilityFilteredEntries.first
                     }
+                    lastClickedID = store.selectedEntry?.id
+                    return
                 } else {
                     // Cmd+click: toggle this entry in/out of the multi-selection.
                     if store.selectedEntryIDs.contains(entry.id) {
@@ -639,6 +635,7 @@ struct FilterGroupHeader: View {
 
 struct FolderSectionHeader: View {
     let folderGroup: FolderGroup
+    let visibleCount: Int
     let isCollapsed: Bool
     let onToggle: () -> Void
 
@@ -655,7 +652,7 @@ struct FolderSectionHeader: View {
                     .foregroundStyle(.secondary)
                 Text(folderGroup.folderDisplayName)
                     .scaledFont(size: 10, weight: .bold)
-                Text("\(folderGroup.totalCount)")
+                Text("\(visibleCount)")
                     .scaledFont(size: 10)
                     .foregroundStyle(.secondary)
                 Spacer()

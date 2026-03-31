@@ -209,12 +209,19 @@ struct SessionChartView: View {
         HStack(spacing: 4) {
             // Metric selector
             ForEach(ChartMetric.allCases) { metric in
-                Button { selectedMetric = metric } label: {
-                    Text(metric.rawValue).scaledFont(size: 10)
+                if selectedMetric == metric {
+                    Button { selectedMetric = metric } label: {
+                        Text(metric.rawValue).scaledFont(size: 10)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.mini)
+                } else {
+                    Button { selectedMetric = metric } label: {
+                        Text(metric.rawValue).scaledFont(size: 10)
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.mini)
                 }
-                .buttonStyle(.bordered)
-                .controlSize(.mini)
-                .tint(selectedMetric == metric ? .accentColor : nil)
             }
 
             Spacer()
