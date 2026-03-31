@@ -31,7 +31,7 @@ struct AutoRejectConfig: Sendable {
     var absoluteStarCountFloor: Int = 20    // absolute: reject if star count falls below this
 
     // SNR
-    var useSNR: Bool = false
+    var useSNR: Bool = true
     var snrMultiplier: Double = 0.50        // relative: reject if SNR < multiplier × group median
     var absoluteSNRFloor: Double = 20.0     // absolute: reject if SNR falls below this
 
@@ -88,7 +88,7 @@ private struct SheetHeader: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text("Auto-Flag Frames")
                     .font(.headline)
-                Text("Flag frames below quality thresholds for rejection.")
+                Text("Flag frames below quality thresholds for review.")
                     .scaledFont(size: 10)
                     .foregroundStyle(.secondary)
             }
@@ -132,13 +132,13 @@ private struct FWHMSection: View {
             Toggle("Enable FWHM threshold", isOn: $config.useFWHM)
             if config.useFWHM {
                 if config.mode == .relative {
-                    LabeledContent("Reject if FWHM >") {
+                    LabeledContent("Select if FWHM >") {
                         Text("\(config.fwhmMultiplier, format: .number.precision(.fractionLength(1)))× median")
                             .foregroundStyle(.secondary)
                     }
                     Slider(value: $config.fwhmMultiplier, in: 1.2...3.0, step: 0.1)
                 } else {
-                    LabeledContent("Reject if FWHM >") {
+                    LabeledContent("Select if FWHM >") {
                         Text("\(config.absoluteFWHM, format: .number.precision(.fractionLength(1))) px")
                             .foregroundStyle(.secondary)
                     }
@@ -156,7 +156,7 @@ private struct EccentricitySection: View {
         Section("Trailing / Elongation") {
             Toggle("Enable eccentricity threshold", isOn: $config.useEccentricity)
             if config.useEccentricity {
-                LabeledContent("Reject if eccentricity >") {
+                LabeledContent("Select if eccentricity >") {
                     Text("\(config.eccentricityThreshold, format: .number.precision(.fractionLength(2)))")
                         .foregroundStyle(.secondary)
                 }
@@ -174,13 +174,13 @@ private struct StarCountSection: View {
             Toggle("Enable star count threshold", isOn: $config.useStarCount)
             if config.useStarCount {
                 if config.mode == .relative {
-                    LabeledContent("Reject if stars <") {
+                    LabeledContent("Select if stars <") {
                         Text("\(config.starCountMultiplier, format: .percent.precision(.fractionLength(0))) of median")
                             .foregroundStyle(.secondary)
                     }
                     Slider(value: $config.starCountMultiplier, in: 0.1...0.7, step: 0.05)
                 } else {
-                    LabeledContent("Reject if stars <") {
+                    LabeledContent("Select if stars <") {
                         Text("\(config.absoluteStarCountFloor)")
                             .foregroundStyle(.secondary)
                     }
@@ -202,13 +202,13 @@ private struct SNRSection: View {
             Toggle("Enable SNR threshold", isOn: $config.useSNR)
             if config.useSNR {
                 if config.mode == .relative {
-                    LabeledContent("Reject if SNR <") {
+                    LabeledContent("Select if SNR <") {
                         Text("\(config.snrMultiplier, format: .percent.precision(.fractionLength(0))) of median")
                             .foregroundStyle(.secondary)
                     }
                     Slider(value: $config.snrMultiplier, in: 0.1...0.8, step: 0.05)
                 } else {
-                    LabeledContent("Reject if SNR <") {
+                    LabeledContent("Select if SNR <") {
                         Text("\(config.absoluteSNRFloor, format: .number.precision(.fractionLength(0)))")
                             .foregroundStyle(.secondary)
                     }
@@ -226,7 +226,7 @@ private struct ScoreSection: View {
         Section("Quality Score") {
             Toggle("Enable score floor", isOn: $config.useScore)
             if config.useScore {
-                LabeledContent("Reject if score <") {
+                LabeledContent("Select if score <") {
                     Text("\(config.scoreFloor)")
                         .foregroundStyle(.secondary)
                 }

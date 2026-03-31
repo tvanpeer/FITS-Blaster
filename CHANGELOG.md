@@ -4,6 +4,19 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-03-31 — v1.16.2 improvements
+
+### Fixed
+- Auto-Flag sheet: all "Reject if …" threshold labels corrected to "Select if …"; subtitle updated to "Flag frames below quality thresholds for review."
+- Cmd+Click in the Selected view with an active multi-selection (e.g. after Cmd+A) now removes all selected entries at once instead of only the clicked one.
+
+### Improved
+- Session chart spotlight: when a multi-selection is active, non-selected dots dim to 0.40 opacity and rejected dots dim further to 0.15, creating a clear three-level brightness hierarchy (rejected → non-selected → selected).
+- Session chart drag-select now triggers the spotlight correctly (previously only sidebar Cmd/Shift-click selections activated it).
+- Auto-Flag sheet: SNR threshold is now enabled by default.
+
+---
+
 ## 2026-03-31 — v1.16.1 bug fixes
 
 ### Fixed

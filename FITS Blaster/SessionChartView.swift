@@ -298,19 +298,27 @@ struct SessionChartView: View {
 
             // One dot per frame
             ForEach(chartPoints, id: \.entry.id) { item in
+                // An entry is "selected" if it is the primary entry, in the sidebar
+                // multi-selection, or flagged (populated by chart drag-select).
+                let isSelected = store.selectedEntry === item.entry
+                    || store.selectedEntryIDs.contains(item.entry.id)
+                    || store.flaggedEntryIDs.contains(item.entry.id)
+                // Three-level brightness hierarchy when a multi-selection is active:
+                //   rejected → darkest (0.15), non-selected → mid (0.40), selected → full (1.0)
+                // Without a multi-selection, only rejected frames are dimmed (0.25), as before.
+                let hasMultiSelection = !store.selectedEntryIDs.isEmpty
+                    || !store.flaggedEntryIDs.isEmpty
+                let opacity: Double = if hasMultiSelection && item.entry.isRejected { 0.15 }
+                    else if hasMultiSelection && !isSelected { 0.40 }
+                    else if !hasMultiSelection && store.rejectionVisibility == .all && item.entry.isRejected { 0.25 }
+                    else { 1.0 }
                 PointMark(
                     x: .value("Frame", item.index + 1),   // 1-based label
                     y: .value(selectedMetric.rawValue, item.value)
                 )
                 .foregroundStyle(item.entry.filterGroup.color)
-                // Enlarge the selected frame's dot so it stands out
-                .symbolSize(
-                    (store.selectedEntry === item.entry || store.selectedEntryIDs.contains(item.entry.id))
-                    ? 90 : 28
-                )
-                // Dim rejected frames so they recede visually
-                // Dim rejected dots only in "All" mode; in "Rejected" mode they're the focus.
-                .opacity(store.rejectionVisibility == .all && item.entry.isRejected ? 0.25 : 1.0)
+                .symbolSize(isSelected ? 90 : 28)
+                .opacity(opacity)
             }
         }
         .chartXAxis {

@@ -489,9 +489,12 @@ struct ThumbnailSidebar: View {
             let mods = NSEvent.modifierFlags
             if mods.contains(.command) {
                 if store.rejectionVisibility == .selected {
-                    // In "Selected" mode cmd+click always removes the entry from the selection.
-                    store.unflagEntries([entry.id])
-                    if store.selectedEntry === entry {
+                    // Unflag the clicked entry, or the entire sidebar multi-selection if one is active.
+                    let toUnflag: Set<UUID> = store.selectedEntryIDs.isEmpty
+                        ? [entry.id]
+                        : store.selectedEntryIDs
+                    store.unflagEntries(toUnflag)
+                    if toUnflag.contains(store.selectedEntry?.id ?? UUID()) {
                         store.selectedEntry = store.visibilityFilteredEntries.first
                     }
                     lastClickedID = store.selectedEntry?.id
