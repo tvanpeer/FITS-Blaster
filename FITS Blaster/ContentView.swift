@@ -705,10 +705,9 @@ struct FITSToolbar: View {
             }
             .keyboardShortcut("o", modifiers: .command)
 
-            Button("Open Files…") {
-                store.openFilesPanel(settings: settings)
-            }
-            .keyboardShortcut("o", modifiers: [.command, .shift])
+            // TODO: Open Files… is hidden until sandbox write-access for parent directories is resolved.
+            // Button("Open Files…") { store.openFilesPanel(settings: settings) }
+            //     .keyboardShortcut("o", modifiers: [.command, .shift])
 
             Button("Reset") {
                 store.reset()
