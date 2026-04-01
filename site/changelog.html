@@ -168,30 +168,48 @@
 
 <div class="content">
 
+    <!-- v1.17.1 -->
+    <div class="entry">
+        <div class="entry-header">
+            <div class="entry-title">⌘A/⌘D/⌘I operate on range selection — v1.17.1</div>
+            <div class="entry-date">2026-04-01</div>
+        </div>
+        <div class="section">
+            <span class="section-label label-fixed">Fixed</span>
+            <ul>
+                <li>⌘A, ⌘D, and ⌘I now operate on the orange range selection (consistent with ⇧+click and ⇧+arrow) rather than the flag set.</li>
+            </ul>
+        </div>
+        <div class="section">
+            <span class="section-label label-improved">Improved</span>
+            <ul>
+                <li>FAQ: ⌘A / ⌘D / ⌘I documented in the Selected view entry and the keyboard shortcuts entry.</li>
+            </ul>
+        </div>
+    </div>
+
     <!-- v1.17.0 -->
     <div class="entry">
         <div class="entry-header">
-            <span class="version">1.17.0</span>
-            <span class="date">2026-04-01</span>
+            <div class="entry-title">Selection redesign, SO filter group — v1.17.0</div>
+            <div class="entry-date">2026-04-01</div>
         </div>
-        <div class="changes">
-            <div class="change-group">
-                <span class="label added">Added</span>
-                <ul>
-                    <li>SO (SII+OIII) dual-narrowband filter group with emerald colour — recognises Askar C2 and similar filters.</li>
-                </ul>
-            </div>
-            <div class="change-group">
-                <span class="label improved">Improved</span>
-                <ul>
-                    <li>Selection model fully redesigned: <strong>cursor</strong> (blue, always one frame) and <strong>range selection</strong> (orange, built with ⇧+click or ⇧+arrow) are now independent with no side effects between views.</li>
-                    <li>⇧+click and ⇧+arrow build an orange range in any view; ⌘+click adds/removes the range to/from the Selected view.</li>
-                    <li>Reject acts on the orange range if active, otherwise on the cursor. In the Selected view, rejected frames stay orange for immediate undo.</li>
-                    <li>Session chart cursor dot is now white for instant position recognition; rejected frames always shown at 30% opacity.</li>
-                    <li>Sidebar thumbnails show a checkmark badge on flagged frames and an orange border on range-selected frames.</li>
-                    <li>FAQ: updated session chart and Selected view entries to reflect the new model; added full filter-group colour table with swatches.</li>
-                </ul>
-            </div>
+        <div class="section">
+            <span class="section-label label-added">Added</span>
+            <ul>
+                <li>SO (SII+OIII) dual-narrowband filter group with emerald colour — recognises Askar C2 and similar filters.</li>
+            </ul>
+        </div>
+        <div class="section">
+            <span class="section-label label-improved">Improved</span>
+            <ul>
+                <li>Selection model fully redesigned: <strong>cursor</strong> (blue, always one frame) and <strong>range selection</strong> (orange, built with ⇧+click or ⇧+arrow) are now independent with no side effects between views.</li>
+                <li>⇧+click and ⇧+arrow build an orange range in any view; ⌘+click adds/removes the range to/from the Selected view.</li>
+                <li>Reject acts on the orange range if active, otherwise on the cursor. In the Selected view, rejected frames stay orange for immediate undo.</li>
+                <li>Session chart cursor dot is now white for instant position recognition; rejected frames always shown at 30% opacity.</li>
+                <li>Sidebar thumbnails show a checkmark badge on flagged frames and an orange border on range-selected frames.</li>
+                <li>FAQ: updated session chart and Selected view entries to reflect the new model; added full filter-group colour table with swatches.</li>
+            </ul>
         </div>
     </div>
 
