@@ -499,7 +499,7 @@
             <p><strong>Selection model — two independent concepts:</strong></p>
             <ul>
                 <li><strong>Cursor</strong> — the single frame currently shown in the viewer. Plain click or arrow keys move it. It never affects the review queue.</li>
-                <li><strong>Range selection</strong> — an orange-highlighted group of frames built with ⇧+click or ⇧+arrow keys. Used for batch operations (add to queue, remove from queue, reject).</li>
+                <li><strong>Range selection</strong> — an orange-highlighted group of frames built with ⇧+click, ⇧+arrow keys, ⌘A (select all visible), ⌘D (clear), or ⌘I (invert). Used for batch operations (add to queue, remove from queue, reject).</li>
             </ul>
 
             <p><strong>Building the review queue (Selected view):</strong></p>
@@ -512,7 +512,7 @@
             <p><strong>Working inside the Selected view:</strong></p>
             <ul>
                 <li><strong>Plain click</strong> — move the cursor (view that frame); clears any orange range.</li>
-                <li><strong>⇧+click</strong> or <strong>⇧+arrow keys</strong> — select an orange range for batch operations.</li>
+                <li><strong>⇧+click</strong> or <strong>⇧+arrow keys</strong> — select an orange range for batch operations. <strong>⌘A</strong> selects all visible, <strong>⌘D</strong> clears the range, <strong>⌘I</strong> inverts it.</li>
                 <li><strong>Reject key</strong> — rejects the orange range (or the cursor if no range). Rejected frames stay visible so you can undo immediately by pressing Reject again.</li>
                 <li><strong>⌘+click on orange</strong> — removes the entire orange range from the queue (no rejection).</li>
                 <li><strong>⌘+click on a plain frame</strong> — removes that single frame from the queue.</li>
@@ -623,7 +623,7 @@
     <details>
         <summary>Can I use the keyboard for everything?</summary>
         <div class="answer">
-            <p>Almost. Arrow keys navigate the sidebar; your configured reject key rejects or toggles; the chart is keyboard-accessible for navigation. The only things that require the mouse are drag-selecting a range in the chart and clicking filter pills.</p>
+            <p>Almost. Arrow keys navigate; ⇧+arrow extends the orange range selection; ⌘A / ⌘D / ⌘I select all, clear, or invert the range; ⌘+click flags or unflags the range; your configured reject key rejects or toggles. The only things that require the mouse are drag-selecting a range in the chart and clicking filter pills.</p>
         </div>
     </details>
 

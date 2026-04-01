@@ -511,13 +511,13 @@ final class ImageStore {
         visibilityFilteredEntries = []
     }
 
-    // MARK: - Flag set helpers
+    // MARK: - Range selection helpers (Cmd+A / Cmd+D / Cmd+I)
 
-    /// Flags all currently-visible entries. Cursor is unchanged.
+    /// Selects all currently-visible entries as the orange range. Cursor is unchanged.
     func selectAllVisible() {
         let visible = visibilityFilteredEntries
         guard !visible.isEmpty else { return }
-        flaggedEntryIDs.formUnion(visible.map { $0.id })
+        markedForRejectionIDs = Set(visible.map { $0.id })
     }
 
     /// Flags all rejected entries and moves the cursor to the first one.
@@ -528,16 +528,16 @@ final class ImageStore {
         selectedEntry = rejected.first
     }
 
-    /// Clears all flags. Cursor is unchanged.
+    /// Clears the orange range selection. Cursor is unchanged.
     func deselectAll() {
-        flaggedEntryIDs = []
+        markedForRejectionIDs = []
     }
 
-    /// Inverts the flag set within the currently-visible entries.
+    /// Inverts the orange range selection within the currently-visible entries.
     func invertSelection() {
         let visible = visibilityFilteredEntries
         guard !visible.isEmpty else { return }
-        flaggedEntryIDs = Set(visible.map { $0.id }).subtracting(flaggedEntryIDs)
+        markedForRejectionIDs = Set(visible.map { $0.id }).subtracting(markedForRejectionIDs)
     }
 
     // MARK: - Extend selection

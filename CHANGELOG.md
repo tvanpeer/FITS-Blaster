@@ -4,6 +4,23 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-04-01 — v1.17.1
+
+### Fixed
+- Cmd+A, Cmd+D, and Cmd+I now operate on the orange range selection instead of the flag set, consistent with shift+click and shift+arrow.
+
+---
+
+## 2026-04-01 — v1.17.1
+
+### Fixed
+- ⌘A, ⌘D, and ⌘I now operate on the orange range selection (consistent with ⇧+click and ⇧+arrow) rather than the flag set.
+
+### Improved
+- FAQ: ⌘A / ⌘D / ⌘I documented in the Selected view entry and the keyboard shortcuts entry.
+
+---
+
 ## 2026-04-01 — v1.17.0 selection redesign
 
 ### Added
