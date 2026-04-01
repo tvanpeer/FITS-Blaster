@@ -482,52 +482,45 @@ struct ThumbnailSidebar: View {
                 lastClickedID = id
             }
         }
+        // Leaving the Selected view clears the rejection sub-selection.
+        .onChange(of: store.rejectionVisibility) { _, _ in
+            store.markedForRejectionIDs = []
+        }
     }
 
     private func thumbnailButton(for entry: ImageEntry) -> some View {
         Button {
             let mods = NSEvent.modifierFlags
             if mods.contains(.command) {
+                // Cmd+click: flag/unflag the range selection (or this single entry if no range).
+                // In All view → add to Selected; in Selected view → remove from Selected.
+                let targets: Set<UUID> = store.markedForRejectionIDs.isEmpty
+                    ? [entry.id]
+                    : store.markedForRejectionIDs
+                store.markedForRejectionIDs = []
                 if store.rejectionVisibility == .selected {
-                    // Unflag the clicked entry, or the entire sidebar multi-selection if one is active.
-                    let toUnflag: Set<UUID> = store.selectedEntryIDs.isEmpty
-                        ? [entry.id]
-                        : store.selectedEntryIDs
-                    store.unflagEntries(toUnflag)
-                    if toUnflag.contains(store.selectedEntry?.id ?? UUID()) {
+                    store.unflagEntries(targets)
+                    if store.selectedEntry.map({ !store.flaggedEntryIDs.contains($0.id) }) == true {
                         store.selectedEntry = store.visibilityFilteredEntries.first
                     }
                     lastClickedID = store.selectedEntry?.id
-                    return
                 } else {
-                    // Cmd+click: toggle this entry in/out of the multi-selection.
-                    if store.selectedEntryIDs.contains(entry.id) {
-                        store.selectedEntryIDs.remove(entry.id)
-                        if store.selectedEntry === entry {
-                            store.selectedEntry = store.entries.first { store.selectedEntryIDs.contains($0.id) }
-                        }
-                    } else {
-                        if let current = store.selectedEntry { store.selectedEntryIDs.insert(current.id) }
-                        store.selectedEntryIDs.insert(entry.id)
-                        store.selectedEntry = entry
-                    }
+                    store.flaggedEntryIDs.formUnion(targets)
+                    lastClickedID = entry.id
                 }
-                lastClickedID = entry.id
             } else if mods.contains(.shift), let lastID = lastClickedID ?? store.selectedEntry?.id {
-                // Shift+click: range-select from last clicked entry to this one.
+                // Shift+click: select a range (orange) in any view. Move cursor.
                 let visible = visibleEntries
                 if let fromIdx = visible.firstIndex(where: { $0.id == lastID }),
                    let toIdx   = visible.firstIndex(where: { $0.id == entry.id }) {
                     let range = fromIdx <= toIdx ? fromIdx...toIdx : toIdx...fromIdx
-                    if store.selectedEntryIDs.isEmpty, let current = store.selectedEntry {
-                        store.selectedEntryIDs.insert(current.id)
-                    }
-                    store.selectedEntryIDs.formUnion(visible[range].map { $0.id })
+                    store.markedForRejectionIDs = Set(visible[range].map { $0.id })
                     store.selectedEntry = entry
                 }
+                lastClickedID = entry.id
             } else {
-                // Plain click: single select, clear any multi-selection.
-                store.selectedEntryIDs = []
+                // Plain click: move cursor, clear range selection.
+                store.markedForRejectionIDs = []
                 store.selectedEntry = entry
                 lastClickedID = entry.id
             }
@@ -740,9 +733,9 @@ struct FITSToolbar: View {
             }
             .disabled(!store.isBatchProcessing)
 
-            if store.selectedEntryIDs.count > 1 {
+            if !store.flaggedEntryIDs.isEmpty {
                 Divider().frame(height: 20)
-                Text("\(store.selectedEntryIDs.count) selected")
+                Text("\(store.flaggedEntryIDs.count) flagged")
                     .scaledFont(size: 10)
                     .foregroundStyle(.secondary)
             }
@@ -914,9 +907,9 @@ struct ThumbnailCell: View {
     @Environment(AppSettings.self) private var settings
     @AppStorage("sessionChartMetric") private var selectedMetric: ChartMetric = .score
 
-    private var isSelected: Bool {
-        store.selectedEntry === entry || store.selectedEntryIDs.contains(entry.id)
-    }
+    private var isCursor: Bool { store.selectedEntry === entry }
+    private var isFlagged: Bool { store.flaggedEntryIDs.contains(entry.id) }
+    private var isMarkedForRejection: Bool { store.markedForRejectionIDs.contains(entry.id) }
 
     private var groupStats: GroupStats? {
         store.groupStatistics[entry.filterGroup]
@@ -925,7 +918,15 @@ struct ThumbnailCell: View {
     var body: some View {
         VStack(spacing: 4) {
             ZStack(alignment: .topTrailing) {
-                thumbnailImage
+                ZStack(alignment: .topLeading) {
+                    thumbnailImage
+                    if isFlagged {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundStyle(.white, Color.accentColor)
+                            .font(.system(size: 14))
+                            .padding(4)
+                    }
+                }
                 if !settings.isSimpleMode, let metrics = entry.metrics, metrics.hasData {
                     let stats = groupStats
                     let problem = metrics.badgeProblem(stats: stats)
@@ -962,11 +963,13 @@ struct ThumbnailCell: View {
         .padding()
         .background(
             RoundedRectangle(cornerRadius: 6)
-                .fill(isSelected ? Color.accentColor.opacity(0.2) : Color.clear)
+                .fill(isMarkedForRejection ? Color.orange.opacity(0.15) :
+                      isCursor ? Color.accentColor.opacity(0.2) : Color.clear)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 6)
-                .stroke(isSelected ? Color.accentColor : Color.clear, lineWidth: 2)
+                .stroke(isMarkedForRejection ? Color.orange :
+                        isCursor ? Color.accentColor : Color.clear, lineWidth: 2)
         )
     }
 

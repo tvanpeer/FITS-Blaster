@@ -166,20 +166,17 @@ final class ImageStore {
     var entries: [ImageEntry] = []
     var selectedEntry: ImageEntry?
 
-    /// IDs of all entries in the multi-selection. When this contains more than
-    /// one entry, reject/undo operations apply to the whole set.
-    /// Any newly added IDs are automatically added to `flaggedEntryIDs` as well.
-    var selectedEntryIDs: Set<UUID> = [] {
-        didSet {
-            let added = selectedEntryIDs.subtracting(oldValue)
-            if !added.isEmpty { flaggedEntryIDs = flaggedEntryIDs.union(added) }
-        }
-    }
-    /// IDs of entries flagged for inspection (drives the "Selected" sidebar filter).
-    /// Populated by chart drag-select and Auto-Flag; independent of the multi-selection.
+    /// IDs of entries flagged for batch operations and the "Selected" sidebar filter.
+    /// Populated by cmd+click, shift+click, chart drag-select, and Auto-Flag.
+    /// Completely independent of the cursor (`selectedEntry`).
     var flaggedEntryIDs: Set<UUID> = [] {
         didSet { updateVisibilityFilteredEntries() }
     }
+
+    /// Sub-selection within the Selected view, built by shift+click.
+    /// Used only for batch reject inside that view; cleared on plain click or view switch.
+    /// Has no relationship to `flaggedEntryIDs`.
+    var markedForRejectionIDs: Set<UUID> = []
     var batchElapsed: Double?
     var isBatchProcessing: Bool = false
     /// The currently running load / reprocess task. Stored so it can be cancelled by the user.
@@ -471,8 +468,8 @@ final class ImageStore {
     /// Removes the current selection from the list without touching files on disk.
     /// Selects the next entry after the removed block, or the previous if at the end.
     func removeSelected() {
-        let idsToRemove: Set<UUID> = selectedEntryIDs.count > 1
-            ? selectedEntryIDs
+        let idsToRemove: Set<UUID> = !flaggedEntryIDs.isEmpty
+            ? flaggedEntryIDs
             : selectedEntry.map { [$0.id] } ?? []
         guard !idsToRemove.isEmpty else { return }
 
@@ -488,7 +485,7 @@ final class ImageStore {
         }
 
         entries.removeAll { idsToRemove.contains($0.id) }
-        selectedEntryIDs = []
+        flaggedEntryIDs = []
         selectedEntry = nextEntry
         updateGroupStatistics()
     }
@@ -497,8 +494,8 @@ final class ImageStore {
         entries = []
         rejectionVisibility = .all
         selectedEntry = nil
-        selectedEntryIDs = []
         flaggedEntryIDs = []
+        markedForRejectionIDs = []
         rejectedEntryIDs = []
         batchElapsed = nil
         isBatchProcessing = false
@@ -514,74 +511,58 @@ final class ImageStore {
         visibilityFilteredEntries = []
     }
 
-    // MARK: - Multi-selection helpers
+    // MARK: - Flag set helpers
 
-    /// Adds all currently-visible entries (respecting filter group and rejection visibility)
-    /// to the multi-selection. The focused entry is preserved.
+    /// Flags all currently-visible entries. Cursor is unchanged.
     func selectAllVisible() {
         let visible = visibilityFilteredEntries
         guard !visible.isEmpty else { return }
-        selectedEntryIDs = Set(visible.map { $0.id })
-        if selectedEntry == nil || !selectedEntryIDs.contains(selectedEntry!.id) {
-            selectedEntry = visible.first
-        }
+        flaggedEntryIDs.formUnion(visible.map { $0.id })
     }
 
-    /// Adds all rejected entries to the multi-selection and focuses the first one.
+    /// Flags all rejected entries and moves the cursor to the first one.
     func selectAllRejected() {
         let rejected = entries.filter { $0.isRejected }
         guard !rejected.isEmpty else { NSSound.beep(); return }
-        selectedEntryIDs = Set(rejected.map { $0.id })
+        flaggedEntryIDs = Set(rejected.map { $0.id })
         selectedEntry = rejected.first
     }
 
-    /// Clears the multi-selection and focused entry.
+    /// Clears all flags. Cursor is unchanged.
     func deselectAll() {
-        selectedEntryIDs = []
-        selectedEntry = nil
+        flaggedEntryIDs = []
     }
 
-    /// Inverts the multi-selection within the currently-visible entries.
-    /// Previously-selected entries are deselected; unselected ones become selected.
+    /// Inverts the flag set within the currently-visible entries.
     func invertSelection() {
         let visible = visibilityFilteredEntries
         guard !visible.isEmpty else { return }
-        let currentIDs = selectedEntryIDs.isEmpty
-            ? (selectedEntry.map { [$0.id] } ?? [])
-            : Array(selectedEntryIDs)
-        let currentSet = Set(currentIDs)
-        let inverted = Set(visible.map { $0.id }).subtracting(currentSet)
-        selectedEntryIDs = inverted
-        if let entry = selectedEntry, inverted.contains(entry.id) {
-            // keep current focused entry if it's still in the new selection
-        } else {
-            selectedEntry = visible.first { inverted.contains($0.id) }
-        }
+        flaggedEntryIDs = Set(visible.map { $0.id }).subtracting(flaggedEntryIDs)
     }
 
     // MARK: - Extend selection
 
-    /// Extends the multi-selection one step toward earlier entries in the visible list.
+    /// Extends the range selection one step toward earlier entries and moves the cursor.
     func extendSelectionPrevious() {
         let ordered = visibilityFilteredEntries
         guard let current = selectedEntry,
               let index = ordered.firstIndex(where: { $0 === current }) else { return }
         guard index > 0 else { NSSound.beep(); return }
         let target = ordered[index - 1]
-        if selectedEntryIDs.isEmpty { selectedEntryIDs.insert(current.id) }
-        selectedEntryIDs.insert(target.id)
+        if markedForRejectionIDs.isEmpty { markedForRejectionIDs.insert(current.id) }
+        markedForRejectionIDs.insert(target.id)
         selectedEntry = target
     }
 
-    /// Extends the multi-selection one step toward later entries in the visible list.
+    /// Extends the range selection one step toward later entries and moves the cursor.
     func extendSelectionNext() {
         let ordered = visibilityFilteredEntries
         guard let current = selectedEntry,
               let index = ordered.firstIndex(where: { $0 === current }) else { return }
         guard index < ordered.count - 1 else { NSSound.beep(); return }
         let target = ordered[index + 1]
-        if selectedEntryIDs.isEmpty { selectedEntryIDs.insert(current.id) }
-        selectedEntryIDs.insert(target.id)
+        if markedForRejectionIDs.isEmpty { markedForRejectionIDs.insert(current.id) }
+        markedForRejectionIDs.insert(target.id)
         selectedEntry = target
     }
 
@@ -590,13 +571,13 @@ final class ImageStore {
     func selectFirst() {
         let ordered = visibilityFilteredEntries
         guard let first = ordered.first else { return }
-        if selectedEntry === first { NSSound.beep() } else { selectedEntry = first; selectedEntryIDs = [] }
+        if selectedEntry === first { NSSound.beep() } else { selectedEntry = first }
     }
 
     func selectLast() {
         let ordered = visibilityFilteredEntries
         guard let last = ordered.last else { return }
-        if selectedEntry === last { NSSound.beep() } else { selectedEntry = last; selectedEntryIDs = [] }
+        if selectedEntry === last { NSSound.beep() } else { selectedEntry = last }
     }
 
     func selectPrevious() {
@@ -604,13 +585,13 @@ final class ImageStore {
         guard !ordered.isEmpty else { return }
         guard let current = selectedEntry,
               let index = ordered.firstIndex(where: { $0 === current }) else {
-            selectedEntry = ordered.first; selectedEntryIDs = []
+            selectedEntry = ordered.first
             return
         }
         if index == 0 {
             NSSound.beep()
         } else {
-            selectedEntry = ordered[index - 1]; selectedEntryIDs = []
+            selectedEntry = ordered[index - 1]
         }
     }
 
@@ -619,24 +600,24 @@ final class ImageStore {
         guard !ordered.isEmpty else { return }
         guard let current = selectedEntry,
               let index = ordered.firstIndex(where: { $0 === current }) else {
-            selectedEntry = ordered.first; selectedEntryIDs = []
+            selectedEntry = ordered.first
             return
         }
         if index == ordered.count - 1 {
             NSSound.beep()
         } else {
-            selectedEntry = ordered[index + 1]; selectedEntryIDs = []
+            selectedEntry = ordered[index + 1]
         }
     }
 
-    /// Toggles rejection for the selection: rejects non-rejected entries, undoes rejected ones.
+    /// Toggles rejection for the range selection, or the cursor entry if no range is active.
     func toggleRejectSelected() {
-        if selectedEntryIDs.count > 1 {
-            let selected = entries.filter { selectedEntryIDs.contains($0.id) }
-            if selected.allSatisfy({ $0.isRejected }) {
-                selected.forEach { undoRejectEntry($0) }
+        if !markedForRejectionIDs.isEmpty {
+            let batch = entries.filter { markedForRejectionIDs.contains($0.id) }
+            if batch.allSatisfy({ $0.isRejected }) {
+                batch.forEach { undoRejectEntry($0) }
             } else {
-                selected.filter { !$0.isRejected }.forEach { rejectEntry($0) }
+                batch.filter { !$0.isRejected }.forEach { rejectEntry($0) }
             }
         } else {
             guard let entry = selectedEntry else { return }
@@ -691,8 +672,8 @@ final class ImageStore {
     }
 
     func rejectSelected() {
-        if selectedEntryIDs.count > 1 {
-            entries.filter { selectedEntryIDs.contains($0.id) }.forEach { rejectEntry($0) }
+        if !markedForRejectionIDs.isEmpty {
+            entries.filter { markedForRejectionIDs.contains($0.id) }.forEach { rejectEntry($0) }
         } else if let entry = selectedEntry {
             rejectEntry(entry)
         }
@@ -709,10 +690,9 @@ final class ImageStore {
         flaggedEntryIDs = flaggedEntryIDs.union(entriesToFlag.map(\.id))
     }
 
-    /// Removes IDs from the flagged set. Used by cmd+click in "Selected" mode.
+    /// Removes IDs from the flagged set.
     func unflagEntries(_ ids: Set<UUID>) {
         flaggedEntryIDs.subtract(ids)
-        selectedEntryIDs.subtract(ids)
     }
 
     /// Flags all frames that match `config` by adding them to the selection.
@@ -794,8 +774,8 @@ final class ImageStore {
     }
 
     func undoRejectSelected() {
-        if selectedEntryIDs.count > 1 {
-            entries.filter { selectedEntryIDs.contains($0.id) && $0.isRejected }
+        if !markedForRejectionIDs.isEmpty {
+            entries.filter { markedForRejectionIDs.contains($0.id) && $0.isRejected }
                    .forEach { undoRejectEntry($0) }
         } else if let entry = selectedEntry, entry.isRejected {
             undoRejectEntry(entry)

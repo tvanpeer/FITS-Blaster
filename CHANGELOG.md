@@ -4,6 +4,24 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-04-01 — v1.17.0 selection redesign
+
+### Added
+- SO (SII+OIII) dual-narrowband filter group with emerald colour — recognises Askar C2 and similar filters.
+
+### Improved
+- Selection model fully redesigned for consistency: **cursor** (blue, always one frame) and **range selection** (orange, built with ⇧+click or ⇧+arrow) are now independent concepts with no side effects between views.
+- ⇧+click and ⇧+arrow build an orange range selection in any view (All or Selected).
+- ⌘+click adds the range (or single frame) to the Selected view from All; removes it from Selected view.
+- Reject acts on the orange range if one is active, otherwise on the cursor.
+- In the Selected view, rejected frames stay visible (orange) so the reject can be undone immediately by pressing Reject again.
+- Session chart cursor dot is now white for instant position recognition; all other dots remain filter-group coloured.
+- Session chart cursor dot is smaller (less dominant); rejected frames always shown at 30% opacity.
+- Sidebar thumbnail shows a checkmark badge on flagged frames; orange border on range-selected frames.
+- FAQ: updated session chart and Selected view entries to reflect new selection model; added full filter-group colour table with swatches.
+
+---
+
 ## 2026-03-31 — v1.16.3 improvements
 
 ### Added

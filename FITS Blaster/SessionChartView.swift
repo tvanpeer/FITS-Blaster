@@ -298,26 +298,20 @@ struct SessionChartView: View {
 
             // One dot per frame
             ForEach(chartPoints, id: \.entry.id) { item in
-                // An entry is "selected" if it is the primary entry, in the sidebar
-                // multi-selection, or flagged (populated by chart drag-select).
-                let isSelected = store.selectedEntry === item.entry
-                    || store.selectedEntryIDs.contains(item.entry.id)
-                    || store.flaggedEntryIDs.contains(item.entry.id)
-                // Three-level brightness hierarchy when a multi-selection is active:
-                //   rejected → darkest (0.15), non-selected → mid (0.40), selected → full (1.0)
-                // Without a multi-selection, only rejected frames are dimmed (0.25), as before.
-                let hasMultiSelection = !store.selectedEntryIDs.isEmpty
-                    || !store.flaggedEntryIDs.isEmpty
-                let opacity: Double = if hasMultiSelection && item.entry.isRejected { 0.15 }
-                    else if hasMultiSelection && !isSelected { 0.40 }
-                    else if !hasMultiSelection && store.rejectionVisibility == .all && item.entry.isRejected { 0.25 }
+                let isCursor = store.selectedEntry === item.entry
+                let isFlagged = store.flaggedEntryIDs.contains(item.entry.id)
+                let hasFlaggedSet = !store.flaggedEntryIDs.isEmpty
+                // Brightness: flagged/cursor = full, non-flagged = dimmed when flag set active,
+                //             rejected = always dimmed regardless of flag set.
+                let opacity: Double = if item.entry.isRejected { 0.30 }
+                    else if hasFlaggedSet && !isFlagged && !isCursor { 0.40 }
                     else { 1.0 }
                 PointMark(
                     x: .value("Frame", item.index + 1),   // 1-based label
                     y: .value(selectedMetric.rawValue, item.value)
                 )
-                .foregroundStyle(item.entry.filterGroup.color)
-                .symbolSize(isSelected ? 90 : 28)
+                .foregroundStyle(isCursor ? .white : item.entry.filterGroup.color)
+                .symbolSize(isCursor ? 40 : 28)
                 .opacity(opacity)
             }
         }

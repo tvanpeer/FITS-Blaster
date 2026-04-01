@@ -23,6 +23,8 @@ enum FilterGroup: String, CaseIterable, Identifiable, Hashable {
     case hbeta      = "Hβ"
     // Dual-narrowband OSC: Hα + OIII (L-eXtreme, L-Ultimate, Antlia ALP-T, etc.)
     case ho         = "HO"
+    // Dual-narrowband OSC: SII + OIII (Askar C2, etc.)
+    case so         = "SO"
     // Tri-narrowband OSC: SII + Hα + OIII (L-eNhance, Triad Ultra, etc.)
     case sho        = "SHO"
     // Quad-narrowband OSC (Antlia Quad, Astronomik Quad, etc.)
@@ -37,7 +39,7 @@ enum FilterGroup: String, CaseIterable, Identifiable, Hashable {
     /// True for narrowband mono and OSC multi-narrowband groups.
     var isNarrowband: Bool {
         switch self {
-        case .ha, .oiii, .sii, .hbeta, .ho, .sho, .quadNB: return true
+        case .ha, .oiii, .sii, .hbeta, .ho, .so, .sho, .quadNB: return true
         default: return false
         }
     }
@@ -57,6 +59,7 @@ enum FilterGroup: String, CaseIterable, Identifiable, Hashable {
         case .sii:        return Color(red: 0.95, green: 0.58, blue: 0.08)
         case .hbeta:      return Color(red: 0.38, green: 0.38, blue: 0.95)
         case .ho:         return Color(red: 0.85, green: 0.18, blue: 0.82)   // magenta
+        case .so:         return Color(red: 0.15, green: 0.85, blue: 0.55)   // emerald
         case .sho:        return Color(red: 0.52, green: 0.08, blue: 0.88)   // purple
         case .quadNB:     return Color(red: 0.90, green: 0.74, blue: 0.08)   // gold
         case .unfiltered: return Color(white: 0.50)
@@ -93,6 +96,12 @@ enum FilterGroup: String, CaseIterable, Identifiable, Hashable {
             || s.contains("dual narrowband") || s.contains("dual-narrowband")
             || s.contains("dual nb") {
             return .ho
+        }
+
+        // ── Dual-narrowband OSC (SO / SII+OIII / Askar C2)
+        if s == "so" || s == "s+o" || s.contains("sii+oiii") || s.contains("sii + oiii")
+            || s.contains("s-oiii") || s == "c2" || s.hasPrefix("c2 ") || s.contains("askar c2") {
+            return .so
         }
 
         // ── Narrowband mono — evaluated after dual/tri to avoid subset matches

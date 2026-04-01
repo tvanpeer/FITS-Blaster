@@ -413,7 +413,7 @@
                 <li><strong>Open your folder</strong> — use ⌘O or drag it onto the window. FITS Blaster starts loading and measuring quality metrics immediately; you can begin reviewing before the full set has loaded.</li>
                 <li><strong>Scan the session chart</strong> — the horizontal strip across the bottom plots all frames in time order, coloured by quality. A cluster of red or amber dots usually points to a specific problem period (clouds, a focus drift, a gust of wind).</li>
                 <li><strong>Review suspect frames</strong> — click a dot in the chart to jump to that frame, or step through the sidebar with the arrow keys. The main view shows the stretched image; the inspector on the right shows the exact metric values.</li>
-                <li><strong>Flag suspect frames</strong> — drag across the chart to flag a run of bad frames, or use <strong>Auto-Flag</strong> to set a quality threshold (e.g. FWHM &gt; 7 px) and flag matching frames automatically.</li>
+                <li><strong>Collect suspect frames</strong> — drag across the chart, or ⇧+click a range in the sidebar then ⌘+click to add them to the Selected view. <strong>Auto-Flag</strong> can also flag frames below a quality threshold automatically.</li>
                 <li><strong>Inspect and reject</strong> — switch to the <strong>Selected</strong> view in the sidebar to see only your flagged frames. Step through them, then press your reject key (default: X) to move the bad ones to <code>REJECTED/</code>.</li>
                 <li><strong>Hand off to your stacking tool</strong> — point PixInsight, Siril, or AstroPixelProcessor at the same folder. The rejected frames are now in <code>REJECTED/</code> and will not be picked up by a folder scan.</li>
             </ol>
@@ -425,8 +425,8 @@
         <div class="answer">
             <p>The session chart is a horizontal strip showing one dot per frame, in the order they were captured. Dot colour represents the <strong>filter group</strong> (Ha, OIII, SII, Lum, RGB, and so on) — each filter gets its own consistent colour so you can see at a glance whether a quality problem affects one filter or all of them. You can:</p>
             <ul>
-                <li><strong>Click</strong> a dot to select and display that frame</li>
-                <li><strong>Drag</strong> across a range of dots to flag a range of frames for closer inspection in the Selected view</li>
+                <li><strong>Click</strong> a dot to jump to that frame (the dot turns white to mark your position)</li>
+                <li><strong>Drag</strong> across a range of dots to add those frames to the Selected view for closer inspection</li>
                 <li><strong>Filter by folder or filter group</strong> using the pill buttons above the chart, to focus on one subset at a time</li>
             </ul>
             <p>The chart makes it easy to spot patterns — a dip in a single filter's dots usually points to a filter-specific problem, while a decline across all colours suggests clouds, wind, or a tracking issue.</p>
@@ -437,22 +437,43 @@
         <summary>What do the colours and brightness levels in the session chart mean?</summary>
         <div class="answer">
             <p><strong>Dot colour — filter group</strong><br>
-            Each dot is coloured by its filter group (Ha, OIII, SII, Lum, R, G, B, etc.). This lets you compare filters side by side and immediately see whether a quality dip is filter-specific or affects the whole session.</p>
+            Each dot is coloured by its filter group. This lets you compare filters side by side and immediately see whether a quality dip is filter-specific or affects the whole session.</p>
+
+            <table style="border-collapse:collapse;margin:10px 0 16px;font-size:0.9em;width:100%">
+                <thead>
+                    <tr style="text-align:left;border-bottom:1px solid #2a2a4a">
+                        <th style="padding:5px 12px 5px 0">Filter</th>
+                        <th style="padding:5px 12px 5px 0">Colour</th>
+                        <th style="padding:5px 0">Swatch</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td style="padding:4px 12px 4px 0">L (Luminance)</td><td style="padding:4px 12px 4px 0;color:#aaa">Grey</td><td><span style="display:inline-block;width:28px;height:12px;border-radius:3px;background:#999999"></span></td></tr>
+                    <tr><td style="padding:4px 12px 4px 0">R</td><td style="padding:4px 12px 4px 0;color:#aaa">Red</td><td><span style="display:inline-block;width:28px;height:12px;border-radius:3px;background:#D93333"></span></td></tr>
+                    <tr><td style="padding:4px 12px 4px 0">G</td><td style="padding:4px 12px 4px 0;color:#aaa">Green</td><td><span style="display:inline-block;width:28px;height:12px;border-radius:3px;background:#26B840"></span></td></tr>
+                    <tr><td style="padding:4px 12px 4px 0">B</td><td style="padding:4px 12px 4px 0;color:#aaa">Blue</td><td><span style="display:inline-block;width:28px;height:12px;border-radius:3px;background:#4073F2"></span></td></tr>
+                    <tr><td style="padding:4px 12px 4px 0">Ha</td><td style="padding:4px 12px 4px 0;color:#aaa">Deep red</td><td><span style="display:inline-block;width:28px;height:12px;border-radius:3px;background:#EB1414"></span></td></tr>
+                    <tr><td style="padding:4px 12px 4px 0">OIII</td><td style="padding:4px 12px 4px 0;color:#aaa">Teal</td><td><span style="display:inline-block;width:28px;height:12px;border-radius:3px;background:#00BFBF"></span></td></tr>
+                    <tr><td style="padding:4px 12px 4px 0">SII</td><td style="padding:4px 12px 4px 0;color:#aaa">Amber</td><td><span style="display:inline-block;width:28px;height:12px;border-radius:3px;background:#F29414"></span></td></tr>
+                    <tr><td style="padding:4px 12px 4px 0">Hβ</td><td style="padding:4px 12px 4px 0;color:#aaa">Indigo</td><td><span style="display:inline-block;width:28px;height:12px;border-radius:3px;background:#6161F2"></span></td></tr>
+                    <tr><td style="padding:4px 12px 4px 0">HO (dual: Ha+OIII)</td><td style="padding:4px 12px 4px 0;color:#aaa">Magenta</td><td><span style="display:inline-block;width:28px;height:12px;border-radius:3px;background:#D92ED1"></span></td></tr>
+                    <tr><td style="padding:4px 12px 4px 0">SO (dual: SII+OIII, Askar C2)</td><td style="padding:4px 12px 4px 0;color:#aaa">Emerald</td><td><span style="display:inline-block;width:28px;height:12px;border-radius:3px;background:#26D98C"></span></td></tr>
+                    <tr><td style="padding:4px 12px 4px 0">SHO (tri: SII+Ha+OIII)</td><td style="padding:4px 12px 4px 0;color:#aaa">Purple</td><td><span style="display:inline-block;width:28px;height:12px;border-radius:3px;background:#8514E0"></span></td></tr>
+                    <tr><td style="padding:4px 12px 4px 0">Quad-NB</td><td style="padding:4px 12px 4px 0;color:#aaa">Gold</td><td><span style="display:inline-block;width:28px;height:12px;border-radius:3px;background:#E6BD14"></span></td></tr>
+                    <tr><td style="padding:4px 12px 4px 0">Unfiltered</td><td style="padding:4px 12px 4px 0;color:#aaa">Mid grey</td><td><span style="display:inline-block;width:28px;height:12px;border-radius:3px;background:#808080"></span></td></tr>
+                </tbody>
+            </table>
 
             <p><strong>Dashed horizontal lines — per-group medians</strong><br>
             A dashed line is drawn at the median value of the active metric for each filter group. Use it as a reference: dots noticeably above or below the dashed line for their group are outliers worth inspecting.</p>
 
-            <p><strong>Dot brightness — selection state</strong><br>
-            When one or more frames are selected or flagged, the chart dims everything else to make the selection stand out:</p>
+            <p><strong>Dot colour and size — cursor and selection state</strong></p>
             <ul>
-                <li><strong>Full brightness</strong> — the currently selected or flagged frame(s)</li>
-                <li><strong>Dimmed</strong> — frames that are not part of the current selection</li>
-                <li><strong>Darkest</strong> — frames that have already been rejected (moved to <code>REJECTED/</code>)</li>
+                <li><strong>White dot (larger)</strong> — the frame currently shown in the viewer (the cursor). Only ever one at a time.</li>
+                <li><strong>Full brightness (filter colour)</strong> — all other non-rejected frames when no range is selected; or the orange-selected range when a range is active.</li>
+                <li><strong>Dimmed</strong> — frames outside the active range selection.</li>
+                <li><strong>Always faded (~30%)</strong> — frames that have already been rejected and moved to <code>REJECTED/</code>.</li>
             </ul>
-            <p>When nothing is selected, only rejected frames are slightly dimmed; all other dots are shown at full brightness.</p>
-
-            <p><strong>Dot size</strong><br>
-            The currently active frame is drawn as a larger dot, making it easy to find your position in a dense chart.</p>
         </div>
     </details>
 
@@ -466,29 +487,38 @@
     <details>
         <summary>Can I reject multiple frames at once?</summary>
         <div class="answer">
-            <p>Yes. Hold <strong>⌘</strong> or <strong>⇧</strong> to build a multi-selection in the sidebar, then press the reject key. In the <strong>Selected</strong> view you can also build a multi-selection with ⇧ and reject the whole group at once.</p>
+            <p>Yes. Use <strong>⇧+click</strong> or <strong>⇧+arrow keys</strong> to select a range (highlighted in orange), then press the reject key. The range can be built in the All view or the Selected view — the behaviour is the same.</p>
         </div>
     </details>
 
     <details>
         <summary>What is the Selected view?</summary>
         <div class="answer">
-            <p>The <strong>Selected</strong> view (the segmented control at the bottom of the sidebar, between All and Rejected) shows a curated list of frames you have flagged for closer inspection — without committing to rejection yet.</p>
-            <p><strong>How frames enter the Selected view:</strong></p>
+            <p>The <strong>Selected</strong> view (the segmented control at the bottom of the sidebar) shows a curated pile of frames you have collected for closer inspection, without committing to rejection yet. Think of it as a review queue.</p>
+
+            <p><strong>Selection model — two independent concepts:</strong></p>
             <ul>
-                <li><strong>⌘+click</strong> a frame in the All or Rejected view</li>
-                <li><strong>⇧+click</strong> or <strong>⇧+arrow keys</strong> to flag a range</li>
-                <li><strong>Drag across the session chart</strong> to flag a run of frames</li>
-                <li><strong>Auto-Flag</strong> — flags all frames that fall below your chosen quality thresholds</li>
+                <li><strong>Cursor</strong> — the single frame currently shown in the viewer. Plain click or arrow keys move it. It never affects the review queue.</li>
+                <li><strong>Range selection</strong> — an orange-highlighted group of frames built with ⇧+click or ⇧+arrow keys. Used for batch operations (add to queue, remove from queue, reject).</li>
             </ul>
+
+            <p><strong>Building the review queue (Selected view):</strong></p>
+            <ul>
+                <li>In <strong>All view</strong>: ⇧+click or ⇧+arrow to select a range, then <strong>⌘+click</strong> to add it to the queue. ⌘+click without a range adds the single frame.</li>
+                <li><strong>Drag across the session chart</strong> to add a run of frames to the queue directly.</li>
+                <li><strong>Auto-Flag</strong> — adds all frames that fall below your chosen quality thresholds.</li>
+            </ul>
+
             <p><strong>Working inside the Selected view:</strong></p>
             <ul>
-                <li><strong>Click</strong> a frame to view it without affecting the list</li>
-                <li><strong>⇧+click</strong> or <strong>⇧+arrow keys</strong> to build a sub-selection for batch rejection</li>
-                <li><strong>Reject key</strong> — rejects the current frame (or the whole sub-selection). Rejected frames stay visible in the Selected view so you can review and undo.</li>
-                <li><strong>⌘+click</strong> — removes the frame (or the current sub-selection) from the Selected list entirely without rejecting it</li>
+                <li><strong>Plain click</strong> — move the cursor (view that frame); clears any orange range.</li>
+                <li><strong>⇧+click</strong> or <strong>⇧+arrow keys</strong> — select an orange range for batch operations.</li>
+                <li><strong>Reject key</strong> — rejects the orange range (or the cursor if no range). Rejected frames stay visible so you can undo immediately by pressing Reject again.</li>
+                <li><strong>⌘+click on orange</strong> — removes the entire orange range from the queue (no rejection).</li>
+                <li><strong>⌘+click on a plain frame</strong> — removes that single frame from the queue.</li>
             </ul>
-            <p>The flagged list persists when you switch between All, Selected, and Rejected views, and is only cleared when you open a new folder.</p>
+
+            <p>The review queue persists when you switch between All, Selected, and Rejected views, and is cleared only when you open a new folder or use Deselect All.</p>
         </div>
     </details>
 
@@ -584,7 +614,7 @@
                 <li>Load the folder in <strong>greyscale + geek mode</strong>. Greyscale loads faster than colour; geek mode computes quality metrics and populates the session chart.</li>
                 <li>Glance at the session chart — drag-select any obvious bad runs to flag them, then use <strong>Auto-Flag</strong> to catch anything you missed.</li>
                 <li>Switch to the <strong>Selected</strong> view. Step through the flagged frames and press the reject key on the ones you want to move to <code>REJECTED/</code>.</li>
-                <li>For the remainder, switch the sidebar sort to <strong>quality score</strong>. Your worst frames are now at one end; ⇧+click to select them as a block and reject.</li>
+                <li>For the remainder, switch the sidebar sort to <strong>quality score</strong>. Your worst frames are now at one end; ⇧+click to select them as an orange range, then press the reject key.</li>
             </ol>
             <p>If you only want a quick visual pass without metrics, <strong>simple mode</strong> loads faster but the session chart is not available.</p>
         </div>
