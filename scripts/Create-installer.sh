@@ -2,7 +2,7 @@
 # Always run from the directory containing this script so relative paths work.
 cd "$(dirname "$0")"
 
-DMG_NAME="FITS-Blaster-1.17.1.dmg"
+DMG_NAME="FITS-Blaster-1.18.0.dmg"
 
 test -f "$DMG_NAME" && rm "$DMG_NAME"
 
