@@ -153,12 +153,57 @@
         }
 
         .back:hover { text-decoration: underline; }
+
+        /* ── Site navigation ── */
+        .site-nav {
+            background: #0d0d18;
+            border-bottom: 1px solid #1a1a2e;
+            padding: 0 24px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .site-nav-inner {
+            max-width: 720px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            height: 50px;
+        }
+        .site-nav-brand {
+            font-weight: 700;
+            font-size: 0.95rem;
+            color: #e8e8f0;
+            text-decoration: none;
+            letter-spacing: -0.01em;
+        }
+        .site-nav-brand:hover { color: #fff; }
+        .site-nav-links {
+            display: flex;
+            gap: 24px;
+        }
+        .site-nav-links a {
+            color: #9090aa;
+            text-decoration: none;
+            font-size: 0.875rem;
+        }
+        .site-nav-links a:hover { color: #e8e8f0; }
     </style>
 </head>
 <body>
 
-<nav class="back-nav">
-    <a href="index.html" class="back">← FITS Blaster</a>
+<nav class="site-nav">
+    <div class="site-nav-inner">
+        <a href="index.html" class="site-nav-brand">FITS Blaster</a>
+        <div class="site-nav-links">
+            <a href="guide.html">Guide</a>
+            <a href="faq.html">FAQ</a>
+            <a href="keys.html">Keyboard Shortcuts</a>
+            <a href="changelog.html">Changelog</a>
+            <a href="score.html">Scores</a>
+        </div>
+    </div>
 </nav>
 
 <header>
@@ -167,6 +212,42 @@
 </header>
 
 <div class="content">
+
+    <!-- v1.18.0 -->
+    <div class="entry">
+        <div class="entry-header">
+            <div class="entry-title">Flag/deflag keys, toolbar &amp; chart improvements — v1.18.0</div>
+            <div class="entry-date">2026-04-02</div>
+        </div>
+        <div class="section">
+            <span class="section-label label-added">Added</span>
+            <ul>
+                <li><strong>F key</strong> — toggle flag/unflag on the current entry or orange range selection (configurable in Settings → Keyboard).</li>
+                <li><strong>D key</strong> — deflag all: clears the entire flagged set in one keystroke (configurable).</li>
+                <li><strong>(De)flag</strong> toolbar button — toggles the flag state of the current entry or orange range, always visible next to the Cancel button.</li>
+                <li><strong>(De)flag</strong> and <strong>Deflag All</strong> added to the Select menu, separated from range-selection commands by a divider.</li>
+                <li>Session chart brightness sliders in Settings → Display: independently control the opacity of rejected dots and non-flagged dots when a flagged set is active.</li>
+                <li>Tooltips on all toolbar buttons, session chart metric buttons, and sidebar sort button; tooltip delay reduced from ~1.5 s to 0.5 s.</li>
+                <li><strong>Getting Started</strong> guide page on the website — full workflow walkthrough, interface overview, key hints, and tips.</li>
+                <li><strong>Keyboard Shortcuts</strong> reference page on the website — all default bindings in one place.</li>
+                <li>Top-level navigation bar on all website pages, replacing scattered footer links.</li>
+            </ul>
+        </div>
+        <div class="section">
+            <span class="section-label label-improved">Improved</span>
+            <ul>
+                <li>Mode toggle button now shows <strong>Simple</strong> or <strong>Geek</strong> (the current mode) instead of a blank label, matching the Colour/Grey button convention.</li>
+                <li>Session chart brightness contrast: rejected dots now render at 15 % opacity and non-flagged dots at 50 %, making the three-level hierarchy (rejected → non-flagged → flagged/cursor) clearly readable.</li>
+                <li>Key-binding conflict detection in Settings now correctly separates plain keys from ⌘-modifier keys, preventing false conflicts (e.g. plain D vs ⌘D).</li>
+            </ul>
+        </div>
+        <div class="section">
+            <span class="section-label label-removed">Removed</span>
+            <ul>
+                <li><strong>File → Open File(s)…</strong> menu item removed due to sandbox limitations.</li>
+            </ul>
+        </div>
+    </div>
 
     <!-- v1.17.1 -->
     <div class="entry">
@@ -183,7 +264,7 @@
         <div class="section">
             <span class="section-label label-improved">Improved</span>
             <ul>
-                <li>FAQ: ⌘A / ⌘D / ⌘I documented in the Selected view entry and the keyboard shortcuts entry.</li>
+                <li>FAQ: ⌘A / ⌘D / ⌘I documented in the Flagged view entry and the keyboard shortcuts entry.</li>
             </ul>
         </div>
     </div>
@@ -204,11 +285,11 @@
             <span class="section-label label-improved">Improved</span>
             <ul>
                 <li>Selection model fully redesigned: <strong>cursor</strong> (blue, always one frame) and <strong>range selection</strong> (orange, built with ⇧+click or ⇧+arrow) are now independent with no side effects between views.</li>
-                <li>⇧+click and ⇧+arrow build an orange range in any view; ⌘+click adds/removes the range to/from the Selected view.</li>
-                <li>Reject acts on the orange range if active, otherwise on the cursor. In the Selected view, rejected frames stay orange for immediate undo.</li>
+                <li>⇧+click and ⇧+arrow build an orange range in any view; ⌘+click adds/removes the range to/from the Flagged view.</li>
+                <li>Reject acts on the orange range if active, otherwise on the cursor. In the Flagged view, rejected frames stay orange for immediate undo.</li>
                 <li>Session chart cursor dot is now white for instant position recognition; rejected frames always shown at 30% opacity.</li>
                 <li>Sidebar thumbnails show a checkmark badge on flagged frames and an orange border on range-selected frames.</li>
-                <li>FAQ: updated session chart and Selected view entries to reflect the new model; added full filter-group colour table with swatches.</li>
+                <li>FAQ: updated session chart and Flagged view entries to reflect the new model; added full filter-group colour table with swatches.</li>
             </ul>
         </div>
     </div>
@@ -251,7 +332,7 @@
             <span class="section-label label-fixed">Fixed</span>
             <ul>
                 <li>Auto-Flag sheet: all threshold labels corrected from "Reject if …" to "Select if …".</li>
-                <li>Cmd+Click in the Selected view with a multi-selection active (e.g. after Cmd+A) now removes the entire selection at once.</li>
+                <li>Cmd+Click in the Flagged view with a multi-selection active (e.g. after Cmd+A) now removes the entire selection at once.</li>
             </ul>
         </div>
     </div>
@@ -266,9 +347,9 @@
             <span class="section-label label-fixed">Fixed</span>
             <ul>
                 <li>Website feature list said "drag-to-reject" and "Auto-reject" — corrected to "drag-to-select" and "Auto-select".</li>
-                <li>Folder count badge in the thumbnail sidebar showed the total file count regardless of the active view; it now reflects only entries visible in the current view (All / Selected / Rejected).</li>
+                <li>Folder count badge in the thumbnail sidebar showed the total file count regardless of the active view; it now reflects only entries visible in the current view (All / Flagged / Rejected).</li>
                 <li>Metric buttons above the session chart (Score, FWHM, Ecc, SNR, Stars) did not visually indicate which metric was active; the selected button is now filled (prominent).</li>
-                <li>Cmd+Click in the Selected view was toggling multi-selection instead of removing the entry from the selection; it now always unflags the clicked entry.</li>
+                <li>Cmd+Click in the Flagged view was toggling multi-selection instead of removing the entry from the selection; it now always unflags the clicked entry.</li>
                 <li>Shift-click multi-select did not work at first open until the user clicked the first thumbnail; the shift-click anchor is now seeded when the first image is auto-selected on load.</li>
             </ul>
         </div>
@@ -294,7 +375,7 @@
             <span class="section-label label-fixed">Fixed</span>
             <ul>
                 <li>Reset now always switches back to "All frames" mode.</li>
-                <li>Cmd+click in "Selected" mode with an active multi-selection now toggles the clicked entry instead of unflagging everything.</li>
+                <li>Cmd+click in "Flagged" mode with an active multi-selection now toggles the clicked entry instead of unflagging everything.</li>
                 <li>Shift+click range selection now works from the very first open.</li>
                 <li>Session chart now enlarges dots for all multi-selected thumbnails.</li>
                 <li>Undo reject correctly moves files back to their pre-rejection folder when loaded via "Include REJECTED".</li>
@@ -347,14 +428,14 @@
     <!-- v1.14 -->
     <div class="entry">
         <div class="entry-header">
-            <div class="entry-title">Selected view &amp; selection overhaul — v1.14</div>
+            <div class="entry-title">Flagged view &amp; selection overhaul — v1.14</div>
             <div class="entry-date">2026-03-25</div>
         </div>
         <div class="section">
             <span class="section-label label-added">Added</span>
             <ul>
-                <li><strong>Selected view</strong> — a sidebar filter showing only flagged frames. Add frames via ⌘+click, ⇧+click, chart drag-select, or Auto-Flag; remove them with ⌘+click inside the view.</li>
-                <li><strong>Flag-then-inspect workflow</strong> — chart drag-select and Auto-Flag now add frames to the Selected list for inspection before rejection, rather than rejecting immediately.</li>
+                <li><strong>Flagged view</strong> — a sidebar filter showing only flagged frames. Add frames via ⌘+click, ⇧+click, chart drag-select, or Auto-Flag; remove them with ⌘+click inside the view.</li>
+                <li><strong>Flag-then-inspect workflow</strong> — chart drag-select and Auto-Flag now add frames to the Flagged view for inspection before rejection, rather than rejecting immediately.</li>
                 <li><strong>Select menu</strong> — top-level menu with Select All, Deselect All, and Invert Selection (defaults: ⌘A / ⌘D / ⌘I), all configurable in Settings.</li>
                 <li><strong>Shift+↑/↓ extend selection</strong> — grows the multi-selection one step at a time.</li>
                 <li><strong>Drag tooltip</strong> — while drag-selecting in the session chart, a floating label shows the metric value of the frame under the cursor.</li>
@@ -648,9 +729,6 @@
 
 <footer>
     <p>&copy; 2026 Tom van Peer &nbsp;·&nbsp;
-       <a href="index.html">Home</a> &nbsp;·&nbsp;
-       <a href="faq.html">FAQ</a> &nbsp;·&nbsp;
-       <a href="score.html">How Scores Work</a> &nbsp;·&nbsp;
        <a href="privacy-policy.html">Privacy Policy</a> &nbsp;·&nbsp;
        <a href="mailto:support@astrophoto-app.com">Support</a>
     </p>

@@ -194,12 +194,60 @@
             color: #505068;
             border-top: 1px solid #1a1a2e;
         }
+
+        /* ── Site navigation ── */
+        .site-nav {
+            background: #0d0d18;
+            border-bottom: 1px solid #1a1a2e;
+            padding: 0 24px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .site-nav-inner {
+            max-width: 720px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            height: 50px;
+        }
+        .site-nav-brand {
+            font-weight: 700;
+            font-size: 0.95rem;
+            color: #e8e8f0;
+            text-decoration: none;
+            letter-spacing: -0.01em;
+        }
+        .site-nav-brand:hover { color: #fff; }
+        .site-nav-links {
+            display: flex;
+            gap: 24px;
+        }
+        .site-nav-links a {
+            color: #9090aa;
+            text-decoration: none;
+            font-size: 0.875rem;
+        }
+        .site-nav-links a:hover { color: #e8e8f0; }
     </style>
 </head>
 <body>
 
+<nav class="site-nav">
+    <div class="site-nav-inner">
+        <a href="index.html" class="site-nav-brand">FITS Blaster</a>
+        <div class="site-nav-links">
+            <a href="guide.html">Guide</a>
+            <a href="faq.html">FAQ</a>
+            <a href="keys.html">Keyboard Shortcuts</a>
+            <a href="changelog.html">Changelog</a>
+            <a href="score.html">Scores</a>
+        </div>
+    </div>
+</nav>
+
 <div class="container">
-    <a href="index.html" class="back">← FITS Blaster</a>
 
     <h1 id="top">How the Quality Score Works</h1>
     <p class="meta">FITS Blaster &nbsp;·&nbsp; Last updated: March 2026</p>
@@ -334,7 +382,7 @@
 </div>
 
 <footer>
-    &copy; 2026 Tom van Peer &nbsp;·&nbsp; <a href="index.html">FITS Blaster</a> &nbsp;·&nbsp; <a href="faq.html">FAQ</a> &nbsp;·&nbsp; <a href="privacy-policy.html">Privacy Policy</a> &nbsp;·&nbsp; <a href="mailto:support@astrophoto-app.com">Support</a>
+    &copy; 2026 Tom van Peer &nbsp;·&nbsp; <a href="privacy-policy.html">Privacy Policy</a> &nbsp;·&nbsp; <a href="mailto:support@astrophoto-app.com">Support</a>
 </footer>
 
 </body>

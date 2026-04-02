@@ -47,6 +47,12 @@ final class AppSettings {
     var debayerKey: String = "c" {
         didSet { UserDefaults.standard.set(debayerKey, forKey: "debayerKey") }
     }
+    var flagKey: String = "f" {
+        didSet { UserDefaults.standard.set(flagKey, forKey: "flagKey") }
+    }
+    var deflagAllKey: String = "d" {
+        didSet { UserDefaults.standard.set(deflagAllKey, forKey: "deflagAllKey") }
+    }
 
     // MARK: - Selection Key Bindings (combined with ⌘ ± ⇧)
 
@@ -76,6 +82,17 @@ final class AppSettings {
     }
     var selectAllRejectedShift: Bool = false {
         didSet { UserDefaults.standard.set(selectAllRejectedShift, forKey: "selectAllRejectedShift") }
+    }
+
+    // MARK: - Chart Dot Brightness
+
+    /// Opacity of rejected-frame dots in the session chart (0–1).
+    var rejectedDotOpacity: Double = 0.15 {
+        didSet { UserDefaults.standard.set(rejectedDotOpacity, forKey: "rejectedDotOpacity") }
+    }
+    /// Opacity of non-flagged dots when a flagged set is active (0–1).
+    var dimmedDotOpacity: Double = 0.50 {
+        didSet { UserDefaults.standard.set(dimmedDotOpacity, forKey: "dimmedDotOpacity") }
     }
 
     // MARK: - Image Sizes
@@ -176,43 +193,57 @@ final class AppSettings {
     // MARK: - Init
 
     init() {
-        // Navigation keys
-        if let v = UserDefaults.standard.string(forKey: "prevImageKey")  { prevImageKey  = v }
-        if let v = UserDefaults.standard.string(forKey: "nextImageKey")  { nextImageKey  = v }
-        if let v = UserDefaults.standard.string(forKey: "rejectKey")     { rejectKey     = v }
-        if let v = UserDefaults.standard.string(forKey: "undoKey")       { undoKey       = v }
-        if let v = UserDefaults.standard.object(forKey: "useToggleReject") as? Bool { useToggleReject = v }
-        if let v = UserDefaults.standard.string(forKey: "firstImageKey") { firstImageKey = v }
-        if let v = UserDefaults.standard.string(forKey: "lastImageKey")  { lastImageKey  = v }
-        if let v = UserDefaults.standard.string(forKey: "toggleModeKey") { toggleModeKey = v }
-        if let v = UserDefaults.standard.string(forKey: "removeKey")     { removeKey     = v }
-        if let v = UserDefaults.standard.string(forKey: "debayerKey")    { debayerKey    = v }
-        if let v = UserDefaults.standard.string(forKey: "selectAllKey")       { selectAllKey       = v }
-        if let v = UserDefaults.standard.object(forKey: "selectAllShift")   as? Bool { selectAllShift   = v }
-        if let v = UserDefaults.standard.string(forKey: "deselectAllKey")     { deselectAllKey     = v }
-        if let v = UserDefaults.standard.object(forKey: "deselectAllShift") as? Bool { deselectAllShift = v }
-        if let v = UserDefaults.standard.string(forKey: "invertSelectionKey") { invertSelectionKey = v }
-        if let v = UserDefaults.standard.object(forKey: "invertSelectionShift") as? Bool { invertSelectionShift = v }
-        if let v = UserDefaults.standard.string(forKey: "selectAllRejectedKey") { selectAllRejectedKey = v }
-        if let v = UserDefaults.standard.object(forKey: "selectAllRejectedShift") as? Bool { selectAllRejectedShift = v }
+        // Navigation & action key bindings
+        prevImageKey            = UD.string("prevImageKey",            default: prevImageKey)
+        nextImageKey            = UD.string("nextImageKey",            default: nextImageKey)
+        rejectKey               = UD.string("rejectKey",               default: rejectKey)
+        undoKey                 = UD.string("undoKey",                 default: undoKey)
+        useToggleReject         = UD.bool(  "useToggleReject",         default: useToggleReject)
+        firstImageKey           = UD.string("firstImageKey",           default: firstImageKey)
+        lastImageKey            = UD.string("lastImageKey",            default: lastImageKey)
+        toggleModeKey           = UD.string("toggleModeKey",           default: toggleModeKey)
+        removeKey               = UD.string("removeKey",               default: removeKey)
+        debayerKey              = UD.string("debayerKey",              default: debayerKey)
+        flagKey                 = UD.string("flagKey",                 default: flagKey)
+        deflagAllKey            = UD.string("deflagAllKey",            default: deflagAllKey)
+
+        // Selection key bindings
+        selectAllKey            = UD.string("selectAllKey",            default: selectAllKey)
+        selectAllShift          = UD.bool(  "selectAllShift",          default: selectAllShift)
+        deselectAllKey          = UD.string("deselectAllKey",          default: deselectAllKey)
+        deselectAllShift        = UD.bool(  "deselectAllShift",        default: deselectAllShift)
+        invertSelectionKey      = UD.string("invertSelectionKey",      default: invertSelectionKey)
+        invertSelectionShift    = UD.bool(  "invertSelectionShift",    default: invertSelectionShift)
+        selectAllRejectedKey    = UD.string("selectAllRejectedKey",    default: selectAllRejectedKey)
+        selectAllRejectedShift  = UD.bool(  "selectAllRejectedShift",  default: selectAllRejectedShift)
+
         // Sizes
-        let display = UserDefaults.standard.integer(forKey: "maxDisplaySize")
-        if display > 0 { maxDisplaySize = display }
-        let thumb = UserDefaults.standard.integer(forKey: "maxThumbnailSize")
-        if thumb > 0 { maxThumbnailSize = thumb }
-        // Metric toggles (object(forKey:) avoids false→false confusion for never-set keys)
-        if let v = UserDefaults.standard.object(forKey: "computeFWHM")         as? Bool { computeFWHM         = v }
-        if let v = UserDefaults.standard.object(forKey: "computeEccentricity") as? Bool { computeEccentricity = v }
-        if let v = UserDefaults.standard.object(forKey: "computeSNR")          as? Bool { computeSNR          = v }
-        if let v = UserDefaults.standard.object(forKey: "computeStarCount")    as? Bool { computeStarCount    = v }
-        if let v = UserDefaults.standard.object(forKey: "showInspector")       as? Bool { showInspector       = v }
-        if let v = UserDefaults.standard.object(forKey: "isSimpleMode")       as? Bool { isSimpleMode       = v }
+        maxDisplaySize          = UD.positiveInt("maxDisplaySize",     default: maxDisplaySize)
+        maxThumbnailSize        = UD.positiveInt("maxThumbnailSize",   default: maxThumbnailSize)
+
+        // Metric toggles — UD.bool uses object(forKey:) to distinguish never-set from false
+        computeFWHM             = UD.bool("computeFWHM",               default: computeFWHM)
+        computeEccentricity     = UD.bool("computeEccentricity",       default: computeEccentricity)
+        computeSNR              = UD.bool("computeSNR",                default: computeSNR)
+        computeStarCount        = UD.bool("computeStarCount",          default: computeStarCount)
+
+        // Chart dot brightness
+        rejectedDotOpacity      = UD.double("rejectedDotOpacity",      default: rejectedDotOpacity)
+        dimmedDotOpacity        = UD.double("dimmedDotOpacity",        default: dimmedDotOpacity)
+
+        // UI state
+        showInspector           = UD.bool("showInspector",             default: showInspector)
+        isSimpleMode            = UD.bool("isSimpleMode",              default: isSimpleMode)
         if let raw = UserDefaults.standard.string(forKey: "appearanceMode"),
            let mode = AppearanceMode(rawValue: raw) { appearanceMode = mode }
-        if let v = UserDefaults.standard.object(forKey: "includeSubfolders")      as? Bool { includeSubfolders      = v }
-        if let v = UserDefaults.standard.object(forKey: "includeRejectedFolder") as? Bool { includeRejectedFolder = v }
-        if let v = UserDefaults.standard.stringArray(forKey: "excludedSubfolderNames") { excludedSubfolderNames = v }
-        if let v = UserDefaults.standard.object(forKey: "debayerColorImages") as? Bool { debayerColorImages = v }
+
+        // Files & folders
+        includeSubfolders       = UD.bool(   "includeSubfolders",      default: includeSubfolders)
+        includeRejectedFolder   = UD.bool(   "includeRejectedFolder",  default: includeRejectedFolder)
+        excludedSubfolderNames  = UD.strings("excludedSubfolderNames", default: excludedSubfolderNames)
+        debayerColorImages      = UD.bool(   "debayerColorImages",     default: debayerColorImages)
+
+        // Text size (stored as index into availableTypeSizes)
         if let idx = UserDefaults.standard.object(forKey: "dynamicTypeSize") as? Int,
            Self.availableTypeSizes.indices.contains(idx) { dynamicTypeSize = Self.availableTypeSizes[idx] }
     }
@@ -228,6 +259,8 @@ final class AppSettings {
     var toggleModeKeyEquivalent:  KeyEquivalent { keyEquivalent(for: toggleModeKey,  fallback: KeyEquivalent("g")) }
     var removeKeyEquivalent:      KeyEquivalent { keyEquivalent(for: removeKey,      fallback: KeyEquivalent("r")) }
     var debayerKeyEquivalent:     KeyEquivalent { keyEquivalent(for: debayerKey,     fallback: KeyEquivalent("c")) }
+    var flagKeyEquivalent:        KeyEquivalent { keyEquivalent(for: flagKey,      fallback: KeyEquivalent("f")) }
+    var deflagAllKeyEquivalent:   KeyEquivalent { keyEquivalent(for: deflagAllKey, fallback: KeyEquivalent("d")) }
     var selectAllKeyEquivalent:       KeyEquivalent { keyEquivalent(for: selectAllKey,       fallback: KeyEquivalent("a")) }
     var deselectAllKeyEquivalent:     KeyEquivalent { keyEquivalent(for: deselectAllKey,     fallback: KeyEquivalent("a")) }
     var invertSelectionKeyEquivalent: KeyEquivalent { keyEquivalent(for: invertSelectionKey, fallback: KeyEquivalent("i")) }
@@ -304,15 +337,20 @@ extension FocusedValues {
     /// display the correct user-configured shortcut.
     @Entry var debayerKeyString: String? = nil
 
-    /// Actions for opening a folder or files, wired to the active window's ImageStore.
+    /// Action for opening a folder, wired to the active window's ImageStore.
     @Entry var openFolderAction: (() -> Void)? = nil
-    @Entry var openFilesAction: (() -> Void)? = nil
 
     /// Selection actions wired to the active window's ImageStore.
     @Entry var selectAllAction: (() -> Void)? = nil
     @Entry var deselectAllAction: (() -> Void)? = nil
     @Entry var invertSelectionAction: (() -> Void)? = nil
     @Entry var selectAllRejectedAction: (() -> Void)? = nil
+    @Entry var toggleFlagAction: (() -> Void)? = nil
+    @Entry var deflagAllAction: (() -> Void)? = nil
+
+    /// Key strings for the flag shortcuts, so menu commands show the correct letters.
+    @Entry var flagKeyString: String? = nil
+    @Entry var deflagAllKeyString: String? = nil
 
     /// Key strings for the selection shortcuts, so menu commands can show the correct letter.
     @Entry var selectAllKeyString: String? = nil

@@ -256,6 +256,9 @@ struct FITSReader {
                 )
 
             case 16:
+                // FITS Standard §4.4.1 mandates big-endian (MSB-first) pixel storage.
+                // Apple Silicon is little-endian, so every multi-byte pixel format requires
+                // a byte-swap before numeric conversion.
                 // memcpy + vectorized byte-swap + convert Int16→Float
                 let temp16 = UnsafeMutablePointer<UInt16>.allocate(capacity: pixelCount)
                 defer { temp16.deallocate() }
@@ -271,6 +274,9 @@ struct FITSReader {
                 )
 
             case 32:
+                // Big-endian to little-endian: the ARGB permute [3,2,1,0] reverses the
+                // four bytes of each 32-bit word in one vectorised pass — cheaper than a
+                // scalar loop and avoids vImageByteSwap_Planar32 (unavailable for signed int).
                 // Bulk memcpy + vectorized byte-swap via ARGB permute [3,2,1,0], then convert Int32→Float
                 let temp32 = UnsafeMutablePointer<UInt32>.allocate(capacity: pixelCount)
                 defer { temp32.deallocate() }
@@ -350,6 +356,7 @@ struct FITSReader {
             }
 
         case 16:
+            // FITS Standard §4.4.1 mandates big-endian pixel storage; swap before conversion.
             pixelValues = [Float](unsafeUninitializedCapacity: pixelCount) { floatBuf, count in
                 // Allocate temp buffer, memcpy, then vectorized byte-swap
                 let temp = UnsafeMutablePointer<UInt16>.allocate(capacity: pixelCount)
@@ -370,6 +377,7 @@ struct FITSReader {
             }
 
         case 32:
+            // Big-endian to little-endian via ARGB permute [3,2,1,0] — see readIntoBuffer for rationale.
             pixelValues = data.withUnsafeBytes { rawPtr -> [Float] in
                 let base = rawPtr.baseAddress!.advanced(by: header.dataOffset)
                 let temp = UnsafeMutablePointer<UInt32>.allocate(capacity: pixelCount)

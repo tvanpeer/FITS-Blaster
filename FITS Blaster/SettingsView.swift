@@ -34,17 +34,22 @@ struct UISettingsTab: View {
     var body: some View {
         @Bindable var settings = settings
 
-        // All key bindings in one place so each recorder can reference the others for conflict detection.
-        let allKeys: [(label: String, key: Binding<String>)] = [
+        // Plain keys (no modifier) — only conflict with each other.
+        let plainKeys: [(label: String, key: Binding<String>)] = [
             ("First Image",             $settings.firstImageKey),
             ("Last Image",              $settings.lastImageKey),
             ("Previous Image",          $settings.prevImageKey),
             ("Next Image",              $settings.nextImageKey),
             ("Reject",                  $settings.rejectKey),
             ("Undo",                    $settings.undoKey),
+            ("Flag / Deflag",           $settings.flagKey),
+            ("Deflag All",              $settings.deflagAllKey),
             ("Toggle Simple/Geek Mode", $settings.toggleModeKey),
             ("Remove from List",        $settings.removeKey),
             ("Toggle Colour Images",    $settings.debayerKey),
+        ]
+        // Cmd keys — only conflict with each other.
+        let cmdKeys: [(label: String, key: Binding<String>)] = [
             ("Select All",              $settings.selectAllKey),
             ("Deselect All",            $settings.deselectAllKey),
             ("Inverse Selection",       $settings.invertSelectionKey),
@@ -55,42 +60,50 @@ struct UISettingsTab: View {
             Section("Navigation") {
                 LabeledContent("First Image") {
                     KeyRecorderButton(keyString: $settings.firstImageKey,
-                                      conflictingKeys: allKeys.filter { $0.label != "First Image" }.map(\.key))
+                                      conflictingKeys: plainKeys.filter { $0.label != "First Image" }.map(\.key))
                 }
                 LabeledContent("Last Image") {
                     KeyRecorderButton(keyString: $settings.lastImageKey,
-                                      conflictingKeys: allKeys.filter { $0.label != "Last Image" }.map(\.key))
+                                      conflictingKeys: plainKeys.filter { $0.label != "Last Image" }.map(\.key))
                 }
                 LabeledContent("Previous Image") {
                     KeyRecorderButton(keyString: $settings.prevImageKey,
-                                      conflictingKeys: allKeys.filter { $0.label != "Previous Image" }.map(\.key))
+                                      conflictingKeys: plainKeys.filter { $0.label != "Previous Image" }.map(\.key))
                 }
                 LabeledContent("Next Image") {
                     KeyRecorderButton(keyString: $settings.nextImageKey,
-                                      conflictingKeys: allKeys.filter { $0.label != "Next Image" }.map(\.key))
+                                      conflictingKeys: plainKeys.filter { $0.label != "Next Image" }.map(\.key))
                 }
                 Toggle("Single key reject/undo (toggle)", isOn: $settings.useToggleReject)
                 LabeledContent(settings.useToggleReject ? "Reject / Undo" : "Reject Image") {
                     KeyRecorderButton(keyString: $settings.rejectKey,
-                                      conflictingKeys: allKeys.filter { $0.label != "Reject" }.map(\.key))
+                                      conflictingKeys: plainKeys.filter { $0.label != "Reject" }.map(\.key))
                 }
                 if !settings.useToggleReject {
                     LabeledContent("Undo Rejection") {
                         KeyRecorderButton(keyString: $settings.undoKey,
-                                          conflictingKeys: allKeys.filter { $0.label != "Undo" }.map(\.key))
+                                          conflictingKeys: plainKeys.filter { $0.label != "Undo" }.map(\.key))
                     }
+                }
+                LabeledContent("Flag / Deflag") {
+                    KeyRecorderButton(keyString: $settings.flagKey,
+                                      conflictingKeys: plainKeys.filter { $0.label != "Flag / Deflag" }.map(\.key))
+                }
+                LabeledContent("Deflag All") {
+                    KeyRecorderButton(keyString: $settings.deflagAllKey,
+                                      conflictingKeys: plainKeys.filter { $0.label != "Deflag All" }.map(\.key))
                 }
                 LabeledContent("Toggle Simple/Geek Mode") {
                     KeyRecorderButton(keyString: $settings.toggleModeKey,
-                                      conflictingKeys: allKeys.filter { $0.label != "Toggle Simple/Geek Mode" }.map(\.key))
+                                      conflictingKeys: plainKeys.filter { $0.label != "Toggle Simple/Geek Mode" }.map(\.key))
                 }
                 LabeledContent("Remove from List") {
                     KeyRecorderButton(keyString: $settings.removeKey,
-                                      conflictingKeys: allKeys.filter { $0.label != "Remove from List" }.map(\.key))
+                                      conflictingKeys: plainKeys.filter { $0.label != "Remove from List" }.map(\.key))
                 }
                 LabeledContent("Toggle Colour Images") {
                     KeyRecorderButton(keyString: $settings.debayerKey,
-                                      conflictingKeys: allKeys.filter { $0.label != "Toggle Colour Images" }.map(\.key))
+                                      conflictingKeys: plainKeys.filter { $0.label != "Toggle Colour Images" }.map(\.key))
                 }
             }
 
@@ -99,28 +112,28 @@ struct UISettingsTab: View {
                     SelectionShortcutRow(
                         keyString: $settings.selectAllKey,
                         usesShift: $settings.selectAllShift,
-                        conflictingKeys: allKeys.filter { $0.label != "Select All" }.map(\.key)
+                        conflictingKeys: cmdKeys.filter { $0.label != "Select All" }.map(\.key)
                     )
                 }
                 LabeledContent("Deselect All") {
                     SelectionShortcutRow(
                         keyString: $settings.deselectAllKey,
                         usesShift: $settings.deselectAllShift,
-                        conflictingKeys: allKeys.filter { $0.label != "Deselect All" }.map(\.key)
+                        conflictingKeys: cmdKeys.filter { $0.label != "Deselect All" }.map(\.key)
                     )
                 }
                 LabeledContent("Inverse Selection") {
                     SelectionShortcutRow(
                         keyString: $settings.invertSelectionKey,
                         usesShift: $settings.invertSelectionShift,
-                        conflictingKeys: allKeys.filter { $0.label != "Inverse Selection" }.map(\.key)
+                        conflictingKeys: cmdKeys.filter { $0.label != "Inverse Selection" }.map(\.key)
                     )
                 }
                 LabeledContent("Select All Rejected") {
                     SelectionShortcutRow(
                         keyString: $settings.selectAllRejectedKey,
                         usesShift: $settings.selectAllRejectedShift,
-                        conflictingKeys: allKeys.filter { $0.label != "Select All Rejected" }.map(\.key)
+                        conflictingKeys: cmdKeys.filter { $0.label != "Select All Rejected" }.map(\.key)
                     )
                 }
             }
@@ -190,6 +203,18 @@ struct ImageDisplayTab: View {
                     .scaledFont(size: 10)
                     .foregroundStyle(.secondary)
             }
+
+            Section("Session Chart Brightness") {
+                LabeledContent("Rejected frames") {
+                    OpacitySlider(value: $settings.rejectedDotOpacity)
+                }
+                LabeledContent("Non-flagged frames") {
+                    OpacitySlider(value: $settings.dimmedDotOpacity)
+                }
+                Text("Controls how dim rejected and non-flagged dots appear in the session chart when a flagged set is active. Flagged and cursor dots are always full brightness.")
+                    .scaledFont(size: 10)
+                    .foregroundStyle(.secondary)
+            }
         }
         .formStyle(.grouped)
         .onAppear {
@@ -210,7 +235,7 @@ struct ImageDisplayTab: View {
         settings.maxThumbnailSize = clampedThumb
 
         if !store.entries.isEmpty {
-            store.reprocessAll(settings: settings)
+            store.regenerateSizes(settings: settings)
         }
 
         resizeMainWindow(toFit: clampedDisplay)
@@ -391,6 +416,24 @@ private struct DynamicTypeSizePicker: View {
         .background(.quaternary)
         .clipShape(.rect(cornerRadius: 6))
         .frame(maxWidth: 260)
+    }
+}
+
+// MARK: - Opacity slider
+
+/// A slider from 0 % to 100 % with a percentage label, used for chart dot brightness settings.
+private struct OpacitySlider: View {
+    @Binding var value: Double
+
+    var body: some View {
+        HStack {
+            Slider(value: $value, in: 0...1, step: 0.05)
+                .frame(maxWidth: 200)
+            Text(value, format: .percent.precision(.fractionLength(0)))
+                .scaledFont(size: 10, monospaced: true)
+                .foregroundStyle(.secondary)
+                .frame(width: 36, alignment: .trailing)
+        }
     }
 }
 

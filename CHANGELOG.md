@@ -4,13 +4,36 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-04-02 — v1.18.0 flag/deflag keys, toolbar & chart improvements
+
+### Added
+- **F key**: toggle flag/unflag on the current entry or orange range selection (configurable in Settings → Keyboard).
+- **D key**: deflag all — clears the entire flagged set in one keystroke (configurable).
+- **(De)flag** toolbar button: toggles the flag state of the current entry or orange range, always visible next to the Cancel button.
+- **(De)flag** and **Deflag All** items in the Select menu, separated from the range-selection commands by a divider.
+- Session chart brightness sliders in Settings → Display: independently control the opacity of rejected dots and non-flagged dots when a flagged set is active.
+- Tooltips on all toolbar buttons, session chart metric buttons, and sidebar sort button; tooltip delay reduced from ~1.5 s to 0.5 s.
+- **Getting Started** guide page on the website (`guide.html`) — full workflow walkthrough, interface overview, key hints, and tips.
+- **Keyboard Shortcuts** reference page on the website (`keys.html`) — all default bindings in one place.
+- Top-level navigation bar on all website pages, replacing scattered footer links.
+
+### Improved
+- Mode toggle button now shows **Simple** or **Geek** (the current mode) instead of a blank label, matching the Colour/Grey button convention.
+- Session chart brightness contrast: rejected dots now render at 15 % opacity and non-flagged dots at 50 %, making the three-level hierarchy (rejected → non-flagged → flagged/cursor) clearly readable.
+- Conflict detection for key bindings in Settings now correctly separates plain keys from ⌘-modifier keys, preventing false conflicts (e.g. plain D vs ⌘D).
+
+### Removed
+- **File → Open File(s)… (⌘⇧O)** menu item removed (the open-files path has sandbox limitations that prevent it from working reliably).
+
+---
+
 ## 2026-04-01 — v1.17.1
 
 ### Fixed
 - ⌘A, ⌘D, and ⌘I now operate on the orange range selection (consistent with ⇧+click and ⇧+arrow) rather than the flag set.
 
 ### Improved
-- FAQ: ⌘A / ⌘D / ⌘I documented in the Selected view entry and the keyboard shortcuts entry.
+- FAQ: ⌘A / ⌘D / ⌘I documented in the Flagged view entry and the keyboard shortcuts entry.
 
 ---
 
@@ -22,13 +45,13 @@ All notable changes to FITS Blaster are recorded here.
 ### Improved
 - Selection model fully redesigned for consistency: **cursor** (blue, always one frame) and **range selection** (orange, built with ⇧+click or ⇧+arrow) are now independent concepts with no side effects between views.
 - ⇧+click and ⇧+arrow build an orange range selection in any view (All or Selected).
-- ⌘+click adds the range (or single frame) to the Selected view from All; removes it from Selected view.
+- ⌘+click adds the range (or single frame) to the Flagged view from All; removes it from Flagged view.
 - Reject acts on the orange range if one is active, otherwise on the cursor.
-- In the Selected view, rejected frames stay visible (orange) so the reject can be undone immediately by pressing Reject again.
+- In the Flagged view, rejected frames stay visible (orange) so the reject can be undone immediately by pressing Reject again.
 - Session chart cursor dot is now white for instant position recognition; all other dots remain filter-group coloured.
 - Session chart cursor dot is smaller (less dominant); rejected frames always shown at 30% opacity.
 - Sidebar thumbnail shows a checkmark badge on flagged frames; orange border on range-selected frames.
-- FAQ: updated session chart and Selected view entries to reflect new selection model; added full filter-group colour table with swatches.
+- FAQ: updated session chart and Flagged view entries to reflect new selection model; added full filter-group colour table with swatches.
 
 ---
 
@@ -47,7 +70,7 @@ All notable changes to FITS Blaster are recorded here.
 
 ### Fixed
 - Auto-Flag sheet: all "Reject if …" threshold labels corrected to "Select if …"; subtitle updated to "Flag frames below quality thresholds for review."
-- Cmd+Click in the Selected view with an active multi-selection (e.g. after Cmd+A) now removes all selected entries at once instead of only the clicked one.
+- Cmd+Click in the Flagged view with an active multi-selection (e.g. after Cmd+A) now removes all selected entries at once instead of only the clicked one.
 
 ### Improved
 - Session chart spotlight: when a multi-selection is active, non-selected dots dim to 0.40 opacity and rejected dots dim further to 0.15, creating a clear three-level brightness hierarchy (rejected → non-selected → selected).
@@ -60,9 +83,9 @@ All notable changes to FITS Blaster are recorded here.
 
 ### Fixed
 - Website feature list said "drag-to-reject" and "Auto-reject" instead of "drag-to-select" and "Auto-select".
-- Folder count badge in the thumbnail sidebar showed the total file count regardless of the active view (All / Selected / Rejected); it now reflects only the entries visible in the current view.
+- Folder count badge in the thumbnail sidebar showed the total file count regardless of the active view (All / Flagged / Rejected); it now reflects only the entries visible in the current view.
 - Metric buttons above the session chart (Score, FWHM, Ecc, SNR, Stars) did not visually indicate the selected button; the active metric now uses a filled (prominent) button style.
-- Cmd+Click in the Selected view was toggling multi-selection instead of removing the entry from the selection; it now always unflag the clicked entry.
+- Cmd+Click in the Flagged view was toggling multi-selection instead of removing the entry from the selection; it now always unflag the clicked entry.
 - Shift-click multi-select did not work at first open until the user clicked the first thumbnail explicitly; the shift-click anchor is now seeded when the first image is auto-selected on load.
 
 ---
@@ -79,8 +102,8 @@ All notable changes to FITS Blaster are recorded here.
 ## 2026-03-29 — v1.16 bug fixes and features
 
 ### Fixed
-- Reset now always switches back to "All frames" mode (was left in Selected/Rejected if active).
-- Cmd+click in "Selected" mode with an active multi-selection now toggles the clicked entry instead of unflagging everything (unflag-on-cmd-click is still the default for single-entry actions).
+- Reset now always switches back to "All frames" mode (was left in Flagged/Rejected if active).
+- Cmd+click in "Flagged" mode with an active multi-selection now toggles the clicked entry instead of unflagging everything (unflag-on-cmd-click is still the default for single-entry actions).
 - Shift+click range selection now works from the very first open; it no longer requires re-clicking the first image first.
 - Session chart now enlarges dots for all multi-selected thumbnails, not just the focused entry.
 
@@ -179,11 +202,11 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
-## 2026-03-25 — Selected view + selection overhaul (v1.14)
+## 2026-03-25 — Flagged view + selection overhaul (v1.14)
 
 ### Added
-- **Selected view** — a dedicated sidebar filter that shows only flagged frames. Frames enter the list via ⌘+click, ⇧+click, chart drag-select, or Auto-Flag; ⌘+click inside the view removes them. Flagged frames persist across filter switches and are only cleared on folder reset.
-- **Flag-then-inspect workflow** — chart drag-select and Auto-Flag now add frames to the Selected list instead of rejecting them immediately. Rejection happens explicitly inside the Selected view after inspection.
+- **Flagged view** — a dedicated sidebar filter that shows only flagged frames. Frames enter the list via ⌘+click, ⇧+click, chart drag-select, or Auto-Flag; ⌘+click inside the view removes them. Flagged frames persist across filter switches and are only cleared on folder reset.
+- **Flag-then-inspect workflow** — chart drag-select and Auto-Flag now add frames to the Flagged view instead of rejecting them immediately. Rejection happens explicitly inside the Flagged view after inspection.
 - **Select menu** — top-level menu with Select All, Deselect All, and Invert Selection, each with configurable key bindings (defaults: ⌘A / ⌘D / ⌘I).
 - **Shift+↑/↓ extend selection** — grows the multi-selection one step at a time using the configured navigation keys.
 - **Configurable selection key modifiers** — Settings → UI lets you choose ⌘ or ⌘⇧ independently for each selection shortcut.
@@ -196,7 +219,7 @@ All notable changes to FITS Blaster are recorded here.
 - Session chart left edge has breathing room before the first dot, making drag-select starting from frame 1 easier.
 
 ### Updated
-- FAQ: new "What is the Selected view?" entry; updated chart drag-select and Auto-Flag descriptions to reflect the new workflow.
+- FAQ: new "What is the Flagged view?" entry; updated chart drag-select and Auto-Flag descriptions to reflect the new workflow.
 
 ---
 

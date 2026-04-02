@@ -104,7 +104,13 @@ enum FilterGroup: String, CaseIterable, Identifiable, Hashable {
             return .so
         }
 
-        // ── Narrowband mono — evaluated after dual/tri to avoid subset matches
+        // ── Narrowband mono — evaluated after dual/tri to avoid subset matches.
+        // The "ha" check uses `s == "ha"` (exact) rather than `contains("ha")` because
+        // "halpha".contains("ha") is true — a contains check would catch "halpha" here
+        // before the more specific check above could ever run. The dual-narrowband guards
+        // above use whole-word forms (s == "ho", hasPrefix("ho ")) for the same reason.
+        // Ordering within this block also matters: each check must not be a substring of
+        // a later one (e.g. "sii" must come after "so" so "sii+oiii" is caught by .so first).
         if s == "ha" || s.contains("halpha") || s.contains("h-alpha")
             || s.contains("h_alpha") || s.contains("656nm") {
             return .ha

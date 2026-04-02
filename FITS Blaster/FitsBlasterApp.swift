@@ -42,6 +42,12 @@ struct FitsBlasterApp: App {
     @State private var settings = AppSettings()
     @State private var store = ImageStore()
 
+    init() {
+        // NSInitialToolTipDelay is an undocumented AppKit UserDefaults key (milliseconds).
+        // Default is ~1500 ms; 500 ms feels more responsive without being distracting.
+        UserDefaults.standard.set(500, forKey: "NSInitialToolTipDelay")
+    }
+
     var body: some Scene {
         WindowGroup(id: "main") {
             ContentView()
@@ -60,7 +66,6 @@ struct FitsBlasterApp: App {
                 MainWindowCommand()
                 Divider()
                 OpenFolderCommand()
-                OpenFilesCommand()
                 Divider()
                 SettingsMenuCommand()
             }
@@ -78,6 +83,9 @@ struct FitsBlasterApp: App {
                 DeselectAllCommand()
                 InvertSelectionCommand()
                 SelectAllRejectedCommand()
+                Divider()
+                ToggleFlagCommand()
+                DeflagAllCommand()
             }
             CommandGroup(replacing: .appInfo) {
                 Button("About FITS Blaster") {
@@ -186,17 +194,6 @@ private struct OpenFolderCommand: View {
     }
 }
 
-/// Opens the files panel via the File menu (⌘⇧O).
-private struct OpenFilesCommand: View {
-    @FocusedValue(\.openFilesAction) var action
-
-    var body: some View {
-        Button("Open File(s)…") { action?() }
-            .keyboardShortcut("o", modifiers: [.command, .shift])
-            .disabled(action == nil)
-    }
-}
-
 /// Selects all visible frames in the active window.
 private struct SelectAllCommand: View {
     @FocusedValue(\.selectAllAction)   var action
@@ -254,6 +251,32 @@ private struct SelectAllRejectedCommand: View {
         Button("Select All Rejected") { action?() }
             .disabled(action == nil)
             .keyboardShortcut(equiv, modifiers: mods)
+    }
+}
+
+/// Toggles the flag state of the current selection.
+private struct ToggleFlagCommand: View {
+    @FocusedValue(\.toggleFlagAction) var action
+    @FocusedValue(\.flagKeyString) var keyString
+
+    var body: some View {
+        let equiv: KeyEquivalent = keyString.flatMap(\.first).map { KeyEquivalent($0) } ?? KeyEquivalent("f")
+        Button("(De)flag") { action?() }
+            .disabled(action == nil)
+            .keyboardShortcut(equiv, modifiers: [])
+    }
+}
+
+/// Removes all entries from the flagged set.
+private struct DeflagAllCommand: View {
+    @FocusedValue(\.deflagAllAction) var action
+    @FocusedValue(\.deflagAllKeyString) var keyString
+
+    var body: some View {
+        let equiv: KeyEquivalent = keyString.flatMap(\.first).map { KeyEquivalent($0) } ?? KeyEquivalent("d")
+        Button("Deflag All") { action?() }
+            .disabled(action == nil)
+            .keyboardShortcut(equiv, modifiers: [])
     }
 }
 

@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Keyboard Shortcuts — FITS Blaster</title>
+    <link rel="icon" type="image/png" href="favicon.png">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background: #0a0a0f;
+            color: #e8e8f0;
+            line-height: 1.7;
+        }
+
+        .container {
+            max-width: 680px;
+            margin: 0 auto;
+            padding: 60px 24px 80px;
+        }
+
+        .back {
+            display: inline-block;
+            color: #7070cc;
+            text-decoration: none;
+            font-size: 0.9rem;
+            margin-bottom: 40px;
+        }
+
+        .back:hover { text-decoration: underline; }
+
+        h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .meta {
+            color: #505068;
+            font-size: 0.9rem;
+            margin-bottom: 48px;
+        }
+
+        h2 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #c8c8e0;
+            margin: 48px 0 16px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #1a1a2e;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 8px;
+            font-size: 0.9rem;
+        }
+
+        th {
+            text-align: left;
+            color: #505068;
+            font-size: 0.75rem;
+            font-weight: 600;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            padding: 6px 16px 6px 0;
+            border-bottom: 1px solid #1a1a2e;
+        }
+
+        td {
+            padding: 9px 16px 9px 0;
+            color: #9090aa;
+            border-bottom: 1px solid #0e0e1a;
+            vertical-align: top;
+        }
+
+        td:first-child {
+            white-space: nowrap;
+            width: 1%;
+        }
+
+        td strong {
+            color: #c8c8e0;
+        }
+
+        .note {
+            font-size: 0.85rem;
+            color: #505068;
+            margin-top: 10px;
+            line-height: 1.5;
+        }
+
+        /* Keyboard key styling */
+        kbd {
+            display: inline-block;
+            background: #1a1a2e;
+            border: 1px solid #2a2a4a;
+            border-bottom-width: 2px;
+            border-radius: 4px;
+            padding: 1px 7px;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            font-size: 0.82rem;
+            color: #c8c8e0;
+            white-space: nowrap;
+        }
+
+        .combo {
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            flex-wrap: nowrap;
+        }
+
+        .sep {
+            color: #404058;
+            font-size: 0.8rem;
+        }
+
+        footer {
+            text-align: center;
+            padding: 32px 24px;
+            font-size: 0.85rem;
+            color: #505068;
+            border-top: 1px solid #1a1a2e;
+        }
+
+        footer a {
+            color: #7070cc;
+            text-decoration: none;
+        }
+
+        footer a:hover { text-decoration: underline; }
+
+        /* ── Site navigation ── */
+        .site-nav {
+            background: #0d0d18;
+            border-bottom: 1px solid #1a1a2e;
+            padding: 0 24px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .site-nav-inner {
+            max-width: 720px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            height: 50px;
+        }
+        .site-nav-brand {
+            font-weight: 700;
+            font-size: 0.95rem;
+            color: #e8e8f0;
+            text-decoration: none;
+            letter-spacing: -0.01em;
+        }
+        .site-nav-brand:hover { color: #fff; }
+        .site-nav-links {
+            display: flex;
+            gap: 24px;
+        }
+        .site-nav-links a {
+            color: #9090aa;
+            text-decoration: none;
+            font-size: 0.875rem;
+        }
+        .site-nav-links a:hover { color: #e8e8f0; }
+    </style>
+</head>
+<body>
+
+<nav class="site-nav">
+    <div class="site-nav-inner">
+        <a href="index.html" class="site-nav-brand">FITS Blaster</a>
+        <div class="site-nav-links">
+            <a href="guide.html">Guide</a>
+            <a href="faq.html">FAQ</a>
+            <a href="keys.html">Keyboard Shortcuts</a>
+            <a href="changelog.html">Changelog</a>
+            <a href="score.html">Scores</a>
+        </div>
+    </div>
+</nav>
+
+<div class="container">
+
+    <h1>Keyboard Shortcuts</h1>
+    <p class="meta">All default key bindings — every shortcut is reconfigurable in <strong>Settings → Keyboard</strong>.</p>
+
+    <!-- ── Navigation ── -->
+    <h2>Navigation</h2>
+    <table>
+        <thead>
+            <tr><th>Key</th><th>Action</th></tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><kbd>↑</kbd></td>
+                <td><strong>Previous image</strong> — move the cursor to the previous frame in the sidebar.</td>
+            </tr>
+            <tr>
+                <td><kbd>↓</kbd></td>
+                <td><strong>Next image</strong> — move the cursor to the next frame.</td>
+            </tr>
+            <tr>
+                <td><kbd>Home</kbd></td>
+                <td><strong>First image</strong> — jump to the first frame in the current view.</td>
+            </tr>
+            <tr>
+                <td><kbd>End</kbd></td>
+                <td><strong>Last image</strong> — jump to the last frame.</td>
+            </tr>
+            <tr>
+                <td><span class="combo"><kbd>⇧</kbd><span class="sep">+</span><kbd>↑</kbd></span></td>
+                <td><strong>Extend selection up</strong> — add the previous frame to the orange range selection and move the cursor there.</td>
+            </tr>
+            <tr>
+                <td><span class="combo"><kbd>⇧</kbd><span class="sep">+</span><kbd>↓</kbd></span></td>
+                <td><strong>Extend selection down</strong> — add the next frame to the orange range selection.</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <!-- ── Rejection ── -->
+    <h2>Rejection</h2>
+    <table>
+        <thead>
+            <tr><th>Key</th><th>Action</th></tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><kbd>X</kbd></td>
+                <td><strong>Reject</strong> — moves the current frame (or the entire orange range) to <code>REJECTED/</code>. In toggle mode, also acts as undo if the frame is already rejected.</td>
+            </tr>
+            <tr>
+                <td><kbd>U</kbd></td>
+                <td><strong>Undo rejection</strong> — moves the current frame back from <code>REJECTED/</code>. Only available when <em>Single key reject/undo</em> is off in Settings.</td>
+            </tr>
+        </tbody>
+    </table>
+    <p class="note">Enable <strong>Single key reject/undo (toggle)</strong> in Settings → Keyboard to use one key for both reject and undo — useful when the spacebar or a gamepad button is mapped as the reject key.</p>
+
+    <!-- ── Flagging ── -->
+    <h2>Flagging</h2>
+    <table>
+        <thead>
+            <tr><th>Key</th><th>Action</th></tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><kbd>F</kbd></td>
+                <td><strong>(De)flag</strong> — toggles the flag state of the current frame. If an orange range is active, the entire range is flagged or unflagged at once. Flagged frames appear in the <strong>Flagged</strong> view.</td>
+            </tr>
+            <tr>
+                <td><kbd>D</kbd></td>
+                <td><strong>Deflag all</strong> — removes all frames from the Flagged view in one keystroke. Does not reject anything.</td>
+            </tr>
+        </tbody>
+    </table>
+    <p class="note"><strong>⌘+click</strong> in the sidebar is an alternative way to flag and unflag: in the All view it adds a frame (or the orange range) to the Flagged view; in the Flagged view it removes it.</p>
+
+    <!-- ── Range selection ── -->
+    <h2>Range Selection</h2>
+    <p class="note" style="margin-bottom:12px">The orange range is used for batch operations: reject, flag, or unflag a group of frames at once. It is independent of the cursor (blue highlight).</p>
+    <table>
+        <thead>
+            <tr><th>Key</th><th>Action</th></tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><span class="combo"><kbd>⌘</kbd><span class="sep">+</span><kbd>A</kbd></span></td>
+                <td><strong>Select all visible</strong> — orange-selects every frame in the current view.</td>
+            </tr>
+            <tr>
+                <td><span class="combo"><kbd>⌘</kbd><span class="sep">+</span><kbd>D</kbd></span></td>
+                <td><strong>Deselect all</strong> — clears the orange range selection.</td>
+            </tr>
+            <tr>
+                <td><span class="combo"><kbd>⌘</kbd><span class="sep">+</span><kbd>I</kbd></span></td>
+                <td><strong>Invert selection</strong> — selects all visible frames that are not currently in the orange range, and deselects those that are.</td>
+            </tr>
+            <tr>
+                <td><span class="combo"><kbd>⌘</kbd><span class="sep">+</span><kbd>R</kbd></span></td>
+                <td><strong>Select all rejected</strong> — orange-selects every rejected frame visible in the current view.</td>
+            </tr>
+        </tbody>
+    </table>
+    <p class="note">All four shortcuts can be changed to <kbd>⌘⇧</kbd>+key in Settings → Keyboard. They always operate on the orange range, never on the Flagged view membership.</p>
+
+    <!-- ── View & display ── -->
+    <h2>View &amp; Display</h2>
+    <table>
+        <thead>
+            <tr><th>Key</th><th>Action</th></tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><kbd>G</kbd></td>
+                <td><strong>Toggle Simple / Geek mode</strong> — Simple mode hides metrics and the session chart for a faster visual pass; Geek mode shows all numeric data. The toolbar button shows the current mode name.</td>
+            </tr>
+            <tr>
+                <td><kbd>C</kbd></td>
+                <td><strong>Toggle colour images</strong> — switches between greyscale and colour (debayered) rendering for OSC cameras. Mono cameras are always shown in greyscale.</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <!-- ── File operations ── -->
+    <h2>File Operations</h2>
+    <table>
+        <thead>
+            <tr><th>Key</th><th>Action</th></tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><span class="combo"><kbd>⌘</kbd><span class="sep">+</span><kbd>O</kbd></span></td>
+                <td><strong>Open Folder…</strong> — opens a folder picker. All FITS files in the selected folder are loaded immediately.</td>
+            </tr>
+            <tr>
+                <td><kbd>R</kbd></td>
+                <td><strong>Remove from list</strong> — removes the current frame from the session list without touching the file on disk.</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <!-- ── Mouse shortcuts ── -->
+    <h2>Mouse &amp; Click Shortcuts</h2>
+    <table>
+        <thead>
+            <tr><th>Action</th><th>Effect</th></tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><strong>Click</strong> (sidebar)</td>
+                <td>Move the cursor to that frame; clear the orange range.</td>
+            </tr>
+            <tr>
+                <td><span class="combo"><kbd>⇧</kbd><span class="sep">+</span></span><strong>click</strong></td>
+                <td>Select an orange range from the last-clicked frame to the clicked frame.</td>
+            </tr>
+            <tr>
+                <td><span class="combo"><kbd>⌘</kbd><span class="sep">+</span></span><strong>click</strong></td>
+                <td>In <strong>All view</strong>: add the frame (or orange range) to the Flagged view.<br>In <strong>Flagged view</strong>: remove the frame (or orange range) from the Flagged view.</td>
+            </tr>
+            <tr>
+                <td><strong>Click</strong> (chart dot)</td>
+                <td>Move the cursor to that frame in the viewer.</td>
+            </tr>
+            <tr>
+                <td><strong>Drag</strong> (chart)</td>
+                <td>Select a run of frames and add them to the Flagged view.</td>
+            </tr>
+        </tbody>
+    </table>
+
+</div>
+
+<footer>
+    &copy; 2026 Tom van Peer &nbsp;·&nbsp; <a href="privacy-policy.html">Privacy Policy</a> &nbsp;·&nbsp; <a href="mailto:support@astrophoto-app.com">Support</a>
+</footer>
+
+</body>
+</html>

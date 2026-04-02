@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Getting Started — FITS Blaster</title>
+    <link rel="icon" type="image/png" href="favicon.png">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background: #0a0a0f;
+            color: #e8e8f0;
+            line-height: 1.7;
+        }
+
+        /* ── Site navigation ── */
+        .site-nav {
+            background: #0d0d18;
+            border-bottom: 1px solid #1a1a2e;
+            padding: 0 24px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .site-nav-inner {
+            max-width: 720px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            height: 50px;
+        }
+        .site-nav-brand {
+            font-weight: 700;
+            font-size: 0.95rem;
+            color: #e8e8f0;
+            text-decoration: none;
+            letter-spacing: -0.01em;
+        }
+        .site-nav-brand:hover { color: #fff; }
+        .site-nav-links {
+            display: flex;
+            gap: 24px;
+        }
+        .site-nav-links a {
+            color: #9090aa;
+            text-decoration: none;
+            font-size: 0.875rem;
+        }
+        .site-nav-links a:hover { color: #e8e8f0; }
+
+        /* ── Layout ── */
+        .container {
+            max-width: 680px;
+            margin: 0 auto;
+            padding: 60px 24px 80px;
+        }
+
+        h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .meta {
+            color: #505068;
+            font-size: 0.9rem;
+            margin-bottom: 48px;
+        }
+
+        /* ── Section headings ── */
+        h2 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #c8c8e0;
+            margin: 56px 0 20px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #1a1a2e;
+        }
+
+        h3 {
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: #c8c8e0;
+            margin: 24px 0 10px;
+        }
+
+        p {
+            color: #9090aa;
+            font-size: 0.95rem;
+            margin-bottom: 14px;
+        }
+
+        p:last-child { margin-bottom: 0; }
+
+        strong { color: #c8c8e0; }
+
+        a { color: #7070cc; }
+        a:hover { text-decoration: underline; }
+
+        code {
+            background: #1a1a2e;
+            border-radius: 4px;
+            padding: 1px 6px;
+            font-size: 0.88em;
+            color: #a0a0d0;
+        }
+
+        /* ── Step cards ── */
+        .steps {
+            display: grid;
+            gap: 2px;
+            margin: 24px 0;
+        }
+
+        .step {
+            display: grid;
+            grid-template-columns: 48px 1fr;
+            gap: 20px;
+            background: #0e0e18;
+            border: 1px solid #1a1a2e;
+            border-radius: 8px;
+            padding: 20px 24px 20px 0;
+            align-items: start;
+        }
+
+        .step + .step {
+            border-top-left-radius: 0;
+            border-top-right-radius: 0;
+            margin-top: -1px;
+        }
+
+        .step:first-child {
+            border-bottom-left-radius: 0;
+            border-bottom-right-radius: 0;
+        }
+
+        .step:not(:first-child):not(:last-child) {
+            border-radius: 0;
+        }
+
+        .step:last-child {
+            border-top-left-radius: 0;
+            border-top-right-radius: 0;
+        }
+
+        .step-num {
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+            padding-top: 2px;
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: #5a5aff;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .step-body p { margin-bottom: 10px; }
+        .step-body p:last-child { margin-bottom: 0; }
+
+        .step-title {
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: #c8c8e0;
+            margin-bottom: 8px;
+        }
+
+        /* ── Keyboard key ── */
+        kbd {
+            display: inline-block;
+            background: #1a1a2e;
+            border: 1px solid #2a2a4a;
+            border-bottom-width: 2px;
+            border-radius: 4px;
+            padding: 1px 7px;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            font-size: 0.82rem;
+            color: #c8c8e0;
+            white-space: nowrap;
+        }
+
+        /* ── Callout / tip box ── */
+        .tip {
+            background: #0d1a2b;
+            border-left: 3px solid #5a5aff;
+            border-radius: 0 6px 6px 0;
+            padding: 14px 18px;
+            margin: 20px 0;
+            font-size: 0.9rem;
+            color: #9090aa;
+        }
+
+        .tip strong { color: #c8c8e0; }
+
+        /* ── Interface diagram ── */
+        .interface-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin: 20px 0;
+        }
+
+        .interface-item {
+            background: #0e0e18;
+            border: 1px solid #1a1a2e;
+            border-radius: 8px;
+            padding: 16px 18px;
+        }
+
+        .interface-item-title {
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: #c8c8e0;
+            margin-bottom: 6px;
+        }
+
+        .interface-item p {
+            font-size: 0.875rem;
+            margin-bottom: 0;
+        }
+
+        /* ── Key table ── */
+        .key-summary {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+            margin: 16px 0;
+        }
+
+        .key-summary td {
+            padding: 7px 16px 7px 0;
+            border-bottom: 1px solid #0e0e1a;
+            color: #9090aa;
+            vertical-align: top;
+        }
+
+        .key-summary td:first-child {
+            white-space: nowrap;
+            width: 1%;
+        }
+
+        footer {
+            text-align: center;
+            padding: 32px 24px;
+            font-size: 0.85rem;
+            color: #505068;
+            border-top: 1px solid #1a1a2e;
+        }
+
+        footer a {
+            color: #7070cc;
+            text-decoration: none;
+        }
+
+        footer a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+
+<nav class="site-nav">
+    <div class="site-nav-inner">
+        <a href="index.html" class="site-nav-brand">FITS Blaster</a>
+        <div class="site-nav-links">
+            <a href="guide.html">Guide</a>
+            <a href="faq.html">FAQ</a>
+            <a href="keys.html">Keyboard Shortcuts</a>
+            <a href="changelog.html">Changelog</a>
+            <a href="score.html">Scores</a>
+        </div>
+    </div>
+</nav>
+
+<div class="container">
+
+    <h1>Getting Started</h1>
+    <p class="meta">A guided walkthrough of the FITS Blaster workflow — from opening a folder to handing off clean frames to your stacking tool.</p>
+
+    <!-- ── The interface ── -->
+    <h2>The Interface</h2>
+
+    <p>FITS Blaster has four main areas. You will use all of them during a typical culling session.</p>
+
+    <div class="interface-grid">
+        <div class="interface-item">
+            <div class="interface-item-title">Sidebar (left)</div>
+            <p>Thumbnail strip of all loaded frames, grouped by filter. The three pills at the bottom switch between <strong>All</strong>, <strong>Flagged</strong>, and <strong>Rejected</strong> views.</p>
+        </div>
+        <div class="interface-item">
+            <div class="interface-item-title">Main viewer (centre)</div>
+            <p>The currently selected frame, stretched for visual inspection. File name and a summary of key metrics are shown in the info bar below it.</p>
+        </div>
+        <div class="interface-item">
+            <div class="interface-item-title">Session chart (bottom)</div>
+            <p>One dot per frame, plotted in capture order. Dot colour is the filter group. Brightness shows rejection/flag state. A white dot marks your current position.</p>
+        </div>
+        <div class="interface-item">
+            <div class="interface-item-title">Inspector (right, Geek mode)</div>
+            <p>Exact metric values — FWHM, eccentricity, SNR, star count — for the selected frame, with its score and any quality warnings.</p>
+        </div>
+    </div>
+
+    <div class="tip">
+        <strong>Simple vs Geek mode</strong> — press <kbd>G</kbd> to toggle. Simple mode hides metrics and the session chart for a quick visual pass. Geek mode enables the full quality analysis. The toolbar button shows the current mode name.
+    </div>
+
+    <!-- ── The basic workflow ── -->
+    <h2>The Basic Workflow</h2>
+
+    <div class="steps">
+        <div class="step">
+            <div class="step-num">1</div>
+            <div class="step-body">
+                <div class="step-title">Open your folder</div>
+                <p>Press <kbd>⌘O</kbd> or drag a folder onto the window. FITS Blaster starts loading and measuring quality metrics immediately — you can begin reviewing before the full set has finished loading.</p>
+                <p>If your session spans multiple subfolders (e.g. one per filter or night), check <strong>Include files from subfolders</strong> in the open panel. Each subfolder appears as a separate section in the sidebar.</p>
+            </div>
+        </div>
+
+        <div class="step">
+            <div class="step-num">2</div>
+            <div class="step-body">
+                <div class="step-title">Read the session chart</div>
+                <p>Glance at the dot chart at the bottom. Each dot is one frame, coloured by filter group. Look for:</p>
+                <p><strong>Clusters of low dots</strong> — a run of frames where the metric (FWHM, SNR, Score…) dips clearly below the dashed median line. This usually means clouds, wind, a focus drift, or a guiding glitch. Use the metric buttons above the chart to switch between FWHM, Ecc, SNR, Stars, and Score.</p>
+                <p><strong>Isolated outliers</strong> — single bad frames scattered through an otherwise good session.</p>
+                <p>Click any dot to jump to that frame in the viewer. The dot turns white to mark your position.</p>
+            </div>
+        </div>
+
+        <div class="step">
+            <div class="step-num">3</div>
+            <div class="step-body">
+                <div class="step-title">Collect suspects into the Flagged view</div>
+                <p>The <strong>Flagged view</strong> is a review queue — frames you want to inspect more closely before deciding. Nothing is moved on disk yet.</p>
+                <p><strong>From the session chart:</strong> drag across a run of bad dots. A confirmation sheet lets you add them to the Flagged view in one step.</p>
+                <p><strong>From the sidebar:</strong> use <kbd>⇧↑</kbd> / <kbd>⇧↓</kbd> or <kbd>⇧</kbd>+click to build an orange range, then press <kbd>F</kbd> to flag the whole range at once.</p>
+                <p><strong>One frame at a time:</strong> navigate with <kbd>↑</kbd> / <kbd>↓</kbd> and press <kbd>F</kbd> to toggle the flag on any frame.</p>
+                <p><strong>Automatically:</strong> click <strong>Auto-Flag</strong> in the toolbar to flag all frames that fall below configurable quality thresholds. You can preview the result before applying it.</p>
+            </div>
+        </div>
+
+        <div class="step">
+            <div class="step-num">4</div>
+            <div class="step-body">
+                <div class="step-title">Review and reject in the Flagged view</div>
+                <p>Switch to the <strong>Flagged</strong> view using the pill at the bottom of the sidebar. Now you see only your suspect frames.</p>
+                <p>Step through them with <kbd>↑</kbd> / <kbd>↓</kbd>. For each frame, decide:</p>
+                <p><strong>Reject it</strong> — press <kbd>X</kbd>. The frame is moved to a <code>REJECTED/</code> subfolder immediately. It stays visible in the Flagged view so you can undo straight away by pressing <kbd>X</kbd> again (or <kbd>U</kbd> if toggle mode is off).</p>
+                <p><strong>Keep it</strong> — press <kbd>F</kbd> to remove it from the Flagged view, or just leave it; flagged-but-not-rejected frames are not moved anywhere.</p>
+                <p>To reject a batch in one go: use <kbd>⌘A</kbd> to orange-select all flagged frames, then <kbd>X</kbd> to reject them all. Use <kbd>⌘R</kbd> to orange-select any that have already been rejected so you can undo them in bulk.</p>
+            </div>
+        </div>
+
+        <div class="step">
+            <div class="step-num">5</div>
+            <div class="step-body">
+                <div class="step-title">Hand off to your stacking tool</div>
+                <p>Point PixInsight, Siril, AstroPixelProcessor, or any other stacking tool at the same folder. Rejected frames are in <code>REJECTED/</code> and will not appear in a normal folder scan.</p>
+                <p>Changed your mind? Reopen the folder in FITS Blaster, switch to the <strong>Rejected</strong> view, select the frames, and press <kbd>U</kbd> (or <kbd>X</kbd> in toggle mode) to move them back.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Two selection concepts ── -->
+    <h2>Two Things That Look Similar but Are Not</h2>
+
+    <p>FITS Blaster has two independent selection systems. Understanding the difference makes everything else click.</p>
+
+    <div class="interface-grid">
+        <div class="interface-item">
+            <div class="interface-item-title">Cursor (blue highlight)</div>
+            <p>The single frame shown in the viewer. Move it with <kbd>↑</kbd> / <kbd>↓</kbd> or by clicking. It never affects the Flagged view or triggers any batch operation on its own.</p>
+        </div>
+        <div class="interface-item">
+            <div class="interface-item-title">Range selection (orange highlight)</div>
+            <p>A group of frames used for batch operations — reject, flag, or unflag all at once. Built with <kbd>⇧↑</kbd> / <kbd>⇧↓</kbd> or <kbd>⇧</kbd>+click. Cleared with <kbd>⌘D</kbd> or any plain click.</p>
+        </div>
+    </div>
+
+    <div class="tip">
+        When a range is active, <strong>action keys operate on the range</strong>, not just the cursor. Press <kbd>X</kbd> to reject the whole range. Press <kbd>F</kbd> to flag or unflag the whole range. <kbd>⌘A</kbd> selects all visible frames; <kbd>⌘I</kbd> inverts the selection.
+    </div>
+
+    <!-- ── Keys at a glance ── -->
+    <h2>Keys at a Glance</h2>
+
+    <p>Every shortcut is configurable in <strong>Settings → Keyboard</strong>. These are the defaults.</p>
+
+    <h3>Navigation</h3>
+    <table class="key-summary">
+        <tr><td><kbd>↑</kbd> / <kbd>↓</kbd></td><td>Previous / next frame (moves cursor)</td></tr>
+        <tr><td><kbd>⇧↑</kbd> / <kbd>⇧↓</kbd></td><td>Extend orange range selection</td></tr>
+        <tr><td><kbd>Home</kbd> / <kbd>End</kbd></td><td>First / last frame</td></tr>
+    </table>
+
+    <h3>Rejection</h3>
+    <table class="key-summary">
+        <tr><td><kbd>X</kbd></td><td>Reject the cursor or the orange range (moves frames to <code>REJECTED/</code>)</td></tr>
+        <tr><td><kbd>U</kbd></td><td>Undo rejection (moves frames back). In toggle mode, <kbd>X</kbd> does both.</td></tr>
+    </table>
+
+    <h3>Flagging</h3>
+    <table class="key-summary">
+        <tr><td><kbd>F</kbd></td><td>Toggle flag on the cursor or orange range</td></tr>
+        <tr><td><kbd>D</kbd></td><td>Deflag all — clear the entire Flagged view</td></tr>
+    </table>
+
+    <h3>Range selection</h3>
+    <table class="key-summary">
+        <tr><td><kbd>⌘A</kbd></td><td>Select all visible frames (orange)</td></tr>
+        <tr><td><kbd>⌘D</kbd></td><td>Clear the orange range</td></tr>
+        <tr><td><kbd>⌘I</kbd></td><td>Invert the orange range</td></tr>
+        <tr><td><kbd>⌘R</kbd></td><td>Select all rejected frames visible in the current view</td></tr>
+    </table>
+
+    <h3>View &amp; display</h3>
+    <table class="key-summary">
+        <tr><td><kbd>G</kbd></td><td>Toggle Simple / Geek mode</td></tr>
+        <tr><td><kbd>C</kbd></td><td>Toggle colour / greyscale (OSC cameras)</td></tr>
+        <tr><td><kbd>R</kbd></td><td>Remove the current frame from the list (does not touch the file)</td></tr>
+        <tr><td><kbd>⌘O</kbd></td><td>Open a folder</td></tr>
+    </table>
+
+    <p style="margin-top:20px">See the <a href="keys.html">full keyboard shortcut reference</a> for mouse shortcuts and more detail on each action.</p>
+
+    <!-- ── Tips ── -->
+    <h2>Tips for Large Sessions</h2>
+
+    <div class="tip">
+        <strong>Sort by quality score.</strong> In the sidebar sort dropdown, choose <strong>Score</strong> and set direction to ascending. Your worst frames are now at the top. <kbd>⇧</kbd>+click the last clearly-bad frame to orange-select the whole bad tail, then press <kbd>X</kbd> to reject them all at once.
+    </div>
+
+    <div class="tip">
+        <strong>Use Auto-Flag for a first pass.</strong> Click <strong>Auto-Flag</strong> in the toolbar, set thresholds (e.g. FWHM &gt; 7 px, Score &lt; 40), and preview how many frames match. Apply it, then switch to the Flagged view to eyeball each one before committing to rejection.
+    </div>
+
+    <div class="tip">
+        <strong>Single key reject/undo.</strong> In Settings → Keyboard, turn on <strong>Single key reject/undo (toggle)</strong> and assign it to the spacebar. You can then reject and undo with one thumb while navigating with the other hand. Many users prefer this to the two-key default.
+    </div>
+
+    <div class="tip">
+        <strong>You do not need to wait.</strong> FITS Blaster pipelines loading, stretching, and metric computation in parallel. By the time you have finished scanning the first frames in the sidebar, the rest of the session is usually done.
+    </div>
+
+</div>
+
+<footer>
+    &copy; 2026 Tom van Peer &nbsp;·&nbsp; <a href="privacy-policy.html">Privacy Policy</a> &nbsp;·&nbsp; <a href="mailto:support@astrophoto-app.com">Support</a>
+</footer>
+
+</body>
+</html>

@@ -2,7 +2,8 @@
 //  ContentView.swift
 //  FITS Blaster
 //
-//  Created by Tom van Peer on 28/02/2026.
+//  Root view: HSplitView layout, key monitoring, drag-drop, and window management.
+//  Sidebar views live in SidebarViews.swift; main-area views in MainContentViews.swift.
 //
 
 import SwiftUI
@@ -62,15 +63,7 @@ struct ContentView: View {
     }
 
     private var contentWithFocus: some View {
-        splitContentWithAppFocus
-            .focusedSceneValue(\.selectAllAction)          { store.selectAllVisible() }
-            .focusedSceneValue(\.deselectAllAction)        { store.deselectAll() }
-            .focusedSceneValue(\.invertSelectionAction)    { store.invertSelection() }
-            .focusedSceneValue(\.selectAllRejectedAction)  { store.selectAllRejected() }
-            .focusedSceneValue(\.selectAllKeyString,         settings.selectAllKey)
-            .focusedSceneValue(\.deselectAllKeyString,       settings.deselectAllKey)
-            .focusedSceneValue(\.invertSelectionKeyString,   settings.invertSelectionKey)
-            .focusedSceneValue(\.selectAllRejectedKeyString, settings.selectAllRejectedKey)
+        contentWithSelectionFocus
             .focusedSceneValue(\.selectAllShiftFV,           settings.selectAllShift)
             .focusedSceneValue(\.deselectAllShiftFV,         settings.deselectAllShift)
             .focusedSceneValue(\.invertSelectionShiftFV,     settings.invertSelectionShift)
@@ -79,6 +72,22 @@ struct ContentView: View {
             .environment(\.fontSizeMultiplier, settings.fontSizeMultiplier)
             .preferredColorScheme(settings.preferredColorScheme)
             .background(WindowAccessor { hostingWindow = $0 })
+    }
+
+    private var contentWithSelectionFocus: some View {
+        splitContentWithAppFocus
+            .focusedSceneValue(\.selectAllAction)          { store.selectAllVisible() }
+            .focusedSceneValue(\.deselectAllAction)        { store.deselectAll() }
+            .focusedSceneValue(\.invertSelectionAction)    { store.invertSelection() }
+            .focusedSceneValue(\.selectAllRejectedAction)  { store.selectAllRejected() }
+            .focusedSceneValue(\.toggleFlagAction)         { store.toggleFlagSelected() }
+            .focusedSceneValue(\.deflagAllAction)          { store.deflagAll() }
+            .focusedSceneValue(\.flagKeyString,              settings.flagKey)
+            .focusedSceneValue(\.deflagAllKeyString,         settings.deflagAllKey)
+            .focusedSceneValue(\.selectAllKeyString,         settings.selectAllKey)
+            .focusedSceneValue(\.deselectAllKeyString,       settings.deselectAllKey)
+            .focusedSceneValue(\.invertSelectionKeyString,   settings.invertSelectionKey)
+            .focusedSceneValue(\.selectAllRejectedKeyString, settings.selectAllRejectedKey)
     }
 
     private var splitContentWithAppFocus: some View {
@@ -94,7 +103,6 @@ struct ContentView: View {
             .focusedSceneValue(\.toggleModeKeyString, settings.toggleModeKey)
             .focusedSceneValue(\.debayerKeyString, settings.debayerKey)
             .focusedSceneValue(\.openFolderAction) { store.openFolderPanel(settings: settings) }
-            .focusedSceneValue(\.openFilesAction)  { store.openFilesPanel(settings: settings) }
     }
 
     private var splitContent: some View {
@@ -130,6 +138,72 @@ struct ContentView: View {
         return settings.showInspector ? 960 : 700
     }
 
+    // MARK: - Key dispatch tables
+
+    /// Every configurable action the key monitor can trigger.
+    private enum NavAction {
+        case selectAll, deselectAll, invertSelection, selectAllRejected
+        case first, last, previous, next
+        case reject, undo
+        case flag, deflagAll
+        case toggleMode, remove, debayer
+    }
+
+    /// ⌘(⇧)+key bindings: KeyPath to the key string, KeyPath to the shift flag, action.
+    /// Adding a new ⌘ shortcut is a single line here — no edits to installKeyMonitor.
+    private static let cmdKeyBindings:
+        [(key: KeyPath<AppSettings, String>, shift: KeyPath<AppSettings, Bool>, action: NavAction)] = [
+        (\.selectAllKey,         \.selectAllShift,         .selectAll),
+        (\.deselectAllKey,       \.deselectAllShift,       .deselectAll),
+        (\.invertSelectionKey,   \.invertSelectionShift,   .invertSelection),
+        (\.selectAllRejectedKey, \.selectAllRejectedShift, .selectAllRejected),
+    ]
+
+    /// Plain-key bindings (no modifier): KeyPath to the key string, action.
+    /// Adding a new navigation shortcut is a single line here — no edits to handleKey.
+    private static let plainKeyBindings:
+        [(key: KeyPath<AppSettings, String>, action: NavAction)] = [
+        (\.firstImageKey,  .first),
+        (\.lastImageKey,   .last),
+        (\.prevImageKey,   .previous),
+        (\.nextImageKey,   .next),
+        (\.rejectKey,      .reject),
+        (\.undoKey,        .undo),
+        (\.flagKey,        .flag),
+        (\.deflagAllKey,   .deflagAll),
+        (\.toggleModeKey,  .toggleMode),
+        (\.removeKey,      .remove),
+        (\.debayerKey,     .debayer),
+    ]
+
+    /// Executes a `NavAction` against the current store/settings state.
+    /// Returns false only for bindings that should not consume the event
+    /// (e.g. `undo` when toggle-reject mode is on).
+    @discardableResult
+    private func dispatch(_ action: NavAction) -> Bool {
+        switch action {
+        case .selectAll:         store.selectAllVisible()
+        case .deselectAll:       store.deselectAll()
+        case .invertSelection:   store.invertSelection()
+        case .selectAllRejected: store.selectAllRejected()
+        case .first:             store.selectFirst()
+        case .last:              store.selectLast()
+        case .previous:          store.selectPrevious()
+        case .next:              store.selectNext()
+        case .reject:
+            if settings.useToggleReject { store.toggleRejectSelected() } else { store.rejectSelected() }
+        case .undo:
+            guard !settings.useToggleReject else { return false }
+            store.undoRejectSelected()
+        case .flag:     store.toggleFlagSelected()
+        case .deflagAll: store.deflagAll()
+        case .toggleMode:  settings.isSimpleMode.toggle()
+        case .remove:      store.removeSelected()
+        case .debayer:     settings.debayerColorImages.toggle()
+        }
+        return true
+    }
+
     // MARK: - Key handling
 
     /// Installs a window-level key monitor so navigation keys work regardless of
@@ -151,21 +225,12 @@ struct ContentView: View {
                    !mods.contains(.option),
                    !mods.contains(.control),
                    let key = event.charactersIgnoringModifiers?.lowercased() {
-                    if shift == self.settings.selectAllShift,
-                       key == self.settings.selectAllKey {
-                        self.store.selectAllVisible(); return nil
-                    }
-                    if shift == self.settings.deselectAllShift,
-                       key == self.settings.deselectAllKey {
-                        self.store.deselectAll(); return nil
-                    }
-                    if shift == self.settings.invertSelectionShift,
-                       key == self.settings.invertSelectionKey {
-                        self.store.invertSelection(); return nil
-                    }
-                    if shift == self.settings.selectAllRejectedShift,
-                       key == self.settings.selectAllRejectedKey {
-                        self.store.selectAllRejected(); return nil
+                    if let binding = Self.cmdKeyBindings.first(where: {
+                        self.settings[keyPath: $0.key] == key &&
+                        self.settings[keyPath: $0.shift] == shift
+                    }) {
+                        self.dispatch(binding.action)
+                        return nil
                     }
                 }
 
@@ -212,26 +277,14 @@ struct ContentView: View {
         return event.characters?.lowercased()
     }
 
-    /// Returns true and performs the action if the key matches a configured binding.
+    /// Looks up the matching plain-key binding and dispatches it.
+    /// Returns true if a binding matched and the event should be consumed.
     @discardableResult
     private func handleKey(_ key: String) -> Bool {
-        switch key {
-        case settings.firstImageKey:  store.selectFirst();  return true
-        case settings.lastImageKey:   store.selectLast();   return true
-        case settings.prevImageKey:   store.selectPrevious(); return true
-        case settings.nextImageKey:   store.selectNext();   return true
-        case settings.rejectKey:
-            if settings.useToggleReject { store.toggleRejectSelected() } else { store.rejectSelected() }
-            return true
-        case settings.undoKey:
-            guard !settings.useToggleReject else { return false }
-            store.undoRejectSelected()
-            return true
-        case settings.toggleModeKey:  settings.isSimpleMode.toggle();          return true
-        case settings.removeKey:      store.removeSelected();                   return true
-        case settings.debayerKey:     settings.debayerColorImages.toggle();     return true
-        default:                      return false
+        guard let binding = Self.plainKeyBindings.first(where: { settings[keyPath: $0.key] == key }) else {
+            return false
         }
+        return dispatch(binding.action)
     }
 
     private func handleDrop(providers: [NSItemProvider]) {
@@ -257,53 +310,6 @@ struct ContentView: View {
     }
 }
 
-// MARK: - Resizable Chart Layout
-
-/// A VStack containing the main image and session chart, separated by a draggable
-/// handle that persists the chart height across launches via AppStorage.
-private struct ResizableChartLayout: View {
-    @Environment(ImageStore.self) private var store
-    @AppStorage("sessionChartHeight") private var chartHeight: Double = 200
-
-    /// Captured at the start of each drag so we can compute relative offset.
-    @State private var heightAtDragStart: Double = 200
-
-    var body: some View {
-        VStack(spacing: 0) {
-            MainContent(store: store)
-                .frame(minHeight: 180)
-
-            // Drag handle
-            Rectangle()
-                .fill(Color.secondary.opacity(0.15))
-                .frame(height: 5)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 1)
-                        .fill(Color.secondary.opacity(0.5))
-                        .frame(width: 32, height: 3)
-                )
-                .onHover { inside in
-                    if inside { NSCursor.resizeUpDown.push() } else { NSCursor.pop() }
-                }
-                .gesture(
-                    DragGesture(minimumDistance: 2)
-                        .onChanged { value in
-                            // Dragging up = negative translation = chart taller
-                            chartHeight = max(80, min(600,
-                                heightAtDragStart - value.translation.height))
-                        }
-                        .onEnded { _ in
-                            heightAtDragStart = chartHeight
-                        }
-                )
-
-            SessionChartView()
-                .frame(height: chartHeight)
-        }
-        .onAppear { heightAtDragStart = chartHeight }
-    }
-}
-
 // MARK: - Drop Target Overlay
 
 struct DropTargetOverlay: View {
@@ -315,716 +321,6 @@ struct DropTargetOverlay: View {
             .allowsHitTesting(false)
     }
 }
-
-// MARK: - Thumbnail Sidebar
-
-struct ThumbnailSidebar: View {
-    @Environment(ImageStore.self) private var store
-    @Environment(AppSettings.self) private var settings
-
-    /// The last entry that received a plain or cmd+click — used as the anchor for shift+click range.
-    @State private var lastClickedID: UUID? = nil
-
-    /// Folder paths whose thumbnail rows are currently hidden.
-    @State private var collapsedFolderPaths: Set<String> = []
-
-    /// Ordered list of entries currently rendered in the sidebar, used for shift+click range.
-    private var visibleEntries: [ImageEntry] {
-        if settings.isSimpleMode || store.sidebarFilterGroup != nil
-            || (!store.isMultiFilter && !store.isMultiFolder) {
-            return store.visibilityFilteredEntries
-        }
-        // Multi-folder mode: return entries in folder → filter section order, skipping collapsed.
-        if store.isMultiFolder {
-            return store.groupedByFolderAndFilter
-                .filter { !collapsedFolderPaths.contains($0.folderPath) }
-                .flatMap { folder in folder.filterGroups.flatMap { $0.1 } }
-                .filter { store.isVisible($0) }
-        }
-        // Single folder, multi-filter: visibility-grouped order.
-        return store.visibilityGroupedSortedEntries.flatMap { $0.entries }
-    }
-
-    var body: some View {
-        @Bindable var bindableStore = store
-        VStack(spacing: 0) {
-            if !settings.isSimpleMode {
-                // Sort controls (Geek mode only)
-                HStack(spacing: 4) {
-                    Text("Sort")
-                        .scaledFont(size: 10)
-                        .foregroundStyle(.secondary)
-                    Picker("Sort", selection: $bindableStore.thumbnailSortOrder) {
-                        ForEach(ThumbnailSortOrder.allCases, id: \.self) { order in
-                            Text(order.rawValue).tag(order)
-                        }
-                    }
-                    .labelsHidden()
-                    .pickerStyle(.menu)
-                    .scaledFont(size: 10)
-                    Button(store.thumbnailSortAscending ? "Sort Ascending" : "Sort Descending",
-                           systemImage: store.thumbnailSortAscending ? "arrow.up" : "arrow.down") {
-                        store.thumbnailSortAscending.toggle()
-                    }
-                    .labelStyle(.iconOnly)
-                    .buttonStyle(.borderless)
-                    .scaledFont(size: 10)
-                }
-                .padding(.horizontal)
-                .padding(.vertical, 6)
-
-                // Filter strip — only shown when multiple filter groups are present
-                if store.isMultiFilter {
-                    Divider()
-                    FilterStrip(store: bindableStore)
-                }
-
-                Divider()
-            }
-
-            ScrollViewReader { proxy in
-                ScrollView {
-                    LazyVStack(spacing: 0, pinnedViews: .sectionHeaders) {
-                        // Note: .id(store.rejectionVisibility) below forces complete
-                        // recreation of the lazy container when the filter changes,
-                        // ensuring stale views don't persist across filter switches.
-                        if settings.isSimpleMode {
-                            // Simple mode: plain filename-ordered flat list, no grouping
-                            ForEach(store.visibilityFilteredEntries) { entry in
-                                thumbnailButton(for: entry)
-                            }
-                        } else if store.sidebarFilterGroup != nil
-                            || (!store.isMultiFilter && !store.isMultiFolder) {
-                            // Flat list: a filter is selected, or there's only one folder+filter
-                            ForEach(store.visibilityFilteredEntries) { entry in
-                                thumbnailButton(for: entry)
-                            }
-                        } else if store.isMultiFolder {
-                            // Folder mode: one section per subfolder, with optional filter sub-headers
-                            ForEach(store.groupedByFolderAndFilter) { folderGroup in
-                                let isCollapsed = collapsedFolderPaths.contains(folderGroup.folderPath)
-                                Section {
-                                    if !isCollapsed {
-                                        if folderGroup.filterGroups.count > 1 {
-                                            ForEach(folderGroup.filterGroups, id: \.0) { group, groupEntries in
-                                                let visibleGroupEntries = groupEntries.filter { store.isVisible($0) }
-                                                if !visibleGroupEntries.isEmpty {
-                                                    FolderFilterSubHeader(group: group, count: visibleGroupEntries.count)
-                                                    ForEach(visibleGroupEntries) { entry in
-                                                        thumbnailButton(for: entry)
-                                                    }
-                                                }
-                                            }
-                                        } else {
-                                            ForEach((folderGroup.filterGroups.first?.1 ?? []).filter { store.isVisible($0) }) { entry in
-                                                thumbnailButton(for: entry)
-                                            }
-                                        }
-                                    }
-                                } header: {
-                                    let visibleCount = folderGroup.filterGroups
-                                        .flatMap { $0.1 }
-                                        .filter { store.isVisible($0) }
-                                        .count
-                                    FolderSectionHeader(
-                                        folderGroup: folderGroup,
-                                        visibleCount: visibleCount,
-                                        isCollapsed: isCollapsed
-                                    ) {
-                                        if isCollapsed {
-                                            collapsedFolderPaths.remove(folderGroup.folderPath)
-                                        } else {
-                                            collapsedFolderPaths.insert(folderGroup.folderPath)
-                                        }
-                                    }
-                                }
-                            }
-                        } else {
-                            // Single folder, multiple filters: group by filter
-                            ForEach(store.visibilityGroupedSortedEntries, id: \.group) { group, entries in
-                                Section {
-                                    ForEach(entries) { entry in
-                                        thumbnailButton(for: entry)
-                                    }
-                                } header: {
-                                    FilterGroupHeader(group: group, entries: entries)
-                                }
-                            }
-                        }
-                    }
-                    .padding(.vertical, 4)
-                    .id(store.rejectionVisibility)
-                }
-                .scrollIndicators(.hidden)
-                .background(.background)
-                .onChange(of: store.selectedEntry?.id) { _, id in
-                    guard let id else { return }
-                    withAnimation { proxy.scrollTo(id, anchor: .center) }
-                }
-            }
-
-            Divider()
-            Picker("Show", selection: $bindableStore.rejectionVisibility) {
-                ForEach(RejectionVisibility.allCases, id: \.self) { v in
-                    Text(v.rawValue).tag(v)
-                }
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-            .scaledFont(size: 10)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 6)
-        }
-        // When the first image is auto-selected at load time (nil → non-nil transition),
-        // seed lastClickedID so shift-click works without requiring an explicit prior click.
-        .onChange(of: store.selectedEntry?.id) { oldID, newID in
-            if oldID == nil, let id = newID {
-                lastClickedID = id
-            }
-        }
-        // Leaving the Selected view clears the rejection sub-selection.
-        .onChange(of: store.rejectionVisibility) { _, _ in
-            store.markedForRejectionIDs = []
-        }
-    }
-
-    private func thumbnailButton(for entry: ImageEntry) -> some View {
-        Button {
-            let mods = NSEvent.modifierFlags
-            if mods.contains(.command) {
-                // Cmd+click: flag/unflag the range selection (or this single entry if no range).
-                // In All view → add to Selected; in Selected view → remove from Selected.
-                let targets: Set<UUID> = store.markedForRejectionIDs.isEmpty
-                    ? [entry.id]
-                    : store.markedForRejectionIDs
-                store.markedForRejectionIDs = []
-                if store.rejectionVisibility == .selected {
-                    store.unflagEntries(targets)
-                    if store.selectedEntry.map({ !store.flaggedEntryIDs.contains($0.id) }) == true {
-                        store.selectedEntry = store.visibilityFilteredEntries.first
-                    }
-                    lastClickedID = store.selectedEntry?.id
-                } else {
-                    store.flaggedEntryIDs.formUnion(targets)
-                    lastClickedID = entry.id
-                }
-            } else if mods.contains(.shift), let lastID = lastClickedID ?? store.selectedEntry?.id {
-                // Shift+click: select a range (orange) in any view. Move cursor.
-                let visible = visibleEntries
-                if let fromIdx = visible.firstIndex(where: { $0.id == lastID }),
-                   let toIdx   = visible.firstIndex(where: { $0.id == entry.id }) {
-                    let range = fromIdx <= toIdx ? fromIdx...toIdx : toIdx...fromIdx
-                    store.markedForRejectionIDs = Set(visible[range].map { $0.id })
-                    store.selectedEntry = entry
-                }
-                lastClickedID = entry.id
-            } else {
-                // Plain click: move cursor, clear range selection.
-                store.markedForRejectionIDs = []
-                store.selectedEntry = entry
-                lastClickedID = entry.id
-            }
-        } label: {
-            ThumbnailCell(entry: entry)
-        }
-        .buttonStyle(.plain)
-        .id(entry.id)
-    }
-}
-
-// MARK: - Filter strip
-
-struct FilterStrip: View {
-    @Bindable var store: ImageStore
-
-    var body: some View {
-        ScrollView(.horizontal) {
-            HStack(spacing: 5) {
-                FilterChip(label: "All",
-                           color: .accentColor,
-                           isSelected: store.sidebarFilterGroup == nil) {
-                    store.sidebarFilterGroup = nil
-                }
-                ForEach(store.activeFilterGroups) { group in
-                    FilterChip(label: group.rawValue,
-                               color: group.color,
-                               isSelected: store.sidebarFilterGroup == group) {
-                        store.sidebarFilterGroup =
-                            store.sidebarFilterGroup == group ? nil : group
-                    }
-                }
-            }
-            .padding(.horizontal)
-            .padding(.vertical, 5)
-        }
-        .scrollIndicators(.hidden)
-    }
-}
-
-struct FilterChip: View {
-    let label: String
-    let color: Color
-    let isSelected: Bool
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            Text(label)
-                .scaledFont(size: 9, weight: .bold)
-                .padding(.horizontal, 7)
-                .padding(.vertical, 3)
-                .background(isSelected ? color : color.opacity(0.15))
-                .foregroundStyle(isSelected ? .white : color)
-                .clipShape(.rect(cornerRadius: 4))
-        }
-        .buttonStyle(.plain)
-    }
-}
-
-// MARK: - Filter group header
-
-struct FilterGroupHeader: View {
-    let group: FilterGroup
-    let entries: [ImageEntry]
-
-    private var medianFWHM: Float? {
-        let values = entries.compactMap { $0.metrics?.fwhm }.sorted()
-        guard !values.isEmpty else { return nil }
-        return values[values.count / 2]
-    }
-
-    private var medianScore: Int? {
-        let values = entries.compactMap { $0.metrics?.qualityScore }.sorted()
-        guard !values.isEmpty else { return nil }
-        return values[values.count / 2]
-    }
-
-    var body: some View {
-        HStack(spacing: 5) {
-            Circle()
-                .fill(group.color)
-                .frame(width: 8, height: 8)
-            Text(group.rawValue)
-                .scaledFont(size: 10, weight: .bold)
-            Text("\(entries.count)")
-                .scaledFont(size: 10)
-                .foregroundStyle(.secondary)
-            Spacer()
-            if let fwhm = medianFWHM {
-                Text("\(fwhm, format: .number.precision(.fractionLength(1)))px")
-                    .scaledFont(size: 9, monospaced: true)
-                    .foregroundStyle(.secondary)
-            }
-            if let score = medianScore {
-                Text("▸\(score)")
-                    .scaledFont(size: 9, monospaced: true)
-                    .foregroundStyle(.secondary)
-            }
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 5)
-        .background(.regularMaterial)
-    }
-}
-
-// MARK: - Folder section header
-
-struct FolderSectionHeader: View {
-    let folderGroup: FolderGroup
-    let visibleCount: Int
-    let isCollapsed: Bool
-    let onToggle: () -> Void
-
-    var body: some View {
-        Button(action: onToggle) {
-            HStack(spacing: 5) {
-                Image(systemName: "chevron.right")
-                    .scaledFont(size: 9)
-                    .foregroundStyle(.secondary)
-                    .rotationEffect(.degrees(isCollapsed ? 0 : 90))
-                    .animation(.easeInOut(duration: 0.15), value: isCollapsed)
-                Image(systemName: "folder")
-                    .scaledFont(size: 10)
-                    .foregroundStyle(.secondary)
-                Text(folderGroup.folderDisplayName)
-                    .scaledFont(size: 10, weight: .bold)
-                Text("\(visibleCount)")
-                    .scaledFont(size: 10)
-                    .foregroundStyle(.secondary)
-                Spacer()
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 5)
-            .background(.regularMaterial)
-        }
-        .buttonStyle(.plain)
-    }
-}
-
-/// Inline filter sub-header used inside a folder section when a single folder
-/// contains images from more than one filter group.
-struct FolderFilterSubHeader: View {
-    let group: FilterGroup
-    let count: Int
-
-    var body: some View {
-        HStack(spacing: 4) {
-            Circle()
-                .fill(group.color)
-                .frame(width: 6, height: 6)
-            Text(group.rawValue)
-                .scaledFont(size: 9, weight: .bold)
-            Text("\(count)")
-                .scaledFont(size: 9)
-                .foregroundStyle(.secondary)
-            Spacer()
-        }
-        .padding(.leading, 20)
-        .padding(.trailing, 12)
-        .padding(.vertical, 3)
-        .background(.quinary)
-    }
-}
-
-// MARK: - Toolbar
-
-struct FITSToolbar: View {
-    let store: ImageStore
-    @Environment(AppSettings.self) private var settings
-    @State private var showExportSheet = false
-    @State private var showAutoRejectSheet = false
-
-    var body: some View {
-        HStack {
-            Button("Open Folder…") {
-                store.openFolderPanel(settings: settings)
-            }
-            .keyboardShortcut("o", modifiers: .command)
-
-            // TODO: Open Files… is hidden until sandbox write-access for parent directories is resolved.
-            // Button("Open Files…") { store.openFilesPanel(settings: settings) }
-            //     .keyboardShortcut("o", modifiers: [.command, .shift])
-
-            Button("Reset") {
-                store.reset()
-            }
-            .disabled(store.entries.isEmpty)
-
-            Button {
-                settings.debayerColorImages.toggle()
-            } label: {
-                Label {
-                    Text(settings.debayerColorImages ? "Colour" : "Grey")
-                } icon: {
-                    if settings.debayerColorImages {
-                        Image(systemName: "camera.filters")
-                            .symbolRenderingMode(.palette)
-                            .foregroundStyle(Color.red, Color.green, Color.blue)
-                    } else {
-                        Image(systemName: "camera.filters")
-                            .symbolRenderingMode(.monochrome)
-                    }
-                }
-            }
-            .help(settings.debayerColorImages ? "Switch to greyscale" : "Switch to colour")
-
-            Button("Cancel") {
-                store.cancelProcessing()
-            }
-            .disabled(!store.isBatchProcessing)
-
-            if !store.flaggedEntryIDs.isEmpty {
-                Divider().frame(height: 20)
-                Text("\(store.flaggedEntryIDs.count) flagged")
-                    .scaledFont(size: 10)
-                    .foregroundStyle(.secondary)
-            }
-
-            Spacer()
-
-            if !settings.isSimpleMode {
-                Button("Auto-Flag", systemImage: "wand.and.stars") {
-                    showAutoRejectSheet = true
-                }
-                .help("Auto-flag frames below quality thresholds")
-                .disabled(store.entries.isEmpty)
-            }
-
-            Button("Export…", systemImage: "square.and.arrow.up") {
-                showExportSheet = true
-            }
-            .disabled(store.entries.isEmpty)
-
-            // Mode toggle: dial.low = "switch to Simple", dial.high = "switch to Geek"
-            Button("", systemImage: settings.isSimpleMode ? "dial.high" : "dial.low") {
-                settings.isSimpleMode.toggle()
-            }
-            .help(settings.isSimpleMode ? "Switch to Geek Mode (\(AppSettings.displayString(for: settings.toggleModeKey)))" : "Switch to Simple Mode (\(AppSettings.displayString(for: settings.toggleModeKey)))")
-
-            if !settings.isSimpleMode {
-                Button("", systemImage: "sidebar.right") {
-                    settings.showInspector.toggle()
-                }
-                .help(settings.showInspector ? "Hide Inspector" : "Show Inspector")
-            }
-        }
-        .padding()
-        .sheet(isPresented: $showExportSheet) {
-            ExportSheet(isPresented: $showExportSheet)
-                .environment(store)
-        }
-        .sheet(isPresented: $showAutoRejectSheet) {
-            AutoRejectSheet(isPresented: $showAutoRejectSheet)
-                .environment(store)
-        }
-    }
-}
-
-// MARK: - Main Content
-
-struct MainContent: View {
-    let store: ImageStore
-
-    var body: some View {
-        if let entry = store.selectedEntry {
-            if entry.isProcessing {
-                ProgressView("Stretching \(entry.fileName)…")
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else if let displayImage = entry.displayImage {
-                VStack(spacing: 0) {
-                    Text(entry.fileName)
-                        .scaledFont(size: 10)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                        .padding(.horizontal)
-                        .padding(.vertical, 4)
-                    Divider()
-                    ScrollView([.horizontal, .vertical]) {
-                        Image(nsImage: displayImage)
-                    }
-                    .id(entry.id)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .scrollIndicators(.hidden)
-
-                    Divider()
-                    InfoBar(store: store, entry: entry)
-                }
-            } else if let error = entry.errorMessage {
-                VStack {
-                    Image(systemName: "exclamationmark.triangle")
-                        .font(.largeTitle)
-                        .foregroundStyle(.red)
-                    Text(error)
-                        .scaledFont(size: 10)
-                        .foregroundStyle(.secondary)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-            }
-        } else {
-            VStack {
-                Image(systemName: "star.circle")
-                    .font(.largeTitle)
-                    .imageScale(.large)
-                    .foregroundStyle(.tertiary)
-                Text("Ready to Blast through your frames?")
-                    .font(.title3)
-                    .foregroundStyle(.secondary)
-                Text("Open a folder with \u{2318}O or drag it onto the window")
-                    .scaledFont(size: 10)
-                    .foregroundStyle(.tertiary)
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-        }
-    }
-}
-
-// MARK: - Info Bar
-
-private struct InfoBar: View {
-    let store: ImageStore
-    let entry: ImageEntry
-    @Environment(AppSettings.self) private var settings
-
-    var body: some View {
-        HStack {
-            if store.isBatchProcessing {
-                ProgressView().scaleEffect(0.5).frame(width: 12, height: 12)
-                Text("Processing…").scaledFont(size: 10).foregroundStyle(.secondary)
-                Button("Cancel", action: store.cancelProcessing)
-                    .scaledFont(size: 10)
-                    .buttonStyle(.plain)
-                    .foregroundStyle(.secondary)
-            } else if let msg = store.recolouringMessage {
-                ProgressView().scaleEffect(0.5).frame(width: 12, height: 12)
-                Text(msg).scaledFont(size: 10).foregroundStyle(.secondary)
-            } else if let elapsed = store.batchElapsed {
-                Text("\(elapsed, format: .number.precision(.fractionLength(2)))s for \(store.entries.count) images")
-                    .scaledFont(size: 10, monospaced: true)
-                    .foregroundStyle(.secondary)
-            }
-
-            Spacer()
-
-            // Inline metrics summary (Geek mode only)
-            if !settings.isSimpleMode, let m = entry.metrics, m.hasData {
-                HStack(spacing: 12) {
-                    if let v = m.fwhm        { MetricChip(label: "FWHM", value: "\(v.formatted(.number.precision(.fractionLength(1)))) px") }
-                    if let v = m.eccentricity { MetricChip(label: "Ecc",  value: v.formatted(.number.precision(.fractionLength(2)))) }
-                    if let v = m.snr          { MetricChip(label: "SNR",  value: v.formatted(.number.precision(.fractionLength(0)))) }
-                    if let v = m.starCount     { MetricChip(label: "★",   value: "\(v)") }
-                }
-            }
-
-            if !entry.imageInfo.isEmpty {
-                Text(entry.imageInfo)
-                    .scaledFont(size: 10)
-                    .foregroundStyle(.secondary)
-            }
-        }
-        .padding()
-    }
-}
-
-private struct MetricChip: View {
-    let label: String
-    let value: String
-
-    var body: some View {
-        HStack(spacing: 3) {
-            Text(label).foregroundStyle(.secondary)
-            Text(value)
-        }
-        .scaledFont(size: 10, monospaced: true)
-    }
-}
-
-// MARK: - Thumbnail Cell
-
-struct ThumbnailCell: View {
-    let entry: ImageEntry
-    @Environment(ImageStore.self) private var store
-    @Environment(AppSettings.self) private var settings
-    @AppStorage("sessionChartMetric") private var selectedMetric: ChartMetric = .score
-
-    private var isCursor: Bool { store.selectedEntry === entry }
-    private var isFlagged: Bool { store.flaggedEntryIDs.contains(entry.id) }
-    private var isMarkedForRejection: Bool { store.markedForRejectionIDs.contains(entry.id) }
-
-    private var groupStats: GroupStats? {
-        store.groupStatistics[entry.filterGroup]
-    }
-
-    var body: some View {
-        VStack(spacing: 4) {
-            ZStack(alignment: .topTrailing) {
-                ZStack(alignment: .topLeading) {
-                    thumbnailImage
-                    if isFlagged {
-                        Image(systemName: "checkmark.circle.fill")
-                            .foregroundStyle(.white, Color.accentColor)
-                            .font(.system(size: 14))
-                            .padding(4)
-                    }
-                }
-                if !settings.isSimpleMode, let metrics = entry.metrics, metrics.hasData {
-                    let stats = groupStats
-                    let problem = metrics.badgeProblem(stats: stats)
-                    let topThirdFloor = stats?.topThirdScoreFloor ?? Int.max
-                    QualityBadge(score: metrics.qualityScore,
-                                 color: metrics.badgeColor(problem: problem,
-                                                           isTopThird: metrics.qualityScore >= topThirdFloor),
-                                 problem: problem,
-                                 tooltipText: metrics.tooltipString)
-                }
-            }
-
-            Text(entry.fileName)
-                .scaledFont(size: 9)
-                .lineLimit(1)
-                .truncationMode(.middle)
-
-            if !settings.isSimpleMode {
-                HStack(spacing: 4) {
-                    if let filter = entry.filterName {
-                        Text(filter)
-                            .scaledFont(size: 9)
-                            .foregroundStyle(.secondary)
-                    }
-                    Spacer(minLength: 0)
-                    if let value = selectedMetric.value(for: entry.metrics) {
-                        Text("\(selectedMetric.shortLabel) \(selectedMetric.formattedValue(value))")
-                            .scaledFont(size: 9)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-            }
-        }
-        .padding()
-        .background(
-            RoundedRectangle(cornerRadius: 6)
-                .fill(isMarkedForRejection ? Color.orange.opacity(0.15) :
-                      isCursor ? Color.accentColor.opacity(0.2) : Color.clear)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 6)
-                .stroke(isMarkedForRejection ? Color.orange :
-                        isCursor ? Color.accentColor : Color.clear, lineWidth: 2)
-        )
-    }
-
-    @ViewBuilder
-    private var thumbnailImage: some View {
-        if entry.isProcessing {
-            RoundedRectangle(cornerRadius: 4)
-                .fill(.quaternary)
-                .aspectRatio(1, contentMode: .fit)
-                .overlay { ProgressView().scaleEffect(0.6) }
-        } else if let thumbnail = entry.thumbnail {
-            Image(nsImage: thumbnail)
-                .resizable()
-                .aspectRatio(contentMode: .fit)
-                .clipShape(.rect(cornerRadius: 4))
-                .overlay { if entry.isRejected { RejectionOverlay() } }
-        } else {
-            RoundedRectangle(cornerRadius: 4)
-                .fill(.quaternary)
-                .aspectRatio(1, contentMode: .fit)
-                .overlay {
-                    Image(systemName: "exclamationmark.triangle").foregroundStyle(.red)
-                }
-        }
-    }
-}
-
-// MARK: - Quality Badge
-
-struct QualityBadge: View {
-    let score: Int
-    let color: Color
-    let problem: BadgeProblem?
-    let tooltipText: String
-
-    var body: some View {
-        HStack(spacing: 2) {
-            if let problem {
-                Image(systemName: problem.systemImage)
-                    .scaledFont(size: 7)
-            }
-            Text("\(score)")
-                .scaledFont(size: 9, weight: .bold)
-        }
-        .padding(.horizontal, 3)
-        .padding(.vertical, 1)
-        .background(color)
-        .clipShape(.rect(cornerRadius: 3))
-        .foregroundStyle(.white)
-        .padding(4)
-        .help(tooltipText)
-    }
-}
-
-// MARK: - Rejection Overlay
 
 // MARK: - Window Accessor
 
@@ -1039,24 +335,6 @@ private struct WindowAccessor: NSViewRepresentable {
 
     func updateNSView(_ nsView: NSView, context: Context) {
         Task { @MainActor in self.onWindow(nsView.window) }
-    }
-}
-
-// MARK: - Rejection Overlay
-
-struct RejectionOverlay: View {
-    var body: some View {
-        GeometryReader { geometry in
-            let w = geometry.size.width
-            let h = geometry.size.height
-            Path { path in
-                path.move(to: CGPoint(x: 0, y: 0))
-                path.addLine(to: CGPoint(x: w, y: h))
-                path.move(to: CGPoint(x: w, y: 0))
-                path.addLine(to: CGPoint(x: 0, y: h))
-            }
-            .stroke(.red, lineWidth: 3)
-        }
     }
 }
 

@@ -8,6 +8,7 @@
 
 /* Begin PBXFileReference section */
 		65BA7E912F52EE16002B50D4 /* FITS Blaster.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "FITS Blaster.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		65BA7F002F52EE16002B50D4 /* FITS Blaster Tests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "FITS Blaster Tests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -16,10 +17,22 @@
 			path = "FITS Blaster";
 			sourceTree = "<group>";
 		};
+		65BA7F012F52EE16002B50D4 /* FITS Blaster Tests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = "FITS Blaster Tests";
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		65BA7E8E2F52EE16002B50D4 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		65BA7F032F52EE16002B50D4 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -33,6 +46,7 @@
 			isa = PBXGroup;
 			children = (
 				65BA7E932F52EE16002B50D4 /* FITS Blaster */,
+				65BA7F012F52EE16002B50D4 /* FITS Blaster Tests */,
 				65BA7E922F52EE16002B50D4 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -41,6 +55,7 @@
 			isa = PBXGroup;
 			children = (
 				65BA7E912F52EE16002B50D4 /* FITS Blaster.app */,
+				65BA7F002F52EE16002B50D4 /* FITS Blaster Tests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -70,6 +85,27 @@
 			productReference = 65BA7E912F52EE16002B50D4 /* FITS Blaster.app */;
 			productType = "com.apple.product-type.application";
 		};
+		65BA7F042F52EE16002B50D4 /* FITS Blaster Tests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 65BA7F072F52EE18002B50D4 /* Build configuration list for PBXNativeTarget "FITS Blaster Tests" */;
+			buildPhases = (
+				65BA7F022F52EE16002B50D4 /* Sources */,
+				65BA7F032F52EE16002B50D4 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				65BA7F012F52EE16002B50D4 /* FITS Blaster Tests */,
+			);
+			name = "FITS Blaster Tests";
+			packageProductDependencies = (
+			);
+			productName = "FITS Blaster Tests";
+			productReference = 65BA7F002F52EE16002B50D4 /* FITS Blaster Tests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -82,6 +118,10 @@
 				TargetAttributes = {
 					65BA7E902F52EE16002B50D4 = {
 						CreatedOnToolsVersion = 26.3;
+					};
+					65BA7F042F52EE16002B50D4 = {
+						CreatedOnToolsVersion = 26.3;
+						TestTargetID = 65BA7E902F52EE16002B50D4;
 					};
 				};
 			};
@@ -100,6 +140,7 @@
 			projectRoot = "";
 			targets = (
 				65BA7E902F52EE16002B50D4 /* FITS Blaster */,
+				65BA7F042F52EE16002B50D4 /* FITS Blaster Tests */,
 			);
 		};
 /* End PBXProject section */
@@ -116,6 +157,13 @@
 
 /* Begin PBXSourcesBuildPhase section */
 		65BA7E8D2F52EE16002B50D4 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		65BA7F022F52EE16002B50D4 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -345,6 +393,45 @@
 			};
 			name = Release;
 		};
+		65BA7F052F52EE18002B50D4 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 6GBJ9SAJ6Y;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 15.6;
+				PRODUCT_BUNDLE_IDENTIFIER = com.astrophotoapp.FitsBlasterTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/FITS Blaster.app/Contents/MacOS/FITS Blaster";
+			};
+			name = Debug;
+		};
+		65BA7F062F52EE18002B50D4 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 6GBJ9SAJ6Y;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 15.6;
+				PRODUCT_BUNDLE_IDENTIFIER = com.astrophotoapp.FitsBlasterTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/FITS Blaster.app/Contents/MacOS/FITS Blaster";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -362,6 +449,15 @@
 			buildConfigurations = (
 				65BA7E9D2F52EE18002B50D4 /* Debug */,
 				65BA7E9E2F52EE18002B50D4 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		65BA7F072F52EE18002B50D4 /* Build configuration list for PBXNativeTarget "FITS Blaster Tests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				65BA7F052F52EE18002B50D4 /* Debug */,
+				65BA7F062F52EE18002B50D4 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

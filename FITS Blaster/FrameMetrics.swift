@@ -98,6 +98,15 @@ struct FrameMetrics: Sendable {
                             qualityScore: MetricsCalculator.qualityScore(fwhm: f, eccentricity: e, snr: s, starCount: sc))
     }
 
+    /// True when this cached result already provides every metric requested by `config`.
+    func covers(_ config: MetricsConfig) -> Bool {
+        if config.computeFWHM         && fwhm         == nil { return false }
+        if config.computeEccentricity && eccentricity == nil { return false }
+        if config.computeSNR          && snr          == nil { return false }
+        if config.computeStarCount    && starCount    == nil { return false }
+        return true
+    }
+
     /// True when at least one metric was actually computed.
     var hasData: Bool {
         fwhm != nil || eccentricity != nil || snr != nil || starCount != nil

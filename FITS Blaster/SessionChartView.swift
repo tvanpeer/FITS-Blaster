@@ -18,6 +18,16 @@ enum ChartMetric: String, CaseIterable, Identifiable {
 
     var id: String { rawValue }
 
+    var helpText: String {
+        switch self {
+        case .score:        return "Overall quality score (composite of all metrics)"
+        case .fwhm:         return "Full Width at Half Maximum — smaller is sharper"
+        case .eccentricity: return "Star eccentricity — closer to 0 is rounder"
+        case .snr:          return "Signal-to-Noise Ratio — higher is better"
+        case .starCount:    return "Number of detected stars"
+        }
+    }
+
     /// Extract a chartable Double from a FrameMetrics value.
     /// Returns nil if this metric was not computed or has no data.
     func value(for metrics: FrameMetrics?) -> Double? {
@@ -91,6 +101,7 @@ enum ChartMetric: String, CaseIterable, Identifiable {
 /// - Drag across a range to select multiple frames and batch-reject them.
 struct SessionChartView: View {
     @Environment(ImageStore.self) private var store
+    @Environment(AppSettings.self) private var settings
 
     @AppStorage("sessionChartMetric") private var selectedMetric: ChartMetric = .score
     /// View-space X positions tracked during a drag gesture.
@@ -215,12 +226,14 @@ struct SessionChartView: View {
                     }
                     .buttonStyle(.borderedProminent)
                     .controlSize(.mini)
+                    .help(metric.helpText)
                 } else {
                     Button { selectedMetric = metric } label: {
                         Text(metric.rawValue).scaledFont(size: 10)
                     }
                     .buttonStyle(.bordered)
                     .controlSize(.mini)
+                    .help(metric.helpText)
                 }
             }
 
@@ -302,9 +315,9 @@ struct SessionChartView: View {
                 let isFlagged = store.flaggedEntryIDs.contains(item.entry.id)
                 let hasFlaggedSet = !store.flaggedEntryIDs.isEmpty
                 // Brightness: flagged/cursor = full, non-flagged = dimmed when flag set active,
-                //             rejected = always dimmed regardless of flag set.
-                let opacity: Double = if item.entry.isRejected { 0.30 }
-                    else if hasFlaggedSet && !isFlagged && !isCursor { 0.40 }
+                //             rejected = always strongly dimmed regardless of flag set.
+                let opacity: Double = if item.entry.isRejected { settings.rejectedDotOpacity }
+                    else if hasFlaggedSet && !isFlagged && !isCursor { settings.dimmedDotOpacity }
                     else { 1.0 }
                 PointMark(
                     x: .value("Frame", item.index + 1),   // 1-based label
