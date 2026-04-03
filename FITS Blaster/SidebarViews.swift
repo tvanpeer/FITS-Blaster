@@ -17,24 +17,9 @@ struct ThumbnailSidebar: View {
     /// The last entry that received a plain or cmd+click — used as the anchor for shift+click range.
     @State private var lastClickedID: UUID? = nil
 
-    /// Folder paths whose thumbnail rows are currently hidden.
-    @State private var collapsedFolderPaths: Set<String> = []
-
     /// Ordered list of entries currently rendered in the sidebar, used for shift+click range.
     private var visibleEntries: [ImageEntry] {
-        if settings.isSimpleMode || store.sidebarFilterGroup != nil
-            || (!store.isMultiFilter && !store.isMultiFolder) {
-            return store.visibilityFilteredEntries
-        }
-        // Multi-folder mode: return entries in folder → filter section order, skipping collapsed.
-        if store.isMultiFolder {
-            return store.groupedByFolderAndFilter
-                .filter { !collapsedFolderPaths.contains($0.folderPath) }
-                .flatMap { folder in folder.filterGroups.flatMap { $0.1 } }
-                .filter { store.isVisible($0) }
-        }
-        // Single folder, multi-filter: visibility-grouped order.
-        return store.visibilityGroupedSortedEntries.flatMap { $0.entries }
+        store.sidebarNavigationEntries(isSimpleMode: settings.isSimpleMode)
     }
 
     var body: some View {
@@ -95,7 +80,7 @@ struct ThumbnailSidebar: View {
                         } else if store.isMultiFolder {
                             // Folder mode: one section per subfolder, with optional filter sub-headers
                             ForEach(store.groupedByFolderAndFilter) { folderGroup in
-                                let isCollapsed = collapsedFolderPaths.contains(folderGroup.folderPath)
+                                let isCollapsed = store.collapsedFolderPaths.contains(folderGroup.folderPath)
                                 Section {
                                     if !isCollapsed {
                                         if folderGroup.filterGroups.count > 1 {
@@ -124,11 +109,7 @@ struct ThumbnailSidebar: View {
                                         visibleCount: visibleCount,
                                         isCollapsed: isCollapsed
                                     ) {
-                                        if isCollapsed {
-                                            collapsedFolderPaths.remove(folderGroup.folderPath)
-                                        } else {
-                                            collapsedFolderPaths.insert(folderGroup.folderPath)
-                                        }
+                                        store.toggleFolderCollapsed(folderGroup.folderPath)
                                     }
                                 }
                             }

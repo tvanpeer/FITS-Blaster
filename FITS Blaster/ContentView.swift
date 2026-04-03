@@ -186,10 +186,10 @@ struct ContentView: View {
         case .deselectAll:       store.deselectAll()
         case .invertSelection:   store.invertSelection()
         case .selectAllRejected: store.selectAllRejected()
-        case .first:             store.selectFirst()
-        case .last:              store.selectLast()
-        case .previous:          store.selectPrevious()
-        case .next:              store.selectNext()
+        case .first:             store.selectFirst(in: sidebarNavigationEntries)
+        case .last:              store.selectLast(in: sidebarNavigationEntries)
+        case .previous:          store.selectPrevious(in: sidebarNavigationEntries)
+        case .next:              store.selectNext(in: sidebarNavigationEntries)
         case .reject:
             if settings.useToggleReject { store.toggleRejectSelected() } else { store.rejectSelected() }
         case .undo:
@@ -202,6 +202,12 @@ struct ContentView: View {
         case .debayer:     settings.debayerColorImages.toggle()
         }
         return true
+    }
+
+    /// Entries in thumbnail-sidebar visual order — used by keyboard navigation so
+    /// ↑/↓ always step through frames in the same sequence shown in the strip.
+    private var sidebarNavigationEntries: [ImageEntry] {
+        store.sidebarNavigationEntries(isSimpleMode: settings.isSimpleMode)
     }
 
     // MARK: - Key handling
@@ -238,10 +244,10 @@ struct ContentView: View {
                 if shift, !mods.contains(.command), !mods.contains(.option), !mods.contains(.control) {
                     if let key = Self.keyString(from: event) {
                         if key == self.settings.prevImageKey {
-                            self.store.extendSelectionPrevious(); return nil
+                            self.store.extendSelectionPrevious(in: self.sidebarNavigationEntries); return nil
                         }
                         if key == self.settings.nextImageKey {
-                            self.store.extendSelectionNext(); return nil
+                            self.store.extendSelectionNext(in: self.sidebarNavigationEntries); return nil
                         }
                     }
                 }

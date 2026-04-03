@@ -230,6 +230,18 @@ final class ImageStore {
     /// Updated only at batch boundaries alongside `groupStatistics`.
     private(set) var groupedByFolderAndFilter: [FolderGroup] = []
 
+    /// Folder paths whose thumbnail rows are currently collapsed in the sidebar.
+    /// Stored here (not in the view) so keyboard navigation can skip hidden entries.
+    var collapsedFolderPaths: Set<String> = []
+
+    func toggleFolderCollapsed(_ path: String) {
+        if collapsedFolderPaths.contains(path) {
+            collapsedFolderPaths.remove(path)
+        } else {
+            collapsedFolderPaths.insert(path)
+        }
+    }
+
     // MARK: - Filter grouping
 
     /// Unique filter groups present in the loaded session, in canonical display order.
@@ -518,6 +530,7 @@ final class ImageStore {
         knownRootURLs = []
         activeFolderPaths = []
         groupedByFolderAndFilter = []
+        collapsedFolderPaths = []
         visibilityFilteredEntries = []
     }
 
@@ -555,8 +568,7 @@ final class ImageStore {
     // MARK: - Extend selection
 
     /// Extends the range selection one step toward earlier entries and moves the cursor.
-    func extendSelectionPrevious() {
-        let ordered = visibilityFilteredEntries
+    func extendSelectionPrevious(in ordered: [ImageEntry]) {
         guard let current = selectedEntry,
               let index = ordered.firstIndex(where: { $0 === current }) else { return }
         guard index > 0 else { NSSound.beep(); return }
@@ -567,8 +579,7 @@ final class ImageStore {
     }
 
     /// Extends the range selection one step toward later entries and moves the cursor.
-    func extendSelectionNext() {
-        let ordered = visibilityFilteredEntries
+    func extendSelectionNext(in ordered: [ImageEntry]) {
         guard let current = selectedEntry,
               let index = ordered.firstIndex(where: { $0 === current }) else { return }
         guard index < ordered.count - 1 else { NSSound.beep(); return }
@@ -580,20 +591,38 @@ final class ImageStore {
 
     // MARK: - Navigation
 
-    func selectFirst() {
-        let ordered = visibilityFilteredEntries
+    /// Returns entries in the same order they appear in the thumbnail sidebar,
+    /// so keyboard navigation (↑/↓) matches visual position in the strip.
+    ///
+    /// - In simple mode, with a filter selected, or with a single folder+filter:
+    ///   the sidebar is a flat list — return `visibilityFilteredEntries`.
+    /// - Multi-folder: entries follow folder → filter section order.
+    /// - Single folder, multiple filters: entries follow filter-group section order.
+    func sidebarNavigationEntries(isSimpleMode: Bool) -> [ImageEntry] {
+        if isSimpleMode || sidebarFilterGroup != nil || (!isMultiFilter && !isMultiFolder) {
+            return visibilityFilteredEntries
+        }
+        if isMultiFolder {
+            return groupedByFolderAndFilter
+                .filter { !collapsedFolderPaths.contains($0.folderPath) }
+                .flatMap { folder in folder.filterGroups.flatMap { $0.1 } }
+                .filter { isVisible($0) }
+        }
+        // Single folder, multiple filters — grouped by filter type.
+        return visibilityGroupedSortedEntries.flatMap { $0.entries }
+    }
+
+    func selectFirst(in ordered: [ImageEntry]) {
         guard let first = ordered.first else { return }
         if selectedEntry === first { NSSound.beep() } else { selectedEntry = first }
     }
 
-    func selectLast() {
-        let ordered = visibilityFilteredEntries
+    func selectLast(in ordered: [ImageEntry]) {
         guard let last = ordered.last else { return }
         if selectedEntry === last { NSSound.beep() } else { selectedEntry = last }
     }
 
-    func selectPrevious() {
-        let ordered = visibilityFilteredEntries
+    func selectPrevious(in ordered: [ImageEntry]) {
         guard !ordered.isEmpty else { return }
         guard let current = selectedEntry,
               let index = ordered.firstIndex(where: { $0 === current }) else {
@@ -607,8 +636,7 @@ final class ImageStore {
         }
     }
 
-    func selectNext() {
-        let ordered = visibilityFilteredEntries
+    func selectNext(in ordered: [ImageEntry]) {
         guard !ordered.isEmpty else { return }
         guard let current = selectedEntry,
               let index = ordered.firstIndex(where: { $0 === current }) else {
