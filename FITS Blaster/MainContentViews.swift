@@ -118,17 +118,6 @@ struct FITSToolbar: View {
                     .foregroundStyle(.secondary)
             }
 
-            // Progress during batch load or colour re-render — placed here so it lives
-            // outside the MainContent/ScrollView layout tree and cannot cause layout
-            // propagation into the image display area.
-            if store.isBatchProcessing {
-                BatchProgressBar(store: store, showLoadedMetrics: true)
-                    .frame(maxWidth: 280)
-            } else if store.recolouringMessage != nil {
-                BatchProgressBar(store: store, showLoadedMetrics: false)
-                    .frame(maxWidth: 280)
-            }
-
             Spacer()
 
             if !settings.isSimpleMode {
@@ -239,7 +228,11 @@ private struct InfoBar: View {
 
     var body: some View {
         HStack {
-            if let elapsed = store.batchElapsed {
+            if store.isBatchProcessing {
+                BatchProgressBar(store: store, showLoadedMetrics: true)
+            } else if store.recolouringMessage != nil {
+                BatchProgressBar(store: store, showLoadedMetrics: false)
+            } else if let elapsed = store.batchElapsed {
                 Text("\(elapsed, format: .number.precision(.fractionLength(2)))s for \(store.entries.count) images")
                     .scaledFont(size: 10, monospaced: true)
                     .foregroundStyle(.secondary)
