@@ -112,14 +112,13 @@ struct ThumbnailSidebar: View {
                                 thumbnailButton(for: entry)
                             }
                         } else {
-                            // Geek mode, single folder, multiple filters: group by filter
+                            // Geek mode, single folder, multiple filters: group by filter.
+                            // Header is placed inline (not in a Section) to avoid Xcode 16
+                            // misresolving Section as Chart.Section when Charts is in scope.
                             ForEach(store.visibilityGroupedSortedEntries, id: \.group) { group, entries in
-                                Section {
-                                    ForEach(entries) { entry in
-                                        thumbnailButton(for: entry)
-                                    }
-                                } header: {
-                                    FilterGroupHeader(group: group, entries: entries)
+                                FilterGroupHeader(group: group, entries: entries)
+                                ForEach(entries) { entry in
+                                    thumbnailButton(for: entry)
                                 }
                             }
                         }
