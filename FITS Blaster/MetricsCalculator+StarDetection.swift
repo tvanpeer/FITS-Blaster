@@ -155,9 +155,9 @@ extension MetricsCalculator {
     ///      tuples (~1–2 ms at memory-bandwidth speed).
     ///
     /// Returns nil if Metal is unavailable, letting the caller fall back to CPU.
-    @concurrent static func findLocalMaximaGPU(metalBuffer: MTLBuffer,
-                                               width: Int, height: Int,
-                                               threshold: Float) async -> GPUDetectionResult? {
+    static func findLocalMaximaGPU(metalBuffer: MTLBuffer,
+                                   width: Int, height: Int,
+                                   threshold: Float) async -> GPUDetectionResult? {
         guard let queue    = detectionCommandQueue,
               let pipeline = detectionPipelineState,
               let device   = detectionDevice else { return nil }

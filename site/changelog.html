@@ -213,6 +213,20 @@
 
 <div class="content">
 
+    <!-- v1.19.4 -->
+    <div class="entry">
+        <div class="entry-header">
+            <div class="entry-title">Concurrency revert — v1.19.4</div>
+            <div class="entry-date">2026-04-04</div>
+        </div>
+        <div class="section">
+            <span class="section-label label-fixed">Fixed</span>
+            <ul>
+                <li>Reverted <code>@concurrent</code> pipeline annotations. The attribute causes a ~2× slowdown when compiled with Xcode 16 and is not yet safe to use in CI builds. Restores the throughput of v1.19.1.</li>
+            </ul>
+        </div>
+    </div>
+
     <!-- v1.19.3 -->
     <div class="entry">
         <div class="entry-header">

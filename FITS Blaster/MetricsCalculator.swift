@@ -134,9 +134,9 @@ struct MetricsCalculator {
     ///
     /// Falls back to the CPU path automatically if the Metal pipeline is
     /// unavailable (e.g. CI, sandboxed test environment).
-    @concurrent static func compute(metalBuffer: MTLBuffer, device: MTLDevice,
-                                    width: Int, height: Int,
-                                    config: MetricsConfig) async -> FrameMetrics? {
+    static func compute(metalBuffer: MTLBuffer, device: MTLDevice,
+                        width: Int, height: Int,
+                        config: MetricsConfig) async -> FrameMetrics? {
         guard config.needsStarDetection else { return nil }
         let count = width * height
         guard count > 0 else { return nil }
@@ -172,8 +172,8 @@ struct MetricsCalculator {
     /// CPU entry point for plain float arrays (e.g. CPU fallback read path).
     /// Scans a centre crop capped at 4096 × 4096 to keep compute time bounded
     /// on very large images. For full-frame analysis use the Metal entry point.
-    @concurrent static func compute(pixels: [Float], width: Int, height: Int,
-                                    config: MetricsConfig) async -> FrameMetrics? {
+    static func compute(pixels: [Float], width: Int, height: Int,
+                        config: MetricsConfig) async -> FrameMetrics? {
         guard config.needsStarDetection, !pixels.isEmpty else { return nil }
         // `pixels` is a value parameter whose heap storage is kept alive for the entire
         // duration of this async function. We extract the base address here (before the
@@ -189,8 +189,8 @@ struct MetricsCalculator {
 
     /// CPU entry point for a raw pointer (retained for callers that already have
     /// a pointer and do not need full-frame GPU detection).
-    @concurrent static func compute(ptr: UnsafePointer<Float>, count: Int, width: Int, height: Int,
-                                    config: MetricsConfig) async -> FrameMetrics? {
+    static func compute(ptr: UnsafePointer<Float>, count: Int, width: Int, height: Int,
+                        config: MetricsConfig) async -> FrameMetrics? {
         guard config.needsStarDetection, count > 0 else { return nil }
         let pixels = UnsafeBufferPointer(start: ptr, count: count)
         return await computeImpl(pixels: pixels, width: width, height: height, config: config)
@@ -202,8 +202,8 @@ struct MetricsCalculator {
     /// Returns `StarDetectionData` whose crops carry all pixel data needed for
     /// Phase B shape measurement. The MTLBuffer may be released immediately after
     /// this method returns — no buffer pointer is retained in the result.
-    @concurrent static func extractStarData(metalBuffer: MTLBuffer, width: Int, height: Int,
-                                            config: MetricsConfig) async -> StarDetectionData? {
+    static func extractStarData(metalBuffer: MTLBuffer, width: Int, height: Int,
+                                config: MetricsConfig) async -> StarDetectionData? {
         guard config.needsStarDetection else { return nil }
         let count = width * height
         guard count > 0 else { return nil }
@@ -261,8 +261,8 @@ struct MetricsCalculator {
 
     /// Phase B: measure star quality from pre-extracted crops.
     /// No MTLBuffer or file access needed — all pixel data lives in `starData`.
-    @concurrent static func measureFromCrops(starData: StarDetectionData,
-                                             config: MetricsConfig) async -> FrameMetrics? {
+    static func measureFromCrops(starData: StarDetectionData,
+                                  config: MetricsConfig) async -> FrameMetrics? {
         let background  = starData.background
         let sigma       = starData.sigma
         let needMeasure = config.computeFWHM || config.computeEccentricity || config.computeSNR
@@ -349,8 +349,8 @@ struct MetricsCalculator {
     /// CPU-only implementation. Scans a centre crop capped at 4096² (16× larger
     /// than the old 1024² limit) to cover most of a 16 MP frame while keeping
     /// compute time bounded for the rare cases where Metal is unavailable.
-    @concurrent private static func computeImpl(pixels: UnsafeBufferPointer<Float>, width: Int, height: Int,
-                                                config: MetricsConfig) async -> FrameMetrics? {
+    private static func computeImpl(pixels: UnsafeBufferPointer<Float>, width: Int, height: Int,
+                                     config: MetricsConfig) async -> FrameMetrics? {
         // 4096² cap: large enough to cover most or all of a typical 16 MP sensor,
         // while bounding worst-case CPU time to ~80 ms for 48 MP+ files.
         let cropW = min(width,  4096)
@@ -375,11 +375,11 @@ struct MetricsCalculator {
     /// Shared measurement stage: filters raw candidates, fits PSF models sequentially,
     /// and assembles the final FrameMetrics. Called by both the GPU and CPU paths
     /// after their respective detection steps.
-    @concurrent private static func measureCandidates(allCandidates: [StarCandidate],
-                                                     pixels: UnsafeBufferPointer<Float>,
-                                                     background: Float, sigma: Float,
-                                                     width: Int, height: Int,
-                                                     config: MetricsConfig) async -> FrameMetrics? {
+    private static func measureCandidates(allCandidates: [StarCandidate],
+                                          pixels: UnsafeBufferPointer<Float>,
+                                          background: Float, sigma: Float,
+                                          width: Int, height: Int,
+                                          config: MetricsConfig) async -> FrameMetrics? {
 
         let needMeasure = config.computeFWHM || config.computeEccentricity || config.computeSNR
 

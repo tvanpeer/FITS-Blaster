@@ -4,6 +4,13 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-04-04 — v1.19.4 concurrency revert
+
+### Fixed
+- Reverted all `@concurrent` annotations back to `nonisolated`. The `@concurrent` attribute causes a ~2× slowdown when compiled with Xcode 16 (Swift 6.0/6.1), regardless of whether `SWIFT_APPROACHABLE_CONCURRENCY` is enabled. Restores the pipeline throughput of 1.19.1.
+
+---
+
 ## 2026-04-04 — v1.19.3 concurrency performance hotfix
 
 ### Fixed

@@ -112,7 +112,7 @@ extension ImageStore {
     /// This function is `nonisolated` so Swift runs it on the cooperative thread
     /// pool rather than the main actor, keeping the UI responsive even when files
     /// are stored on iCloud Drive, SMB mounts, or a loaded SSD.
-    @concurrent static func filterItems(
+    nonisolated static func filterItems(
         _ items: [(url: URL, subfolderPath: String)],
         existingURLs: Set<URL>
     ) async -> (valid: [(url: URL, subfolderPath: String)], skippedFloat: [String]) {
@@ -293,7 +293,7 @@ extension ImageStore {
         }
     }
 
-    @concurrent static func loadMetricsOnly(url: URL,
+    nonisolated static func loadMetricsOnly(url: URL,
                                             config: MetricsConfig) async -> FrameMetrics? {
         let didStart = url.startAccessingSecurityScopedResource()
         defer { if didStart { url.stopAccessingSecurityScopedResource() } }
@@ -629,7 +629,7 @@ extension ImageStore {
 
     /// Re-reads a single FITS file and renders it in colour with the given shared clip bounds.
     /// Called by `normalizeBayerStretch`; file reads are fast from the warm OS page cache.
-    @concurrent static func recolorBayerEntry(
+    nonisolated static func recolorBayerEntry(
         url: URL, rOffset: UInt32, clips: BayerClips,
         maxDisplaySize: Int, maxThumbnailSize: Int
     ) async -> (display: NSImage, thumb: NSImage?)? {
@@ -655,7 +655,7 @@ extension ImageStore {
     ///
     /// The returned `FastLoadResult.metalBuffer` is retained so Phase B can run
     /// GPU star-detection on the same buffer without a second file read.
-    @concurrent static func loadFast(url: URL,
+    nonisolated static func loadFast(url: URL,
                                      maxDisplaySize: Int = 1024,
                                      maxThumbnailSize: Int = 120,
                                      debayerColorImages: Bool = false) async -> FastLoadResult {
