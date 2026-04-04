@@ -15,7 +15,15 @@ jobs:
 
       - name: Select Xcode
         run: |
-          sudo xcode-select -s /Applications/Xcode.app
+          echo "Available Xcode installations:"
+          ls /Applications/ | grep -i xcode
+          XCODE16=$(ls /Applications/ | grep -E "^Xcode_16" | sort -V | tail -1)
+          if [ -n "$XCODE16" ]; then
+            echo "Selecting $XCODE16"
+            sudo xcode-select -s "/Applications/$XCODE16"
+          else
+            echo "Xcode 16 not found, using runner default"
+          fi
           xcodebuild -version
 
       - name: Install certificate
