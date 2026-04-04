@@ -555,8 +555,28 @@ extension ImageStore {
 
         let concurrency = max(4, ProcessInfo.processInfo.activeProcessorCount - 2)
 
-        // Invalidate cached colour renders when the shared clips change (new images added, etc.)
-        // We detect this by checking if any entry in a folder lacks a cached colour render.
+        // Render the selected entry first so the image on screen switches to colour
+        // immediately, before the rest of the batch is processed.
+        if let selected = selectedEntry,
+           selected.cachedColourDisplay == nil,
+           let folderEntries = folderGroups[selected.qualifiedFolderPath] {
+            let allClips    = folderEntries.compactMap(\.bayerClips)
+            let sharedClips = BayerClips.median(of: allClips)
+            if sharedClips.isValid,
+               let pattern = BayerPattern.parse(from: selected.headers),
+               let (display, thumb) = await Self.recolorBayerEntry(
+                   url: selected.url, rOffset: pattern.rOffset, clips: sharedClips,
+                   maxDisplaySize: maxDisplaySize, maxThumbnailSize: maxThumbnailSize) {
+                selected.cachedColourDisplay = display
+                selected.cachedColourThumb   = thumb
+                selected.displayImage        = display
+                selected.thumbnail           = thumb
+                batchColourCount += 1
+            }
+        }
+
+        // Render the rest concurrently. Entries already cached by the priority render
+        // above will skip the task and just swap from cache.
         await withTaskGroup(of: Void.self) { group in
             var activeCount = 0
             for (_, folderEntries) in folderGroups {
