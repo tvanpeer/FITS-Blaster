@@ -4,6 +4,13 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-04-04 — v1.19.2 concurrency performance fix
+
+### Fixed
+- Restored full parallel pipeline throughput when building with Xcode 26 (Swift 6.2). All async functions in the image loading, stretching, and metrics pipeline are now marked `@concurrent`, guaranteeing they always run on the cooperative thread pool rather than the main actor. This fixes a ~3× slowdown introduced by the Swift 6.2 SE-0461 concurrency model changes.
+
+---
+
 ## 2026-04-04 — v1.19.1 progress bar and colour rendering fixes
 
 ### Improved

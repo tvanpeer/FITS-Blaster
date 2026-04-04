@@ -107,8 +107,8 @@ struct ImageStretcher {
     /// Stretch using pixel data already in a Metal shared buffer.
     /// The input buffer's contents are consumed (overwritten by percentile estimation is separate).
     /// Returns the NSImage and the retained output Metal buffer (caller doesn't need to manage it).
-    static func createImage(inputBuffer: MTLBuffer, width: Int, height: Int,
-                            maxDisplaySize: Int = 0) async -> NSImage? {
+    @concurrent static func createImage(inputBuffer: MTLBuffer, width: Int, height: Int,
+                                        maxDisplaySize: Int = 0) async -> NSImage? {
         let pixelCount = width * height
 
         // Read percentiles from the shared buffer without copying
@@ -182,7 +182,7 @@ struct ImageStretcher {
     /// GPU-accelerated stretch. The kernel downsamples directly to the display size in a
     /// single pass — no post-GPU CPU scaling needed. Output Metal buffer is zero-copy into
     /// CGDataProvider.
-    private static func metalStretch(
+    @concurrent private static func metalStretch(
         inputBuffer: MTLBuffer, width: Int, height: Int,
         lowClip: Float, highClip: Float, maxDisplaySize: Int = 0
     ) async -> NSImage? {
@@ -275,9 +275,9 @@ struct ImageStretcher {
     /// GPU-accelerated Bayer demosaic + stretch using pre-computed clip bounds.
     /// Call `computeBayerClips` first to obtain `clips`, then pass the median/shared
     /// clips here for consistent stretch across a folder of images.
-    static func createBayerImage(inputBuffer: MTLBuffer, width: Int, height: Int,
-                                 rOffset: UInt32, clips: BayerClips,
-                                 maxDisplaySize: Int = 0) async -> NSImage? {
+    @concurrent static func createBayerImage(inputBuffer: MTLBuffer, width: Int, height: Int,
+                                             rOffset: UInt32, clips: BayerClips,
+                                             maxDisplaySize: Int = 0) async -> NSImage? {
         guard clips.isValid else { return nil }
         return await metalBayerStretch(inputBuffer: inputBuffer, width: width, height: height,
                                        rOffset: rOffset, clips: clips, maxDisplaySize: maxDisplaySize)
@@ -292,7 +292,7 @@ struct ImageStretcher {
         return estimateBayerPerChannelPercentiles(ptr, width: width, height: height, rOffset: rOffset)
     }
 
-    private static func metalBayerStretch(
+    @concurrent private static func metalBayerStretch(
         inputBuffer: MTLBuffer, width: Int, height: Int,
         rOffset: UInt32, clips: BayerClips,
         maxDisplaySize: Int = 0
