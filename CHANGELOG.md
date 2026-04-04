@@ -4,6 +4,13 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-04-04 — v1.19.5 switch CI to Xcode 26, restore @concurrent
+
+### Improved
+- CI now builds with Xcode 26.3 (previously Xcode 16.4). `@concurrent` pipeline annotations and `SWIFT_APPROACHABLE_CONCURRENCY` are fully effective under Xcode 26 and no longer cause the slowdown seen with the older compiler.
+
+---
+
 ## 2026-04-04 — v1.19.4 concurrency revert
 
 ### Fixed
