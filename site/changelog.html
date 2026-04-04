@@ -213,6 +213,20 @@
 
 <div class="content">
 
+    <!-- v1.19.2 -->
+    <div class="entry">
+        <div class="entry-header">
+            <div class="entry-title">Concurrency performance fix — v1.19.2</div>
+            <div class="entry-date">2026-04-04</div>
+        </div>
+        <div class="section">
+            <span class="section-label label-fixed">Fixed</span>
+            <ul>
+                <li>Restored full parallel pipeline throughput when building with Xcode 26 (Swift 6.2). A Swift 6.2 concurrency change (SE-0461) was causing the image-loading pipeline to run serially on the main thread, producing a ~3× slowdown. All pipeline async functions are now marked <code>@concurrent</code> to guarantee thread-pool execution.</li>
+            </ul>
+        </div>
+    </div>
+
     <!-- v1.19.1 -->
     <div class="entry">
         <div class="entry-header">
