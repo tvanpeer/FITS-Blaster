@@ -270,7 +270,7 @@ extension ImageStore {
                         computeStarCount:    metricsConfig.computeStarCount    && c?.starCount    == nil
                     )
                     let url = entry.url
-                    group.addTask {
+                    group.addTask { [weak self] in
                         let newMetrics = await Self.loadMetricsOnly(url: url, config: missingConfig)
                         await MainActor.run {
                             if let newMetrics {
@@ -334,6 +334,11 @@ extension ImageStore {
                          metricsConfig: MetricsConfig = MetricsConfig(),
                          debayerColorImages: Bool = false) async {
 
+        // Reset colour counters for this pass so a grey-mode pass never shows a stale
+        // Colour bar from a previous colour session.
+        batchBayerTotal = 0
+        batchColourCount = 0
+
         // Phase A: high I/O concurrency keeps the SSD pipeline full.
         // Phase B: bounded separately to prevent CPU/memory over-subscription.
         let ioConcurrency   = max(8, ProcessInfo.processInfo.activeProcessorCount)
@@ -384,7 +389,7 @@ extension ImageStore {
                     // while still freeing this group slot immediately after.
                     guard metricsConfig.needsStarDetection else { return (entry, nil) }
                     await phaseBSemaphore.wait()
-                    let phaseB = Task(priority: .utility) {
+                    let phaseB = Task(priority: .utility) { [weak self] in
                         defer { Task { await phaseBSemaphore.signal() } }
 
                         let metrics: FrameMetrics?
@@ -449,14 +454,18 @@ extension ImageStore {
                 recolouringMessage = "Rendering colour…"
                 defer { recolouringMessage = nil }
                 // Compute clip bounds for any entry loaded before debayer was enabled.
+                let needsClips = bayerEntries.filter { $0.bayerClips == nil }
+                // Set up sampling progress. Pre-credit entries whose clips are already known.
+                batchSamplingTotal = bayerEntries.count
+                batchSamplingCount = bayerEntries.count - needsClips.count
                 let concurrency = max(4, ProcessInfo.processInfo.activeProcessorCount - 2)
                 await withTaskGroup(of: Void.self) { group in
                     var active = 0
-                    for entry in bayerEntries where entry.bayerClips == nil {
+                    for entry in needsClips {
                         if active >= concurrency { await group.next(); active -= 1 }
                         let url     = entry.url
                         let headers = entry.headers
-                        group.addTask {
+                        group.addTask { [weak self] in
                             let didStart = url.startAccessingSecurityScopedResource()
                             defer { if didStart { url.stopAccessingSecurityScopedResource() } }
                             guard let pattern = BayerPattern.parse(from: headers),
@@ -467,7 +476,10 @@ extension ImageStore {
                                 result.metalBuffer,
                                 width: result.metadata.width, height: result.metadata.height,
                                 rOffset: pattern.rOffset)
-                            await MainActor.run { entry.bayerClips = clips }
+                            await MainActor.run {
+                                entry.bayerClips = clips
+                                self?.batchSamplingCount += 1
+                            }
                         }
                         active += 1
                     }
@@ -531,6 +543,8 @@ extension ImageStore {
         // Collect entries that have Bayer clips (means debayerColorImages was true during load)
         let bayerEntries = entries.filter { $0.bayerClips != nil }
         guard !bayerEntries.isEmpty else { return }
+        batchBayerTotal = bayerEntries.count
+        batchColourCount = 0
         recolouringMessage = "Rendering colour…"
         defer { recolouringMessage = nil }
 
@@ -584,6 +598,7 @@ extension ImageStore {
                             entry.cachedColourThumb   = thumb
                             entry.displayImage = display
                             entry.thumbnail    = thumb
+                            self.batchColourCount += 1
                         }
                     }
                     activeCount += 1

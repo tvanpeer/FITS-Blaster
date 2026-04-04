@@ -118,6 +118,17 @@ struct FITSToolbar: View {
                     .foregroundStyle(.secondary)
             }
 
+            // Progress during batch load or colour re-render — placed here so it lives
+            // outside the MainContent/ScrollView layout tree and cannot cause layout
+            // propagation into the image display area.
+            if store.isBatchProcessing {
+                BatchProgressBar(store: store, showLoadedMetrics: true)
+                    .frame(maxWidth: 280)
+            } else if store.recolouringMessage != nil {
+                BatchProgressBar(store: store, showLoadedMetrics: false)
+                    .frame(maxWidth: 280)
+            }
+
             Spacer()
 
             if !settings.isSimpleMode {
@@ -228,17 +239,7 @@ private struct InfoBar: View {
 
     var body: some View {
         HStack {
-            if store.isBatchProcessing {
-                ProgressView().scaleEffect(0.5).frame(width: 12, height: 12)
-                Text("Processing…").scaledFont(size: 10).foregroundStyle(.secondary)
-                Button("Cancel", action: store.cancelProcessing)
-                    .scaledFont(size: 10)
-                    .buttonStyle(.plain)
-                    .foregroundStyle(.secondary)
-            } else if let msg = store.recolouringMessage {
-                ProgressView().scaleEffect(0.5).frame(width: 12, height: 12)
-                Text(msg).scaledFont(size: 10).foregroundStyle(.secondary)
-            } else if let elapsed = store.batchElapsed {
+            if let elapsed = store.batchElapsed {
                 Text("\(elapsed, format: .number.precision(.fractionLength(2)))s for \(store.entries.count) images")
                     .scaledFont(size: 10, monospaced: true)
                     .foregroundStyle(.secondary)
@@ -263,6 +264,94 @@ private struct InfoBar: View {
             }
         }
         .padding()
+    }
+}
+
+// MARK: - Batch Progress Bar
+
+private struct BatchProgressBar: View {
+    let store: ImageStore
+    /// True during an active batch load (shows Loaded + Metrics + Cancel).
+    /// False during a post-load colour toggle (shows Colour bar only).
+    let showLoadedMetrics: Bool
+    @Environment(AppSettings.self) private var settings
+
+    /// Polled every 200 ms by the .task modifier — never read in body directly
+    /// so that property-level @Observable tracking on individual ImageEntry objects
+    /// is not established, which would re-render this view on every per-entry change.
+    @State private var loadedCount: Int = 0
+    @State private var metricsCount: Int = 0
+
+    var body: some View {
+        let total = store.entries.count
+        VStack(alignment: .leading, spacing: 3) {
+            if showLoadedMetrics {
+                // Hide Loaded once all images are on screen — avoids showing a
+                // 100 % bar during a metrics-only recompute triggered by a mode switch.
+                if loadedCount < total {
+                    ProgressBarRow(label: "Loaded", value: loadedCount, total: total, color: .teal)
+                }
+                // Metrics bar is hidden in simple mode (metrics are not computed).
+                // It appears automatically once the user switches to geek mode and
+                // a reprocess begins, because isSimpleMode becomes false.
+                if !settings.isSimpleMode {
+                    ProgressBarRow(label: "Metrics", value: metricsCount, total: total, color: .indigo)
+                }
+            }
+            // Sampling bar appears during the clip-computation phase of colour rendering,
+            // before actual colour output begins.
+            if store.batchSamplingCount < store.batchSamplingTotal {
+                ProgressBarRow(label: "Sampling", value: store.batchSamplingCount, total: store.batchSamplingTotal, color: .mint)
+            }
+            // Colour bar appears only once normalizeBayerStretch sets batchBayerTotal —
+            // during initial colour load and when toggling colour mode after a grey load.
+            if store.batchColourCount < store.batchBayerTotal {
+                ProgressBarRow(label: "Colour", value: store.batchColourCount, total: store.batchBayerTotal, color: .orange)
+            }
+        }
+        .task {
+            // Poll entry state every 200 ms. Running in a .task closure (not in body)
+            // means @Observable tracking is NOT established for individual entries,
+            // so this view is never re-rendered by per-entry isProcessing/metrics changes.
+            repeat {
+                loadedCount  = store.entries.filter { !$0.isProcessing }.count
+                metricsCount = store.entries.filter {  $0.metrics != nil }.count
+                try? await Task.sleep(for: .milliseconds(200))
+            } while !Task.isCancelled
+        }
+    }
+}
+
+private struct ProgressBarRow: View {
+    let label: String
+    let value: Int
+    let total: Int
+    let color: Color
+
+    private var fraction: Double {
+        total > 0 ? min(1, Double(value) / Double(total)) : 0
+    }
+
+    var body: some View {
+        HStack(spacing: 5) {
+            Text(label)
+                .scaledFont(size: 9)
+                .foregroundStyle(.secondary)
+                .frame(width: 48, alignment: .trailing)
+            Capsule()
+                .fill(color.opacity(0.2))
+                .overlay(alignment: .leading) {
+                    Capsule()
+                        .fill(color)
+                        .scaleEffect(x: fraction, anchor: .leading)
+                        .animation(.linear(duration: 0.2), value: fraction)
+                }
+                .frame(height: 4)
+            Text("\(value) / \(total)")
+                .scaledFont(size: 9, monospaced: true)
+                .foregroundStyle(.secondary)
+                .frame(width: 52, alignment: .trailing)
+        }
     }
 }
 

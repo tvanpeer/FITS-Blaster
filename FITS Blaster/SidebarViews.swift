@@ -66,24 +66,14 @@ struct ThumbnailSidebar: View {
                         // Note: .id(store.rejectionVisibility) below forces complete
                         // recreation of the lazy container when the filter changes,
                         // ensuring stale views don't persist across filter switches.
-                        if settings.isSimpleMode {
-                            // Simple mode: plain filename-ordered flat list, no grouping
-                            ForEach(store.visibilityFilteredEntries) { entry in
-                                thumbnailButton(for: entry)
-                            }
-                        } else if store.sidebarFilterGroup != nil
-                            || (!store.isMultiFilter && !store.isMultiFolder) {
-                            // Flat list: a filter is selected, or there's only one folder+filter
-                            ForEach(store.visibilityFilteredEntries) { entry in
-                                thumbnailButton(for: entry)
-                            }
-                        } else if store.isMultiFolder {
-                            // Folder mode: one section per subfolder, with optional filter sub-headers
+                        if store.isMultiFolder {
+                            // Multi-folder: folder sections in both simple and geek mode.
+                            // Geek mode adds filter sub-headers within each folder.
                             ForEach(store.groupedByFolderAndFilter) { folderGroup in
                                 let isCollapsed = store.collapsedFolderPaths.contains(folderGroup.folderPath)
                                 Section {
                                     if !isCollapsed {
-                                        if folderGroup.filterGroups.count > 1 {
+                                        if !settings.isSimpleMode && folderGroup.filterGroups.count > 1 {
                                             ForEach(folderGroup.filterGroups, id: \.0) { group, groupEntries in
                                                 let visibleGroupEntries = groupEntries.filter { store.isVisible($0) }
                                                 if !visibleGroupEntries.isEmpty {
@@ -94,7 +84,7 @@ struct ThumbnailSidebar: View {
                                                 }
                                             }
                                         } else {
-                                            ForEach((folderGroup.filterGroups.first?.1 ?? []).filter { store.isVisible($0) }) { entry in
+                                            ForEach(folderGroup.filterGroups.flatMap { $0.1 }.filter { store.isVisible($0) }) { entry in
                                                 thumbnailButton(for: entry)
                                             }
                                         }
@@ -113,8 +103,16 @@ struct ThumbnailSidebar: View {
                                     }
                                 }
                             }
+                        } else if store.sidebarFilterGroup != nil
+                            || settings.isSimpleMode
+                            || !store.isMultiFilter {
+                            // Flat list: simple mode (single folder), filter selected,
+                            // or only one filter type present
+                            ForEach(store.visibilityFilteredEntries) { entry in
+                                thumbnailButton(for: entry)
+                            }
                         } else {
-                            // Single folder, multiple filters: group by filter
+                            // Geek mode, single folder, multiple filters: group by filter
                             ForEach(store.visibilityGroupedSortedEntries, id: \.group) { group, entries in
                                 Section {
                                     ForEach(entries) { entry in

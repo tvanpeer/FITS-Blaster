@@ -186,6 +186,18 @@ final class ImageStore {
     /// Internal (not private(set)) so the pipeline extension can update it.
     var processingTask: Task<Void, Never>?
 
+    // MARK: - Batch progress counters
+    // batchLoadedCount and batchMetricsCount are intentionally absent: updating them
+    // per-image via MainActor.run creates back-pressure that serialises the pipeline.
+    // BatchProgressBar polls entry state every 200 ms instead (see its .task modifier).
+    // Only the lower-frequency colour/sampling counters are stored here.
+    /// Set to the Bayer entry count when normalizeBayerStretch begins; 0 at all other times.
+    var batchBayerTotal: Int = 0
+    var batchColourCount: Int = 0
+    /// Tracks per-channel clip sampling before colour rendering begins (recolorImages path).
+    var batchSamplingTotal: Int = 0
+    var batchSamplingCount: Int = 0
+
     /// Non-nil while a Bayer re-render pass is running; the value is the status message to display.
     /// Internal (not private(set)) so the pipeline extension can update it.
     var recolouringMessage: String? = nil
@@ -532,6 +544,10 @@ final class ImageStore {
         groupedByFolderAndFilter = []
         collapsedFolderPaths = []
         visibilityFilteredEntries = []
+        batchBayerTotal = 0
+        batchColourCount = 0
+        batchSamplingTotal = 0
+        batchSamplingCount = 0
     }
 
     // MARK: - Range selection helpers (Cmd+A / Cmd+D / Cmd+I)
@@ -599,16 +615,19 @@ final class ImageStore {
     /// - Multi-folder: entries follow folder → filter section order.
     /// - Single folder, multiple filters: entries follow filter-group section order.
     func sidebarNavigationEntries(isSimpleMode: Bool) -> [ImageEntry] {
-        if isSimpleMode || sidebarFilterGroup != nil || (!isMultiFilter && !isMultiFolder) {
-            return visibilityFilteredEntries
-        }
+        // Multi-folder: always navigate in folder → filter section order, skipping collapsed.
+        // Applies in both simple and geek mode since both show folder headers.
         if isMultiFolder {
             return groupedByFolderAndFilter
                 .filter { !collapsedFolderPaths.contains($0.folderPath) }
                 .flatMap { folder in folder.filterGroups.flatMap { $0.1 } }
                 .filter { isVisible($0) }
         }
-        // Single folder, multiple filters — grouped by filter type.
+        // Simple mode (single folder) or a filter strip selection: flat list.
+        if isSimpleMode || sidebarFilterGroup != nil || !isMultiFilter {
+            return visibilityFilteredEntries
+        }
+        // Geek mode, single folder, multiple filters — grouped by filter type.
         return visibilityGroupedSortedEntries.flatMap { $0.entries }
     }
 
