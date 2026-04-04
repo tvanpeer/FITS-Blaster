@@ -4,6 +4,15 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-04-04 — v1.19.1 progress bar and colour rendering fixes
+
+### Improved
+- Progress bars (Loaded, Metrics, Sampling, Colour) are now shown below the main image again, next to the elapsed-time indicator, instead of in the toolbar.
+- The currently selected image now switches to colour immediately when colour rendering begins, rather than waiting for its turn in the batch queue.
+- Release builds are now arm64-only, matching the GitHub-distributed binary and restoring native Apple Silicon performance for local builds.
+
+---
+
 ## 2026-04-04 — v1.19.0 batch progress bars
 
 ### Added
