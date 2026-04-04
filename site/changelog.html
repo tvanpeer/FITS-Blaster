@@ -213,6 +213,20 @@
 
 <div class="content">
 
+    <!-- v1.19.3 -->
+    <div class="entry">
+        <div class="entry-header">
+            <div class="entry-title">Concurrency performance hotfix — v1.19.3</div>
+            <div class="entry-date">2026-04-04</div>
+        </div>
+        <div class="section">
+            <span class="section-label label-fixed">Fixed</span>
+            <ul>
+                <li>Restored full pipeline throughput in the release binary. The SE-0461 concurrency setting added in 1.19.2 was silently ignored by the Xcode 16 compiler, causing metrics computation to serialise on the main thread and producing a ~2× slowdown.</li>
+            </ul>
+        </div>
+    </div>
+
     <!-- v1.19.2 -->
     <div class="entry">
         <div class="entry-header">
