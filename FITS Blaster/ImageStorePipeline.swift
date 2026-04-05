@@ -3,7 +3,7 @@
 //  FITS Blaster
 //
 //  Loading pipeline: openFiles, reprocessAll, recomputeMetrics, processParallel,
-//  recolorImages, normalizeBayerStretch, and the nonisolated fast-load helpers.
+//  recolorImages, renderFolderInColour, and the nonisolated fast-load helpers.
 //
 
 import Foundation
@@ -329,34 +329,51 @@ extension ImageStore {
     /// task using the retained MTLBuffer. Concurrency is bounded by
     /// `phaseBSemaphore` (acquired in the group task after Phase A, before
     /// the slot is freed), keeping live MTLBuffer count and memory predictable.
+    ///
+    /// **Colour normalisation** — fires per folder as soon as all entries in
+    /// that folder complete Phase A, while their FITS pages are still warm in
+    /// the OS file cache. Runs concurrently with Phase B and Phase A for other
+    /// folders, rather than waiting for the entire batch to finish.
     func processParallel(_ entriesToProcess: [ImageEntry], selectFirst: Bool,
                          maxDisplaySize: Int = 1024, maxThumbnailSize: Int = 120,
                          metricsConfig: MetricsConfig = MetricsConfig(),
                          debayerColorImages: Bool = false) async {
 
         // Reset colour counters for this pass so a grey-mode pass never shows a stale
-        // Colour bar from a previous colour session.
-        batchBayerTotal = 0
+        // Colour bar from a previous colour session. When debayering, set the total
+        // upfront to the full entry count so the bar stays visible for the entire load
+        // rather than flickering in/out as each folder completes.
+        batchBayerTotal  = debayerColorImages ? entriesToProcess.count : 0
         batchColourCount = 0
 
         // Phase A: high I/O concurrency keeps the SSD pipeline full.
         // Phase B: bounded separately to prevent CPU/memory over-subscription.
         let ioConcurrency   = max(8, ProcessInfo.processInfo.activeProcessorCount)
         let phaseBSemaphore = AsyncSemaphore(count: max(4, ProcessInfo.processInfo.activeProcessorCount - 2))
-        var phaseBTasks: [Task<Void, Never>] = []
+        var phaseBTasks:   [Task<Void, Never>] = []
+        var colourTasks:   [Task<Void, Never>] = []
 
-        await withTaskGroup(of: (ImageEntry, Task<Void, Never>?).self) { group in
+        // Pre-group entries by folder so each folder's colour task can access its siblings.
+        // Only built when colour debayering is enabled — avoids the allocation otherwise.
+        let folderEntriesMap: [String: [ImageEntry]] = debayerColorImages
+            ? Dictionary(grouping: entriesToProcess, by: \.qualifiedFolderPath)
+            : [:]
+        let folderTracker = FolderTracker(grouping: entriesToProcess)
+
+        await withTaskGroup(of: (ImageEntry, Task<Void, Never>?, Task<Void, Never>?).self) { group in
             var activeCount = 0
             for entry in entriesToProcess {
                 if Task.isCancelled { break }
 
                 if activeCount >= ioConcurrency {
-                    if let (_, phaseB) = await group.next() {
-                        if let t = phaseB { phaseBTasks.append(t) }
+                    if let (_, phaseB, colour) = await group.next() {
+                        if let t = phaseB  { phaseBTasks.append(t) }
+                        if let t = colour  { colourTasks.append(t) }
                     }
                     activeCount -= 1
                 }
-                let url = entry.url
+                let url  = entry.url
+                let path = entry.qualifiedFolderPath
                 group.addTask { [weak self] in
                     // ── Phase A: I/O + histogram + GPU stretch ────────────────
                     let fast = await Self.loadFast(url: url,
@@ -383,11 +400,30 @@ extension ImageStore {
                         }
                     }
 
+                    // ── Per-folder colour normalisation (streaming) ───────────
+                    // When every entry in a folder has finished Phase A the per-channel
+                    // Bayer clips are all available. Fire the colour render immediately
+                    // while those FITS pages are still warm in the OS file cache —
+                    // rather than waiting for the entire batch (including Phase B) to
+                    // finish, by which time the cache may have been evicted.
+                    var colourTask: Task<Void, Never>? = nil
+                    if debayerColorImages {
+                        let folderDone = await folderTracker.complete(path: path)
+                        if folderDone, let fEntries = folderEntriesMap[path] {
+                            colourTask = Task(priority: .utility) { [weak self] in
+                                guard let self else { return }
+                                await self.renderFolderInColour(fEntries,
+                                                                maxDisplaySize: maxDisplaySize,
+                                                                maxThumbnailSize: maxThumbnailSize)
+                            }
+                        }
+                    }
+
                     // ── Phase B: GPU detection + Moffat fitting ───────────────
                     // Acquire a Phase B slot before spawning the detached task.
                     // This bounds the number of live MTLBuffers to phaseBSemaphore.count
                     // while still freeing this group slot immediately after.
-                    guard metricsConfig.needsStarDetection else { return (entry, nil) }
+                    guard metricsConfig.needsStarDetection else { return (entry, nil, colourTask) }
                     await phaseBSemaphore.wait()
                     let phaseB = Task(priority: .utility) { [weak self] in
                         defer { Task { await phaseBSemaphore.signal() } }
@@ -406,12 +442,13 @@ extension ImageStore {
                             entry.cachedMetrics = metrics
                         }
                     }
-                    return (entry, phaseB)
+                    return (entry, phaseB, colourTask)
                 }
                 activeCount += 1
             }
-            for await (_, phaseB) in group {
-                if let t = phaseB { phaseBTasks.append(t) }
+            for await (_, phaseB, colour) in group {
+                if let t = phaseB  { phaseBTasks.append(t) }
+                if let t = colour  { colourTasks.append(t) }
             }
         }
 
@@ -422,13 +459,13 @@ extension ImageStore {
             await task.value
         }
 
-        updateGroupStatistics()
-
-        if !Task.isCancelled, debayerColorImages {
-            await normalizeBayerStretch(entriesToProcess,
-                                        maxDisplaySize: maxDisplaySize,
-                                        maxThumbnailSize: maxThumbnailSize)
+        // Wait for any per-folder colour tasks that are still running.
+        for task in colourTasks {
+            if Task.isCancelled { break }
+            await task.value
         }
+
+        updateGroupStatistics()
     }
 
     /// Re-renders only display images and thumbnails for Bayer frames when the
@@ -453,25 +490,64 @@ extension ImageStore {
             if debayer {
                 recolouringMessage = "Rendering colour…"
                 defer { recolouringMessage = nil }
-                // Compute clip bounds for any entry loaded before debayer was enabled.
+
                 let needsClips = bayerEntries.filter { $0.bayerClips == nil }
-                // Set up sampling progress. Pre-credit entries whose clips are already known.
+                // Set progress counters upfront so the bars are stable for the full run.
                 batchSamplingTotal = bayerEntries.count
                 batchSamplingCount = bayerEntries.count - needsClips.count
+                batchBayerTotal    = bayerEntries.count
+                batchColourCount   = 0
+
+                // Group by folder to enable per-folder streaming: colour rendering fires
+                // as soon as all entries in a folder are sampled, rather than waiting for
+                // the entire set to finish sampling.
+                let folderEntriesMap = Dictionary(grouping: bayerEntries, by: \.qualifiedFolderPath)
+                let folderTracker    = FolderTracker(grouping: bayerEntries)
+                var colourTasks: [Task<Void, Never>] = []
+
+                // Pre-credit entries that already have clips. If every entry in a folder
+                // was loaded in colour mode previously, that folder can render immediately.
+                for entry in bayerEntries where entry.bayerClips != nil {
+                    if await folderTracker.complete(path: entry.qualifiedFolderPath),
+                       let fEntries = folderEntriesMap[entry.qualifiedFolderPath] {
+                        let t = Task(priority: .utility) { [weak self] in
+                            guard let self else { return }
+                            await self.renderFolderInColour(fEntries,
+                                                           maxDisplaySize: maxDisplaySize,
+                                                           maxThumbnailSize: maxThumbnailSize)
+                        }
+                        colourTasks.append(t)
+                    }
+                }
+
                 let concurrency = max(4, ProcessInfo.processInfo.activeProcessorCount - 2)
-                await withTaskGroup(of: Void.self) { group in
+                await withTaskGroup(of: String?.self) { group in
                     var active = 0
                     for entry in needsClips {
-                        if active >= concurrency { await group.next(); active -= 1 }
+                        // Drain a result before adding another task when at capacity.
+                        while active >= concurrency {
+                            guard let taskResult = await group.next() else { break }
+                            if let path = taskResult, let fEntries = folderEntriesMap[path] {
+                                let t = Task(priority: .utility) { [weak self] in
+                                    guard let self else { return }
+                                    await self.renderFolderInColour(fEntries,
+                                                                   maxDisplaySize: maxDisplaySize,
+                                                                   maxThumbnailSize: maxThumbnailSize)
+                                }
+                                colourTasks.append(t)
+                            }
+                            active -= 1
+                        }
                         let url     = entry.url
                         let headers = entry.headers
+                        let path    = entry.qualifiedFolderPath
                         group.addTask { [weak self] in
                             let didStart = url.startAccessingSecurityScopedResource()
                             defer { if didStart { url.stopAccessingSecurityScopedResource() } }
                             guard let pattern = BayerPattern.parse(from: headers),
                                   let device  = ImageStretcher.metalDevice,
                                   let result  = try? FITSReader.readIntoBuffer(from: url, device: device)
-                            else { return }
+                            else { return nil }
                             let clips = ImageStretcher.computeBayerClips(
                                 result.metalBuffer,
                                 width: result.metadata.width, height: result.metadata.height,
@@ -480,13 +556,27 @@ extension ImageStore {
                                 entry.bayerClips = clips
                                 self?.batchSamplingCount += 1
                             }
+                            // Return the folder path if this was the last entry in the folder
+                            // to be sampled, signalling that colour rendering can now begin.
+                            return await folderTracker.complete(path: path) ? path : nil
                         }
                         active += 1
                     }
+                    // Drain remaining results and fire any outstanding colour tasks.
+                    for await taskResult in group {
+                        if let path = taskResult, let fEntries = folderEntriesMap[path] {
+                            let t = Task(priority: .utility) { [weak self] in
+                                guard let self else { return }
+                                await self.renderFolderInColour(fEntries,
+                                                               maxDisplaySize: maxDisplaySize,
+                                                               maxThumbnailSize: maxThumbnailSize)
+                            }
+                            colourTasks.append(t)
+                        }
+                    }
                 }
-                // Re-render in colour with per-folder median clips.
-                await normalizeBayerStretch(bayerEntries, maxDisplaySize: maxDisplaySize,
-                                            maxThumbnailSize: maxThumbnailSize)
+                // Wait for all per-folder colour renders to finish.
+                for task in colourTasks { await task.value }
             } else {
                 // Re-render Bayer images as greyscale; metrics and histogram are unchanged.
                 // Use cached greyscale renders if available to avoid file re-reads.
@@ -533,102 +623,81 @@ extension ImageStore {
         }
     }
 
-    /// Post-batch colour normalisation for Bayer images.
+    /// Renders one folder group's Bayer images in colour using the per-channel median of
+    /// the individual `bayerClips` already computed during Phase A or sampling.
     ///
-    /// Groups Bayer entries by subfolder, computes per-channel median clip bounds,
-    /// then re-renders each image in colour with the shared clips.
-    /// File re-reads are cheap because the OS page cache is warm.
-    func normalizeBayerStretch(_ entries: [ImageEntry],
-                                maxDisplaySize: Int, maxThumbnailSize: Int) async {
-        // Collect entries that have Bayer clips (means debayerColorImages was true during load)
+    /// Called from `processParallel` and `recolorImages` as soon as all entries in a
+    /// folder complete their clip computation, while FITS pages are still warm in cache.
+    /// Updates `batchColourCount` so the Colour bar advances smoothly.
+    /// `batchBayerTotal` must be set to the full entry count by the caller upfront.
+    private func renderFolderInColour(_ entries: [ImageEntry],
+                                      maxDisplaySize: Int,
+                                      maxThumbnailSize: Int) async {
         let bayerEntries = entries.filter { $0.bayerClips != nil }
-        guard !bayerEntries.isEmpty else { return }
-        batchBayerTotal = bayerEntries.count
-        batchColourCount = 0
-        recolouringMessage = "Rendering colour…"
-        defer { recolouringMessage = nil }
 
-        // Group by qualifiedFolderPath so each root+subfolder combination gets its own
-        // median stretch — prevents cross-root colour normalisation when multiple root
-        // folders contain identically-named subfolders.
-        let folderGroups = Dictionary(grouping: bayerEntries, by: \.qualifiedFolderPath)
+        // Non-Bayer entries in this folder need no colour rendering — count them immediately
+        // so progress advances correctly against the full batchBayerTotal.
+        batchColourCount += entries.count - bayerEntries.count
+
+        guard !bayerEntries.isEmpty else { return }
+
+        let sharedClips = BayerClips.median(of: bayerEntries.compactMap(\.bayerClips))
+        guard sharedClips.isValid else { return }
+
+        // Render the selected entry first so the on-screen image switches to colour immediately.
+        if let selected = selectedEntry,
+           bayerEntries.contains(where: { $0 === selected }),
+           selected.cachedColourDisplay == nil,
+           let pattern = BayerPattern.parse(from: selected.headers),
+           let (display, thumb) = await Self.recolorBayerEntry(
+               url: selected.url, rOffset: pattern.rOffset, clips: sharedClips,
+               maxDisplaySize: maxDisplaySize, maxThumbnailSize: maxThumbnailSize) {
+            selected.cachedColourDisplay = display
+            selected.cachedColourThumb   = thumb
+            selected.displayImage        = display
+            selected.thumbnail           = thumb
+            batchColourCount += 1
+        }
 
         let concurrency = max(4, ProcessInfo.processInfo.activeProcessorCount - 2)
 
-        // Render the selected entry first so the image on screen switches to colour
-        // immediately, before the rest of the batch is processed.
-        if let selected = selectedEntry,
-           selected.cachedColourDisplay == nil,
-           let folderEntries = folderGroups[selected.qualifiedFolderPath] {
-            let allClips    = folderEntries.compactMap(\.bayerClips)
-            let sharedClips = BayerClips.median(of: allClips)
-            if sharedClips.isValid,
-               let pattern = BayerPattern.parse(from: selected.headers),
-               let (display, thumb) = await Self.recolorBayerEntry(
-                   url: selected.url, rOffset: pattern.rOffset, clips: sharedClips,
-                   maxDisplaySize: maxDisplaySize, maxThumbnailSize: maxThumbnailSize) {
-                selected.cachedColourDisplay = display
-                selected.cachedColourThumb   = thumb
-                selected.displayImage        = display
-                selected.thumbnail           = thumb
-                batchColourCount += 1
-            }
-        }
-
-        // Render the rest concurrently. Entries already cached by the priority render
-        // above will skip the task and just swap from cache.
         await withTaskGroup(of: Void.self) { group in
             var activeCount = 0
-            for (_, folderEntries) in folderGroups {
-                let allClips = folderEntries.compactMap(\.bayerClips)
-                let sharedClips = BayerClips.median(of: allClips)
-                guard sharedClips.isValid else { continue }
-
-                // If all entries in this folder already have a cached colour render, just swap.
-                let needsRender = folderEntries.filter { $0.cachedColourDisplay == nil }
-                if needsRender.isEmpty {
-                    for entry in folderEntries {
-                        entry.displayImage = entry.cachedColourDisplay
-                        entry.thumbnail    = entry.cachedColourThumb
-                    }
+            for entry in bayerEntries {
+                // Apply a cached colour render (e.g. the priority pass above) without a task.
+                if entry.cachedColourDisplay != nil {
+                    entry.displayImage = entry.cachedColourDisplay
+                    entry.thumbnail    = entry.cachedColourThumb
+                    batchColourCount += 1
                     continue
                 }
-
-                for entry in folderEntries {
-                    if activeCount >= concurrency {
-                        await group.next()
-                        activeCount -= 1
+                if activeCount >= concurrency { await group.next(); activeCount -= 1 }
+                let url     = entry.url
+                let headers = entry.headers
+                group.addTask {
+                    guard let pattern = BayerPattern.parse(from: headers),
+                          let (display, thumb) = await Self.recolorBayerEntry(
+                              url: url, rOffset: pattern.rOffset, clips: sharedClips,
+                              maxDisplaySize: maxDisplaySize, maxThumbnailSize: maxThumbnailSize
+                          ) else {
+                        await MainActor.run { self.batchColourCount += 1 }
+                        return
                     }
-                    // If this specific entry is cached, apply immediately without a task.
-                    if entry.cachedColourDisplay != nil && !needsRender.contains(where: { $0 === entry }) {
-                        entry.displayImage = entry.cachedColourDisplay
-                        entry.thumbnail    = entry.cachedColourThumb
-                        continue
+                    await MainActor.run {
+                        entry.cachedColourDisplay = display
+                        entry.cachedColourThumb   = thumb
+                        entry.displayImage        = display
+                        entry.thumbnail           = thumb
+                        self.batchColourCount += 1
                     }
-                    let url      = entry.url
-                    let headers  = entry.headers
-                    group.addTask {
-                        guard let pattern = BayerPattern.parse(from: headers) else { return }
-                        guard let (display, thumb) = await Self.recolorBayerEntry(
-                            url: url, rOffset: pattern.rOffset, clips: sharedClips,
-                            maxDisplaySize: maxDisplaySize, maxThumbnailSize: maxThumbnailSize
-                        ) else { return }
-                        await MainActor.run {
-                            entry.cachedColourDisplay = display
-                            entry.cachedColourThumb   = thumb
-                            entry.displayImage = display
-                            entry.thumbnail    = thumb
-                            self.batchColourCount += 1
-                        }
-                    }
-                    activeCount += 1
                 }
+                activeCount += 1
             }
         }
     }
 
     /// Re-reads a single FITS file and renders it in colour with the given shared clip bounds.
-    /// Called by `normalizeBayerStretch`; file reads are fast from the warm OS page cache.
+    /// Called by `normalizeBayerStretch` and `renderFolderInColour`.
     @concurrent static func recolorBayerEntry(
         url: URL, rOffset: UInt32, clips: BayerClips,
         maxDisplaySize: Int, maxThumbnailSize: Int
@@ -746,6 +815,28 @@ struct FastLoadResult {
     /// Per-channel Bayer clip bounds computed during the grey-pass.
     /// `nil` for non-Bayer images or when `debayerColorImages` is false.
     let bayerClips:  BayerClips?
+}
+
+// MARK: - FolderTracker
+
+/// Tracks per-folder Phase A completion counts across concurrent tasks.
+/// When all entries in a folder have completed Phase A, `complete(path:)` returns
+/// `true` exactly once — the signal to fire that folder's colour normalisation task.
+private actor FolderTracker {
+    private var completions: [String: Int] = [:]
+    private let totals: [String: Int]
+
+    init(grouping entries: [ImageEntry]) {
+        totals = Dictionary(grouping: entries, by: \.qualifiedFolderPath)
+            .mapValues(\.count)
+    }
+
+    /// Records one Phase A completion for `path`.
+    /// Returns `true` if this call is the last completion for that folder.
+    func complete(path: String) -> Bool {
+        completions[path, default: 0] += 1
+        return completions[path] == totals[path]
+    }
 }
 
 // MARK: - AsyncSemaphore

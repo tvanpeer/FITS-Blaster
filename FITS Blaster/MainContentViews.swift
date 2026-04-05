@@ -279,26 +279,20 @@ private struct BatchProgressBar: View {
         let total = store.entries.count
         VStack(alignment: .leading, spacing: 3) {
             if showLoadedMetrics {
-                // Hide Loaded once all images are on screen — avoids showing a
-                // 100 % bar during a metrics-only recompute triggered by a mode switch.
-                if loadedCount < total {
-                    ProgressBarRow(label: "Loaded", value: loadedCount, total: total, color: .teal)
-                }
-                // Metrics bar is hidden in simple mode (metrics are not computed).
-                // It appears automatically once the user switches to geek mode and
-                // a reprocess begins, because isSimpleMode becomes false.
+                ProgressBarRow(label: "Loaded", value: loadedCount, total: total, color: .teal)
+                // Hidden in simple mode — metrics are not computed there.
                 if !settings.isSimpleMode {
                     ProgressBarRow(label: "Metrics", value: metricsCount, total: total, color: .indigo)
                 }
             }
-            // Sampling bar appears during the clip-computation phase of colour rendering,
-            // before actual colour output begins.
-            if store.batchSamplingCount < store.batchSamplingTotal {
+            // Sampling and Colour bars appear only when colour rendering is active
+            // (batchSamplingTotal / batchBayerTotal are non-zero). They stay visible
+            // until the whole batch completes rather than disappearing when their own
+            // pipeline finishes.
+            if store.batchSamplingTotal > 0 {
                 ProgressBarRow(label: "Sampling", value: store.batchSamplingCount, total: store.batchSamplingTotal, color: .mint)
             }
-            // Colour bar appears only once normalizeBayerStretch sets batchBayerTotal —
-            // during initial colour load and when toggling colour mode after a grey load.
-            if store.batchColourCount < store.batchBayerTotal {
+            if store.batchBayerTotal > 0 {
                 ProgressBarRow(label: "Colour", value: store.batchColourCount, total: store.batchBayerTotal, color: .orange)
             }
         }
@@ -343,7 +337,7 @@ private struct ProgressBarRow: View {
             Text("\(value) / \(total)")
                 .scaledFont(size: 9, monospaced: true)
                 .foregroundStyle(.secondary)
-                .frame(width: 52, alignment: .trailing)
+                .fixedSize()
         }
     }
 }

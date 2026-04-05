@@ -191,7 +191,7 @@ final class ImageStore {
     // per-image via MainActor.run creates back-pressure that serialises the pipeline.
     // BatchProgressBar polls entry state every 200 ms instead (see its .task modifier).
     // Only the lower-frequency colour/sampling counters are stored here.
-    /// Set to the Bayer entry count when normalizeBayerStretch begins; 0 at all other times.
+    /// Set to the full entry count when colour rendering begins; 0 at all other times.
     var batchBayerTotal: Int = 0
     var batchColourCount: Int = 0
     /// Tracks per-channel clip sampling before colour rendering begins (recolorImages path).
