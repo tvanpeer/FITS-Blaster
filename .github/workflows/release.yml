@@ -53,6 +53,8 @@ jobs:
             DEVELOPMENT_TEAM="${{ secrets.DEVELOPMENT_TEAM }}" \
             CODE_SIGN_STYLE=Manual \
             CODE_SIGN_IDENTITY="${{ secrets.CODE_SIGN_IDENTITY }}" \
+            ARCHS="arm64 x86_64" \
+            ONLY_ACTIVE_ARCH=NO \
             2>&1 | tee /tmp/xcodebuild.log
           exit ${PIPESTATUS[0]}
 
@@ -89,11 +91,16 @@ jobs:
             --wait
           xcrun stapler staple "$DMG_PATH"
 
+      - name: Generate release notes
+        run: |
+          python3 scripts/release-notes.py 3 > "$RUNNER_TEMP/release-notes.md"
+          echo "RELEASE_NOTES_PATH=$RUNNER_TEMP/release-notes.md" >> "$GITHUB_ENV"
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           name: "FITS Blaster ${{ env.VERSION }}"
-          body_path: CHANGELOG.md
+          body_path: ${{ env.RELEASE_NOTES_PATH }}
           files: ${{ env.DMG_PATH }}
 
       - name: Update site
