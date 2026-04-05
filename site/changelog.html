@@ -213,6 +213,23 @@
 
 <div class="content">
 
+    <!-- v1.19.6 -->
+    <div class="entry">
+        <div class="entry-header">
+            <div class="entry-title">Per-folder streaming colour rendering — v1.19.6</div>
+            <div class="entry-date">2026-04-05</div>
+        </div>
+        <div class="section">
+            <span class="section-label label-improved">Improved</span>
+            <ul>
+                <li>Colour rendering now starts per-folder as soon as all entries in a folder are sampled, both during initial load and when switching from grey to colour mode. Previously the entire set had to finish sampling before any rendering began.</li>
+                <li>The Colour progress bar is visible for the entire duration of rendering and no longer flickers in and out between folders.</li>
+                <li>All progress bars (Loaded, Metrics, Sampling, Colour) now stay on screen until the full batch completes, rather than disappearing individually as each pipeline finishes.</li>
+                <li>Progress bar count text no longer clips with 4-digit image counts (1000+ images).</li>
+            </ul>
+        </div>
+    </div>
+
     <!-- v1.19.5 -->
     <div class="entry">
         <div class="entry-header">
