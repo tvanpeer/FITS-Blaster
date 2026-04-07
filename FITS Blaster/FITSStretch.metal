@@ -12,10 +12,15 @@ using namespace metal;
 struct StretchParams {
     float lowClip;      // 0.1% percentile value
     float highClip;     // 99.9% percentile value
-    uint  srcWidth;     // full-resolution input dimensions
-    uint  srcHeight;
+    uint  srcWidth;     // physical buffer width (pixels)
+    uint  srcHeight;    // physical buffer height (pixels)
     uint  dstWidth;     // output (display) dimensions — may be downscaled
     uint  dstHeight;
+    /// When 1, treat the source as half-resolution by mapping each output pixel
+    /// to a 2×2-aligned physical block. This averages each complete Bayer cell
+    /// into one luminance value, eliminating the screen-door pattern that appears
+    /// when raw Bayer mosaics are displayed in greyscale without demosaicing.
+    uint  bayerBin;
 };
 
 /// Single-pass compute kernel that performs:
@@ -24,11 +29,13 @@ struct StretchParams {
 ///   3. Percentile-clipped normalization: [lowClip, highClip] → [0, 1]
 ///   4. Gamma 2.2 stretch + Float → UInt8
 ///
-/// Each thread averages all source pixels whose centres fall within the output
-/// pixel's footprint, giving alias-free downsampling equivalent to vImageScale
-/// kvImageHighQualityResampling. At 1:1 (dstWidth == srcWidth) the footprint
-/// shrinks to exactly one source pixel and the result is identical to a direct
-/// point-sample kernel.
+/// When bayerBin=1 the scale is computed from srcWidth/2 × srcHeight/2 so that
+/// each output pixel's footprint covers an integer number of aligned 2×2 Bayer
+/// cells, producing alias-free greyscale regardless of the output scale factor.
+///
+/// When bayerBin=0 each thread averages all source pixels whose centres fall
+/// within the output pixel's footprint — alias-free downsampling equivalent to
+/// vImageScale kvImageHighQualityResampling.
 kernel void sqrtStretch(
     device const float*   inputPixels  [[ buffer(0) ]],
     device       uchar*   outputPixels [[ buffer(1) ]],
@@ -37,27 +44,37 @@ kernel void sqrtStretch(
 ) {
     if (gid.x >= params.dstWidth || gid.y >= params.dstHeight) return;
 
-    float scaleX = float(params.srcWidth)  / float(params.dstWidth);
-    float scaleY = float(params.srcHeight) / float(params.dstHeight);
+    // When bayerBin=1, use half the physical dimensions as the logical source so
+    // each logical pixel maps to exactly one 2×2 Bayer cell.
+    uint logW = params.bayerBin ? params.srcWidth  / 2u : params.srcWidth;
+    uint logH = params.bayerBin ? params.srcHeight / 2u : params.srcHeight;
 
-    // Source column range for this output pixel [sxStart, sxEnd] (inclusive).
-    uint sxStart   = uint(float(gid.x)        * scaleX);
-    uint sxEndExcl = uint(float(gid.x + 1u)   * scaleX);
-    uint sxEnd     = min(sxEndExcl > sxStart ? sxEndExcl - 1u : sxStart,
-                         params.srcWidth - 1u);
+    float scaleX = float(logW) / float(params.dstWidth);
+    float scaleY = float(logH) / float(params.dstHeight);
 
-    // Source row range with FITS vertical flip.
-    // gid.y = 0 → top of display → highest source rows (sky top = last FITS rows).
+    // Logical source column range for this output pixel [lxStart, lxEnd] (inclusive).
+    uint lxStart   = uint(float(gid.x)        * scaleX);
+    uint lxEndExcl = uint(float(gid.x + 1u)   * scaleX);
+    uint lxEnd     = min(lxEndExcl > lxStart ? lxEndExcl - 1u : lxStart, logW - 1u);
+
+    // Logical source row range with FITS vertical flip.
     uint flippedY  = params.dstHeight - 1u - gid.y;
-    uint syStart   = uint(float(flippedY)      * scaleY);
-    uint syEndExcl = uint(float(flippedY + 1u) * scaleY);
-    uint syEnd     = min(syEndExcl > syStart ? syEndExcl - 1u : syStart,
-                         params.srcHeight - 1u);
+    uint lyStart   = uint(float(flippedY)      * scaleY);
+    uint lyEndExcl = uint(float(flippedY + 1u) * scaleY);
+    uint lyEnd     = min(lyEndExcl > lyStart ? lyEndExcl - 1u : lyStart, logH - 1u);
+
+    // Map logical coordinates to physical pixel range.
+    // When bayerBin=1, each logical pixel spans a 2×2 physical block, so physical
+    // coords are 2× logical — ensuring the sum always covers aligned Bayer cells.
+    uint sxStart = params.bayerBin ? lxStart * 2u : lxStart;
+    uint sxEnd   = params.bayerBin ? min(lxEnd * 2u + 1u, params.srcWidth  - 1u) : lxEnd;
+    uint syStart = params.bayerBin ? lyStart * 2u : lyStart;
+    uint syEnd   = params.bayerBin ? min(lyEnd * 2u + 1u, params.srcHeight - 1u) : lyEnd;
 
     float sum = 0.0f;
     uint  n   = 0u;
     for (uint sy = syStart; sy <= syEnd; sy++) {
-        uint rowBase = sy * params.srcWidth;
+        uint rowBase = sy * params.srcWidth;    // always index with physical width
         for (uint sx = sxStart; sx <= sxEnd; sx++) {
             sum += inputPixels[rowBase + sx];
             n++;
@@ -93,6 +110,11 @@ struct BayerStretchParams {
     ///   bit 1 = row parity of R     (0 = even, 1 = odd)
     /// RGGB=0  GRBG=1  GBRG=2  BGGR=3
     uint  rOffset;
+    /// When 1, treat the source as half-resolution by mapping each output pixel
+    /// to a 2×2-aligned physical block. This guarantees every output pixel's
+    /// footprint covers at least one complete Bayer cell, eliminating the
+    /// screen-door pattern caused by single-channel output pixels.
+    uint  bayerBin;
 };
 
 /// Stretch a single channel value to UInt8 with percentile clip + gamma 2.2.
@@ -129,18 +151,32 @@ kernel void bayerDebayerAndStretch(
     uint rx = ro & 1u;
     uint ry = (ro >> 1u) & 1u;
 
-    float scaleX = float(W) / float(params.dstWidth);
-    float scaleY = float(H) / float(params.dstHeight);
+    // When bayerBin=1, use half the physical dimensions as the logical source so
+    // each logical pixel maps to exactly one 2×2 Bayer cell.
+    uint logW = params.bayerBin ? W / 2u : W;
+    uint logH = params.bayerBin ? H / 2u : H;
 
-    // Source column range for this output pixel (inclusive, with FITS vertical flip)
-    uint sxStart   = uint(float(outX)        * scaleX);
-    uint sxEndExcl = uint(float(outX + 1u)   * scaleX);
-    uint sxEnd     = min(sxEndExcl > sxStart ? sxEndExcl - 1u : sxStart, W - 1u);
+    float scaleX = float(logW) / float(params.dstWidth);
+    float scaleY = float(logH) / float(params.dstHeight);
 
+    // Logical source column range for this output pixel [lxStart, lxEnd] (inclusive).
+    uint lxStart   = uint(float(outX)        * scaleX);
+    uint lxEndExcl = uint(float(outX + 1u)   * scaleX);
+    uint lxEnd     = min(lxEndExcl > lxStart ? lxEndExcl - 1u : lxStart, logW - 1u);
+
+    // Logical source row range with FITS vertical flip.
     uint flippedY  = params.dstHeight - 1u - outY;
-    uint syStart   = uint(float(flippedY)      * scaleY);
-    uint syEndExcl = uint(float(flippedY + 1u) * scaleY);
-    uint syEnd     = min(syEndExcl > syStart ? syEndExcl - 1u : syStart, H - 1u);
+    uint lyStart   = uint(float(flippedY)      * scaleY);
+    uint lyEndExcl = uint(float(flippedY + 1u) * scaleY);
+    uint lyEnd     = min(lyEndExcl > lyStart ? lyEndExcl - 1u : lyStart, logH - 1u);
+
+    // Map logical coordinates to physical pixel range.
+    // When bayerBin=1, each logical pixel spans a 2×2 physical block — physical
+    // coords are 2× logical — ensuring the footprint always covers aligned Bayer cells.
+    uint sxStart = params.bayerBin ? lxStart * 2u : lxStart;
+    uint sxEnd   = params.bayerBin ? min(lxEnd * 2u + 1u, W - 1u) : lxEnd;
+    uint syStart = params.bayerBin ? lyStart * 2u : lyStart;
+    uint syEnd   = params.bayerBin ? min(lyEnd * 2u + 1u, H - 1u) : lyEnd;
 
     // Accumulate R, G, B channels separately across the source footprint.
     float sumR = 0.0f, sumG = 0.0f, sumB = 0.0f;

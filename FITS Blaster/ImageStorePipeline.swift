@@ -743,9 +743,12 @@ extension ImageStore {
             // Always render a greyscale image immediately so the UI shows something fast.
             // For Bayer images with debayering enabled, also compute per-channel clip bounds
             // so the post-batch normalise pass can re-render in colour with shared median clips.
+            // Pass bayerPattern so the greyscale stretch applies 2×2 Bayer binning,
+            // eliminating the screen-door effect on raw Bayer mosaic files.
             let display = await ImageStretcher.createImage(inputBuffer: bufferResult.metalBuffer,
                                                            width: meta.width, height: meta.height,
-                                                           maxDisplaySize: maxDisplaySize)
+                                                           maxDisplaySize: maxDisplaySize,
+                                                           bayerPattern: meta.bayerPattern)
             let bayerClips: BayerClips?
             if debayerColorImages, let pattern = BayerPattern.parse(from: meta.headers) {
                 bayerClips = ImageStretcher.computeBayerClips(bufferResult.metalBuffer,

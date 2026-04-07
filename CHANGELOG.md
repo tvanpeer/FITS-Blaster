@@ -4,6 +4,13 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-04-07 — Fix screen-door effect in colour mode for Bayer FITS files
+
+### Fixed
+- Colour (debayer) display of raw Bayer FITS files (e.g. ZWO Seestar S30/S50) no longer shows a screen-door grid pattern. The `bayerDebayerAndStretch` Metal kernel now uses the same 2×2 Bayer cell alignment that greyscale mode uses: each output pixel's footprint is guaranteed to cover at least one complete Bayer cell, so every pixel receives a proper R, G, B value rather than a single raw channel. Colour Bayer images are displayed at half the sensor resolution (the true colour resolution the sensor can produce).
+
+---
+
 ## 2026-04-05 — Per-folder streaming colour rendering and progress bar improvements
 
 ### Improved

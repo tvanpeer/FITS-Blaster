@@ -69,17 +69,19 @@ struct ImageStretcher {
         return try? device.makeComputePipelineState(function: function)
     }()
 
-    /// Parameters struct matching the Metal shader's StretchParams
+    /// Parameters struct matching the Metal shader's StretchParams (must stay in sync with FITSStretch.metal)
     private struct StretchParams {
         var lowClip: Float
         var highClip: Float
-        var srcWidth: UInt32
-        var srcHeight: UInt32
+        var srcWidth: UInt32    // physical buffer width
+        var srcHeight: UInt32   // physical buffer height
         var dstWidth: UInt32
         var dstHeight: UInt32
+        /// 1 = 2×2 Bayer binning (greyscale display of raw Bayer files), 0 = normal
+        var bayerBin: UInt32
     }
 
-    /// Parameters struct matching the Metal shader's BayerStretchParams (11 × 4 bytes = 44 bytes)
+    /// Parameters struct matching the Metal shader's BayerStretchParams (12 × 4 bytes = 48 bytes)
     private struct BayerStretchParams {
         var lowClipR: Float
         var highClipR: Float
@@ -92,6 +94,7 @@ struct ImageStretcher {
         var dstWidth: UInt32
         var dstHeight: UInt32
         var rOffset: UInt32
+        var bayerBin: UInt32
     }
 
     // MARK: - Shared Metal Buffer for FITS Reading
@@ -105,10 +108,11 @@ struct ImageStretcher {
     // MARK: - Public
 
     /// Stretch using pixel data already in a Metal shared buffer.
-    /// The input buffer's contents are consumed (overwritten by percentile estimation is separate).
-    /// Returns the NSImage and the retained output Metal buffer (caller doesn't need to manage it).
+    /// Pass `bayerPattern` when the file is a raw Bayer mosaic and should be displayed in
+    /// greyscale — the kernel will apply 2×2 Bayer binning to eliminate the screen-door effect.
     @concurrent static func createImage(inputBuffer: MTLBuffer, width: Int, height: Int,
-                                        maxDisplaySize: Int = 0) async -> NSImage? {
+                                        maxDisplaySize: Int = 0,
+                                        bayerPattern: BayerPattern? = nil) async -> NSImage? {
         let pixelCount = width * height
 
         // Read percentiles from the shared buffer without copying
@@ -119,7 +123,8 @@ struct ImageStretcher {
 
         if let result = await metalStretch(inputBuffer: inputBuffer, width: width, height: height,
                                            lowClip: lowClip, highClip: highClip,
-                                           maxDisplaySize: maxDisplaySize) {
+                                           maxDisplaySize: maxDisplaySize,
+                                           bayerPattern: bayerPattern) {
             return result
         }
 
@@ -184,22 +189,30 @@ struct ImageStretcher {
     /// CGDataProvider.
     @concurrent private static func metalStretch(
         inputBuffer: MTLBuffer, width: Int, height: Int,
-        lowClip: Float, highClip: Float, maxDisplaySize: Int = 0
+        lowClip: Float, highClip: Float, maxDisplaySize: Int = 0,
+        bayerPattern: BayerPattern? = nil
     ) async -> NSImage? {
         guard let device = metalDevice,
               let commandQueue = commandQueue,
               let pipelineState = pipelineState else { return nil }
 
+        // When bayerBin=1, the kernel treats the source as half-resolution so each output
+        // pixel covers aligned 2×2 Bayer cells. Use the effective (binned) dimensions
+        // when computing the output size so the image isn't unnecessarily downscaled.
+        let isBayerBin = bayerPattern != nil
+        let effectiveW = isBayerBin ? width  / 2 : width
+        let effectiveH = isBayerBin ? height / 2 : height
+
         // Compute output dimensions: the kernel writes directly at display size.
         let dstW: Int
         let dstH: Int
-        if maxDisplaySize > 0 && max(width, height) > maxDisplaySize {
-            let scale = Float(maxDisplaySize) / Float(max(width, height))
-            dstW = max(1, Int(Float(width) * scale))
-            dstH = max(1, Int(Float(height) * scale))
+        if maxDisplaySize > 0 && max(effectiveW, effectiveH) > maxDisplaySize {
+            let scale = Float(maxDisplaySize) / Float(max(effectiveW, effectiveH))
+            dstW = max(1, Int(Float(effectiveW) * scale))
+            dstH = max(1, Int(Float(effectiveH) * scale))
         } else {
-            dstW = width
-            dstH = height
+            dstW = effectiveW
+            dstH = effectiveH
         }
 
         let outputByteCount = dstW * dstH
@@ -210,7 +223,8 @@ struct ImageStretcher {
         var params = StretchParams(
             lowClip: lowClip, highClip: highClip,
             srcWidth: UInt32(width), srcHeight: UInt32(height),
-            dstWidth: UInt32(dstW), dstHeight: UInt32(dstH)
+            dstWidth: UInt32(dstW), dstHeight: UInt32(dstH),
+            bayerBin: isBayerBin ? 1 : 0
         )
 
         guard let commandBuffer = commandQueue.makeCommandBuffer(),
@@ -301,16 +315,21 @@ struct ImageStretcher {
               let commandQueue = commandQueue,
               let pipelineState = bayerPipelineState else { return nil }
 
-        // Compute output dimensions: the kernel writes directly at display size.
+        // Bayer images are always binned 2×2 so each output pixel's footprint covers
+        // at least one complete Bayer cell — eliminating the screen-door pattern.
+        let effectiveW = width  / 2
+        let effectiveH = height / 2
+
+        // Compute output dimensions from the effective (binned) source size.
         let dstW: Int
         let dstH: Int
-        if maxDisplaySize > 0 && max(width, height) > maxDisplaySize {
-            let scale = Float(maxDisplaySize) / Float(max(width, height))
-            dstW = max(1, Int(Float(width) * scale))
-            dstH = max(1, Int(Float(height) * scale))
+        if maxDisplaySize > 0 && max(effectiveW, effectiveH) > maxDisplaySize {
+            let scale = Float(maxDisplaySize) / Float(max(effectiveW, effectiveH))
+            dstW = max(1, Int(Float(effectiveW) * scale))
+            dstH = max(1, Int(Float(effectiveH) * scale))
         } else {
-            dstW = width
-            dstH = height
+            dstW = effectiveW
+            dstH = effectiveH
         }
 
         // Output: RGBA UInt8, 4 bytes/pixel, at display size
@@ -325,7 +344,8 @@ struct ImageStretcher {
             lowClipB: clips.loB, highClipB: clips.hiB,
             srcWidth: UInt32(width), srcHeight: UInt32(height),
             dstWidth: UInt32(dstW), dstHeight: UInt32(dstH),
-            rOffset: rOffset
+            rOffset: rOffset,
+            bayerBin: 1
         )
 
         guard let commandBuffer = commandQueue.makeCommandBuffer(),

@@ -177,6 +177,18 @@ struct FITSReader {
             throw FITSError.invalidFormat("Missing NAXIS or NAXIS < 2.")
         }
 
+        // Reject multi-channel stacked FITS (e.g. Seestar S50 stacked RGB files).
+        // These have NAXIS=3, NAXIS3=3 (one plane per colour channel) and need a
+        // dedicated colour FITS loader. Load the raw sub-frames instead.
+        if naxis > 2,
+           let naxis3Str = headerCards.first(where: { $0.0 == "NAXIS3" })?.1,
+           let naxis3 = Int(naxis3Str), naxis3 > 1 {
+            throw FITSError.invalidFormat(
+                "Multi-channel FITS files (NAXIS=\(naxis), NAXIS3=\(naxis3)) are not supported. " +
+                "Load the raw single-frame sub-exposures instead."
+            )
+        }
+
         guard let naxis1Str = headerCards.first(where: { $0.0 == "NAXIS1" })?.1,
               let width = Int(naxis1Str) else {
             throw FITSError.invalidFormat("Missing NAXIS1.")
