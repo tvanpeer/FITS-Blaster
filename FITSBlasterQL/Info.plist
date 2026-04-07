@@ -7,16 +7,37 @@
 		<key>NSExtensionPointIdentifier</key>
 		<string>com.apple.quicklook.preview</string>
 		<key>NSExtensionPrincipalClass</key>
-		<string>PreviewProvider</string>
+		<string>$(PRODUCT_MODULE_NAME).PreviewProvider</string>
 		<key>NSExtensionServiceMaximumMemoryLevel</key>
 		<string>High</string>
 	</dict>
-	<!-- Declare the UTIs this extension handles.
-	     The system only invokes this extension for matching file types. -->
+	<key>QLIsDataBasedPreview</key>
+	<true/>
 	<key>QLSupportedContentTypes</key>
 	<array>
-		<string>org.iau.fits</string>
-		<string>public.data</string>
+		<string>gov.nasa.gsfc.fits</string>
+	</array>
+	<key>UTImportedTypeDeclarations</key>
+	<array>
+		<dict>
+			<key>UTTypeIdentifier</key>
+			<string>gov.nasa.gsfc.fits</string>
+			<key>UTTypeDescription</key>
+			<string>FITS Image</string>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.data</string>
+			</array>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>fits</string>
+					<string>fit</string>
+					<string>fts</string>
+				</array>
+			</dict>
+		</dict>
 	</array>
 </dict>
 </plist>

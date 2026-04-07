@@ -8,27 +8,21 @@
 //  (no Metal — keeps peak memory well under the QL process limit).
 //
 
-import QuickLook
-import AppKit
+import Cocoa
+import Quartz
 
-@objc(PreviewProvider)
-final class PreviewProvider: NSObject, QLPreviewingController {
+class PreviewProvider: QLPreviewProvider, QLPreviewingController {
 
-    // Called by the system to render a preview for a single file URL.
     func providePreview(for request: QLFilePreviewRequest) async throws -> QLPreviewReply {
         let url = request.fileURL
 
-        // Read and stretch on a background thread via the CPU path.
-        // Avoids Metal buffer allocation; peak memory stays well under the QL process limit.
-        let nsImage = try await Task.detached(priority: .userInitiated) {
-            var fitsImage = try FITSReader.read(from: url)
-            return ImageStretcher.createImage(from: &fitsImage.pixelValues,
-                                              width: fitsImage.width,
-                                              height: fitsImage.height,
-                                              maxDisplaySize: 1024)
-        }.value
-
-        guard let nsImage else { throw CocoaError(.fileReadCorruptFile) }
+        var fitsImage = try FITSReader.read(from: url)
+        guard let nsImage = ImageStretcher.createImage(from: &fitsImage.pixelValues,
+                                                       width: fitsImage.width,
+                                                       height: fitsImage.height,
+                                                       maxDisplaySize: 1024) else {
+            throw CocoaError(.fileReadCorruptFile)
+        }
         guard let cgImage = nsImage.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
             throw CocoaError(.fileReadCorruptFile)
         }
@@ -36,7 +30,7 @@ final class PreviewProvider: NSObject, QLPreviewingController {
         let reply = QLPreviewReply(
             dataOfContentType: .png,
             contentSize: CGSize(width: cgImage.width, height: cgImage.height)
-        ) { _, _ in
+        ) { _ in
             let mutableData = NSMutableData()
             guard let dest = CGImageDestinationCreateWithData(mutableData, "public.png" as CFString, 1, nil) else {
                 throw CocoaError(.fileReadCorruptFile)
