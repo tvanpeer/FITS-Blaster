@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>NSExtension</key>
+	<dict>
+		<key>NSExtensionPointIdentifier</key>
+		<string>com.apple.quicklook.preview</string>
+		<key>NSExtensionPrincipalClass</key>
+		<string>PreviewProvider</string>
+		<key>NSExtensionServiceMaximumMemoryLevel</key>
+		<string>High</string>
+	</dict>
+	<!-- Declare the UTIs this extension handles.
+	     The system only invokes this extension for matching file types. -->
+	<key>QLSupportedContentTypes</key>
+	<array>
+		<string>org.iau.fits</string>
+		<string>public.data</string>
+	</array>
+</dict>
+</plist>
