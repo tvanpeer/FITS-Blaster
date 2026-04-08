@@ -105,11 +105,14 @@ jobs:
             -o "$RUNNER_TEMP/sparkle.tar.xz"
           mkdir -p "$RUNNER_TEMP/sparkle"
           tar xf "$RUNNER_TEMP/sparkle.tar.xz" -C "$RUNNER_TEMP/sparkle"
-          # Sign the DMG with the EdDSA private key
-          SPARKLE_SIG=$("$RUNNER_TEMP/sparkle/bin/sign_update" "$DMG_PATH" \
-            --ed-key-file <(echo "$SPARKLE_PRIVATE_KEY") | grep "sparkle:edSignature" | sed 's/.*"\(.*\)".*/\1/')
+          # Sign the DMG with the EdDSA private key.
+          # sign_update outputs: sparkle:edSignature="BASE64SIG" length="12345"
+          SIGN_OUTPUT=$("$RUNNER_TEMP/sparkle/bin/sign_update" "$DMG_PATH" \
+            --ed-key-file <(echo "$SPARKLE_PRIVATE_KEY"))
+          echo "sign_update output: $SIGN_OUTPUT"
+          SPARKLE_SIG=$(echo "$SIGN_OUTPUT" | sed -n 's/.*sparkle:edSignature="\([^"]*\)".*/\1/p')
+          DMG_SIZE=$(echo "$SIGN_OUTPUT" | sed -n 's/.*length="\([^"]*\)".*/\1/p')
           echo "SPARKLE_SIG=$SPARKLE_SIG" >> "$GITHUB_ENV"
-          DMG_SIZE=$(stat -f%z "$DMG_PATH")
           echo "DMG_SIZE=$DMG_SIZE" >> "$GITHUB_ENV"
 
       - name: Generate Sparkle appcast
