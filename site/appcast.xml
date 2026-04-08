@@ -6,6 +6,66 @@
         <description>Release notes for FITS Blaster</description>
         <language>en-us</language>
         <item>
+            <title>FITS Blaster 1.22</title>
+            <pubDate>Wed, 08 Apr 2026 20:40:06 +0000</pubDate>
+            <sparkle:version>167</sparkle:version>
+            <sparkle:shortVersionString>1.22</sparkle:shortVersionString>
+            <description><![CDATA[
+<h2>2026-04-08 — Sparkle auto-update</h2>
+<h3>Added</h3>
+<ul>
+  <li>Automatic update checking via the Sparkle framework. FITS Blaster now checks for new versions once every 24 hours in the background.</li>
+  <li>&quot;Check for Updates...&quot; menu item in the FITS Blaster menu for manual update checks.</li>
+  <li>Updates are downloaded, installed, and relaunched automatically — no manual DMG drag required.</li>
+</ul>
+<h3>Improved</h3>
+<ul>
+  <li>FAQ updated: &quot;Does FITS Blaster require an internet connection?&quot; now mentions the lightweight update check.</li>
+</ul>
+<p>---</p>
+<h2>2026-04-08 — Image viewer controls</h2>
+<h3>Added</h3>
+<ul>
+  <li>Zoom slider (0.25×–4×) with live readout; trackpad pinch-to-zoom also supported.</li>
+  <li>Brightness slider for quick exposure adjustment without re-rendering.</li>
+  <li>Stretch slider to boost or reduce image contrast.</li>
+  <li>&quot;Defaults&quot; button to reset all three adjustments in one click.</li>
+  <li>Scrollbars appear automatically when the image is zoomed beyond the viewport.</li>
+  <li>Viewport indicator: a yellow box on the sidebar thumbnail shows which part of the image is currently visible when zoomed in.</li>
+</ul>
+<h3>Improved</h3>
+<ul>
+  <li>Scroll position is now preserved when navigating between frames at the same zoom level.</li>
+  <li>Zooming via the slider keeps the viewport centre fixed instead of jumping to the top-left.</li>
+  <li>Zoom level persists across app launches; brightness and stretch reset when opening a new folder.</li>
+  <li>Swift 6 concurrency fixes: key-event monitor, `PanelAccessoryHelper`, `FolderTracker.init`, concurrent `self` capture, and unused weak-capture removals.</li>
+  <li>QL extension `CFBundleVersion` now tracks the main app version automatically via `$(CURRENT_PROJECT_VERSION)`.</li>
+</ul>
+<p>---</p>
+<h2>2026-04-08 — v1.20 QuickLook support and Bayer screen-door fix</h2>
+<h3>Added</h3>
+<ul>
+  <li>QuickLook preview: press Space on any FITS file in Finder to get a rendered preview without opening FITS Blaster. The preview uses the same percentile-clip + square-root stretch as the app.</li>
+  <li>QuickLook thumbnails: Finder icon view now shows rendered FITS images as file icons, in colour for Bayer (e.g. Seestar, Dwarf) files.</li>
+</ul>
+<h3>Fixed</h3>
+<ul>
+  <li>Screen-door grid pattern in colour (debayer) mode for raw Bayer FITS files. The `bayerDebayerAndStretch` Metal kernel now applies the same 2×2 Bayer cell alignment as the greyscale path: each output pixel&#x27;s footprint is guaranteed to span at least one complete Bayer cell, so every pixel receives a proper R, G, B value. Colour Bayer images are displayed at half the sensor resolution (the true colour resolution). Confirmed fixed with test images from the <b>Seestar S30</b>, <b>Seestar S30 Pro</b>, <b>Seestar S50</b>, and <b>Dwarf 3</b>.</li>
+</ul>
+<h3>Improved</h3>
+<ul>
+  <li>Release builds (local `build-release.sh` and CI) now produce a universal binary (arm64 + x86_64), so the same DMG runs natively on both Apple Silicon and Intel Macs.</li>
+</ul>
+<p>---</p>
+<p>**[Full changelog](https://astrophoto-app.com/changelog.html)**</p>
+            ]]></description>
+            <enclosure
+                url="https://github.com/tvanpeer/FITS-Blaster/releases/download/v1.22/FITS-Blaster-1.22.dmg"
+                length="8325705"
+                type="application/octet-stream"
+                sparkle:edSignature="8325705" />
+        </item>
+        <item>
             <title>FITS Blaster 1.21</title>
             <pubDate>Tue, 08 Apr 2026 20:00:00 +0200</pubDate>
             <sparkle:version>165</sparkle:version>
