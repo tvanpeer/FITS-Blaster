@@ -6,14 +6,113 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		653AE5DB2F857C71008BBC9C /* Quartz.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 653AE5DA2F857C71008BBC9C /* Quartz.framework */; };
+		653AE5E72F857C72008BBC9C /* FITSBlasterQL.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 653AE5D82F857C71008BBC9C /* FITSBlasterQL.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		653AE5FB2F859C2B008BBC9C /* QuickLookThumbnailing.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 653AE5FA2F859C2B008BBC9C /* QuickLookThumbnailing.framework */; };
+		653AE5FC2F859C2B008BBC9C /* Quartz.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 653AE5DA2F857C71008BBC9C /* Quartz.framework */; };
+		653AE6032F859C2B008BBC9C /* FITSBlasterQLThumb.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 653AE5F92F859C2B008BBC9C /* FITSBlasterQLThumb.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		653AE5E52F857C72008BBC9C /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 65BA7E892F52EE16002B50D4 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 653AE5D72F857C71008BBC9C;
+			remoteInfo = FITSBlasterQL;
+		};
+		653AE6012F859C2B008BBC9C /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 65BA7E892F52EE16002B50D4 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 653AE5F82F859C2B008BBC9C;
+			remoteInfo = FITSBlasterQLThumb;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		653AE5EC2F857C72008BBC9C /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				653AE6032F859C2B008BBC9C /* FITSBlasterQLThumb.appex in Embed Foundation Extensions */,
+				653AE5E72F857C72008BBC9C /* FITSBlasterQL.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
+		653AE5D82F857C71008BBC9C /* FITSBlasterQL.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = FITSBlasterQL.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		653AE5DA2F857C71008BBC9C /* Quartz.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Quartz.framework; path = System/Library/Frameworks/Quartz.framework; sourceTree = SDKROOT; };
+		653AE5F92F859C2B008BBC9C /* FITSBlasterQLThumb.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = FITSBlasterQLThumb.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		653AE5FA2F859C2B008BBC9C /* QuickLookThumbnailing.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuickLookThumbnailing.framework; path = System/Library/Frameworks/QuickLookThumbnailing.framework; sourceTree = SDKROOT; };
 		65BA7E912F52EE16002B50D4 /* FITS Blaster.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "FITS Blaster.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		65BA7F002F52EE16002B50D4 /* FITS Blaster Tests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "FITS Blaster Tests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		653AE5F22F85810D008BBC9C /* Exceptions for "FITS Blaster" folder in "FITSBlasterQL" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				BayerPattern.swift,
+				FITSReader.swift,
+				ImageStretcher.swift,
+			);
+			target = 653AE5D72F857C71008BBC9C /* FITSBlasterQL */;
+		};
+		653AE5F32F8582FF008BBC9C /* Exceptions for "FITSBlasterQL" folder in "FITSBlasterQL" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 653AE5D72F857C71008BBC9C /* FITSBlasterQL */;
+		};
+		653AE60E2F859F68008BBC9C /* Exceptions for "FITSBlasterQLThumb" folder in "FITSBlasterQLThumb" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 653AE5F82F859C2B008BBC9C /* FITSBlasterQLThumb */;
+		};
+		653AE6122F859FBC008BBC9C /* Exceptions for "FITS Blaster" folder in "FITSBlasterQLThumb" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				BayerPattern.swift,
+				FITSReader.swift,
+				ImageStretcher.swift,
+			);
+			target = 653AE5F82F859C2B008BBC9C /* FITSBlasterQLThumb */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
+		653AE5DC2F857C71008BBC9C /* FITSBlasterQL */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				653AE5F32F8582FF008BBC9C /* Exceptions for "FITSBlasterQL" folder in "FITSBlasterQL" target */,
+			);
+			path = FITSBlasterQL;
+			sourceTree = "<group>";
+		};
+		653AE5FD2F859C2B008BBC9C /* FITSBlasterQLThumb */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				653AE60E2F859F68008BBC9C /* Exceptions for "FITSBlasterQLThumb" folder in "FITSBlasterQLThumb" target */,
+			);
+			path = FITSBlasterQLThumb;
+			sourceTree = "<group>";
+		};
 		65BA7E932F52EE16002B50D4 /* FITS Blaster */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				653AE5F22F85810D008BBC9C /* Exceptions for "FITS Blaster" folder in "FITSBlasterQL" target */,
+				653AE6122F859FBC008BBC9C /* Exceptions for "FITS Blaster" folder in "FITSBlasterQLThumb" target */,
+			);
 			path = "FITS Blaster";
 			sourceTree = "<group>";
 		};
@@ -25,6 +124,23 @@
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		653AE5D52F857C71008BBC9C /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				653AE5DB2F857C71008BBC9C /* Quartz.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		653AE5F62F859C2B008BBC9C /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				653AE5FB2F859C2B008BBC9C /* QuickLookThumbnailing.framework in Frameworks */,
+				653AE5FC2F859C2B008BBC9C /* Quartz.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		65BA7E8E2F52EE16002B50D4 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -42,11 +158,23 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		653AE5D92F857C71008BBC9C /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				653AE5DA2F857C71008BBC9C /* Quartz.framework */,
+				653AE5FA2F859C2B008BBC9C /* QuickLookThumbnailing.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		65BA7E882F52EE16002B50D4 = {
 			isa = PBXGroup;
 			children = (
 				65BA7E932F52EE16002B50D4 /* FITS Blaster */,
 				65BA7F012F52EE16002B50D4 /* FITS Blaster Tests */,
+				653AE5DC2F857C71008BBC9C /* FITSBlasterQL */,
+				653AE5FD2F859C2B008BBC9C /* FITSBlasterQLThumb */,
+				653AE5D92F857C71008BBC9C /* Frameworks */,
 				65BA7E922F52EE16002B50D4 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -56,6 +184,8 @@
 			children = (
 				65BA7E912F52EE16002B50D4 /* FITS Blaster.app */,
 				65BA7F002F52EE16002B50D4 /* FITS Blaster Tests.xctest */,
+				653AE5D82F857C71008BBC9C /* FITSBlasterQL.appex */,
+				653AE5F92F859C2B008BBC9C /* FITSBlasterQLThumb.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -63,6 +193,50 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		653AE5D72F857C71008BBC9C /* FITSBlasterQL */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 653AE5E92F857C72008BBC9C /* Build configuration list for PBXNativeTarget "FITSBlasterQL" */;
+			buildPhases = (
+				653AE5D42F857C71008BBC9C /* Sources */,
+				653AE5D52F857C71008BBC9C /* Frameworks */,
+				653AE5D62F857C71008BBC9C /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				653AE5DC2F857C71008BBC9C /* FITSBlasterQL */,
+			);
+			name = FITSBlasterQL;
+			packageProductDependencies = (
+			);
+			productName = FITSBlasterQL;
+			productReference = 653AE5D82F857C71008BBC9C /* FITSBlasterQL.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+		653AE5F82F859C2B008BBC9C /* FITSBlasterQLThumb */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 653AE6052F859C2B008BBC9C /* Build configuration list for PBXNativeTarget "FITSBlasterQLThumb" */;
+			buildPhases = (
+				653AE5F52F859C2B008BBC9C /* Sources */,
+				653AE5F62F859C2B008BBC9C /* Frameworks */,
+				653AE5F72F859C2B008BBC9C /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				653AE5FD2F859C2B008BBC9C /* FITSBlasterQLThumb */,
+			);
+			name = FITSBlasterQLThumb;
+			packageProductDependencies = (
+			);
+			productName = FITSBlasterQLThumb;
+			productReference = 653AE5F92F859C2B008BBC9C /* FITSBlasterQLThumb.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 		65BA7E902F52EE16002B50D4 /* FITS Blaster */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 65BA7E9C2F52EE18002B50D4 /* Build configuration list for PBXNativeTarget "FITS Blaster" */;
@@ -70,10 +244,13 @@
 				65BA7E8D2F52EE16002B50D4 /* Sources */,
 				65BA7E8E2F52EE16002B50D4 /* Frameworks */,
 				65BA7E8F2F52EE16002B50D4 /* Resources */,
+				653AE5EC2F857C72008BBC9C /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				653AE5E62F857C72008BBC9C /* PBXTargetDependency */,
+				653AE6022F859C2B008BBC9C /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				65BA7E932F52EE16002B50D4 /* FITS Blaster */,
@@ -116,6 +293,12 @@
 				LastSwiftUpdateCheck = 2630;
 				LastUpgradeCheck = 2630;
 				TargetAttributes = {
+					653AE5D72F857C71008BBC9C = {
+						CreatedOnToolsVersion = 26.3;
+					};
+					653AE5F82F859C2B008BBC9C = {
+						CreatedOnToolsVersion = 26.3;
+					};
 					65BA7E902F52EE16002B50D4 = {
 						CreatedOnToolsVersion = 26.3;
 					};
@@ -141,11 +324,27 @@
 			targets = (
 				65BA7E902F52EE16002B50D4 /* FITS Blaster */,
 				65BA7F042F52EE16002B50D4 /* FITS Blaster Tests */,
+				653AE5D72F857C71008BBC9C /* FITSBlasterQL */,
+				653AE5F82F859C2B008BBC9C /* FITSBlasterQLThumb */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		653AE5D62F857C71008BBC9C /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		653AE5F72F859C2B008BBC9C /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		65BA7E8F2F52EE16002B50D4 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -156,6 +355,20 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		653AE5D42F857C71008BBC9C /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		653AE5F52F859C2B008BBC9C /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		65BA7E8D2F52EE16002B50D4 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -172,7 +385,142 @@
 		};
 /* End PBXSourcesBuildPhase section */
 
+/* Begin PBXTargetDependency section */
+		653AE5E62F857C72008BBC9C /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 653AE5D72F857C71008BBC9C /* FITSBlasterQL */;
+			targetProxy = 653AE5E52F857C72008BBC9C /* PBXContainerItemProxy */;
+		};
+		653AE6022F859C2B008BBC9C /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 653AE5F82F859C2B008BBC9C /* FITSBlasterQLThumb */;
+			targetProxy = 653AE6012F859C2B008BBC9C /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
 /* Begin XCBuildConfiguration section */
+		653AE5EA2F857C72008BBC9C /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 6GBJ9SAJ6Y;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_USER_SELECTED_FILES = readonly;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = FITSBlasterQL/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = FITSBlasterQL;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.astrophotoapp.FitsBlaster.FITSBlasterQL;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		653AE5EB2F857C72008BBC9C /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 6GBJ9SAJ6Y;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_USER_SELECTED_FILES = readonly;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = FITSBlasterQL/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = FITSBlasterQL;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.astrophotoapp.FitsBlaster.FITSBlasterQL;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		653AE6062F859C2B008BBC9C /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 6GBJ9SAJ6Y;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_USER_SELECTED_FILES = readonly;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = FITSBlasterQLThumb/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = FITSBlasterQLThumb;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.astrophotoapp.FitsBlaster.FITSBlasterQLThumb;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		653AE6072F859C2B008BBC9C /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 6GBJ9SAJ6Y;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_USER_SELECTED_FILES = readonly;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = FITSBlasterQLThumb/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = FITSBlasterQLThumb;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.astrophotoapp.FitsBlaster.FITSBlasterQLThumb;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
 		65BA7E9A2F52EE18002B50D4 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -206,7 +554,7 @@
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
-				"CODE_SIGN_ENTITLEMENTS[sdk=*]" = "FITS Blaster/FITS Blaster.entitlements";
+				"CODE_SIGN_ENTITLEMENTS[sdk=*]" = FITSBlasterQLThumb/FITSBlasterQLThumb.entitlements;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = 6GBJ9SAJ6Y;
@@ -274,7 +622,7 @@
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
-				"CODE_SIGN_ENTITLEMENTS[sdk=*]" = "FITS Blaster/FITS Blaster.entitlements";
+				"CODE_SIGN_ENTITLEMENTS[sdk=*]" = FITSBlasterQLThumb/FITSBlasterQLThumb.entitlements;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = 6GBJ9SAJ6Y;
@@ -304,6 +652,7 @@
 		65BA7E9D2F52EE18002B50D4 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD)";
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				"CODE_SIGN_ENTITLEMENTS[sdk=*]" = "FITS Blaster/FITS Blaster.entitlements";
@@ -351,7 +700,7 @@
 		65BA7E9E2F52EE18002B50D4 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = arm64;
+				ARCHS = "$(ARCHS_STANDARD)";
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				"CODE_SIGN_ENTITLEMENTS[sdk=*]" = "FITS Blaster/FITS Blaster.entitlements";
@@ -426,8 +775,8 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
-				SWIFT_DEFAULT_ACTOR_ISOLATION = none;
 				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = none;
 				SWIFT_VERSION = 5.0;
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/FITS Blaster.app/Contents/MacOS/FITS Blaster";
 			};
@@ -436,6 +785,24 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		653AE5E92F857C72008BBC9C /* Build configuration list for PBXNativeTarget "FITSBlasterQL" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				653AE5EA2F857C72008BBC9C /* Debug */,
+				653AE5EB2F857C72008BBC9C /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		653AE6052F859C2B008BBC9C /* Build configuration list for PBXNativeTarget "FITSBlasterQLThumb" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				653AE6062F859C2B008BBC9C /* Debug */,
+				653AE6072F859C2B008BBC9C /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		65BA7E8C2F52EE16002B50D4 /* Build configuration list for PBXProject "FITS Blaster" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

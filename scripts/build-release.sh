@@ -36,7 +36,8 @@ xcodebuild archive \
     -scheme "$SCHEME" \
     -configuration Release \
     -archivePath "$ARCHIVE_PATH" \
-    ARCHS=arm64 \
+    ARCHS="arm64 x86_64" \
+    ONLY_ACTIVE_ARCH=NO \
     2>&1 | tee "$LOG_PATH"
 echo "==> Archive written to $ARCHIVE_PATH"
 
