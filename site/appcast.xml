@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
+    <channel>
+        <title>FITS Blaster Updates</title>
+        <link>https://astrophoto-app.com</link>
+        <description>Release notes for FITS Blaster</description>
+        <language>en-us</language>
+        <item>
+            <title>FITS Blaster 1.21</title>
+            <pubDate>Tue, 08 Apr 2026 20:00:00 +0200</pubDate>
+            <sparkle:version>165</sparkle:version>
+            <sparkle:shortVersionString>1.21</sparkle:shortVersionString>
+            <description><![CDATA[
+<h2>Image viewer controls</h2>
+<ul>
+  <li><b>Added:</b> Zoom slider (0.25x-4x) with live readout; trackpad pinch-to-zoom also supported.</li>
+  <li><b>Added:</b> Brightness slider for quick exposure adjustment without re-rendering.</li>
+  <li><b>Added:</b> Stretch slider to boost or reduce image contrast.</li>
+  <li><b>Added:</b> "Defaults" button to reset all three adjustments in one click.</li>
+  <li><b>Added:</b> Viewport indicator: a yellow box on the sidebar thumbnail shows which part of the image is currently visible when zoomed in.</li>
+  <li><b>Improved:</b> Scroll position is preserved when navigating between frames at the same zoom level.</li>
+  <li><b>Improved:</b> Zooming via the slider keeps the viewport centre fixed instead of jumping to the top-left.</li>
+</ul>
+
+<h2>QuickLook support and Bayer screen-door fix (v1.20)</h2>
+<ul>
+  <li><b>Added:</b> QuickLook preview: press Space on any FITS file in Finder to get a rendered preview.</li>
+  <li><b>Added:</b> QuickLook thumbnails: Finder icon view now shows rendered FITS images as file icons.</li>
+  <li><b>Fixed:</b> Screen-door grid pattern in colour (debayer) mode for raw Bayer FITS files. Confirmed fixed with Seestar S30, Seestar S30 Pro, Seestar S50, and Dwarf 3.</li>
+  <li><b>Improved:</b> Universal binary (arm64 + x86_64) — runs natively on both Apple Silicon and Intel Macs.</li>
+</ul>
+            ]]></description>
+            <enclosure
+                url="https://github.com/tvanpeer/FITS-Blaster/releases/download/v1.21/FITS-Blaster-1.21.dmg"
+                length="0"
+                type="application/octet-stream" />
+        </item>
+    </channel>
+</rss>

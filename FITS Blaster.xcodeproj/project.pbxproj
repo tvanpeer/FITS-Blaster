@@ -12,6 +12,7 @@
 		653AE5FB2F859C2B008BBC9C /* QuickLookThumbnailing.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 653AE5FA2F859C2B008BBC9C /* QuickLookThumbnailing.framework */; };
 		653AE5FC2F859C2B008BBC9C /* Quartz.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 653AE5DA2F857C71008BBC9C /* Quartz.framework */; };
 		653AE6032F859C2B008BBC9C /* FITSBlasterQLThumb.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 653AE5F92F859C2B008BBC9C /* FITSBlasterQLThumb.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		6563FD562F86EEC500719A65 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 6563FD552F86EEC500719A65 /* Sparkle */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -145,6 +146,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				6563FD562F86EEC500719A65 /* Sparkle in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -257,6 +259,7 @@
 			);
 			name = "FITS Blaster";
 			packageProductDependencies = (
+				6563FD552F86EEC500719A65 /* Sparkle */,
 			);
 			productName = "FITS Blaster";
 			productReference = 65BA7E912F52EE16002B50D4 /* FITS Blaster.app */;
@@ -317,6 +320,9 @@
 			);
 			mainGroup = 65BA7E882F52EE16002B50D4;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				6563FD542F86EB7200719A65 /* XCRemoteSwiftPackageReference "Sparkle" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 65BA7E922F52EE16002B50D4 /* Products */;
 			projectDirPath = "";
@@ -831,6 +837,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		6563FD542F86EB7200719A65 /* XCRemoteSwiftPackageReference "Sparkle" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sparkle-project/Sparkle.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.9.1;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		6563FD552F86EEC500719A65 /* Sparkle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 6563FD542F86EB7200719A65 /* XCRemoteSwiftPackageReference "Sparkle" */;
+			productName = Sparkle;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 65BA7E892F52EE16002B50D4 /* Project object */;
 }

@@ -5,6 +5,7 @@
 //  Created by Tom van Peer on 28/02/2026.
 //
 
+import Sparkle
 import SwiftUI
 
 // MARK: - App Delegate
@@ -41,6 +42,9 @@ struct FitsBlasterApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @State private var settings = AppSettings()
     @State private var store = ImageStore()
+    private let updaterController = SPUStandardUpdaterController(
+        startingUpdater: true, updaterDelegate: nil, userDriverDelegate: nil
+    )
 
     init() {
         // NSInitialToolTipDelay is an undocumented AppKit UserDefaults key (milliseconds).
@@ -88,6 +92,8 @@ struct FitsBlasterApp: App {
                 DeflagAllCommand()
             }
             CommandGroup(replacing: .appInfo) {
+                CheckForUpdatesView(updater: updaterController.updater)
+                Divider()
                 Button("About FITS Blaster") {
                     NSApp.orderFrontStandardAboutPanel(options: [
                         .credits: NSAttributedString(
@@ -277,6 +283,17 @@ private struct DeflagAllCommand: View {
         Button("Deflag All") { action?() }
             .disabled(action == nil)
             .keyboardShortcut(equiv, modifiers: [])
+    }
+}
+
+/// Menu item that triggers a manual update check via Sparkle.
+private struct CheckForUpdatesView: View {
+    let updater: SPUUpdater
+
+    var body: some View {
+        Button("Check for Updates…") {
+            updater.checkForUpdates()
+        }
     }
 }
 
