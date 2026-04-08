@@ -213,6 +213,33 @@
 
 <div class="content">
 
+    <!-- v1.20 -->
+    <div class="entry">
+        <div class="entry-header">
+            <div class="entry-title">QuickLook support and Bayer screen-door fix — v1.20</div>
+            <div class="entry-date">2026-04-08</div>
+        </div>
+        <div class="section">
+            <span class="section-label label-added">Added</span>
+            <ul>
+                <li>QuickLook preview: press Space on any FITS file in Finder to get a rendered preview without opening FITS Blaster. The preview uses the same percentile-clip + square-root stretch as the app.</li>
+                <li>QuickLook thumbnails: Finder icon view now shows rendered FITS images as file icons, in colour for Bayer (e.g. Seestar, Dwarf) files.</li>
+            </ul>
+        </div>
+        <div class="section">
+            <span class="section-label label-fixed">Fixed</span>
+            <ul>
+                <li>Screen-door grid pattern in colour (debayer) mode for raw Bayer FITS files. The <code>bayerDebayerAndStretch</code> Metal kernel now applies the same 2×2 Bayer cell alignment as the greyscale path, guaranteeing every output pixel spans at least one complete Bayer cell. Confirmed fixed with images from the <strong>Seestar S30</strong>, <strong>Seestar S30 Pro</strong>, <strong>Seestar S50</strong>, and <strong>Dwarf 3</strong>.</li>
+            </ul>
+        </div>
+        <div class="section">
+            <span class="section-label label-improved">Improved</span>
+            <ul>
+                <li>Release builds now produce a universal binary (arm64 + x86_64), so the same DMG runs natively on both Apple Silicon and Intel Macs.</li>
+            </ul>
+        </div>
+    </div>
+
     <!-- v1.19.6 -->
     <div class="entry">
         <div class="entry-header">

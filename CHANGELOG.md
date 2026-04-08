@@ -4,6 +4,20 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-04-08 — v1.20 QuickLook support and Bayer screen-door fix
+
+### Added
+- QuickLook preview: press Space on any FITS file in Finder to get a rendered preview without opening FITS Blaster. The preview uses the same percentile-clip + square-root stretch as the app.
+- QuickLook thumbnails: Finder icon view now shows rendered FITS images as file icons, in colour for Bayer (e.g. Seestar, Dwarf) files.
+
+### Fixed
+- Screen-door grid pattern in colour (debayer) mode for raw Bayer FITS files. The `bayerDebayerAndStretch` Metal kernel now applies the same 2×2 Bayer cell alignment as the greyscale path: each output pixel's footprint is guaranteed to span at least one complete Bayer cell, so every pixel receives a proper R, G, B value. Colour Bayer images are displayed at half the sensor resolution (the true colour resolution). Confirmed fixed with test images from the **Seestar S30**, **Seestar S30 Pro**, **Seestar S50**, and **Dwarf 3**.
+
+### Improved
+- Release builds (local `build-release.sh` and CI) now produce a universal binary (arm64 + x86_64), so the same DMG runs natively on both Apple Silicon and Intel Macs.
+
+---
+
 ## 2026-04-07 — Fix screen-door effect in colour mode for Bayer FITS files
 
 ### Fixed
