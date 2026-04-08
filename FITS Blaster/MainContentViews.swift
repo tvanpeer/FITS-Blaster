@@ -180,12 +180,11 @@ struct MainContent: View {
                         .padding(.horizontal)
                         .padding(.vertical, 4)
                     Divider()
-                    ScrollView([.horizontal, .vertical]) {
-                        Image(nsImage: displayImage)
-                    }
-                    .id(entry.id)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .scrollIndicators(.hidden)
+                    ImageViewer(entryID: entry.id, displayImage: displayImage)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+                    Divider()
+                    ImageAdjustControls()
 
                     Divider()
                     InfoBar(store: store, entry: entry)
@@ -352,5 +351,158 @@ private struct MetricChip: View {
             Text(value)
         }
         .scaledFont(size: 10, monospaced: true)
+    }
+}
+
+// MARK: - Image Viewer
+
+/// Displays a stretched FITS image inside a scroll view with pinch-to-zoom support.
+///
+/// Scroll position is preserved across image navigation: `entryID` changes trigger
+/// a programmatic scroll to the stored center fraction in `ImageStore`.
+/// Zoom from the slider keeps the viewport center fixed by adjusting the scroll offset
+/// proportionally before the next layout pass.
+private struct ImageViewer: View {
+    let entryID: UUID
+    let displayImage: NSImage
+
+    @Environment(ImageStore.self) private var store
+    @Environment(AppSettings.self) private var settings
+
+    @GestureState private var gestureScale: Double = 1.0
+    // Named scrollPos (not scrollPosition) to avoid shadowing the SwiftUI .scrollPosition modifier.
+    @State private var scrollPos = ScrollPosition(x: 0, y: 0)
+    @State private var lastGeo: ViewportGeometry? = nil
+
+    private var effectiveZoom: Double { settings.zoomScale * gestureScale }
+
+    var body: some View {
+        @Bindable var settings = settings
+
+        ScrollView([.horizontal, .vertical]) {
+            Image(nsImage: displayImage)
+                .resizable()
+                .frame(
+                    width:  displayImage.size.width  * effectiveZoom,
+                    height: displayImage.size.height * effectiveZoom
+                )
+                .brightness(store.displayBrightness)
+                .contrast(store.displayStretch)
+        }
+        .scrollPosition($scrollPos)
+        .scrollIndicators(.automatic)
+        .onScrollGeometryChange(for: ViewportGeometry.self, of: ViewportGeometry.init) { _, geo in
+            lastGeo = geo
+            let cw = geo.contentSize.width, ch = geo.contentSize.height
+            guard cw > 0, ch > 0 else { return }
+            store.viewportFraction = CGRect(
+                x: max(0, geo.contentOffset.x / cw),
+                y: max(0, geo.contentOffset.y / ch),
+                width:  min(1, geo.containerSize.width  / cw),
+                height: min(1, geo.containerSize.height / ch)
+            )
+            store.viewportCenter = CGPoint(
+                x: (geo.contentOffset.x + geo.containerSize.width  / 2) / cw,
+                y: (geo.contentOffset.y + geo.containerSize.height / 2) / ch
+            )
+        }
+        // Restore the stored scroll position when the displayed entry changes.
+        .onChange(of: entryID) { _, _ in
+            guard let geo = lastGeo else { return }
+            let cw = displayImage.size.width  * settings.zoomScale
+            let ch = displayImage.size.height * settings.zoomScale
+            let x = store.viewportCenter.x * cw - geo.containerSize.width  / 2
+            let y = store.viewportCenter.y * ch - geo.containerSize.height / 2
+            scrollPos.scrollTo(x: max(0, x), y: max(0, y))
+        }
+        // Keep the viewport center fixed when the zoom slider moves.
+        .onChange(of: settings.zoomScale) { oldZoom, newZoom in
+            guard let geo = lastGeo, oldZoom != newZoom, geo.contentSize.width > 0 else { return }
+            let centerX = (geo.contentOffset.x + geo.containerSize.width  / 2) / geo.contentSize.width
+            let centerY = (geo.contentOffset.y + geo.containerSize.height / 2) / geo.contentSize.height
+            let newCW = displayImage.size.width  * newZoom
+            let newCH = displayImage.size.height * newZoom
+            let x = centerX * newCW - geo.containerSize.width  / 2
+            let y = centerY * newCH - geo.containerSize.height / 2
+            scrollPos.scrollTo(x: max(0, x), y: max(0, y))
+        }
+        .gesture(
+            MagnificationGesture()
+                .updating($gestureScale) { value, state, _ in state = value }
+                .onEnded { value in
+                    settings.zoomScale = max(0.25, min(4.0, settings.zoomScale * value))
+                }
+        )
+    }
+}
+
+/// Equatable snapshot of `ScrollGeometry` for use with `onScrollGeometryChange`.
+private struct ViewportGeometry: Equatable {
+    let contentOffset: CGPoint
+    let contentSize: CGSize
+    let containerSize: CGSize
+
+    init(_ geometry: ScrollGeometry) {
+        contentOffset  = geometry.contentOffset
+        contentSize    = geometry.contentSize
+        containerSize  = geometry.containerSize
+    }
+}
+
+// MARK: - Image Adjust Controls
+
+/// A compact strip of session-level display sliders: zoom, brightness, and stretch.
+/// Shown below the image viewer; resets on session reset but zoom persists across launches.
+private struct ImageAdjustControls: View {
+    @Environment(ImageStore.self) private var store
+    @Environment(AppSettings.self) private var settings
+
+    private var isDefault: Bool {
+        settings.zoomScale == 1.0 && store.displayBrightness == 0.0 && store.displayStretch == 1.0
+    }
+
+    var body: some View {
+        @Bindable var store = store
+        @Bindable var settings = settings
+
+        HStack(spacing: 12) {
+            // Zoom
+            Image(systemName: "plus.magnifyingglass")
+                .foregroundStyle(.secondary)
+                .help("Zoom")
+            Slider(value: $settings.zoomScale, in: 0.25...4.0)
+                .frame(width: 80)
+            Text("\(settings.zoomScale, format: .number.precision(.fractionLength(1)))×")
+                .scaledFont(size: 10, monospaced: true)
+                .frame(width: 34, alignment: .leading)
+
+            Divider().frame(height: 14)
+
+            // Brightness
+            Image(systemName: "sun.max")
+                .foregroundStyle(.secondary)
+                .help("Brightness")
+            Slider(value: $store.displayBrightness, in: -0.5...0.5)
+                .frame(width: 80)
+
+            Divider().frame(height: 14)
+
+            // Stretch
+            Image(systemName: "waveform.path.ecg")
+                .foregroundStyle(.secondary)
+                .help("Stretch (contrast)")
+            Slider(value: $store.displayStretch, in: 0.5...3.0)
+                .frame(width: 80)
+
+            Button("Defaults", systemImage: "arrow.counterclockwise") {
+                settings.zoomScale = 1.0
+                store.displayBrightness = 0.0
+                store.displayStretch = 1.0
+            }
+            .disabled(isDefault)
+            .help("Reset all display adjustments")
+        }
+        .padding(.horizontal)
+        .padding(.vertical, 6)
     }
 }

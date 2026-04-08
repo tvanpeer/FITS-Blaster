@@ -443,7 +443,10 @@ struct ThumbnailCell: View {
                 .resizable()
                 .aspectRatio(contentMode: .fit)
                 .clipShape(.rect(cornerRadius: 4))
-                .overlay { if entry.isRejected { RejectionOverlay() } }
+                .overlay {
+                    if entry.isRejected { RejectionOverlay() }
+                    if isCursor { ViewportBox(fraction: store.viewportFraction) }
+                }
         } else {
             RoundedRectangle(cornerRadius: 4)
                 .fill(.quaternary)
@@ -479,6 +482,32 @@ struct QualityBadge: View {
         .foregroundStyle(.white)
         .padding(4)
         .help(tooltipText)
+    }
+}
+
+// MARK: - Viewport Box
+
+/// Draws a yellow rectangle on the thumbnail indicating which portion of the image
+/// is currently visible in the main image viewer. Only shown when zoomed in enough
+/// that the viewport covers less than the full image in at least one axis.
+private struct ViewportBox: View {
+    let fraction: CGRect
+
+    var body: some View {
+        if fraction.width < 0.99 || fraction.height < 0.99 {
+            GeometryReader { geo in
+                let w = geo.size.width
+                let h = geo.size.height
+                let boxW = max(4, fraction.width  * w)
+                let boxH = max(4, fraction.height * h)
+                let boxX = fraction.origin.x * w + boxW / 2
+                let boxY = fraction.origin.y * h + boxH / 2
+                Rectangle()
+                    .stroke(Color.yellow.opacity(0.9), lineWidth: 1.5)
+                    .frame(width: boxW, height: boxH)
+                    .position(x: boxX, y: boxY)
+            }
+        }
     }
 }
 

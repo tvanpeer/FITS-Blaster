@@ -332,7 +332,7 @@ extension ImageStore {
     /// Shows/hides the shared notice label when either panel checkbox is toggled
     /// to a state that differs from its stored default. Kept as a separate NSObject
     /// subclass because NSButton holds only a weak reference to its target.
-    private final class PanelAccessoryHelper: NSObject {
+    @MainActor private final class PanelAccessoryHelper: NSObject {
         private let checkboxes: [(button: NSButton, defaultState: Bool)]
         private weak var noticeLabel: NSTextField?
 

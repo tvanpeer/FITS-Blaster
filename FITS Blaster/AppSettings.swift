@@ -176,6 +176,14 @@ final class AppSettings {
         didSet { UserDefaults.standard.set(includeRejectedFolder, forKey: "includeRejectedFolder") }
     }
 
+    // MARK: - Image Viewer Adjustments
+
+    /// Display zoom factor for the main image viewer (1.0 = render size, 0.25–4.0).
+    /// Persisted so the user's preferred zoom level survives app restarts.
+    var zoomScale: Double = 1.0 {
+        didSet { UserDefaults.standard.set(zoomScale, forKey: "zoomScale") }
+    }
+
     // MARK: - Colour Settings
 
     /// When true, colour FITS images with a BAYERPAT/COLORTYP/CFA_PAT header are
@@ -242,6 +250,7 @@ final class AppSettings {
         includeRejectedFolder   = UD.bool(   "includeRejectedFolder",  default: includeRejectedFolder)
         excludedSubfolderNames  = UD.strings("excludedSubfolderNames", default: excludedSubfolderNames)
         debayerColorImages      = UD.bool(   "debayerColorImages",     default: debayerColorImages)
+        zoomScale               = UD.double( "zoomScale",              default: zoomScale)
 
         // Text size (stored as index into availableTypeSizes)
         if let idx = UserDefaults.standard.object(forKey: "dynamicTypeSize") as? Int,

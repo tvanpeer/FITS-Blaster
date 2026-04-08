@@ -270,7 +270,7 @@ extension ImageStore {
                         computeStarCount:    metricsConfig.computeStarCount    && c?.starCount    == nil
                     )
                     let url = entry.url
-                    group.addTask { [weak self] in
+                    group.addTask {
                         let newMetrics = await Self.loadMetricsOnly(url: url, config: missingConfig)
                         await MainActor.run {
                             if let newMetrics {
@@ -425,7 +425,7 @@ extension ImageStore {
                     // while still freeing this group slot immediately after.
                     guard metricsConfig.needsStarDetection else { return (entry, nil, colourTask) }
                     await phaseBSemaphore.wait()
-                    let phaseB = Task(priority: .utility) { [weak self] in
+                    let phaseB = Task(priority: .utility) {
                         defer { Task { await phaseBSemaphore.signal() } }
 
                         let metrics: FrameMetrics?
@@ -552,9 +552,10 @@ extension ImageStore {
                                 result.metalBuffer,
                                 width: result.metadata.width, height: result.metadata.height,
                                 rOffset: pattern.rOffset)
+                            let capturedSelf = self
                             await MainActor.run {
                                 entry.bayerClips = clips
-                                self?.batchSamplingCount += 1
+                                capturedSelf?.batchSamplingCount += 1
                             }
                             // Return the folder path if this was the last entry in the folder
                             // to be sampled, signalling that colour rendering can now begin.
@@ -829,8 +830,9 @@ private actor FolderTracker {
     private var completions: [String: Int] = [:]
     private let totals: [String: Int]
 
+    @MainActor
     init(grouping entries: [ImageEntry]) {
-        totals = Dictionary(grouping: entries, by: \.qualifiedFolderPath)
+        totals = Dictionary(grouping: entries, by: { $0.qualifiedFolderPath })
             .mapValues(\.count)
     }
 

@@ -216,9 +216,11 @@ struct ContentView: View {
     /// which subview (e.g. the sidebar List) currently holds keyboard focus.
     private func installKeyMonitor() {
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
-            MainActor.assumeIsolated {
+            // assumeIsolated requires a Sendable return type; NSEvent is not Sendable.
+            // Return Bool (true = pass event through, false = consume) and decide outside.
+            let passThrough: Bool = MainActor.assumeIsolated {
                 // Don't steal from text inputs.
-                guard !(NSApp.keyWindow?.firstResponder is NSText) else { return event }
+                guard !(NSApp.keyWindow?.firstResponder is NSText) else { return true }
 
                 let mods = event.modifierFlags
                 let shift = mods.contains(.shift)
@@ -236,7 +238,7 @@ struct ContentView: View {
                         self.settings[keyPath: $0.shift] == shift
                     }) {
                         self.dispatch(binding.action)
-                        return nil
+                        return false
                     }
                 }
 
@@ -244,19 +246,22 @@ struct ContentView: View {
                 if shift, !mods.contains(.command), !mods.contains(.option), !mods.contains(.control) {
                     if let key = Self.keyString(from: event) {
                         if key == self.settings.prevImageKey {
-                            self.store.extendSelectionPrevious(in: self.sidebarNavigationEntries); return nil
+                            self.store.extendSelectionPrevious(in: self.sidebarNavigationEntries)
+                            return false
                         }
                         if key == self.settings.nextImageKey {
-                            self.store.extendSelectionNext(in: self.sidebarNavigationEntries); return nil
+                            self.store.extendSelectionNext(in: self.sidebarNavigationEntries)
+                            return false
                         }
                     }
                 }
 
                 // Don't intercept events with command/option/control modifiers.
-                guard mods.intersection([.command, .option, .control]).isEmpty else { return event }
-                guard let key = Self.keyString(from: event) else { return event }
-                return self.handleKey(key) ? nil : event
+                guard mods.intersection([.command, .option, .control]).isEmpty else { return true }
+                guard let key = Self.keyString(from: event) else { return true }
+                return !self.handleKey(key)
             }
+            return passThrough ? event : nil
         }
     }
 

@@ -203,6 +203,28 @@ final class ImageStore {
     var recolouringMessage: String? = nil
 
     var errorMessage: String?
+
+    // MARK: - Session-level display adjustments
+
+    /// Brightness offset applied to the displayed image (-0.5 to 0.5, 0 = normal).
+    /// Resets when a new session is loaded.
+    var displayBrightness: Double = 0.0
+
+    /// Contrast multiplier applied to the displayed image (0.5 to 3.0, 1.0 = normal).
+    /// Higher values produce a stronger stretch; maps to SwiftUI's .contrast() modifier.
+    var displayStretch: Double = 1.0
+
+    // MARK: - Viewport tracking
+
+    /// The visible area of the current image as a fraction of its full content size (0–1).
+    /// Updated continuously by the image viewer as the user scrolls or zooms.
+    /// Used by the sidebar thumbnail to draw the viewport indicator box.
+    var viewportFraction: CGRect = CGRect(x: 0, y: 0, width: 1, height: 1)
+
+    /// Fractional position of the viewport center (0–1 in both axes).
+    /// Stored so that navigating to the next image can restore the same relative scroll position.
+    var viewportCenter: CGPoint = .zero
+
     var thumbnailSortOrder: ThumbnailSortOrder = .filename {
         didSet { updateCachedSort() }
     }
@@ -548,6 +570,10 @@ final class ImageStore {
         batchColourCount = 0
         batchSamplingTotal = 0
         batchSamplingCount = 0
+        displayBrightness = 0.0
+        displayStretch = 1.0
+        viewportFraction = CGRect(x: 0, y: 0, width: 1, height: 1)
+        viewportCenter = .zero
     }
 
     // MARK: - Range selection helpers (Cmd+A / Cmd+D / Cmd+I)

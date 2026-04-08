@@ -4,6 +4,25 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-04-08 — Image viewer controls
+
+### Added
+- Zoom slider (0.25×–4×) with live readout; trackpad pinch-to-zoom also supported.
+- Brightness slider for quick exposure adjustment without re-rendering.
+- Stretch slider to boost or reduce image contrast.
+- "Defaults" button to reset all three adjustments in one click.
+- Scrollbars appear automatically when the image is zoomed beyond the viewport.
+- Viewport indicator: a yellow box on the sidebar thumbnail shows which part of the image is currently visible when zoomed in.
+
+### Improved
+- Scroll position is now preserved when navigating between frames at the same zoom level.
+- Zooming via the slider keeps the viewport centre fixed instead of jumping to the top-left.
+- Zoom level persists across app launches; brightness and stretch reset when opening a new folder.
+- Swift 6 concurrency fixes: key-event monitor, `PanelAccessoryHelper`, `FolderTracker.init`, concurrent `self` capture, and unused weak-capture removals.
+- QL extension `CFBundleVersion` now tracks the main app version automatically via `$(CURRENT_PROJECT_VERSION)`.
+
+---
+
 ## 2026-04-08 — v1.20 QuickLook support and Bayer screen-door fix
 
 ### Added
