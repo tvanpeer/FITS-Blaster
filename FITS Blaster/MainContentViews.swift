@@ -462,37 +462,12 @@ private struct ImageAdjustControls: View {
     }
 
     var body: some View {
-        @Bindable var store = store
-        @Bindable var settings = settings
-
         HStack(spacing: 12) {
-            // Zoom
-            Image(systemName: "plus.magnifyingglass")
-                .foregroundStyle(.secondary)
-                .help("Zoom")
-            Slider(value: $settings.zoomScale, in: 0.25...4.0)
-                .frame(width: 80)
-            Text("\(settings.zoomScale, format: .number.precision(.fractionLength(1)))×")
-                .scaledFont(size: 10, monospaced: true)
-                .frame(width: 34, alignment: .leading)
-
+            ZoomControl()
             Divider().frame(height: 14)
-
-            // Brightness
-            Image(systemName: "sun.max")
-                .foregroundStyle(.secondary)
-                .help("Brightness")
-            Slider(value: $store.displayBrightness, in: -0.5...0.5)
-                .frame(width: 80)
-
+            BrightnessControl()
             Divider().frame(height: 14)
-
-            // Stretch
-            Image(systemName: "waveform.path.ecg")
-                .foregroundStyle(.secondary)
-                .help("Stretch (contrast)")
-            Slider(value: $store.displayStretch, in: 0.5...3.0)
-                .frame(width: 80)
+            StretchControl()
 
             Button("Defaults", systemImage: "arrow.counterclockwise") {
                 settings.zoomScale = 1.0
@@ -500,9 +475,87 @@ private struct ImageAdjustControls: View {
                 store.displayStretch = 1.0
             }
             .disabled(isDefault)
-            .help("Reset all display adjustments")
+            .tooltip("Reset all display adjustments")
         }
         .padding(.horizontal)
         .padding(.vertical, 6)
     }
 }
+
+/// Each slider control is its own struct so that value changes only re-render
+/// that single control, not the entire HStack. This prevents tooltip hover
+/// state from being reset when any slider value changes.
+private struct ZoomControl: View {
+    @Environment(AppSettings.self) private var settings
+
+    var body: some View {
+        @Bindable var bound = settings
+        Button("Zoom", systemImage: "plus.magnifyingglass") {
+            settings.zoomScale = 1.0
+        }
+        .tooltip("Zoom — click to reset")
+        Slider(value: $bound.zoomScale, in: 0.25...4.0)
+            .frame(width: 80)
+        Text("\(settings.zoomScale, format: .number.precision(.fractionLength(1)))×")
+            .scaledFont(size: 10, monospaced: true)
+            .frame(width: 34, alignment: .leading)
+    }
+}
+
+private struct BrightnessControl: View {
+    @Environment(ImageStore.self) private var store
+
+    var body: some View {
+        @Bindable var bound = store
+        Button("Brightness", systemImage: "sun.max") {
+            store.displayBrightness = 0.0
+        }
+        .tooltip("Brightness — click to reset")
+        Slider(value: $bound.displayBrightness, in: -0.5...0.5)
+            .frame(width: 80)
+    }
+}
+
+private struct StretchControl: View {
+    @Environment(ImageStore.self) private var store
+
+    var body: some View {
+        @Bindable var bound = store
+        Button("Stretch", systemImage: "waveform.path.ecg") {
+            store.displayStretch = 1.0
+        }
+        .tooltip("Stretch — click to reset")
+        Slider(value: $bound.displayStretch, in: 0.5...3.0)
+            .frame(width: 80)
+    }
+}
+
+// MARK: - Native macOS Tooltip
+
+/// SwiftUI's `.help()` modifier loses its tooltip state whenever `@Observable`
+/// properties trigger a view re-render. This modifier uses `NSView.toolTip`
+/// directly, which survives SwiftUI view updates. The underlying NSView returns
+/// `nil` from `hitTest(_:)` so all mouse events pass through to the SwiftUI
+/// content underneath.
+private class TooltipNSView: NSView {
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
+}
+
+private struct TooltipOverlay: NSViewRepresentable {
+    let text: String
+    func makeNSView(context: Context) -> TooltipNSView {
+        let view = TooltipNSView()
+        view.toolTip = text
+        return view
+    }
+    func updateNSView(_ nsView: TooltipNSView, context: Context) {
+        nsView.toolTip = text
+    }
+}
+
+extension View {
+    func tooltip(_ text: String) -> some View {
+        overlay { TooltipOverlay(text: text) }
+    }
+}
+
