@@ -4,6 +4,18 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-04-08 — Sparkle auto-update
+
+### Added
+- Automatic update checking via the Sparkle framework. FITS Blaster now checks for new versions once every 24 hours in the background.
+- "Check for Updates..." menu item in the FITS Blaster menu for manual update checks.
+- Updates are downloaded, installed, and relaunched automatically — no manual DMG drag required.
+
+### Improved
+- FAQ updated: "Does FITS Blaster require an internet connection?" now mentions the lightweight update check.
+
+---
+
 ## 2026-04-08 — Image viewer controls
 
 ### Added
