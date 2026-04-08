@@ -17,6 +17,8 @@
 		<string>com.apple.quicklook.thumbnail</string>
 		<key>NSExtensionPrincipalClass</key>
 		<string>$(PRODUCT_MODULE_NAME).ThumbnailProvider</string>
+		<key>NSExtensionServiceMaximumMemoryLevel</key>
+		<string>High</string>
 	</dict>
 	<key>UTImportedTypeDeclarations</key>
 	<array>

@@ -25,9 +25,11 @@ done
 
 PROJECT="FITS Blaster.xcodeproj"
 SCHEME="FITS Blaster"
-ARCHIVE_PATH="$TMPDIR/FITS Blaster.xcarchive"
-EXPORT_PATH="$TMPDIR/FITSBlasterExport"
-LOG_PATH="/tmp/xcodebuild.log"
+BUILD_DIR="$(pwd)/build"
+ARCHIVE_PATH="$BUILD_DIR/FITS Blaster.xcarchive"
+EXPORT_PATH="$BUILD_DIR/FITSBlasterExport"
+LOG_PATH="$BUILD_DIR/xcodebuild.log"
+mkdir -p "$BUILD_DIR"
 
 # Step 1: Archive
 echo "==> Archiving (this takes a minute)..."
@@ -106,3 +108,6 @@ fi
 
 echo ""
 echo "==> Done: $DMG_PATH"
+
+# Remove intermediate build artefacts so pkd doesn't register stale extensions
+rm -rf "$ARCHIVE_PATH" "$EXPORT_PATH"
