@@ -77,19 +77,29 @@ jobs:
             echo "Channel: STABLE"
           fi
 
+      - name: Rename app for beta
+        if: env.IS_BETA == 'true'
+        run: |
+          mv "$RUNNER_TEMP/export/FITS Blaster.app" "$RUNNER_TEMP/export/FITS Blaster ${VERSION}.app"
+
       - name: Create DMG
         run: |
           brew install create-dmg
+          if [ "$IS_BETA" = "true" ]; then
+            APP_NAME="FITS Blaster ${VERSION}.app"
+          else
+            APP_NAME="FITS Blaster.app"
+          fi
           create-dmg \
             --volname "FITS Blaster Installer" \
             --volicon "resources/Book of Galaxies.icns" \
             --background "resources/installer-background.png" \
             --window-pos 200 120 \
             --window-size 800 400 \
-            --icon "FITS Blaster.app" 200 185 \
+            --icon "$APP_NAME" 200 185 \
             --app-drop-link 600 185 \
             "$RUNNER_TEMP/FITS-Blaster-${VERSION}.dmg" \
-            "$RUNNER_TEMP/export/FITS Blaster.app"
+            "$RUNNER_TEMP/export/$APP_NAME"
           echo "DMG_PATH=$RUNNER_TEMP/FITS-Blaster-${VERSION}.dmg" >> "$GITHUB_ENV"
 
       - name: Notarise
@@ -127,8 +137,13 @@ jobs:
 
       - name: Generate Sparkle appcast
         run: |
+          if [ "$IS_BETA" = "true" ]; then
+            APP_PATH="$RUNNER_TEMP/export/FITS Blaster ${VERSION}.app"
+          else
+            APP_PATH="$RUNNER_TEMP/export/FITS Blaster.app"
+          fi
           BUILD=$(/usr/libexec/PlistBuddy -c "Print CFBundleVersion" \
-            "$RUNNER_TEMP/export/FITS Blaster.app/Contents/Info.plist")
+            "$APP_PATH/Contents/Info.plist")
           python3 scripts/generate-appcast.py \
             --version "$VERSION" \
             --build "$BUILD" \
