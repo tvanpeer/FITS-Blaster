@@ -115,7 +115,6 @@ struct ContentView: View {
                 Divider()
                 if settings.isSimpleMode {
                     MainContent(store: store)
-                        .withPlaybackTimer()
                 } else {
                     ResizableChartLayout()
                 }
@@ -190,23 +189,30 @@ struct ContentView: View {
         case .deselectAll:       store.deselectAll()
         case .invertSelection:   store.invertSelection()
         case .selectAllRejected: store.selectAllRejected()
-        case .first:             store.isPlaying = false; store.selectFirst(in: sidebarNavigationEntries)
-        case .last:              store.isPlaying = false; store.selectLast(in: sidebarNavigationEntries)
-        case .previous:          store.isPlaying = false; store.selectPrevious(in: sidebarNavigationEntries)
-        case .next:              store.isPlaying = false; store.selectNext(in: sidebarNavigationEntries)
+        case .first:             store.stopPlayback(); store.selectFirst(in: sidebarNavigationEntries)
+        case .last:              store.stopPlayback(); store.selectLast(in: sidebarNavigationEntries)
+        case .previous:          store.stopPlayback(); store.selectPrevious(in: sidebarNavigationEntries)
+        case .next:              store.stopPlayback(); store.selectNext(in: sidebarNavigationEntries)
         case .reject:
             if settings.useToggleReject { store.toggleRejectSelected() } else { store.rejectSelected() }
         case .undo:
             guard !settings.useToggleReject else { return false }
             store.undoRejectSelected()
-        case .flag:     store.toggleFlagSelected()
+        case .flag:
+            let preFlag = sidebarNavigationEntries
+            store.toggleFlagSelected()
+            store.advanceCursorIfNeeded(from: preFlag)
         case .deflagAll: store.deflagAll()
         case .toggleMode:  settings.isSimpleMode.toggle()
         case .remove:      store.removeSelected()
         case .debayer:     settings.debayerColorImages.toggle()
         case .playPause:
-            guard store.selectedEntry != nil else { return false }
-            store.isPlaying.toggle()
+            if store.isPlaying {
+                store.stopPlayback()
+            } else {
+                guard store.selectedEntry != nil else { return false }
+                store.startPlayback(settings: settings)
+            }
         case .flip:
             store.toggleFlipSelected()
         }

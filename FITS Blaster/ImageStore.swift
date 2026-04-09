@@ -222,6 +222,43 @@ final class ImageStore {
     /// Whether the auto-play slideshow is currently running.
     var isPlaying: Bool = false
 
+    /// The active playback task — stored here (not in a view) so it survives SwiftUI view rebuilds.
+    private var playbackTask: Task<Void, Never>?
+
+    /// Starts auto-advancing through the visible entries at the given interval.
+    func startPlayback(settings: AppSettings) {
+        stopPlayback()
+        isPlaying = true
+        playbackTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            while !Task.isCancelled, self.isPlaying {
+                try? await Task.sleep(for: .milliseconds(Int(settings.playbackSpeed * 1000)))
+                guard !Task.isCancelled, self.isPlaying else { break }
+
+                let ordered = self.sidebarNavigationEntries(isSimpleMode: settings.isSimpleMode)
+                guard let current = self.selectedEntry,
+                      let idx = ordered.firstIndex(where: { $0.id == current.id }) else {
+                    self.isPlaying = false
+                    break
+                }
+
+                let nextIdx = idx + 1
+                if nextIdx < ordered.count {
+                    self.selectedEntry = ordered[nextIdx]
+                } else {
+                    self.isPlaying = false
+                }
+            }
+        }
+    }
+
+    /// Stops playback and cancels the timer task.
+    func stopPlayback() {
+        isPlaying = false
+        playbackTask?.cancel()
+        playbackTask = nil
+    }
+
     // MARK: - Viewport tracking
 
     /// The visible area of the current image as a fraction of its full content size (0–1).
@@ -240,15 +277,35 @@ final class ImageStore {
         didSet { updateCachedSort() }
     }
 
+    /// Remembers the last-selected entry per filter group so switching back restores the cursor.
+    private var cursorPerFilterGroup: [FilterGroup?: UUID] = [:]
+
     /// The filter group currently highlighted in the sidebar filter strip.
     /// `nil` means "show all groups". Cleared on reset.
     var sidebarFilterGroup: FilterGroup? = nil {
-        didSet { updateVisibilityFilteredEntries() }
+        didSet {
+            stopPlayback()
+            // Save cursor for the group we're leaving.
+            if let sel = selectedEntry { cursorPerFilterGroup[oldValue] = sel.id }
+            updateVisibilityFilteredEntries()
+            // Restore cursor for the group we're entering, or fall back to first visible.
+            if let savedID = cursorPerFilterGroup[sidebarFilterGroup],
+               let entry = entries.first(where: { $0.id == savedID }),
+               isVisible(entry) {
+                selectedEntry = entry
+            } else {
+                ensureCursorVisible()
+            }
+        }
     }
 
     /// Controls which images are visible in the sidebar and session chart.
     var rejectionVisibility: RejectionVisibility = .all {
-        didSet { updateVisibilityFilteredEntries() }
+        didSet {
+            stopPlayback()
+            updateVisibilityFilteredEntries()
+            ensureCursorVisible()
+        }
     }
 
     // MARK: - Folder grouping
@@ -544,12 +601,14 @@ final class ImageStore {
         // Find a replacement selection from the current sorted order.
         let ordered = sortedEntries
         let firstRemovedIdx = ordered.firstIndex { idsToRemove.contains($0.id) }
-        let remaining = ordered.filter { !idsToRemove.contains($0.id) }
+
+        // Pick the first non-removed entry at or after the first removal point.
         let nextEntry: ImageEntry?
         if let idx = firstRemovedIdx {
-            nextEntry = remaining.first { e in (ordered.firstIndex(where: { $0 === e }) ?? -1) >= idx } ?? remaining.last
+            nextEntry = ordered[idx...].first { !idsToRemove.contains($0.id) }
+                ?? ordered.last { !idsToRemove.contains($0.id) }
         } else {
-            nextEntry = remaining.first
+            nextEntry = ordered.first { !idsToRemove.contains($0.id) }
         }
 
         entries.removeAll { idsToRemove.contains($0.id) }
@@ -569,6 +628,7 @@ final class ImageStore {
         isBatchProcessing = false
         errorMessage = nil
         sidebarFilterGroup = nil
+        cursorPerFilterGroup = [:]
         groupStatistics = [:]
         activeFilterGroups = []
         cachedSortedEntries = []
@@ -584,7 +644,7 @@ final class ImageStore {
         batchSamplingCount = 0
         displayBrightness = 0.0
         displayStretch = 1.0
-        isPlaying = false
+        stopPlayback()
         viewportFraction = CGRect(x: 0, y: 0, width: 1, height: 1)
         viewportCenter = .zero
     }
@@ -706,6 +766,23 @@ final class ImageStore {
         } else {
             selectedEntry = ordered[index + 1]
         }
+    }
+
+    /// If the cursor entry is no longer visible (e.g. after reject or unflag),
+    /// selects the nearest visible neighbour from the pre-action ordered list.
+    func advanceCursorIfNeeded(from previousOrder: [ImageEntry]) {
+        guard let sel = selectedEntry, !isVisible(sel) else { return }
+        guard let idx = previousOrder.firstIndex(where: { $0 === sel }) else { return }
+        // Try the next entry in the old order, then fall back to the previous one.
+        selectedEntry = previousOrder[(idx + 1)...].first(where: { isVisible($0) })
+            ?? previousOrder[..<idx].last(where: { isVisible($0) })
+    }
+
+    /// Selects the first visible entry when the current selection is hidden
+    /// (e.g. after switching filter group or rejection visibility).
+    private func ensureCursorVisible() {
+        guard let sel = selectedEntry, !isVisible(sel) else { return }
+        selectedEntry = visibilityFilteredEntries.first
     }
 
     /// Toggles rejection for the range selection, or the cursor entry if no range is active.

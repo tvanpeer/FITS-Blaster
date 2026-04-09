@@ -22,7 +22,6 @@ struct ResizableChartLayout: View {
     var body: some View {
         VStack(spacing: 0) {
             MainContent(store: store)
-                .withPlaybackTimer()
                 .frame(minHeight: 180)
 
             // Drag handle
@@ -221,12 +220,6 @@ struct MainContent: View {
     }
 }
 
-extension MainContent {
-    /// Attaches the playback timer that auto-advances to the next image.
-    func withPlaybackTimer() -> some View {
-        modifier(PlaybackTimerModifier())
-    }
-}
 
 // MARK: - Info Bar
 
@@ -558,7 +551,11 @@ private struct PlaybackControls: View {
         Button(store.isPlaying ? "Pause" : "Play",
                systemImage: store.isPlaying ? "pause.fill" : "play.fill") {
             guard store.selectedEntry != nil else { return }
-            store.isPlaying.toggle()
+            if store.isPlaying {
+                store.stopPlayback()
+            } else {
+                store.startPlayback(settings: settings)
+            }
         }
         .disabled(store.selectedEntry == nil)
         .tooltip(store.isPlaying
@@ -570,10 +567,10 @@ private struct PlaybackControls: View {
                    onEditingChanged: { editing in
                 if editing {
                     wasPlayingBeforeDrag = store.isPlaying
-                    store.isPlaying = false
+                    store.stopPlayback()
                 } else if wasPlayingBeforeDrag {
                     wasPlayingBeforeDrag = false
-                    store.isPlaying = true
+                    store.startPlayback(settings: settings)
                 }
             })
                 .frame(width: 60)
@@ -584,45 +581,6 @@ private struct PlaybackControls: View {
     }
 }
 
-// MARK: - Playback Timer
-
-/// Modifier that drives auto-advance playback. Attached to MainContent so the
-/// timer runs whenever an image is displayed.
-private struct PlaybackTimerModifier: ViewModifier {
-    @Environment(ImageStore.self) private var store
-    @Environment(AppSettings.self) private var settings
-
-    func body(content: Content) -> some View {
-        content
-            .onChange(of: store.isPlaying) { _, playing in
-                if playing { startPlayback() }
-            }
-    }
-
-    private func startPlayback() {
-        Task { @MainActor in
-            while store.isPlaying {
-                try? await Task.sleep(for: .milliseconds(Int(settings.playbackSpeed * 1000)))
-                guard store.isPlaying else { break }
-
-                let ordered = store.sidebarNavigationEntries(isSimpleMode: settings.isSimpleMode)
-                guard let current = store.selectedEntry,
-                      let idx = ordered.firstIndex(where: { $0.id == current.id }) else {
-                    store.isPlaying = false
-                    break
-                }
-
-                let nextIdx = idx + 1
-                if nextIdx < ordered.count {
-                    store.selectedEntry = ordered[nextIdx]
-                } else {
-                    // Reached the end — stop playback
-                    store.isPlaying = false
-                }
-            }
-        }
-    }
-}
 
 // MARK: - Native macOS Tooltip
 

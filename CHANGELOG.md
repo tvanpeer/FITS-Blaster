@@ -10,14 +10,20 @@ All notable changes to FITS Blaster are recorded here.
 - Session chart: optional bar chart mode as alternative to dots. Toggle via the chart header button. Preference is persisted.
 - Play mode: press P to auto-advance through images at a configurable speed (0.2–5.0 seconds per frame). A speed slider appears in the toolbar during playback. Manual navigation stops playback automatically.
 - Flip 180°: press V to rotate the current image (or batch selection) 180 degrees for display. A rotation indicator appears on the thumbnail. Does not modify FITS files.
+- Cursor memory per filter group: switching between filter buttons (R, G, B, etc.) remembers and restores the selected image for each group.
 - Beta release channel: tag a version as `v1.23-beta.1` to publish a test build without updating the homepage. Beta builds get their own page (`beta.html`), appcast feed (`appcast-beta.xml`), and are marked as pre-releases on GitHub.
 - Beta page on the website with download link and release notes for the latest beta build.
 - Release & issue workflow guide (`guide-releases.html`) documenting the tag-based release process and GitHub Issues workflow.
 
 ### Fixed
 - Filter buttons above the thumbnail sidebar now work correctly in multi-folder sessions.
+- Switching filter group or rejection visibility now auto-selects the first visible entry when the cursor is hidden.
+- Unflagging an image in the Flagged view now advances the cursor to the next flagged image instead of losing the selection.
+- Playback stops automatically when switching filter group or rejection visibility.
+- Playback timer moved out of SwiftUI view modifier to prevent task cancellation during view rebuilds.
 
 ### Improved
+- O(n²) search in image removal replaced with O(n) scan for selecting the next entry.
 - GitHub Actions pipeline detects beta tags and adjusts behaviour: marks releases as pre-release, writes to separate appcast and site files.
 - Site navigation now includes a Beta link on all pages.
 
