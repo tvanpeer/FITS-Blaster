@@ -5,5 +5,70 @@
         <link>https://astrophoto-app.com</link>
         <description>Beta release notes for FITS Blaster</description>
         <language>en-us</language>
+        <item>
+            <title>FITS Blaster 1.23-beta.1</title>
+            <pubDate>Thu, 09 Apr 2026 18:36:47 +0000</pubDate>
+            <sparkle:version>174</sparkle:version>
+            <sparkle:shortVersionString>1.23-beta.1</sparkle:shortVersionString>
+            <description><![CDATA[
+<h2>2026-04-09 — Session chart bars, filter fix, play mode, flip, and beta channel</h2>
+<h3>Added</h3>
+<ul>
+  <li>Session chart: optional bar chart mode as alternative to dots. Toggle via the chart header button. Preference is persisted.</li>
+  <li>Play mode: press P to auto-advance through images at a configurable speed (0.2–5.0 seconds per frame). A speed slider appears in the toolbar during playback. Manual navigation stops playback automatically.</li>
+  <li>Flip 180°: press V to rotate the current image (or batch selection) 180 degrees for display. A rotation indicator appears on the thumbnail. Does not modify FITS files.</li>
+  <li>Beta release channel: tag a version as `v1.23-beta.1` to publish a test build without updating the homepage. Beta builds get their own page (`beta.html`), appcast feed (`appcast-beta.xml`), and are marked as pre-releases on GitHub.</li>
+  <li>Beta page on the website with download link and release notes for the latest beta build.</li>
+  <li>Release &amp; issue workflow guide (`guide-releases.html`) documenting the tag-based release process and GitHub Issues workflow.</li>
+</ul>
+<h3>Fixed</h3>
+<ul>
+  <li>Filter buttons above the thumbnail sidebar now work correctly in multi-folder sessions.</li>
+</ul>
+<h3>Improved</h3>
+<ul>
+  <li>GitHub Actions pipeline detects beta tags and adjusts behaviour: marks releases as pre-release, writes to separate appcast and site files.</li>
+  <li>Site navigation now includes a Beta link on all pages.</li>
+</ul>
+<p>---</p>
+<h2>2026-04-08 — Sparkle auto-update</h2>
+<h3>Added</h3>
+<ul>
+  <li>Automatic update checking via the Sparkle framework. FITS Blaster now checks for new versions once every 24 hours in the background.</li>
+  <li>&quot;Check for Updates...&quot; menu item in the FITS Blaster menu for manual update checks.</li>
+  <li>Updates are downloaded, installed, and relaunched automatically — no manual DMG drag required.</li>
+</ul>
+<h3>Improved</h3>
+<ul>
+  <li>FAQ updated: &quot;Does FITS Blaster require an internet connection?&quot; now mentions the lightweight update check.</li>
+</ul>
+<p>---</p>
+<h2>2026-04-08 — Image viewer controls</h2>
+<h3>Added</h3>
+<ul>
+  <li>Zoom slider (0.25×–4×) with live readout; trackpad pinch-to-zoom also supported.</li>
+  <li>Brightness slider for quick exposure adjustment without re-rendering.</li>
+  <li>Stretch slider to boost or reduce image contrast.</li>
+  <li>&quot;Defaults&quot; button to reset all three adjustments in one click.</li>
+  <li>Scrollbars appear automatically when the image is zoomed beyond the viewport.</li>
+  <li>Viewport indicator: a yellow box on the sidebar thumbnail shows which part of the image is currently visible when zoomed in.</li>
+</ul>
+<h3>Improved</h3>
+<ul>
+  <li>Scroll position is now preserved when navigating between frames at the same zoom level.</li>
+  <li>Zooming via the slider keeps the viewport centre fixed instead of jumping to the top-left.</li>
+  <li>Zoom level persists across app launches; brightness and stretch reset when opening a new folder.</li>
+  <li>Swift 6 concurrency fixes: key-event monitor, `PanelAccessoryHelper`, `FolderTracker.init`, concurrent `self` capture, and unused weak-capture removals.</li>
+  <li>QL extension `CFBundleVersion` now tracks the main app version automatically via `$(CURRENT_PROJECT_VERSION)`.</li>
+</ul>
+<p>---</p>
+<p>**[Full changelog](https://astrophoto-app.com/changelog.html)**</p>
+            ]]></description>
+            <enclosure
+                url="https://github.com/tvanpeer/FITS-Blaster/releases/download/v1.23-beta.1/FITS-Blaster-1.23-beta.1.dmg"
+                length="8361916"
+                type="application/octet-stream"
+                sparkle:edSignature="lZ0G39L5kEM9l6N1cilzv/QIQ+RwmooFBsv7/skVAGGycm+p/m63Bsi5c9qhHT1qC4z/YiqTw3UapKYaiQ1GBg==" />
+        </item>
     </channel>
 </rss>
