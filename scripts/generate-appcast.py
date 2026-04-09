@@ -93,9 +93,13 @@ APPCAST_TEMPLATE = """<?xml version="1.0" encoding="utf-8"?>
 """
 
 
+def is_beta(version: str) -> bool:
+    return 'beta' in version
+
+
 def main():
     parser = argparse.ArgumentParser(description='Generate or update Sparkle appcast.xml')
-    parser.add_argument('--version', required=True, help='Marketing version, e.g. 1.22')
+    parser.add_argument('--version', required=True, help='Marketing version, e.g. 1.22 or 1.23-beta.1')
     parser.add_argument('--build', required=True, help='Build number (CURRENT_PROJECT_VERSION), e.g. 166')
     parser.add_argument('--dmg-url', required=True)
     parser.add_argument('--signature', required=True)
@@ -110,7 +114,9 @@ def main():
     new_item = build_item(args.version, args.build, args.dmg_url, args.signature,
                           args.dmg_size, release_html)
 
-    appcast_path = os.path.join(os.path.dirname(__file__), '..', 'site', 'appcast.xml')
+    # Beta versions go to appcast-beta.xml, stable to appcast.xml
+    filename = 'appcast-beta.xml' if is_beta(args.version) else 'appcast.xml'
+    appcast_path = os.path.join(os.path.dirname(__file__), '..', 'site', filename)
     appcast_path = os.path.normpath(appcast_path)
 
     if os.path.exists(appcast_path):

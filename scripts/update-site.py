@@ -182,9 +182,46 @@ def update_index_html(path, version):
 # Entry point
 # ---------------------------------------------------------------------------
 
+def is_beta(version: str) -> bool:
+    return 'beta' in version
+
+
+def update_beta_html(path, version, entry_html):
+    """Update beta.html with latest beta download and changelog entry."""
+    with open(path, encoding='utf-8') as f:
+        content = f.read()
+
+    # Update download href
+    content = re.sub(
+        r'href="https://github\.com/tvanpeer/FITS-Blaster/releases/download/v[^/]+/FITS-Blaster-[^"]+\.dmg"',
+        f'href="https://github.com/tvanpeer/FITS-Blaster/releases/download/v{version}/FITS-Blaster-{version}.dmg"',
+        content,
+    )
+
+    # Update button label
+    content = re.sub(
+        r'(?<=>)Download Beta [\d.a-z-]+(?=<)',
+        f'Download Beta {version}',
+        content,
+    )
+
+    # Replace the beta changelog entry
+    content = re.sub(
+        r'<!-- beta-entry-start -->.*?<!-- beta-entry-end -->',
+        f'<!-- beta-entry-start -->\n{entry_html}\n    <!-- beta-entry-end -->',
+        content,
+        flags=re.DOTALL,
+    )
+
+    with open(path, 'w', encoding='utf-8') as f:
+        f.write(content)
+
+    print(f'{path}: updated for beta {version}.')
+
+
 if __name__ == '__main__':
     if len(sys.argv) != 2:
-        print(f'Usage: {sys.argv[0]} VERSION   (e.g. 1.16)')
+        print(f'Usage: {sys.argv[0]} VERSION   (e.g. 1.16 or 1.23-beta.1)')
         sys.exit(1)
 
     version = sys.argv[1]
@@ -197,5 +234,10 @@ if __name__ == '__main__':
     date, title, sections = result
     entry_html = build_entry_html(version, date, title, sections)
 
-    update_changelog_html('site/changelog.html', version, entry_html)
-    update_index_html('site/index.html', version)
+    if is_beta(version):
+        # Beta: only update beta.html, leave index.html untouched
+        update_beta_html('site/beta.html', version, entry_html)
+    else:
+        # Stable: update index.html and changelog.html
+        update_changelog_html('site/changelog.html', version, entry_html)
+        update_index_html('site/index.html', version)

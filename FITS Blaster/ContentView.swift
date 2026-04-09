@@ -115,6 +115,7 @@ struct ContentView: View {
                 Divider()
                 if settings.isSimpleMode {
                     MainContent(store: store)
+                        .withPlaybackTimer()
                 } else {
                     ResizableChartLayout()
                 }
@@ -147,6 +148,7 @@ struct ContentView: View {
         case reject, undo
         case flag, deflagAll
         case toggleMode, remove, debayer
+        case playPause, flip
     }
 
     /// ⌘(⇧)+key bindings: KeyPath to the key string, KeyPath to the shift flag, action.
@@ -171,6 +173,8 @@ struct ContentView: View {
         (\.undoKey,        .undo),
         (\.flagKey,        .flag),
         (\.deflagAllKey,   .deflagAll),
+        (\.playPauseKey,   .playPause),
+        (\.flipKey,        .flip),
         (\.toggleModeKey,  .toggleMode),
         (\.removeKey,      .remove),
         (\.debayerKey,     .debayer),
@@ -186,10 +190,10 @@ struct ContentView: View {
         case .deselectAll:       store.deselectAll()
         case .invertSelection:   store.invertSelection()
         case .selectAllRejected: store.selectAllRejected()
-        case .first:             store.selectFirst(in: sidebarNavigationEntries)
-        case .last:              store.selectLast(in: sidebarNavigationEntries)
-        case .previous:          store.selectPrevious(in: sidebarNavigationEntries)
-        case .next:              store.selectNext(in: sidebarNavigationEntries)
+        case .first:             store.isPlaying = false; store.selectFirst(in: sidebarNavigationEntries)
+        case .last:              store.isPlaying = false; store.selectLast(in: sidebarNavigationEntries)
+        case .previous:          store.isPlaying = false; store.selectPrevious(in: sidebarNavigationEntries)
+        case .next:              store.isPlaying = false; store.selectNext(in: sidebarNavigationEntries)
         case .reject:
             if settings.useToggleReject { store.toggleRejectSelected() } else { store.rejectSelected() }
         case .undo:
@@ -200,6 +204,11 @@ struct ContentView: View {
         case .toggleMode:  settings.isSimpleMode.toggle()
         case .remove:      store.removeSelected()
         case .debayer:     settings.debayerColorImages.toggle()
+        case .playPause:
+            guard store.selectedEntry != nil else { return false }
+            store.isPlaying.toggle()
+        case .flip:
+            store.toggleFlipSelected()
         }
         return true
     }

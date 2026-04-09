@@ -136,6 +136,20 @@ extension ImageStore {
         }
     }
 
+    // MARK: - Flip
+
+    /// Toggles the 180° display rotation for the current selection (batch or single).
+    func toggleFlipSelected() {
+        if !markedForRejectionIDs.isEmpty {
+            let batch = entries.filter { markedForRejectionIDs.contains($0.id) }
+            let allFlipped = batch.allSatisfy(\.isFlipped)
+            for entry in batch { entry.isFlipped = !allFlipped }
+        } else {
+            guard let entry = selectedEntry else { return }
+            entry.isFlipped.toggle()
+        }
+    }
+
     /// Flags all frames that match `config` by adding them to the selection.
     func applyAutoFlag(config: AutoRejectConfig) {
         flagEntries(previewAutoReject(config: config))

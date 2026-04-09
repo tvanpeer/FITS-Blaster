@@ -64,6 +64,9 @@ final class ImageEntry: Identifiable {
     /// Whether this image has been rejected (file moved to REJECTED subdirectory)
     var isRejected: Bool = false
 
+    /// Display-only 180° rotation flag. Does not modify pixel data.
+    var isFlipped: Bool = false
+
     /// Security-scoped bookmark for the parent directory (needed for file moves)
     var directoryBookmark: Data?
 
@@ -213,6 +216,11 @@ final class ImageStore {
     /// Contrast multiplier applied to the displayed image (0.5 to 3.0, 1.0 = normal).
     /// Higher values produce a stronger stretch; maps to SwiftUI's .contrast() modifier.
     var displayStretch: Double = 1.0
+
+    // MARK: - Playback
+
+    /// Whether the auto-play slideshow is currently running.
+    var isPlaying: Bool = false
 
     // MARK: - Viewport tracking
 
@@ -572,6 +580,7 @@ final class ImageStore {
         batchSamplingCount = 0
         displayBrightness = 0.0
         displayStretch = 1.0
+        isPlaying = false
         viewportFraction = CGRect(x: 0, y: 0, width: 1, height: 1)
         viewportCenter = .zero
     }

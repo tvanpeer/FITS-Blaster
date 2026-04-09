@@ -377,7 +377,17 @@ struct ThumbnailCell: View {
         VStack(spacing: 4) {
             ZStack(alignment: .topTrailing) {
                 ZStack(alignment: .topLeading) {
-                    thumbnailImage
+                    ZStack(alignment: .bottomLeading) {
+                        thumbnailImage
+                        if entry.isFlipped {
+                            Image(systemName: "arrow.trianglehead.2.counterclockwise.rotate.90")
+                                .foregroundStyle(.white)
+                                .font(.system(size: 10))
+                                .padding(3)
+                                .background(.black.opacity(0.5), in: .rect(cornerRadius: 4))
+                                .padding(4)
+                        }
+                    }
                     if isFlagged {
                         Image(systemName: "checkmark.circle.fill")
                             .foregroundStyle(.white, Color.accentColor)
@@ -442,6 +452,7 @@ struct ThumbnailCell: View {
             Image(nsImage: thumbnail)
                 .resizable()
                 .aspectRatio(contentMode: .fit)
+                .rotationEffect(entry.isFlipped ? .degrees(180) : .zero)
                 .clipShape(.rect(cornerRadius: 4))
                 .overlay {
                     if entry.isRejected { RejectionOverlay() }

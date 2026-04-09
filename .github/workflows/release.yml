@@ -65,10 +65,21 @@ jobs:
             -exportOptionsPlist ExportOptions.plist \
             -exportPath "$RUNNER_TEMP/export"
 
+      - name: Detect release channel
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          if [[ "$VERSION" == *beta* ]]; then
+            echo "IS_BETA=true" >> "$GITHUB_ENV"
+            echo "Channel: BETA"
+          else
+            echo "IS_BETA=false" >> "$GITHUB_ENV"
+            echo "Channel: STABLE"
+          fi
+
       - name: Create DMG
         run: |
           brew install create-dmg
-          VERSION="${GITHUB_REF_NAME#v}"
           create-dmg \
             --volname "FITS Blaster Installer" \
             --volicon "resources/Book of Galaxies.icns" \
@@ -80,7 +91,6 @@ jobs:
             "$RUNNER_TEMP/FITS-Blaster-${VERSION}.dmg" \
             "$RUNNER_TEMP/export/FITS Blaster.app"
           echo "DMG_PATH=$RUNNER_TEMP/FITS-Blaster-${VERSION}.dmg" >> "$GITHUB_ENV"
-          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
 
       - name: Notarise
         run: |
@@ -133,6 +143,7 @@ jobs:
           name: "FITS Blaster ${{ env.VERSION }}"
           body_path: ${{ env.RELEASE_NOTES_PATH }}
           files: ${{ env.DMG_PATH }}
+          prerelease: ${{ env.IS_BETA == 'true' }}
 
       - name: Update site
         run: python3 scripts/update-site.py "${{ env.VERSION }}"
@@ -144,8 +155,13 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/tvanpeer/FITS-Blaster.git"
-          git add site/index.html site/changelog.html site/appcast.xml
-          git diff --staged --quiet || git commit -m "release: update site for v${{ env.VERSION }} [skip ci]"
+          if [ "$IS_BETA" = "true" ]; then
+            git add site/beta.html site/appcast-beta.xml
+            git diff --staged --quiet || git commit -m "release: update site for v${{ env.VERSION }} (beta) [skip ci]"
+          else
+            git add site/index.html site/changelog.html site/appcast.xml
+            git diff --staged --quiet || git commit -m "release: update site and appcast for v${{ env.VERSION }} [skip ci]"
+          fi
           git pull --rebase origin main
           git push origin HEAD:main
 

@@ -47,6 +47,8 @@ struct UISettingsTab: View {
             ("Toggle Simple/Geek Mode", $settings.toggleModeKey),
             ("Remove from List",        $settings.removeKey),
             ("Toggle Colour Images",    $settings.debayerKey),
+            ("Play / Pause",            $settings.playPauseKey),
+            ("Flip 180\u{00B0}",            $settings.flipKey),
         ]
         // Cmd keys — only conflict with each other.
         let cmdKeys: [(label: String, key: Binding<String>)] = [
@@ -104,6 +106,14 @@ struct UISettingsTab: View {
                 LabeledContent("Toggle Colour Images") {
                     KeyRecorderButton(keyString: $settings.debayerKey,
                                       conflictingKeys: plainKeys.filter { $0.label != "Toggle Colour Images" }.map(\.key))
+                }
+                LabeledContent("Play / Pause") {
+                    KeyRecorderButton(keyString: $settings.playPauseKey,
+                                      conflictingKeys: plainKeys.filter { $0.label != "Play / Pause" }.map(\.key))
+                }
+                LabeledContent("Flip 180\u{00B0}") {
+                    KeyRecorderButton(keyString: $settings.flipKey,
+                                      conflictingKeys: plainKeys.filter { $0.label != "Flip 180\u{00B0}" }.map(\.key))
                 }
             }
 

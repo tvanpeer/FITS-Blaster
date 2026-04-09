@@ -53,6 +53,12 @@ final class AppSettings {
     var deflagAllKey: String = "d" {
         didSet { UserDefaults.standard.set(deflagAllKey, forKey: "deflagAllKey") }
     }
+    var playPauseKey: String = "p" {
+        didSet { UserDefaults.standard.set(playPauseKey, forKey: "playPauseKey") }
+    }
+    var flipKey: String = "v" {
+        didSet { UserDefaults.standard.set(flipKey, forKey: "flipKey") }
+    }
 
     // MARK: - Selection Key Bindings (combined with ⌘ ± ⇧)
 
@@ -184,6 +190,11 @@ final class AppSettings {
         didSet { UserDefaults.standard.set(zoomScale, forKey: "zoomScale") }
     }
 
+    /// Seconds per frame during playback (0.2–5.0).
+    var playbackSpeed: Double = 1.0 {
+        didSet { UserDefaults.standard.set(playbackSpeed, forKey: "playbackSpeed") }
+    }
+
     // MARK: - Colour Settings
 
     /// When true, colour FITS images with a BAYERPAT/COLORTYP/CFA_PAT header are
@@ -214,6 +225,8 @@ final class AppSettings {
         debayerKey              = UD.string("debayerKey",              default: debayerKey)
         flagKey                 = UD.string("flagKey",                 default: flagKey)
         deflagAllKey            = UD.string("deflagAllKey",            default: deflagAllKey)
+        playPauseKey            = UD.string("playPauseKey",            default: playPauseKey)
+        flipKey                 = UD.string("flipKey",                 default: flipKey)
 
         // Selection key bindings
         selectAllKey            = UD.string("selectAllKey",            default: selectAllKey)
@@ -251,6 +264,7 @@ final class AppSettings {
         excludedSubfolderNames  = UD.strings("excludedSubfolderNames", default: excludedSubfolderNames)
         debayerColorImages      = UD.bool(   "debayerColorImages",     default: debayerColorImages)
         zoomScale               = UD.double( "zoomScale",              default: zoomScale)
+        playbackSpeed           = UD.double( "playbackSpeed",          default: playbackSpeed)
 
         // Text size (stored as index into availableTypeSizes)
         if let idx = UserDefaults.standard.object(forKey: "dynamicTypeSize") as? Int,
@@ -270,6 +284,8 @@ final class AppSettings {
     var debayerKeyEquivalent:     KeyEquivalent { keyEquivalent(for: debayerKey,     fallback: KeyEquivalent("c")) }
     var flagKeyEquivalent:        KeyEquivalent { keyEquivalent(for: flagKey,      fallback: KeyEquivalent("f")) }
     var deflagAllKeyEquivalent:   KeyEquivalent { keyEquivalent(for: deflagAllKey, fallback: KeyEquivalent("d")) }
+    var playPauseKeyEquivalent:   KeyEquivalent { keyEquivalent(for: playPauseKey, fallback: KeyEquivalent(" ")) }
+    var flipKeyEquivalent:        KeyEquivalent { keyEquivalent(for: flipKey, fallback: KeyEquivalent("v")) }
     var selectAllKeyEquivalent:       KeyEquivalent { keyEquivalent(for: selectAllKey,       fallback: KeyEquivalent("a")) }
     var deselectAllKeyEquivalent:     KeyEquivalent { keyEquivalent(for: deselectAllKey,     fallback: KeyEquivalent("a")) }
     var invertSelectionKeyEquivalent: KeyEquivalent { keyEquivalent(for: invertSelectionKey, fallback: KeyEquivalent("i")) }

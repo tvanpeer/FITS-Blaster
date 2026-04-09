@@ -4,6 +4,21 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-04-09 — Play mode, flip, and beta channel
+
+### Added
+- Play mode: press P to auto-advance through images at a configurable speed (0.2–5.0 seconds per frame). A speed slider appears in the toolbar during playback. Manual navigation stops playback automatically.
+- Flip 180°: press V to rotate the current image (or batch selection) 180 degrees for display. A rotation indicator appears on the thumbnail. Does not modify FITS files.
+- Beta release channel: tag a version as `v1.23-beta.1` to publish a test build without updating the homepage. Beta builds get their own page (`beta.html`), appcast feed (`appcast-beta.xml`), and are marked as pre-releases on GitHub.
+- Beta page on the website with download link and release notes for the latest beta build.
+- Release & issue workflow guide (`guide-releases.html`) documenting the tag-based release process and GitHub Issues workflow.
+
+### Improved
+- GitHub Actions pipeline detects beta tags and adjusts behaviour: marks releases as pre-release, writes to separate appcast and site files.
+- Site navigation now includes a Beta link on all pages.
+
+---
+
 ## 2026-04-08 — Sparkle auto-update
 
 ### Added

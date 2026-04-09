@@ -22,6 +22,7 @@ struct ResizableChartLayout: View {
     var body: some View {
         VStack(spacing: 0) {
             MainContent(store: store)
+                .withPlaybackTimer()
                 .frame(minHeight: 180)
 
             // Drag handle
@@ -98,6 +99,8 @@ struct FITSToolbar: View {
                 }
             }
             .help(settings.debayerColorImages ? "Switch to greyscale" : "Switch to colour")
+
+            PlaybackControls()
 
             Button("Cancel") {
                 store.cancelProcessing()
@@ -180,7 +183,7 @@ struct MainContent: View {
                         .padding(.horizontal)
                         .padding(.vertical, 4)
                     Divider()
-                    ImageViewer(entryID: entry.id, displayImage: displayImage)
+                    ImageViewer(entryID: entry.id, displayImage: displayImage, isFlipped: entry.isFlipped)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
 
                     Divider()
@@ -215,6 +218,13 @@ struct MainContent: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
+    }
+}
+
+extension MainContent {
+    /// Attaches the playback timer that auto-advances to the next image.
+    func withPlaybackTimer() -> some View {
+        modifier(PlaybackTimerModifier())
     }
 }
 
@@ -365,6 +375,7 @@ private struct MetricChip: View {
 private struct ImageViewer: View {
     let entryID: UUID
     let displayImage: NSImage
+    let isFlipped: Bool
 
     @Environment(ImageStore.self) private var store
     @Environment(AppSettings.self) private var settings
@@ -386,6 +397,7 @@ private struct ImageViewer: View {
                     width:  displayImage.size.width  * effectiveZoom,
                     height: displayImage.size.height * effectiveZoom
                 )
+                .rotationEffect(isFlipped ? .degrees(180) : .zero)
                 .brightness(store.displayBrightness)
                 .contrast(store.displayStretch)
         }
@@ -527,6 +539,88 @@ private struct StretchControl: View {
         .tooltip("Stretch — click to reset")
         Slider(value: $bound.displayStretch, in: 0.5...3.0)
             .frame(width: 80)
+    }
+}
+
+// MARK: - Playback Controls
+
+/// Play/pause button with a speed slider, shown in the toolbar.
+private struct PlaybackControls: View {
+    @Environment(ImageStore.self) private var store
+    @Environment(AppSettings.self) private var settings
+
+    /// True while the user is dragging the speed slider — playback pauses during the drag.
+    @State private var wasPlayingBeforeDrag = false
+
+    var body: some View {
+        @Bindable var bound = settings
+
+        Button(store.isPlaying ? "Pause" : "Play",
+               systemImage: store.isPlaying ? "pause.fill" : "play.fill") {
+            guard store.selectedEntry != nil else { return }
+            store.isPlaying.toggle()
+        }
+        .disabled(store.selectedEntry == nil)
+        .tooltip(store.isPlaying
+                 ? "Pause slideshow (\(AppSettings.displayString(for: settings.playPauseKey)))"
+                 : "Play slideshow (\(AppSettings.displayString(for: settings.playPauseKey)))")
+
+        if store.isPlaying || wasPlayingBeforeDrag {
+            Slider(value: $bound.playbackSpeed, in: 0.2...5.0, step: 0.1,
+                   onEditingChanged: { editing in
+                if editing {
+                    wasPlayingBeforeDrag = store.isPlaying
+                    store.isPlaying = false
+                } else if wasPlayingBeforeDrag {
+                    wasPlayingBeforeDrag = false
+                    store.isPlaying = true
+                }
+            })
+                .frame(width: 60)
+            Text("\(settings.playbackSpeed, format: .number.precision(.fractionLength(1)))s")
+                .scaledFont(size: 10, monospaced: true)
+                .frame(width: 28, alignment: .leading)
+        }
+    }
+}
+
+// MARK: - Playback Timer
+
+/// Modifier that drives auto-advance playback. Attached to MainContent so the
+/// timer runs whenever an image is displayed.
+private struct PlaybackTimerModifier: ViewModifier {
+    @Environment(ImageStore.self) private var store
+    @Environment(AppSettings.self) private var settings
+
+    func body(content: Content) -> some View {
+        content
+            .onChange(of: store.isPlaying) { _, playing in
+                if playing { startPlayback() }
+            }
+    }
+
+    private func startPlayback() {
+        Task { @MainActor in
+            while store.isPlaying {
+                try? await Task.sleep(for: .milliseconds(Int(settings.playbackSpeed * 1000)))
+                guard store.isPlaying else { break }
+
+                let ordered = store.sidebarNavigationEntries(isSimpleMode: settings.isSimpleMode)
+                guard let current = store.selectedEntry,
+                      let idx = ordered.firstIndex(where: { $0.id == current.id }) else {
+                    store.isPlaying = false
+                    break
+                }
+
+                let nextIdx = idx + 1
+                if nextIdx < ordered.count {
+                    store.selectedEntry = ordered[nextIdx]
+                } else {
+                    // Reached the end — stop playback
+                    store.isPlaying = false
+                }
+            }
+        }
     }
 }
 

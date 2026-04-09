@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FITS Blaster — Release &amp; Issue Workflow</title>
+    <link rel="icon" type="image/png" href="favicon.png">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background: #0a0a0f;
+            color: #e8e8f0;
+            line-height: 1.6;
+        }
+
+        header {
+            text-align: center;
+            padding: 80px 24px 60px;
+        }
+
+        header h1 {
+            font-size: 3rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            margin-bottom: 16px;
+        }
+
+        header p {
+            font-size: 1.2rem;
+            color: #9090aa;
+            max-width: 560px;
+            margin: 0 auto;
+        }
+
+        .content {
+            max-width: 720px;
+            margin: 0 auto;
+            padding: 0 24px 80px;
+        }
+
+        h2 {
+            font-size: 1.4rem;
+            font-weight: 600;
+            color: #c8c8e0;
+            margin: 48px 0 16px;
+            padding-top: 32px;
+            border-top: 1px solid #1a1a2e;
+        }
+
+        h2:first-child {
+            border-top: none;
+            margin-top: 0;
+            padding-top: 0;
+        }
+
+        h3 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #a0a0c0;
+            margin: 28px 0 12px;
+        }
+
+        p, li {
+            color: #9090aa;
+            margin-bottom: 12px;
+        }
+
+        ul, ol {
+            padding-left: 24px;
+        }
+
+        li {
+            margin-bottom: 8px;
+        }
+
+        code {
+            font-family: "SF Mono", "Fira Code", monospace;
+            font-size: 0.85em;
+            background: #1a1a2e;
+            padding: 2px 6px;
+            border-radius: 3px;
+            color: #a0a0c0;
+        }
+
+        pre {
+            background: #12121f;
+            border: 1px solid #1a1a2e;
+            border-radius: 8px;
+            padding: 16px 20px;
+            margin: 12px 0 20px;
+            overflow-x: auto;
+        }
+
+        pre code {
+            background: none;
+            padding: 0;
+            font-size: 0.85rem;
+            color: #c0c0d8;
+        }
+
+        .comment { color: #505068; }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 12px 0 20px;
+        }
+
+        th, td {
+            text-align: left;
+            padding: 10px 14px;
+            border-bottom: 1px solid #1a1a2e;
+            font-size: 0.9rem;
+        }
+
+        th {
+            color: #c8c8e0;
+            font-weight: 600;
+        }
+
+        td {
+            color: #9090aa;
+        }
+
+        .label {
+            display: inline-block;
+            font-size: 0.75rem;
+            font-weight: 700;
+            padding: 2px 8px;
+            border-radius: 4px;
+        }
+
+        .label-bug     { background: #d73a4a22; color: #d73a4a; border: 1px solid #d73a4a44; }
+        .label-feature { background: #2ea44f22; color: #2ea44f; border: 1px solid #2ea44f44; }
+        .label-improve { background: #60a5fa22; color: #60a5fa; border: 1px solid #60a5fa44; }
+        .label-question{ background: #d876e322; color: #d876e3; border: 1px solid #d876e344; }
+
+        .flow-box {
+            background: #12121f;
+            border: 1px solid #2a2a4a;
+            border-radius: 10px;
+            padding: 24px;
+            margin: 16px 0 24px;
+        }
+
+        .flow-step {
+            display: flex;
+            gap: 14px;
+            margin-bottom: 16px;
+        }
+
+        .flow-step:last-child {
+            margin-bottom: 0;
+        }
+
+        .flow-num {
+            flex-shrink: 0;
+            width: 28px;
+            height: 28px;
+            background: #5a5aff;
+            color: #fff;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+            font-weight: 700;
+        }
+
+        .flow-text {
+            color: #9090aa;
+            padding-top: 3px;
+        }
+
+        .flow-text strong {
+            color: #c8c8e0;
+        }
+
+        footer {
+            border-top: 1px solid #1a1a2e;
+            text-align: center;
+            padding: 32px 24px;
+            font-size: 0.85rem;
+            color: #505068;
+        }
+
+        footer a {
+            color: #7070cc;
+            text-decoration: none;
+        }
+
+        footer a:hover {
+            text-decoration: underline;
+        }
+
+        /* ── Site navigation ── */
+        .site-nav {
+            background: #0d0d18;
+            border-bottom: 1px solid #1a1a2e;
+            padding: 0 24px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .site-nav-inner {
+            max-width: 720px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            height: 50px;
+        }
+        .site-nav-brand {
+            font-weight: 700;
+            font-size: 0.95rem;
+            color: #e8e8f0;
+            text-decoration: none;
+            letter-spacing: -0.01em;
+        }
+        .site-nav-brand:hover { color: #fff; }
+        .site-nav-links {
+            display: flex;
+            gap: 24px;
+        }
+        .site-nav-links a {
+            color: #9090aa;
+            text-decoration: none;
+            font-size: 0.875rem;
+        }
+        .site-nav-links a:hover { color: #e8e8f0; }
+    </style>
+</head>
+<body>
+
+<nav class="site-nav">
+    <div class="site-nav-inner">
+        <a href="index.html" class="site-nav-brand">FITS Blaster</a>
+        <div class="site-nav-links">
+            <a href="guide.html">Guide</a>
+            <a href="faq.html">FAQ</a>
+            <a href="keys.html">Keyboard Shortcuts</a>
+            <a href="changelog.html">Changelog</a>
+            <a href="score.html">Scores</a>
+            <a href="beta.html">Beta</a>
+        </div>
+    </div>
+</nav>
+
+<header>
+    <h1>Release &amp; Issue Workflow</h1>
+    <p>A cheat sheet for managing releases, beta builds, and issue tracking with GitHub.</p>
+</header>
+
+<section class="content">
+
+    <h2>Release channels</h2>
+
+    <p>FITS Blaster uses <strong>tag names</strong> to distinguish stable releases from beta builds. Everything happens on the <code>main</code> branch &mdash; no extra branches to manage.</p>
+
+    <table>
+        <tr><th>Tag</th><th>Example</th><th>What happens</th></tr>
+        <tr><td><code>v1.23</code></td><td>Stable release</td><td>Homepage updated, appcast.xml updated, full deploy</td></tr>
+        <tr><td><code>v1.23-beta.1</code></td><td>Beta build</td><td>GitHub pre-release, appcast-beta.xml updated, beta page updated</td></tr>
+    </table>
+
+    <h3>Releasing a beta</h3>
+    <div class="flow-box">
+        <div class="flow-step">
+            <div class="flow-num">1</div>
+            <div class="flow-text">Make your changes and commit them to <code>main</code></div>
+        </div>
+        <div class="flow-step">
+            <div class="flow-num">2</div>
+            <div class="flow-text">Bump the version in Xcode to e.g. <strong>1.23-beta.1</strong></div>
+        </div>
+        <div class="flow-step">
+            <div class="flow-num">3</div>
+            <div class="flow-text">Push with a tag from Xcode, or from the terminal:<br>
+                <code>git tag v1.23-beta.1 &amp;&amp; git push origin v1.23-beta.1</code></div>
+        </div>
+        <div class="flow-step">
+            <div class="flow-num">4</div>
+            <div class="flow-text">The CI pipeline builds, signs, notarises, and publishes the DMG as a <strong>GitHub pre-release</strong>. The homepage stays on the last stable version.</div>
+        </div>
+    </div>
+
+    <h3>Promoting to stable</h3>
+    <div class="flow-box">
+        <div class="flow-step">
+            <div class="flow-num">1</div>
+            <div class="flow-text">When you're happy with the beta, bump the version to <strong>1.23</strong> (drop the <code>-beta.N</code> suffix)</div>
+        </div>
+        <div class="flow-step">
+            <div class="flow-num">2</div>
+            <div class="flow-text">Push with tag: <code>git tag v1.23 &amp;&amp; git push origin v1.23</code></div>
+        </div>
+        <div class="flow-step">
+            <div class="flow-num">3</div>
+            <div class="flow-text">The CI pipeline updates the <strong>homepage</strong>, <strong>changelog</strong>, and <strong>appcast.xml</strong>. All users get the update.</div>
+        </div>
+    </div>
+
+    <h2>Issue tracking</h2>
+
+    <p>Issues live at <a href="https://github.com/tvanpeer/FITS-Blaster/issues" style="color: #7070cc;">github.com/tvanpeer/FITS-Blaster/issues</a>. Use them to track bugs, feature requests, and questions.</p>
+
+    <h3>Labels</h3>
+    <table>
+        <tr><th>Label</th><th>Use for</th></tr>
+        <tr><td><span class="label label-bug">bug</span></td><td>Something is broken</td></tr>
+        <tr><td><span class="label label-feature">feature</span></td><td>New functionality</td></tr>
+        <tr><td><span class="label label-improve">improvement</span></td><td>Enhancement to existing feature</td></tr>
+        <tr><td><span class="label label-question">question</span></td><td>Needs investigation or user question</td></tr>
+    </table>
+
+    <h3>Milestones</h3>
+    <p>Group issues into a release by assigning them to a milestone (e.g. <code>v1.23</code>). When the release ships, close the milestone.</p>
+
+    <h3>Common commands</h3>
+
+    <pre><code><span class="comment"># Create a bug report</span>
+gh issue create -t "Crash on 3-axis FITS cubes" -l bug -m v1.23
+
+<span class="comment"># Create a feature request</span>
+gh issue create -t "Histogram overlay" -l feature -m v1.23
+
+<span class="comment"># Create an improvement</span>
+gh issue create -t "Faster thumbnail loading" -l improvement -m v1.23
+
+<span class="comment"># List all open issues</span>
+gh issue list
+
+<span class="comment"># List issues for a specific milestone</span>
+gh issue list -m v1.23
+
+<span class="comment"># View a specific issue</span>
+gh issue view 5
+
+<span class="comment"># Close an issue (if not auto-closed by commit)</span>
+gh issue close 5</code></pre>
+
+    <h3>Auto-closing issues from commits</h3>
+    <p>Include <code>Fixes #5</code> (or <code>Closes #5</code>) in a commit message, and GitHub will automatically close issue #5 when the commit lands on <code>main</code>.</p>
+    <pre><code>git commit -m "Handle 3-axis FITS cubes gracefully. Fixes #5"</code></pre>
+
+    <h3>Milestone lifecycle</h3>
+    <pre><code><span class="comment"># Create a new milestone for the next release</span>
+gh api repos/tvanpeer/FITS-Blaster/milestones \
+  -f title="v1.24" -f state=open
+
+<span class="comment"># Close a milestone when the release ships</span>
+<span class="comment"># (replace 1 with the milestone number)</span>
+gh api repos/tvanpeer/FITS-Blaster/milestones/1 \
+  -f state=closed
+
+<span class="comment"># List all milestones</span>
+gh api repos/tvanpeer/FITS-Blaster/milestones</code></pre>
+
+    <h2>Putting it all together</h2>
+
+    <div class="flow-box">
+        <div class="flow-step">
+            <div class="flow-num">1</div>
+            <div class="flow-text"><strong>Plan:</strong> Create issues for what you want in v1.23, assign them to the <code>v1.23</code> milestone</div>
+        </div>
+        <div class="flow-step">
+            <div class="flow-num">2</div>
+            <div class="flow-text"><strong>Build:</strong> Work on the features. Use <code>Fixes #N</code> in commits to auto-close issues</div>
+        </div>
+        <div class="flow-step">
+            <div class="flow-num">3</div>
+            <div class="flow-text"><strong>Test:</strong> Push <code>v1.23-beta.1</code> tag to get a test build. Fix bugs, push <code>v1.23-beta.2</code>, etc.</div>
+        </div>
+        <div class="flow-step">
+            <div class="flow-num">4</div>
+            <div class="flow-text"><strong>Ship:</strong> Push <code>v1.23</code> tag for the stable release. Close the milestone.</div>
+        </div>
+        <div class="flow-step">
+            <div class="flow-num">5</div>
+            <div class="flow-text"><strong>Repeat:</strong> Create a <code>v1.24</code> milestone and start the next cycle</div>
+        </div>
+    </div>
+
+</section>
+
+<footer>
+    <p>&copy; 2026 Tom van Peer &nbsp;&middot;&nbsp;
+       <a href="index.html">Home</a> &nbsp;&middot;&nbsp;
+       <a href="privacy-policy.html">Privacy Policy</a>
+    </p>
+</footer>
+
+</body>
+</html>
