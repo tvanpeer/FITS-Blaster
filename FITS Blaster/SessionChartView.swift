@@ -237,6 +237,13 @@ struct SessionChartView: View {
                 }
             }
 
+            Button("", systemImage: settings.chartUseBars ? "chart.bar.fill" : "circle.grid.3x3.fill") {
+                settings.chartUseBars.toggle()
+            }
+            .buttonStyle(.borderless)
+            .controlSize(.mini)
+            .help(settings.chartUseBars ? "Switch to dots" : "Switch to bars")
+
             Spacer()
 
             // Filter legend — only groups present in the session
@@ -309,23 +316,32 @@ struct SessionChartView: View {
                     .lineStyle(StrokeStyle(lineWidth: 1, dash: [5, 4]))
             }
 
-            // One dot per frame
+            // One mark per frame — bars or dots depending on user preference
             ForEach(chartPoints, id: \.entry.id) { item in
                 let isCursor = store.selectedEntry === item.entry
                 let isFlagged = store.flaggedEntryIDs.contains(item.entry.id)
                 let hasFlaggedSet = !store.flaggedEntryIDs.isEmpty
-                // Brightness: flagged/cursor = full, non-flagged = dimmed when flag set active,
-                //             rejected = always strongly dimmed regardless of flag set.
                 let opacity: Double = if item.entry.isRejected { settings.rejectedDotOpacity }
                     else if hasFlaggedSet && !isFlagged && !isCursor { settings.dimmedDotOpacity }
                     else { 1.0 }
-                PointMark(
-                    x: .value("Frame", item.index + 1),   // 1-based label
-                    y: .value(selectedMetric.rawValue, item.value)
-                )
-                .foregroundStyle(isCursor ? .white : item.entry.filterGroup.color)
-                .symbolSize(isCursor ? 40 : 28)
-                .opacity(opacity)
+                let color: Color = isCursor ? .white : item.entry.filterGroup.color
+
+                if settings.chartUseBars {
+                    BarMark(
+                        x: .value("Frame", item.index + 1),
+                        y: .value(selectedMetric.rawValue, item.value)
+                    )
+                    .foregroundStyle(color)
+                    .opacity(opacity)
+                } else {
+                    PointMark(
+                        x: .value("Frame", item.index + 1),
+                        y: .value(selectedMetric.rawValue, item.value)
+                    )
+                    .foregroundStyle(color)
+                    .symbolSize(isCursor ? 40 : 28)
+                    .opacity(opacity)
+                }
             }
         }
         .chartXAxis {

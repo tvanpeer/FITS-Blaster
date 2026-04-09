@@ -386,6 +386,10 @@ final class ImageStore {
     /// Uses stored-property sets so callers that read this method from a SwiftUI view
     /// body establish a proper `@Observable` dependency on `ImageStore`.
     func isVisible(_ entry: ImageEntry) -> Bool {
+        // Filter-strip selection: hide entries that don't match the selected group.
+        if let group = sidebarFilterGroup, entry.filterGroup != group {
+            return false
+        }
         switch rejectionVisibility {
         case .all:      return true
         case .active:   return flaggedEntryIDs.contains(entry.id)

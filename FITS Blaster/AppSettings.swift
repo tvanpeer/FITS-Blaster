@@ -92,6 +92,11 @@ final class AppSettings {
 
     // MARK: - Chart Dot Brightness
 
+    /// Whether to use bars instead of dots in the session chart.
+    var chartUseBars: Bool = false {
+        didSet { UserDefaults.standard.set(chartUseBars, forKey: "chartUseBars") }
+    }
+
     /// Opacity of rejected-frame dots in the session chart (0–1).
     var rejectedDotOpacity: Double = 0.15 {
         didSet { UserDefaults.standard.set(rejectedDotOpacity, forKey: "rejectedDotOpacity") }
@@ -249,6 +254,7 @@ final class AppSettings {
         computeStarCount        = UD.bool("computeStarCount",          default: computeStarCount)
 
         // Chart dot brightness
+        chartUseBars            = UD.bool(  "chartUseBars",             default: chartUseBars)
         rejectedDotOpacity      = UD.double("rejectedDotOpacity",      default: rejectedDotOpacity)
         dimmedDotOpacity        = UD.double("dimmedDotOpacity",        default: dimmedDotOpacity)
 
