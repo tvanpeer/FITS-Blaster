@@ -191,17 +191,24 @@ def update_beta_html(path, version, entry_html):
     with open(path, encoding='utf-8') as f:
         content = f.read()
 
-    # Update download href
+    # Update download href (matches both the initial placeholder URL and subsequent versioned URLs)
     content = re.sub(
-        r'href="https://github\.com/tvanpeer/FITS-Blaster/releases/download/v[^/]+/FITS-Blaster-[^"]+\.dmg"',
+        r'href="https://github\.com/tvanpeer/FITS-Blaster/releases[^"]*"',
         f'href="https://github.com/tvanpeer/FITS-Blaster/releases/download/v{version}/FITS-Blaster-{version}.dmg"',
         content,
     )
 
-    # Update button label
+    # Update button label (matches "Download Beta" with or without a trailing version)
     content = re.sub(
-        r'(?<=>)Download Beta [\d.a-z-]+(?=<)',
+        r'(?<=>)Download Beta[^<]*(?=<)',
         f'Download Beta {version}',
+        content,
+    )
+
+    # Update subtitle (replace "No beta available yet" or keep "Free")
+    content = re.sub(
+        r'No beta available yet',
+        'Free',
         content,
     )
 
