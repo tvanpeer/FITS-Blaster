@@ -305,63 +305,23 @@
     <!-- v1.23-beta.2 -->
     <div class="entry">
         <div class="entry-header">
-            <div class="entry-title">QuickLook for all FITS, accessibility, 133 tests — v1.23-beta.2</div>
+            <div class="entry-title">QuickLook previews and thumbnails for all FITS formats — v1.23-beta.2</div>
             <div class="entry-date">2026-04-12</div>
         </div>
         <div class="section">
             <span class="section-label label-added">Added</span>
             <ul>
-                <li>QuickLook preview and thumbnail support for floating-point FITS files (BITPIX -32 and -64).</li>
-                <li>QuickLook preview and thumbnail support for 3-channel RGB colour FITS files (NAXIS3=3).</li>
-                <li>Asinh stretch for float FITS previews — compresses bright cores while revealing faint nebulosity.</li>
-                <li>Large-file subsampling for QuickLook: 1+ GB stacked integrations preview within Finder's memory limit.</li>
-                <li>133 automated tests covering quality scoring, filter grouping, frame metrics, Bayer patterns, histograms, star detection (synthetic images), auto-reject logic, cursor navigation, and GPU paths.</li>
-            </ul>
-        </div>
-        <div class="section">
-            <span class="section-label label-fixed">Fixed</span>
-            <ul>
-                <li>Undo-reject and reject now advance cursor to the next visible entry (matching flagged-view behaviour).</li>
-                <li>VoiceOver: inspector toggle, chart buttons, filter strip, and inspector panel are now fully accessible.</li>
+                <li>QuickLook preview and thumbnail support for floating-point FITS files (BITPIX -32 and -64). Previously these showed blank icons in Finder.</li>
+                <li>QuickLook preview and thumbnail support for 3-channel RGB colour FITS files (NAXIS3=3), such as stacked integrations from Astro Pixel Processor.</li>
+                <li>Asinh stretch (beta=50) for float FITS previews — compresses bright cores while revealing faint nebulosity in linear astrophotography data.</li>
+                <li>Large-file subsampling: files over 2048px are stride-sampled during preview to stay within QuickLook's memory limit (~120 MB), enabling previews of 1+ GB stacked integrations.</li>
+                <li><code>FITSReader.readForPreview(from:)</code> — dedicated read path that accepts float BITPIX and multi-channel files without affecting the main app's integer-only pipeline.</li>
             </ul>
         </div>
         <div class="section">
             <span class="section-label label-improved">Improved</span>
             <ul>
-                <li>Settings tabs migrated from deprecated <code>.tabItem()</code> to the <code>Tab</code> API.</li>
-                <li>Filter group header uses cached statistics instead of recomputing on every render.</li>
-                <li>Menu commands extracted into dedicated file.</li>
-            </ul>
-        </div>
-    </div>
-    <!-- v1.23-beta.1 -->
-    <div class="entry">
-        <div class="entry-header">
-            <div class="entry-title">Session chart bars, filter fix, play mode, flip, and beta channel — v1.23-beta.1</div>
-            <div class="entry-date">2026-04-09</div>
-        </div>
-        <div class="section">
-            <span class="section-label label-added">Added</span>
-            <ul>
-                <li>Session chart: optional bar chart mode as alternative to dots. Toggle via the chart header button. Preference is persisted.</li>
-                <li>Play mode: press P to auto-advance through images at a configurable speed (0.2–5.0 seconds per frame). A speed slider appears in the toolbar during playback. Manual navigation stops playback automatically.</li>
-                <li>Flip 180°: press V to rotate the current image (or batch selection) 180 degrees for display. A rotation indicator appears on the thumbnail. Does not modify FITS files.</li>
-                <li>Beta release channel: tag a version as <code>v1.23-beta.1</code> to publish a test build without updating the homepage. Beta builds get their own page (<code>beta.html</code>), appcast feed (<code>appcast-beta.xml</code>), and are marked as pre-releases on GitHub.</li>
-                <li>Beta page on the website with download link and release notes for the latest beta build.</li>
-                <li>Release &amp; issue workflow guide (<code>guide-releases.html</code>) documenting the tag-based release process and GitHub Issues workflow.</li>
-            </ul>
-        </div>
-        <div class="section">
-            <span class="section-label label-fixed">Fixed</span>
-            <ul>
-                <li>Filter buttons above the thumbnail sidebar now work correctly in multi-folder sessions.</li>
-            </ul>
-        </div>
-        <div class="section">
-            <span class="section-label label-improved">Improved</span>
-            <ul>
-                <li>GitHub Actions pipeline detects beta tags and adjusts behaviour: marks releases as pre-release, writes to separate appcast and site files.</li>
-                <li>Site navigation now includes a Beta link on all pages.</li>
+                <li>Zero-pixel exclusion in percentile estimation prevents stacking artifacts (unfilled corners) from skewing the preview stretch.</li>
             </ul>
         </div>
     </div>
