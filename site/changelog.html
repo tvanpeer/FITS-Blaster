@@ -222,6 +222,39 @@
 
 <div class="content">
 
+    <!-- v1.23-beta.2 -->
+    <div class="entry">
+        <div class="entry-header">
+            <div class="entry-title">QuickLook for all FITS, accessibility, 133 tests — v1.23-beta.2</div>
+            <div class="entry-date">2026-04-12</div>
+        </div>
+        <div class="section">
+            <span class="section-label label-added">Added</span>
+            <ul>
+                <li>QuickLook preview and thumbnail support for floating-point FITS files (BITPIX -32 and -64).</li>
+                <li>QuickLook preview and thumbnail support for 3-channel RGB colour FITS files (NAXIS3=3).</li>
+                <li>Asinh stretch for float FITS previews — compresses bright cores while revealing faint nebulosity.</li>
+                <li>Large-file subsampling for QuickLook previews of 1+ GB stacked integrations.</li>
+                <li>133 automated tests covering quality scoring, filter grouping, frame metrics, Bayer patterns, histograms, star detection, auto-reject logic, cursor navigation, and GPU paths.</li>
+            </ul>
+        </div>
+        <div class="section">
+            <span class="section-label label-fixed">Fixed</span>
+            <ul>
+                <li>Undo-reject and reject now advance cursor to the next visible entry.</li>
+                <li>VoiceOver: inspector toggle, chart buttons, filter strip, and inspector panel are now fully accessible.</li>
+            </ul>
+        </div>
+        <div class="section">
+            <span class="section-label label-improved">Improved</span>
+            <ul>
+                <li>Settings tabs migrated from deprecated <code>.tabItem()</code> to the <code>Tab</code> API.</li>
+                <li>Filter group header uses cached statistics instead of recomputing on every render.</li>
+                <li>Menu commands extracted into dedicated file.</li>
+            </ul>
+        </div>
+    </div>
+
     <!-- v1.22 -->
     <div class="entry">
         <div class="entry-header">

@@ -287,7 +287,7 @@
     <h1>FITS Blaster</h1>
     <div class="beta-badge">Beta</div>
     <p>Test the latest features before they ship. Beta builds may contain bugs.</p>
-    <a class="download-btn" href="https://github.com/tvanpeer/FITS-Blaster/releases/download/v1.23-beta.1/FITS-Blaster-1.23-beta.1.dmg">Download Beta 1.23-beta.1</a>
+    <a class="download-btn" href="https://github.com/tvanpeer/FITS-Blaster/releases/download/v1.23-beta.2/FITS-Blaster-1.23-beta.2.dmg">Download Beta 1.23-beta.2</a>
     <p class="download-sub">macOS 15.7 or later &nbsp;&middot;&nbsp; Free</p>
 </header>
 
@@ -302,6 +302,38 @@
 <section class="content">
     <h2>Latest beta</h2>
     <!-- beta-entry-start -->
+    <!-- v1.23-beta.2 -->
+    <div class="entry">
+        <div class="entry-header">
+            <div class="entry-title">QuickLook for all FITS, accessibility, 133 tests — v1.23-beta.2</div>
+            <div class="entry-date">2026-04-12</div>
+        </div>
+        <div class="section">
+            <span class="section-label label-added">Added</span>
+            <ul>
+                <li>QuickLook preview and thumbnail support for floating-point FITS files (BITPIX -32 and -64).</li>
+                <li>QuickLook preview and thumbnail support for 3-channel RGB colour FITS files (NAXIS3=3).</li>
+                <li>Asinh stretch for float FITS previews — compresses bright cores while revealing faint nebulosity.</li>
+                <li>Large-file subsampling for QuickLook: 1+ GB stacked integrations preview within Finder's memory limit.</li>
+                <li>133 automated tests covering quality scoring, filter grouping, frame metrics, Bayer patterns, histograms, star detection (synthetic images), auto-reject logic, cursor navigation, and GPU paths.</li>
+            </ul>
+        </div>
+        <div class="section">
+            <span class="section-label label-fixed">Fixed</span>
+            <ul>
+                <li>Undo-reject and reject now advance cursor to the next visible entry (matching flagged-view behaviour).</li>
+                <li>VoiceOver: inspector toggle, chart buttons, filter strip, and inspector panel are now fully accessible.</li>
+            </ul>
+        </div>
+        <div class="section">
+            <span class="section-label label-improved">Improved</span>
+            <ul>
+                <li>Settings tabs migrated from deprecated <code>.tabItem()</code> to the <code>Tab</code> API.</li>
+                <li>Filter group header uses cached statistics instead of recomputing on every render.</li>
+                <li>Menu commands extracted into dedicated file.</li>
+            </ul>
+        </div>
+    </div>
     <!-- v1.23-beta.1 -->
     <div class="entry">
         <div class="entry-header">
