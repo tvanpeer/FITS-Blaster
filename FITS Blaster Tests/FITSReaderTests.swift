@@ -168,7 +168,136 @@ struct FITSReaderTests {
         }
     }
 
+    // MARK: - readForPreview — float FITS support
+
+    @Test("readForPreview reads BITPIX -32 (single-precision float)")
+    func readForPreviewFloat32() throws {
+        let url = try makeFloatFITSFile(bitpix: -32, width: 2, height: 2,
+                                         floatValues: [100.5, 200.25, 300.75, 400.0])
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        let image = try FITSReader.readForPreview(from: url)
+        #expect(image.width == 2)
+        #expect(image.height == 2)
+        #expect(image.bitpix == -32)
+        #expect(image.pixelValues.count == 4)
+
+        #expect(abs(image.pixelValues[0] - 100.5)  < 0.01)
+        #expect(abs(image.pixelValues[1] - 200.25) < 0.01)
+        #expect(abs(image.pixelValues[2] - 300.75) < 0.01)
+        #expect(abs(image.pixelValues[3] - 400.0)  < 0.01)
+    }
+
+    @Test("readForPreview reads BITPIX -64 (double-precision float)")
+    func readForPreviewFloat64() throws {
+        let url = try makeFloatFITSFile(bitpix: -64, width: 2, height: 2,
+                                         floatValues: [0.001, 0.5, 0.999, 1.0])
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        let image = try FITSReader.readForPreview(from: url)
+        #expect(image.width == 2)
+        #expect(image.height == 2)
+        #expect(image.bitpix == -64)
+        #expect(image.pixelValues.count == 4)
+
+        #expect(abs(image.pixelValues[0] - 0.001) < 0.0001)
+        #expect(abs(image.pixelValues[1] - 0.5)   < 0.0001)
+        #expect(abs(image.pixelValues[2] - 0.999) < 0.0001)
+        #expect(abs(image.pixelValues[3] - 1.0)   < 0.0001)
+    }
+
+    @Test("readForPreview still reads integer FITS normally")
+    func readForPreviewInteger() throws {
+        let url = try makeFITSFile(bitpix: 16, width: 1, height: 1, pixelBigEndian16: 500)
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        let image = try FITSReader.readForPreview(from: url)
+        let value = try #require(image.pixelValues.first)
+        #expect(abs(value - 500) < 0.5)
+    }
+
+    @Test("read() still rejects float FITS")
+    func readStillRejectsFloat() throws {
+        let url = try makeFloatFITSFile(bitpix: -32, width: 2, height: 2,
+                                         floatValues: [1, 2, 3, 4])
+        defer { try? FileManager.default.removeItem(at: url) }
+        do {
+            _ = try FITSReader.read(from: url)
+            Issue.record("read() should reject BITPIX -32")
+        } catch FITSError.unsupportedBitpix(-32) {
+            // expected
+        } catch {
+            Issue.record("Wrong error: \(error)")
+        }
+    }
+
+    @Test("readForPreview applies BZERO to float data")
+    func readForPreviewFloatBZERO() throws {
+        // BITPIX -32 with BZERO = 100: pixel value 50.0 → 150.0 after BZERO
+        let url = try makeFloatFITSFile(bitpix: -32, width: 1, height: 1,
+                                         floatValues: [50.0], bzero: 100)
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        let image = try FITSReader.readForPreview(from: url)
+        let value = try #require(image.pixelValues.first)
+        #expect(abs(value - 150.0) < 0.01, "BZERO should be applied to float data")
+    }
+
+    @Test("readForPreview computes correct min/max for float data")
+    func readForPreviewFloatMinMax() throws {
+        let url = try makeFloatFITSFile(bitpix: -32, width: 2, height: 2,
+                                         floatValues: [10.0, 1000.0, 500.0, 200.0])
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        let image = try FITSReader.readForPreview(from: url)
+        #expect(abs(image.minValue - 10.0)   < 0.01)
+        #expect(abs(image.maxValue - 1000.0) < 0.01)
+    }
+
     // MARK: - FITS file builder helpers
+
+    /// Writes a float FITS file with known pixel values stored big-endian.
+    private func makeFloatFITSFile(bitpix: Int, width: Int, height: Int,
+                                    floatValues: [Float], bzero: Double? = nil) throws -> URL {
+        let url = FileManager.default.temporaryDirectory
+            .appending(component: "\(UUID().uuidString).fits")
+
+        var cards: [String] = [
+            card("SIMPLE", bool: true),
+            card("BITPIX", int: bitpix),
+            card("NAXIS",  int: 2),
+            card("NAXIS1", int: width),
+            card("NAXIS2", int: height),
+        ]
+        if let bz = bzero { cards.append(card("BZERO", float: bz)) }
+        cards.append(endCard())
+
+        var headerData = Data(cards.joined().utf8)
+        while headerData.count % 2880 != 0 { headerData.append(0x20) }
+
+        let pixelCount = width * height
+        let bytesPerPixel = abs(bitpix) / 8
+        var pixelData = Data(count: pixelCount * bytesPerPixel)
+
+        for i in 0..<min(floatValues.count, pixelCount) {
+            if bitpix == -32 {
+                // Store as big-endian IEEE 754 single
+                var bits = floatValues[i].bitPattern.bigEndian
+                withUnsafeBytes(of: &bits) { pixelData.replaceSubrange(i*4..<i*4+4, with: $0) }
+            } else if bitpix == -64 {
+                // Store as big-endian IEEE 754 double
+                var bits = Double(floatValues[i]).bitPattern.bigEndian
+                withUnsafeBytes(of: &bits) { pixelData.replaceSubrange(i*8..<i*8+8, with: $0) }
+            }
+        }
+
+        while pixelData.count % 2880 != 0 { pixelData.append(0x00) }
+
+        var fileData = headerData
+        fileData.append(pixelData)
+        try fileData.write(to: url)
+        return url
+    }
 
     private func makeFITSFile(bitpix: Int, width: Int, height: Int,
                                bzero: Double? = nil,

@@ -4,6 +4,7 @@
 //
 //  QuickLook Thumbnail extension for FITS files.
 //  Shares FITSReader and ImageStretcher with the main app and preview extension.
+//  Supports integer, float, and RGB FITS files.
 //
 
 import AppKit
@@ -21,20 +22,33 @@ class ThumbnailProvider: QLThumbnailProvider {
         logger.info("provideThumbnail: \(url.lastPathComponent) maxSize=\(maxSize)")
 
         do {
-            var fitsImage = try FITSReader.read(from: url)
-            logger.info("FITSReader succeeded: \(fitsImage.width)×\(fitsImage.height)")
-            guard let nsImage = ImageStretcher.createImage(from: &fitsImage.pixelValues,
-                                                           width: fitsImage.width,
-                                                           height: fitsImage.height,
-                                                           maxDisplaySize: maxSize) else {
+            var fitsImage = try FITSReader.readForPreview(from: url)
+            logger.info("FITSReader succeeded: \(fitsImage.width)×\(fitsImage.height) ch=\(fitsImage.channels)")
+
+            let isFloat = fitsImage.bitpix < 0
+            let nsImage: NSImage?
+            if fitsImage.channels == 3 {
+                nsImage = ImageStretcher.createRGBImage(from: &fitsImage.pixelValues,
+                                                         width: fitsImage.width,
+                                                         height: fitsImage.height,
+                                                         maxDisplaySize: maxSize)
+            } else {
+                nsImage = ImageStretcher.createImage(from: &fitsImage.pixelValues,
+                                                      width: fitsImage.width,
+                                                      height: fitsImage.height,
+                                                      maxDisplaySize: maxSize,
+                                                      useAsinhStretch: isFloat)
+            }
+
+            guard let image = nsImage else {
                 logger.error("ImageStretcher returned nil")
                 handler(nil, CocoaError(.fileReadCorruptFile))
                 return
             }
 
-            logger.info("Thumbnail ready: \(nsImage.size.width)×\(nsImage.size.height)")
-            let reply = QLThumbnailReply(contextSize: nsImage.size) {
-                nsImage.draw(in: CGRect(origin: .zero, size: nsImage.size))
+            logger.info("Thumbnail ready: \(image.size.width)×\(image.size.height)")
+            let reply = QLThumbnailReply(contextSize: image.size) {
+                image.draw(in: CGRect(origin: .zero, size: image.size))
                 return true
             }
             handler(reply, nil)

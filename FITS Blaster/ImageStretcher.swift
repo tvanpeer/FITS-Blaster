@@ -139,14 +139,148 @@ struct ImageStretcher {
     /// Scaling is done on the UInt8 buffer with vImageScale before creating the CGImage,
     /// avoiding an expensive full-res CGImage → CGContext round-trip.
     static func createImage(from pixels: inout [Float], width: Int, height: Int,
-                            maxDisplaySize: Int = 1024) -> NSImage? {
-        let (lowClip, highClip) = estimatePercentiles(pixels)
+                            maxDisplaySize: Int = 1024, useAsinhStretch: Bool = false) -> NSImage? {
+        let (lowClip, highClip): (Float, Float)
+        if useAsinhStretch {
+            (lowClip, highClip) = pixels.withUnsafeBufferPointer { buf in
+                estimatePercentilesWide(buf.baseAddress!, count: buf.count)
+            }
+        } else {
+            (lowClip, highClip) = estimatePercentiles(pixels)
+        }
         let range = highClip - lowClip
         guard range > 0 else { return nil }
 
         return cpuFallback(&pixels, width: width, height: height,
                            lowClip: lowClip, highClip: highClip,
-                           maxDisplaySize: maxDisplaySize)
+                           maxDisplaySize: maxDisplaySize,
+                           useAsinhStretch: useAsinhStretch)
+    }
+
+    /// Stretch interleaved RGB float data (R,G,B,R,G,B,...) into a display image.
+    /// Uses per-channel percentile clipping with the same gamma 2.2 LUT as the
+    /// greyscale path for consistent rendering. CPU-only path intended for
+    /// QuickLook previews and thumbnails.
+    static func createRGBImage(from pixels: inout [Float], width: Int, height: Int,
+                                maxDisplaySize: Int = 1024) -> NSImage? {
+        let pixelCount = width * height
+        guard pixels.count == pixelCount * 3 else { return nil }
+
+        // De-interleave into separate channel planes for vImage processing.
+        let rPlane = UnsafeMutablePointer<Float>.allocate(capacity: pixelCount)
+        let gPlane = UnsafeMutablePointer<Float>.allocate(capacity: pixelCount)
+        let bPlane = UnsafeMutablePointer<Float>.allocate(capacity: pixelCount)
+        defer { rPlane.deallocate(); gPlane.deallocate(); bPlane.deallocate() }
+
+        for i in 0..<pixelCount {
+            rPlane[i] = pixels[i * 3]
+            gPlane[i] = pixels[i * 3 + 1]
+            bPlane[i] = pixels[i * 3 + 2]
+        }
+
+        // Per-channel percentile clip bounds (1%/99% to skip zero-padded corners).
+        let (loR, hiR) = estimatePercentilesWide(rPlane, count: pixelCount)
+        let (loG, hiG) = estimatePercentilesWide(gPlane, count: pixelCount)
+        let (loB, hiB) = estimatePercentilesWide(bPlane, count: pixelCount)
+
+        // Apply the same gamma 2.2 LUT stretch as the greyscale path, per channel.
+        // vImageInterpolatedLookupTable_PlanarF normalises [highClip..lowClip] → [0..1]
+        // then applies the LUT curve. Note: highClip is the first bound, lowClip second.
+        let rStretched = UnsafeMutablePointer<Float>.allocate(capacity: pixelCount)
+        let gStretched = UnsafeMutablePointer<Float>.allocate(capacity: pixelCount)
+        let bStretched = UnsafeMutablePointer<Float>.allocate(capacity: pixelCount)
+        defer { rStretched.deallocate(); gStretched.deallocate(); bStretched.deallocate() }
+
+        var rSrc = vImage_Buffer(data: rPlane, height: vImagePixelCount(height),
+                                  width: vImagePixelCount(width), rowBytes: width * MemoryLayout<Float>.stride)
+        var gSrc = vImage_Buffer(data: gPlane, height: vImagePixelCount(height),
+                                  width: vImagePixelCount(width), rowBytes: width * MemoryLayout<Float>.stride)
+        var bSrc = vImage_Buffer(data: bPlane, height: vImagePixelCount(height),
+                                  width: vImagePixelCount(width), rowBytes: width * MemoryLayout<Float>.stride)
+        var rDst = vImage_Buffer(data: rStretched, height: vImagePixelCount(height),
+                                  width: vImagePixelCount(width), rowBytes: width * MemoryLayout<Float>.stride)
+        var gDst = vImage_Buffer(data: gStretched, height: vImagePixelCount(height),
+                                  width: vImagePixelCount(width), rowBytes: width * MemoryLayout<Float>.stride)
+        var bDst = vImage_Buffer(data: bStretched, height: vImagePixelCount(height),
+                                  width: vImagePixelCount(width), rowBytes: width * MemoryLayout<Float>.stride)
+
+        let lutCount = vImagePixelCount(asinhStretchLUT.count)
+        vImageInterpolatedLookupTable_PlanarF(&rSrc, &rDst, asinhStretchLUT, lutCount, hiR, loR, vImage_Flags(kvImageNoFlags))
+        vImageInterpolatedLookupTable_PlanarF(&gSrc, &gDst, asinhStretchLUT, lutCount, hiG, loG, vImage_Flags(kvImageNoFlags))
+        vImageInterpolatedLookupTable_PlanarF(&bSrc, &bDst, asinhStretchLUT, lutCount, hiB, loB, vImage_Flags(kvImageNoFlags))
+
+        // Convert each channel Float [0,1] → UInt8 [0,255]
+        let r8 = UnsafeMutablePointer<UInt8>.allocate(capacity: pixelCount)
+        let g8 = UnsafeMutablePointer<UInt8>.allocate(capacity: pixelCount)
+        let b8 = UnsafeMutablePointer<UInt8>.allocate(capacity: pixelCount)
+        defer { r8.deallocate(); g8.deallocate(); b8.deallocate() }
+
+        var rDst8 = vImage_Buffer(data: r8, height: vImagePixelCount(height),
+                                   width: vImagePixelCount(width), rowBytes: width)
+        var gDst8 = vImage_Buffer(data: g8, height: vImagePixelCount(height),
+                                   width: vImagePixelCount(width), rowBytes: width)
+        var bDst8 = vImage_Buffer(data: b8, height: vImagePixelCount(height),
+                                   width: vImagePixelCount(width), rowBytes: width)
+        vImageConvert_PlanarFtoPlanar8(&rDst, &rDst8, 1.0, 0.0, vImage_Flags(kvImageNoFlags))
+        vImageConvert_PlanarFtoPlanar8(&gDst, &gDst8, 1.0, 0.0, vImage_Flags(kvImageNoFlags))
+        vImageConvert_PlanarFtoPlanar8(&bDst, &bDst8, 1.0, 0.0, vImage_Flags(kvImageNoFlags))
+
+        // Interleave R,G,B UInt8 planes + vertical flip into RGB byte buffer.
+        let rgb = UnsafeMutablePointer<UInt8>.allocate(capacity: pixelCount * 3)
+        for y in 0..<height {
+            let srcY = height - 1 - y   // FITS rows are bottom-to-top
+            for x in 0..<width {
+                let srcIdx = srcY * width + x
+                let dstIdx = (y * width + x) * 3
+                rgb[dstIdx]     = r8[srcIdx]
+                rgb[dstIdx + 1] = g8[srcIdx]
+                rgb[dstIdx + 2] = b8[srcIdx]
+            }
+        }
+
+        // Optional downscale
+        let finalData: UnsafeMutablePointer<UInt8>
+        let finalW: Int, finalH: Int
+        if maxDisplaySize > 0 && max(width, height) > maxDisplaySize {
+            let scale = Float(maxDisplaySize) / Float(max(width, height))
+            finalW = max(1, Int(Float(width) * scale))
+            finalH = max(1, Int(Float(height) * scale))
+            let scaled = UnsafeMutablePointer<UInt8>.allocate(capacity: finalW * finalH * 3)
+            for ch in 0..<3 {
+                let srcPlanar = UnsafeMutablePointer<UInt8>.allocate(capacity: pixelCount)
+                let dstPlanar = UnsafeMutablePointer<UInt8>.allocate(capacity: finalW * finalH)
+                defer { srcPlanar.deallocate(); dstPlanar.deallocate() }
+                for i in 0..<pixelCount { srcPlanar[i] = rgb[i * 3 + ch] }
+                var sBuf = vImage_Buffer(data: srcPlanar, height: vImagePixelCount(height),
+                                          width: vImagePixelCount(width), rowBytes: width)
+                var dBuf = vImage_Buffer(data: dstPlanar, height: vImagePixelCount(finalH),
+                                          width: vImagePixelCount(finalW), rowBytes: finalW)
+                vImageScale_Planar8(&sBuf, &dBuf, nil, vImage_Flags(kvImageHighQualityResampling))
+                for i in 0..<(finalW * finalH) { scaled[i * 3 + ch] = dstPlanar[i] }
+            }
+            rgb.deallocate()
+            finalData = scaled
+        } else {
+            finalData = rgb
+            finalW = width
+            finalH = height
+        }
+
+        let totalBytes = finalW * finalH * 3
+        let colorSpace = CGColorSpaceCreateDeviceRGB()
+        let provider = CGDataProvider(dataInfo: finalData, data: finalData, size: totalBytes) { ptr, _, _ in
+            ptr?.assumingMemoryBound(to: UInt8.self).deallocate()
+        }
+        guard let prov = provider else { finalData.deallocate(); return nil }
+        guard let cgImage = CGImage(
+            width: finalW, height: finalH,
+            bitsPerComponent: 8, bitsPerPixel: 24, bytesPerRow: finalW * 3,
+            space: colorSpace,
+            bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.none.rawValue),
+            provider: prov, decode: nil, shouldInterpolate: true, intent: .defaultIntent
+        ) else { return nil }
+
+        return NSImage(cgImage: cgImage, size: NSSize(width: finalW, height: finalH))
     }
 
     /// Create a small thumbnail using CGContext
@@ -406,20 +540,36 @@ struct ImageStretcher {
         }
     }()
 
+    /// Asinh stretch LUT for float FITS previews. Much more aggressive than gamma 2.2 —
+    /// compresses the bright end and lifts faint nebulosity, which is what linear
+    /// astrophotography data needs. The softening parameter (beta = 5) controls how
+    /// aggressively faint detail is boosted.
+    private static let asinhStretchLUT: [Float] = {
+        let n = 4096
+        let beta: Float = 50.0
+        let scale = 1.0 / asinh(beta)
+        return (0..<n).map { i in
+            let t = Float(i) / Float(n - 1)
+            return asinh(t * beta) * scale
+        }
+    }()
+
     /// Shared implementation: interpolated LUT (normalize+clip+gamma) + convert + flip + scale.
     /// Scaling is done on the UInt8 buffer with vImageScale_Planar8, which is much faster
     /// than creating a full-res CGImage and scaling via CGContext.
     private static func cpuStretch(
         srcData: UnsafeMutablePointer<Float>, pixelCount: Int, width: Int, height: Int,
-        lowClip: Float, highClip: Float, maxDisplaySize: Int = 0
+        lowClip: Float, highClip: Float, maxDisplaySize: Int = 0,
+        useAsinhStretch: Bool = false
     ) -> NSImage? {
         let floatRowBytes = width * MemoryLayout<Float>.stride
 
-        // Pass 1: Interpolated LUT does normalize+clip+gamma in one vectorized pass.
+        // Pass 1: Interpolated LUT does normalize+clip+stretch in one vectorized pass.
+        let lut = useAsinhStretch ? asinhStretchLUT : stretchLUT
         let stretchedPtr = UnsafeMutablePointer<Float>.allocate(capacity: pixelCount)
         var srcBuf = vImage_Buffer(data: srcData, height: vImagePixelCount(height), width: vImagePixelCount(width), rowBytes: floatRowBytes)
         var dstBufF = vImage_Buffer(data: stretchedPtr, height: vImagePixelCount(height), width: vImagePixelCount(width), rowBytes: floatRowBytes)
-        vImageInterpolatedLookupTable_PlanarF(&srcBuf, &dstBufF, stretchLUT, vImagePixelCount(stretchLUT.count), highClip, lowClip, vImage_Flags(kvImageNoFlags))
+        vImageInterpolatedLookupTable_PlanarF(&srcBuf, &dstBufF, lut, vImagePixelCount(lut.count), highClip, lowClip, vImage_Flags(kvImageNoFlags))
 
         // Pass 2: Float [0,1] → UInt8 [0,255]
         let bytes8 = UnsafeMutablePointer<UInt8>.allocate(capacity: pixelCount)
@@ -478,12 +628,14 @@ struct ImageStretcher {
 
     private static func cpuFallback(
         _ pixels: inout [Float], width: Int, height: Int,
-        lowClip: Float, highClip: Float, maxDisplaySize: Int = 0
+        lowClip: Float, highClip: Float, maxDisplaySize: Int = 0,
+        useAsinhStretch: Bool = false
     ) -> NSImage? {
         let pixelCount = width * height
         return pixels.withUnsafeMutableBufferPointer { buf in
             cpuStretch(srcData: buf.baseAddress!, pixelCount: pixelCount, width: width, height: height,
-                       lowClip: lowClip, highClip: highClip, maxDisplaySize: maxDisplaySize)
+                       lowClip: lowClip, highClip: highClip, maxDisplaySize: maxDisplaySize,
+                       useAsinhStretch: useAsinhStretch)
         }
     }
 
@@ -586,6 +738,28 @@ struct ImageStretcher {
         let n = sample.count
         let lo = sample[Int(Float(n) * 0.001)]
         let hi = sample[Int(Float(n - 1) * 0.999)]
+        return (lo, hi > lo ? hi : lo + 1)
+    }
+
+    /// Estimate percentiles for float FITS previews, excluding zero pixels
+    /// (stacking artifacts / unfilled corners) that would skew the clip range.
+    /// Uses 0.5%/99.5% after zero removal for a balanced stretch.
+    static func estimatePercentilesWide(_ ptr: UnsafePointer<Float>, count: Int) -> (low: Float, high: Float) {
+        guard count > 0 else { return (0, 1) }
+        let sampleStride = max(1, count / percentileSampleCount)
+        var sample = [Float]()
+        sample.reserveCapacity(min(count, percentileSampleCount))
+        var i = 0
+        while i < count {
+            let v = ptr[i]
+            if v != 0 { sample.append(v) }
+            i += sampleStride
+        }
+        guard !sample.isEmpty else { return (0, 1) }
+        vDSP.sort(&sample, sortOrder: .ascending)
+        let n = sample.count
+        let lo = sample[Int(Float(n) * 0.005)]
+        let hi = sample[min(n - 1, Int(Float(n - 1) * 0.9999))]
         return (lo, hi > lo ? hi : lo + 1)
     }
 
