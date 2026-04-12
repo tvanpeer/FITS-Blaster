@@ -6,6 +6,35 @@
     <title>FITS Blaster — Astrophotography Image Culling for Mac</title>
     <link rel="icon" type="image/png" href="favicon.png">
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
+    <link rel="canonical" href="https://astrophoto-app.com/index.html">
+    <meta name="description" content="FITS Blaster is a free macOS app for culling astrophotography FITS images. GPU-accelerated star quality metrics — FWHM, eccentricity, SNR, star count — with session charts and batch rejection.">
+    <meta property="og:title" content="FITS Blaster — Astrophotography Image Culling for Mac">
+    <meta property="og:description" content="Free macOS app for culling astrophotography FITS images. GPU-accelerated star quality metrics with session charts and batch rejection.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://astrophoto-app.com/">
+    <meta property="og:image" content="https://astrophoto-app.com/screenshot-main.png">
+    <meta property="og:site_name" content="FITS Blaster">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="FITS Blaster — Astrophotography Image Culling for Mac">
+    <meta name="twitter:description" content="Free macOS app for culling astrophotography FITS images. GPU-accelerated star quality metrics with session charts and batch rejection.">
+    <meta name="twitter:image" content="https://astrophoto-app.com/screenshot-main.png">
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "FITS Blaster",
+        "operatingSystem": "macOS 15.7+",
+        "applicationCategory": "PhotographyApplication",
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+        "description": "Fast, focused FITS image culling for astrophotographers on Mac. Measures star quality — FWHM, eccentricity, SNR, star count — directly from raw pixel data.",
+        "url": "https://astrophoto-app.com/",
+        "downloadUrl": "https://github.com/tvanpeer/FITS-Blaster/releases/download/v1.22.1/FITS-Blaster-1.22.1.dmg",
+        "softwareVersion": "1.22.1",
+        "author": { "@type": "Person", "name": "Tom van Peer" },
+        "screenshot": "https://astrophoto-app.com/screenshot-main.png",
+        "image": "https://astrophoto-app.com/app-icon.png"
+    }
+    </script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -126,6 +155,97 @@
             text-decoration: underline;
         }
 
+        /* ── App icon ── */
+        .app-icon {
+            width: 120px;
+            height: 120px;
+            border-radius: 24px;
+            margin-bottom: 24px;
+        }
+
+        /* ── Hero screenshot ── */
+        .hero-screenshot {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 0 24px 60px;
+            text-align: center;
+        }
+        .hero-screenshot img {
+            width: 100%;
+            border-radius: 12px;
+            border: 1px solid #1a1a2e;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+        }
+
+        /* ── Detail screenshots ── */
+        .screenshots {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 0 24px 80px;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 24px;
+        }
+        .screenshots figure {
+            text-align: center;
+        }
+        .screenshots img {
+            width: 100%;
+            border-radius: 8px;
+            border: 1px solid #1a1a2e;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+            transition: transform 0.3s ease, box-shadow 0.3s ease, z-index 0s;
+            cursor: zoom-in;
+            position: relative;
+            z-index: 1;
+        }
+        .screenshots img:hover {
+            transform: scale(2.8);
+            box-shadow: 0 16px 64px rgba(0, 0, 0, 0.8);
+            z-index: 10;
+        }
+        .screenshots figcaption {
+            margin-top: 10px;
+            font-size: 0.85rem;
+            color: #9090aa;
+        }
+
+        /* ── Video review ── */
+        .review {
+            max-width: 640px;
+            margin: 0 auto;
+            padding: 0 24px 80px;
+            text-align: center;
+        }
+        .review h2 {
+            font-size: 1.4rem;
+            font-weight: 600;
+            margin-bottom: 24px;
+            color: #c8c8e0;
+        }
+        .review a {
+            display: inline-block;
+            text-decoration: none;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid #2a2a4a;
+            transition: border-color 0.3s, transform 0.2s;
+        }
+        .review a:hover {
+            border-color: #5a5aff;
+            transform: translateY(-2px);
+        }
+        .review img {
+            display: block;
+            width: 100%;
+            max-width: 480px;
+        }
+        .review p {
+            margin-top: 12px;
+            font-size: 0.9rem;
+            color: #9090aa;
+        }
+
         /* ── Site navigation ── */
         .site-nav {
             background: #0d0d18;
@@ -180,12 +300,17 @@
 </nav>
 
 <header>
+    <img src="app-icon.png" alt="FITS Blaster app icon" class="app-icon">
     <h1>FITS Blaster</h1>
     <p>Fast, focused FITS image culling for astrophotographers on Mac.</p>
     <a class="download-btn" href="https://github.com/tvanpeer/FITS-Blaster/releases/download/v1.22.1/FITS-Blaster-1.22.1.dmg">Download FITS Blaster 1.22.1</a>
     <p class="download-sub">macOS 15.7 or later &nbsp;·&nbsp; Free</p>
     <a class="badge" href="https://ko-fi.com/tomvp" target="_blank" rel="noopener">☕ If you enjoy FITS Blaster, buy me a coffee on Ko-fi</a>
 </header>
+
+<section class="hero-screenshot">
+    <img src="screenshot-main.png" alt="FITS Blaster main window showing thumbnail sidebar, image viewer, session chart, and inspector panel">
+</section>
 
 <section class="features">
     <h2>What it does</h2>
@@ -196,8 +321,31 @@
         <li>Filter-aware grouping: Ha, OIII, SII, RGB, and more</li>
         <li>Auto-select with configurable thresholds</li>
         <li>Subfolder scanning for multi-night sessions</li>
-        <li>No internet connection required — everything stays on your Mac</li>
+        <li>Works fully offline — only a lightweight daily update check uses the network</li>
     </ul>
+</section>
+
+<section class="screenshots">
+    <figure>
+        <img src="screenshot-chart.png" alt="Session chart showing quality metrics per frame with colour-coded bars">
+        <figcaption>Session chart with drag-to-select</figcaption>
+    </figure>
+    <figure>
+        <img src="screenshot-sidebar.png" alt="Thumbnail sidebar with filter buttons and sort options">
+        <figcaption>Thumbnail sidebar with filter grouping</figcaption>
+    </figure>
+    <figure>
+        <img src="screenshot-inspector.png" alt="Inspector panel showing FWHM, eccentricity, SNR, star count, and FITS headers">
+        <figcaption>Inspector with quality metrics and FITS headers</figcaption>
+    </figure>
+</section>
+
+<section class="review">
+    <h2>What others say</h2>
+    <a href="https://www.youtube.com/watch?v=JO2IDlCPYyA" target="_blank" rel="noopener">
+        <img src="https://img.youtube.com/vi/JO2IDlCPYyA/hqdefault.jpg" alt="Sascha Wyss reviews FITS Blaster on YouTube">
+    </a>
+    <p>Review by Sascha Wyss</p>
 </section>
 
 <footer>
