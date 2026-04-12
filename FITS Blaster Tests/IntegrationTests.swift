@@ -273,11 +273,13 @@ struct IntegrationTests {
     // MARK: - Histogram from synthetic data
 
     @Test("Histogram from synthetic image is background-dominated")
-    func histogramFromSyntheticImage() {
+    func histogramFromSyntheticImage() throws {
         let pixels = makeImage(width: 128, height: 128, background: 1000,
                                stars: [SyntheticStar(cx: 64, cy: 64, amplitude: 5000, sigma: 2.0)])
+        let minVal = try #require(pixels.min())
+        let maxVal = try #require(pixels.max())
         let hist = MetricsCalculator.computeHistogram(pixels: pixels,
-                                                       minVal: pixels.min()!, maxVal: pixels.max()!)
+                                                       minVal: minVal, maxVal: maxVal)
         #expect(hist.count == 256)
         let totalSampled = hist.reduce(0, +)
         #expect(totalSampled > 0)
