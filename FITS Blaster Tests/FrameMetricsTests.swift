@@ -6,14 +6,13 @@
 //  badgeProblem, and MetricsConfig.
 //
 
-import XCTest
+import Testing
 @testable import FITS_Blaster
 
-final class FrameMetricsTests: XCTestCase {
+struct FrameMetricsTests {
 
     // MARK: - Helpers
 
-    /// Full metrics with known values for testing.
     private func fullMetrics(fwhm: Float = 3.0, eccentricity: Float = 0.2,
                              snr: Float = 100, starCount: Int = 200) -> FrameMetrics {
         FrameMetrics(fwhm: fwhm, eccentricity: eccentricity, snr: snr, starCount: starCount,
@@ -29,187 +28,187 @@ final class FrameMetricsTests: XCTestCase {
 
     // MARK: - hasData
 
-    func testHasDataWithAllMetrics() {
-        XCTAssertTrue(fullMetrics().hasData)
+    @Test("hasData with all metrics")
+    func hasDataWithAllMetrics() {
+        #expect(fullMetrics().hasData == true)
     }
 
-    func testHasDataWithNoMetrics() {
+    @Test("hasData with no metrics")
+    func hasDataWithNoMetrics() {
         let m = FrameMetrics(fwhm: nil, eccentricity: nil, snr: nil, starCount: nil, qualityScore: 0)
-        XCTAssertFalse(m.hasData)
+        #expect(m.hasData == false)
     }
 
-    func testHasDataWithSingleMetric() {
+    @Test("hasData with single metric")
+    func hasDataWithSingleMetric() {
         let m = FrameMetrics(fwhm: 3.0, eccentricity: nil, snr: nil, starCount: nil, qualityScore: 50)
-        XCTAssertTrue(m.hasData)
+        #expect(m.hasData == true)
     }
 
     // MARK: - filtered(by:)
 
-    func testFilteredKeepsEnabledMetrics() {
+    @Test("filtered keeps enabled metrics and nils disabled ones")
+    func filteredKeepsEnabledMetrics() throws {
         let m = fullMetrics()
         let config = MetricsConfig(computeFWHM: true, computeEccentricity: false,
                                    computeSNR: true, computeStarCount: false)
         let filtered = m.filtered(by: config)
 
-        XCTAssertNotNil(filtered.fwhm)
-        XCTAssertNil(filtered.eccentricity)
-        XCTAssertNotNil(filtered.snr)
-        XCTAssertNil(filtered.starCount)
+        _ = try #require(filtered.fwhm, "FWHM should be kept")
+        #expect(filtered.eccentricity == nil, "Eccentricity should be nil")
+        _ = try #require(filtered.snr, "SNR should be kept")
+        #expect(filtered.starCount == nil, "Star count should be nil")
     }
 
-    func testFilteredRecomputesScore() {
+    @Test("filtered recomputes score for active subset")
+    func filteredRecomputesScore() {
         let m = fullMetrics()
-        let allEnabled = MetricsConfig()
         let fwhmOnly = MetricsConfig(computeFWHM: true, computeEccentricity: false,
                                      computeSNR: false, computeStarCount: false)
 
-        let filteredAll  = m.filtered(by: allEnabled)
-        let filteredFWHM = m.filtered(by: fwhmOnly)
-
-        // Same FWHM but different active set → score is renormalised.
-        // With only FWHM, the score reflects only FWHM quality.
-        XCTAssertEqual(filteredFWHM.qualityScore,
-                       MetricsCalculator.qualityScore(fwhm: m.fwhm, eccentricity: nil,
-                                                       snr: nil, starCount: nil))
-        // The all-enabled score should use all values.
-        XCTAssertEqual(filteredAll.qualityScore, m.qualityScore)
+        let filtered = m.filtered(by: fwhmOnly)
+        let expected = MetricsCalculator.qualityScore(fwhm: m.fwhm, eccentricity: nil,
+                                                       snr: nil, starCount: nil)
+        #expect(filtered.qualityScore == expected)
     }
 
-    func testFilteredAllDisabledReturnsZeroScore() {
-        let m = fullMetrics()
+    @Test("filtered with all disabled returns zero score")
+    func filteredAllDisabledReturnsZeroScore() {
         let config = MetricsConfig(computeFWHM: false, computeEccentricity: false,
                                    computeSNR: false, computeStarCount: false)
-        let filtered = m.filtered(by: config)
-        XCTAssertEqual(filtered.qualityScore, 0)
+        #expect(fullMetrics().filtered(by: config).qualityScore == 0)
     }
 
     // MARK: - merging
 
-    func testMergingPrefersOtherValues() {
+    @Test("merging fills in missing values from base")
+    func mergingPrefersOtherValues() {
         let base = FrameMetrics(fwhm: 3.0, eccentricity: 0.2, snr: nil, starCount: nil, qualityScore: 50)
         let other = FrameMetrics(fwhm: nil, eccentricity: nil, snr: 120, starCount: 300, qualityScore: 50)
-
         let merged = base.merging(other)
 
-        XCTAssertEqual(merged.fwhm, 3.0)           // from base (other is nil)
-        XCTAssertEqual(merged.eccentricity, 0.2)    // from base (other is nil)
-        XCTAssertEqual(merged.snr, 120)             // from other
-        XCTAssertEqual(merged.starCount, 300)       // from other
+        #expect(merged.fwhm == 3.0)
+        #expect(merged.eccentricity == 0.2)
+        #expect(merged.snr == 120)
+        #expect(merged.starCount == 300)
     }
 
-    func testMergingOverridesBaseWithOtherNonNil() {
+    @Test("merging overrides base with other's non-nil values")
+    func mergingOverridesBase() {
         let base  = FrameMetrics(fwhm: 3.0, eccentricity: 0.2, snr: 80, starCount: 150, qualityScore: 50)
         let other = FrameMetrics(fwhm: 2.5, eccentricity: nil, snr: nil, starCount: nil, qualityScore: 50)
-
         let merged = base.merging(other)
 
-        XCTAssertEqual(merged.fwhm, 2.5)            // other overrides base
-        XCTAssertEqual(merged.eccentricity, 0.2)    // base kept
+        #expect(merged.fwhm == 2.5, "Other's FWHM should override base")
+        #expect(merged.eccentricity == 0.2, "Base eccentricity should be kept")
     }
 
-    func testMergingRecomputesScore() {
+    @Test("merging recomputes score")
+    func mergingRecomputesScore() {
         let base = FrameMetrics(fwhm: 3.0, eccentricity: nil, snr: nil, starCount: nil, qualityScore: 50)
         let other = FrameMetrics(fwhm: nil, eccentricity: 0.1, snr: nil, starCount: nil, qualityScore: 50)
-
         let merged = base.merging(other)
-        let expectedScore = MetricsCalculator.qualityScore(fwhm: 3.0, eccentricity: 0.1,
-                                                            snr: nil, starCount: nil)
-        XCTAssertEqual(merged.qualityScore, expectedScore)
+        let expected = MetricsCalculator.qualityScore(fwhm: 3.0, eccentricity: 0.1,
+                                                       snr: nil, starCount: nil)
+        #expect(merged.qualityScore == expected)
     }
 
     // MARK: - covers
 
-    func testCoversAllWhenAllPresent() {
-        let m = fullMetrics()
-        XCTAssertTrue(m.covers(MetricsConfig()))
+    @Test("covers returns true when all requested metrics present")
+    func coversAllWhenAllPresent() {
+        #expect(fullMetrics().covers(MetricsConfig()) == true)
     }
 
-    func testCoversFailsWhenMissing() {
+    @Test("covers returns false when a requested metric is missing")
+    func coversFailsWhenMissing() {
         let m = FrameMetrics(fwhm: 3.0, eccentricity: nil, snr: nil, starCount: nil, qualityScore: 50)
-        XCTAssertFalse(m.covers(MetricsConfig()))                  // needs all four
-        XCTAssertTrue(m.covers(MetricsConfig(computeFWHM: true,    // only needs FWHM
-                                             computeEccentricity: false,
-                                             computeSNR: false,
-                                             computeStarCount: false)))
+        #expect(m.covers(MetricsConfig()) == false, "Needs all four")
+        let fwhmOnly = MetricsConfig(computeFWHM: true, computeEccentricity: false,
+                                     computeSNR: false, computeStarCount: false)
+        #expect(m.covers(fwhmOnly) == true, "Only needs FWHM")
     }
 
-    func testCoversAllDisabledAlwaysTrue() {
+    @Test("covers with all disabled always returns true")
+    func coversAllDisabledAlwaysTrue() {
         let m = FrameMetrics(fwhm: nil, eccentricity: nil, snr: nil, starCount: nil, qualityScore: 0)
         let config = MetricsConfig(computeFWHM: false, computeEccentricity: false,
                                    computeSNR: false, computeStarCount: false)
-        XCTAssertTrue(m.covers(config))
+        #expect(m.covers(config) == true)
     }
 
     // MARK: - MetricsConfig
 
-    func testNeedsStarDetectionAllEnabled() {
-        XCTAssertTrue(MetricsConfig().needsStarDetection)
+    @Test("needsStarDetection with all enabled")
+    func needsStarDetectionAllEnabled() {
+        #expect(MetricsConfig().needsStarDetection == true)
     }
 
-    func testNeedsStarDetectionAllDisabled() {
+    @Test("needsStarDetection with all disabled")
+    func needsStarDetectionAllDisabled() {
         let config = MetricsConfig(computeFWHM: false, computeEccentricity: false,
                                    computeSNR: false, computeStarCount: false)
-        XCTAssertFalse(config.needsStarDetection)
+        #expect(config.needsStarDetection == false)
     }
 
-    func testNeedsStarDetectionSingleEnabled() {
+    @Test("needsStarDetection with single enabled")
+    func needsStarDetectionSingleEnabled() {
         let config = MetricsConfig(computeFWHM: false, computeEccentricity: false,
                                    computeSNR: true, computeStarCount: false)
-        XCTAssertTrue(config.needsStarDetection)
+        #expect(config.needsStarDetection == true)
     }
 
     // MARK: - badgeProblem
 
-    func testTrailingDetected() {
-        let m = fullMetrics(eccentricity: 0.6)
-        XCTAssertEqual(m.badgeProblem(stats: broadbandStats()), .trailing)
+    @Test("Trailing detected when eccentricity > 0.5")
+    func trailingDetected() {
+        #expect(fullMetrics(eccentricity: 0.6).badgeProblem(stats: broadbandStats()) == .trailing)
     }
 
-    func testTrailingNotDetectedAtThreshold() {
-        let m = fullMetrics(eccentricity: 0.5)
-        XCTAssertNotEqual(m.badgeProblem(stats: broadbandStats()), .trailing)
+    @Test("Trailing not detected at eccentricity = 0.5")
+    func trailingNotDetectedAtThreshold() {
+        #expect(fullMetrics(eccentricity: 0.5).badgeProblem(stats: broadbandStats()) != .trailing)
     }
 
-    func testFocusFailDetected() {
-        // FWHM > median × 1.5 (3.0 × 1.5 = 4.5)
+    @Test("Focus fail detected when FWHM > median × 1.5")
+    func focusFailDetected() {
         let m = fullMetrics(fwhm: 5.0, eccentricity: 0.1)
-        XCTAssertEqual(m.badgeProblem(stats: broadbandStats(medianFWHM: 3.0)), .focusFail)
+        #expect(m.badgeProblem(stats: broadbandStats(medianFWHM: 3.0)) == .focusFail)
     }
 
-    func testLowStarsDetectedBroadband() {
-        // Stars < median × 0.40 (200 × 0.40 = 80)
+    @Test("Low stars detected for broadband")
+    func lowStarsDetectedBroadband() {
         let m = fullMetrics(fwhm: 3.0, eccentricity: 0.1, starCount: 50)
-        XCTAssertEqual(m.badgeProblem(stats: broadbandStats(medianStarCount: 200)), .lowStars)
+        #expect(m.badgeProblem(stats: broadbandStats(medianStarCount: 200)) == .lowStars)
     }
 
-    func testLowStarsNarrowbandUsesTighterThreshold() {
+    @Test("Low stars uses tighter threshold for narrowband")
+    func lowStarsNarrowbandThreshold() {
         let stats = GroupStats(medianFWHM: 3.0, medianEccentricity: 0.2,
                                medianStarCount: 100, medianSNR: 80,
                                medianScore: 60, topThirdScoreFloor: 70, isNarrowband: true)
 
-        // 35 stars: below 30% threshold (100 × 0.30 = 30)? No, 35 > 30 → no problem.
-        let m1 = fullMetrics(fwhm: 3.0, eccentricity: 0.1, starCount: 35)
-        XCTAssertNil(m1.badgeProblem(stats: stats))
-
-        // 25 stars: below 30% threshold → lowStars.
-        let m2 = fullMetrics(fwhm: 3.0, eccentricity: 0.1, starCount: 25)
-        XCTAssertEqual(m2.badgeProblem(stats: stats), .lowStars)
+        // 35 stars > 30% of 100 → no problem
+        #expect(fullMetrics(fwhm: 3.0, eccentricity: 0.1, starCount: 35)
+            .badgeProblem(stats: stats) == nil)
+        // 25 stars < 30% of 100 → lowStars
+        #expect(fullMetrics(fwhm: 3.0, eccentricity: 0.1, starCount: 25)
+            .badgeProblem(stats: stats) == .lowStars)
     }
 
-    func testNoProblemDetected() {
-        let m = fullMetrics(fwhm: 3.0, eccentricity: 0.2, starCount: 200)
-        XCTAssertNil(m.badgeProblem(stats: broadbandStats()))
+    @Test("No problem detected for normal values")
+    func noProblemDetected() {
+        #expect(fullMetrics().badgeProblem(stats: broadbandStats()) == nil)
     }
 
-    func testNoProblemWithNilStats() {
-        // Without group stats, only trailing can be detected.
-        let m = fullMetrics(fwhm: 3.0, eccentricity: 0.2, starCount: 200)
-        XCTAssertNil(m.badgeProblem(stats: nil))
+    @Test("No problem with nil stats (only trailing possible)")
+    func noProblemWithNilStats() {
+        #expect(fullMetrics().badgeProblem(stats: nil) == nil)
     }
 
-    func testTrailingTakesPriorityOverFocusFail() {
-        // Both trailing (ecc > 0.5) and focus fail (FWHM >> median)
+    @Test("Trailing takes priority over focus fail")
+    func trailingTakesPriority() {
         let m = fullMetrics(fwhm: 8.0, eccentricity: 0.7)
-        XCTAssertEqual(m.badgeProblem(stats: broadbandStats()), .trailing)
+        #expect(m.badgeProblem(stats: broadbandStats()) == .trailing)
     }
 }

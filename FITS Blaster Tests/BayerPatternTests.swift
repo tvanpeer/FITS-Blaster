@@ -5,79 +5,93 @@
 //  Tests for BayerPattern: rOffset encoding and parse(from:) header lookup.
 //
 
-import XCTest
+import Testing
 @testable import FITS_Blaster
 
-final class BayerPatternTests: XCTestCase {
+struct BayerPatternTests {
 
     // MARK: - rOffset encoding
 
-    func testROffsetValues() {
-        XCTAssertEqual(BayerPattern.rggb.rOffset, 0)
-        XCTAssertEqual(BayerPattern.grbg.rOffset, 1)
-        XCTAssertEqual(BayerPattern.gbrg.rOffset, 2)
-        XCTAssertEqual(BayerPattern.bggr.rOffset, 3)
+    @Test("rOffset encoding matches Metal kernel convention", arguments: [
+        (BayerPattern.rggb, 0 as UInt32),
+        (BayerPattern.grbg, 1 as UInt32),
+        (BayerPattern.gbrg, 2 as UInt32),
+        (BayerPattern.bggr, 3 as UInt32),
+    ])
+    func rOffset(pattern: BayerPattern, expected: UInt32) {
+        #expect(pattern.rOffset == expected)
     }
 
-    // MARK: - parse(from:) — BAYERPAT key
+    // MARK: - parse(from:) — all four patterns via BAYERPAT
 
-    func testParseFromBAYERPAT() {
-        XCTAssertEqual(BayerPattern.parse(from: ["BAYERPAT": "RGGB"]), .rggb)
-        XCTAssertEqual(BayerPattern.parse(from: ["BAYERPAT": "BGGR"]), .bggr)
-        XCTAssertEqual(BayerPattern.parse(from: ["BAYERPAT": "GRBG"]), .grbg)
-        XCTAssertEqual(BayerPattern.parse(from: ["BAYERPAT": "GBRG"]), .gbrg)
+    @Test("Parses BAYERPAT header", arguments: [
+        ("RGGB", BayerPattern.rggb),
+        ("BGGR", BayerPattern.bggr),
+        ("GRBG", BayerPattern.grbg),
+        ("GBRG", BayerPattern.gbrg),
+    ])
+    func parseFromBAYERPAT(value: String, expected: BayerPattern) {
+        #expect(BayerPattern.parse(from: ["BAYERPAT": value]) == expected)
     }
 
-    // MARK: - parse(from:) — COLORTYP key
+    // MARK: - parse(from:) — alternative keys
 
-    func testParseFromCOLORTYP() {
-        XCTAssertEqual(BayerPattern.parse(from: ["COLORTYP": "RGGB"]), .rggb)
+    @Test("Parses from COLORTYP key")
+    func parseFromCOLORTYP() {
+        #expect(BayerPattern.parse(from: ["COLORTYP": "RGGB"]) == .rggb)
     }
 
-    // MARK: - parse(from:) — CFA_PAT key
-
-    func testParseFromCFA_PAT() {
-        XCTAssertEqual(BayerPattern.parse(from: ["CFA_PAT": "BGGR"]), .bggr)
+    @Test("Parses from CFA_PAT key")
+    func parseFromCFA_PAT() {
+        #expect(BayerPattern.parse(from: ["CFA_PAT": "BGGR"]) == .bggr)
     }
 
-    // MARK: - parse(from:) — key priority
+    // MARK: - Key priority
 
-    func testBAYERPATTakesPriorityOverCOLORTYP() {
-        let headers = ["BAYERPAT": "RGGB", "COLORTYP": "BGGR"]
-        XCTAssertEqual(BayerPattern.parse(from: headers), .rggb)
+    @Test("BAYERPAT takes priority over COLORTYP")
+    func bayerpatPriority() {
+        #expect(BayerPattern.parse(from: ["BAYERPAT": "RGGB", "COLORTYP": "BGGR"]) == .rggb)
     }
 
-    func testCOLORTYPTakesPriorityOverCFA_PAT() {
-        let headers = ["COLORTYP": "GRBG", "CFA_PAT": "BGGR"]
-        XCTAssertEqual(BayerPattern.parse(from: headers), .grbg)
+    @Test("COLORTYP takes priority over CFA_PAT")
+    func colortypPriority() {
+        #expect(BayerPattern.parse(from: ["COLORTYP": "GRBG", "CFA_PAT": "BGGR"]) == .grbg)
     }
 
-    // MARK: - parse(from:) — FITS string quoting
+    // MARK: - FITS string quoting
 
-    func testParseStripsQuotesAndWhitespace() {
-        // FITS headers often store values as "'RGGB    '" with padding
-        XCTAssertEqual(BayerPattern.parse(from: ["BAYERPAT": "'RGGB            '"]), .rggb)
-        XCTAssertEqual(BayerPattern.parse(from: ["BAYERPAT": "'  BGGR  '"]), .bggr)
+    @Test("Strips FITS quotes and whitespace", arguments: [
+        ("'RGGB            '", BayerPattern.rggb),
+        ("'  BGGR  '",        BayerPattern.bggr),
+    ])
+    func parseStripsQuotes(value: String, expected: BayerPattern) {
+        #expect(BayerPattern.parse(from: ["BAYERPAT": value]) == expected)
     }
 
-    // MARK: - parse(from:) — case insensitivity
+    // MARK: - Case insensitivity
 
-    func testParseCaseInsensitive() {
-        XCTAssertEqual(BayerPattern.parse(from: ["BAYERPAT": "rggb"]), .rggb)
-        XCTAssertEqual(BayerPattern.parse(from: ["BAYERPAT": "Bggr"]), .bggr)
+    @Test("Case insensitive parsing", arguments: [
+        ("rggb", BayerPattern.rggb),
+        ("Bggr", BayerPattern.bggr),
+    ])
+    func parseCaseInsensitive(value: String, expected: BayerPattern) {
+        #expect(BayerPattern.parse(from: ["BAYERPAT": value]) == expected)
     }
 
-    // MARK: - parse(from:) — nil cases
+    // MARK: - Nil cases
 
-    func testParseReturnsNilForEmptyHeaders() {
-        XCTAssertNil(BayerPattern.parse(from: [:]))
+    @Test("Returns nil for empty headers")
+    func parseReturnsNilForEmptyHeaders() {
+        #expect(BayerPattern.parse(from: [:]) == nil)
     }
 
-    func testParseReturnsNilForUnrecognisedValue() {
-        XCTAssertNil(BayerPattern.parse(from: ["BAYERPAT": "MONO"]))
+    @Test("Returns nil for unrecognised value")
+    func parseReturnsNilForUnrecognised() {
+        #expect(BayerPattern.parse(from: ["BAYERPAT": "MONO"]) == nil)
     }
 
-    func testParseReturnsNilWhenNoRelevantKey() {
-        XCTAssertNil(BayerPattern.parse(from: ["OBJECT": "M31", "FILTER": "Ha"]))
+    @Test("Returns nil when no relevant key present")
+    func parseReturnsNilForIrrelevantKeys() {
+        #expect(BayerPattern.parse(from: ["OBJECT": "M31", "FILTER": "Ha"]) == nil)
     }
 }

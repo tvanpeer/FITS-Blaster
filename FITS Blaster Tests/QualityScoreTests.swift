@@ -6,139 +6,100 @@
 //  boundary values, and expected scores for typical astrophotography data.
 //
 
-import XCTest
+import Testing
 @testable import FITS_Blaster
 
-final class QualityScoreTests: XCTestCase {
+struct QualityScoreTests {
 
-    // MARK: - All metrics nil
+    // MARK: - Perfect single-metric scores (each alone → 100)
 
-    func testAllNilReturnsZero() {
-        let score = MetricsCalculator.qualityScore(fwhm: nil, eccentricity: nil,
-                                                    snr: nil, starCount: nil)
-        XCTAssertEqual(score, 0)
+    @Test("Perfect single metric scores 100", arguments: [
+        (1.5 as Float?, nil   as Float?, nil   as Float?, nil  as Int?, "FWHM"),
+        (nil,            0.0,             nil,             nil,          "Eccentricity"),
+        (nil,            nil,             250.0,           nil,          "SNR"),
+        (nil,            nil,             nil,             600,          "Star count"),
+    ])
+    func perfectSingleMetric(fwhm: Float?, ecc: Float?, snr: Float?, stars: Int?, label: String) {
+        let score = MetricsCalculator.qualityScore(fwhm: fwhm, eccentricity: ecc,
+                                                    snr: snr, starCount: stars)
+        #expect(score == 100, "Perfect \(label) alone should score 100")
     }
 
-    // MARK: - Perfect values
+    // MARK: - Worst single-metric scores (each alone → 0)
 
-    func testPerfectFWHMAloneScores100() {
-        // FWHM ≤ 2.0 → sub-score 1.0, renormalised to 100
-        let score = MetricsCalculator.qualityScore(fwhm: 1.5, eccentricity: nil,
-                                                    snr: nil, starCount: nil)
-        XCTAssertEqual(score, 100)
+    @Test("Worst single metric scores 0", arguments: [
+        (10.0 as Float?, nil   as Float?, nil  as Float?, nil as Int?, "FWHM ≥ 7"),
+        (nil,             0.6,             nil,            nil,         "Ecc ≥ 0.5"),
+        (nil,             nil,             5.0,            nil,         "SNR ≤ 10"),
+        (nil,             nil,             nil,            0,           "0 stars"),
+    ])
+    func worstSingleMetric(fwhm: Float?, ecc: Float?, snr: Float?, stars: Int?, label: String) {
+        let score = MetricsCalculator.qualityScore(fwhm: fwhm, eccentricity: ecc,
+                                                    snr: snr, starCount: stars)
+        #expect(score == 0, "Worst \(label) alone should score 0")
     }
 
-    func testPerfectEccentricityAloneScores100() {
-        // Eccentricity 0 → sub-score 1.0
-        let score = MetricsCalculator.qualityScore(fwhm: nil, eccentricity: 0,
-                                                    snr: nil, starCount: nil)
-        XCTAssertEqual(score, 100)
+    // MARK: - All nil / all perfect
+
+    @Test("All nil returns zero")
+    func allNilReturnsZero() {
+        #expect(MetricsCalculator.qualityScore(fwhm: nil, eccentricity: nil,
+                                                snr: nil, starCount: nil) == 0)
     }
 
-    func testPerfectSNRAloneScores100() {
-        // SNR ≥ 200 → sub-score 1.0
-        let score = MetricsCalculator.qualityScore(fwhm: nil, eccentricity: nil,
-                                                    snr: 250, starCount: nil)
-        XCTAssertEqual(score, 100)
-    }
-
-    func testPerfectStarCountAloneScores100() {
-        // 500+ stars → sub-score 1.0
-        let score = MetricsCalculator.qualityScore(fwhm: nil, eccentricity: nil,
-                                                    snr: nil, starCount: 600)
-        XCTAssertEqual(score, 100)
-    }
-
-    func testAllPerfectScores100() {
-        let score = MetricsCalculator.qualityScore(fwhm: 1.5, eccentricity: 0,
-                                                    snr: 250, starCount: 600)
-        XCTAssertEqual(score, 100)
-    }
-
-    // MARK: - Worst values
-
-    func testWorstFWHMAloneScores0() {
-        // FWHM ≥ 7.0 → sub-score 0.0
-        let score = MetricsCalculator.qualityScore(fwhm: 10, eccentricity: nil,
-                                                    snr: nil, starCount: nil)
-        XCTAssertEqual(score, 0)
-    }
-
-    func testWorstEccentricityAloneScores0() {
-        // Eccentricity ≥ 0.5 → sub-score 0.0
-        let score = MetricsCalculator.qualityScore(fwhm: nil, eccentricity: 0.6,
-                                                    snr: nil, starCount: nil)
-        XCTAssertEqual(score, 0)
-    }
-
-    func testWorstSNRAloneScores0() {
-        // SNR ≤ 10 → sub-score 0.0
-        let score = MetricsCalculator.qualityScore(fwhm: nil, eccentricity: nil,
-                                                    snr: 5, starCount: nil)
-        XCTAssertEqual(score, 0)
-    }
-
-    func testZeroStarsScores0() {
-        let score = MetricsCalculator.qualityScore(fwhm: nil, eccentricity: nil,
-                                                    snr: nil, starCount: 0)
-        XCTAssertEqual(score, 0)
+    @Test("All perfect scores 100")
+    func allPerfectScores100() {
+        #expect(MetricsCalculator.qualityScore(fwhm: 1.5, eccentricity: 0,
+                                                snr: 250, starCount: 600) == 100)
     }
 
     // MARK: - Mid-range values
 
-    func testMidRangeFWHM() {
-        // FWHM 4.5 → (1 - (4.5-2)/5) = 0.5 → score 50
-        let score = MetricsCalculator.qualityScore(fwhm: 4.5, eccentricity: nil,
-                                                    snr: nil, starCount: nil)
-        XCTAssertEqual(score, 50)
+    @Test("Mid-range FWHM (4.5) scores 50")
+    func midRangeFWHM() {
+        #expect(MetricsCalculator.qualityScore(fwhm: 4.5, eccentricity: nil,
+                                                snr: nil, starCount: nil) == 50)
     }
 
-    func testMidRangeEccentricity() {
-        // Eccentricity 0.25 → (1 - 0.25/0.5) = 0.5 → score 50
-        let score = MetricsCalculator.qualityScore(fwhm: nil, eccentricity: 0.25,
-                                                    snr: nil, starCount: nil)
-        XCTAssertEqual(score, 50)
+    @Test("Mid-range eccentricity (0.25) scores 50")
+    func midRangeEccentricity() {
+        #expect(MetricsCalculator.qualityScore(fwhm: nil, eccentricity: 0.25,
+                                                snr: nil, starCount: nil) == 50)
     }
 
-    func testMidRangeSNR() {
-        // SNR 105 → (105-10)/190 = 0.5 → score 50
-        let score = MetricsCalculator.qualityScore(fwhm: nil, eccentricity: nil,
-                                                    snr: 105, starCount: nil)
-        XCTAssertEqual(score, 50)
+    @Test("Mid-range SNR (105) scores 50")
+    func midRangeSNR() {
+        #expect(MetricsCalculator.qualityScore(fwhm: nil, eccentricity: nil,
+                                                snr: 105, starCount: nil) == 50)
     }
 
     // MARK: - Weight renormalisation
 
-    func testTwoMetricsRenormalise() {
-        // FWHM perfect (1.0 × 0.35) + eccentricity perfect (1.0 × 0.35)
-        // totalWeight = 0.70, weightedSum = 0.70, score = 100
-        let score = MetricsCalculator.qualityScore(fwhm: 1.5, eccentricity: 0,
-                                                    snr: nil, starCount: nil)
-        XCTAssertEqual(score, 100)
+    @Test("Two perfect metrics renormalise to 100")
+    func twoMetricsRenormalise() {
+        #expect(MetricsCalculator.qualityScore(fwhm: 1.5, eccentricity: 0,
+                                                snr: nil, starCount: nil) == 100)
     }
 
-    func testMixedGoodAndBadRenormalises() {
-        // FWHM perfect (1.0 × 0.35) + eccentricity worst (0.0 × 0.35)
-        // totalWeight = 0.70, weightedSum = 0.35, score = 50
-        let score = MetricsCalculator.qualityScore(fwhm: 1.5, eccentricity: 0.6,
-                                                    snr: nil, starCount: nil)
-        XCTAssertEqual(score, 50)
+    @Test("Perfect FWHM + worst eccentricity renormalises to 50")
+    func mixedGoodAndBadRenormalises() {
+        #expect(MetricsCalculator.qualityScore(fwhm: 1.5, eccentricity: 0.6,
+                                                snr: nil, starCount: nil) == 50)
     }
 
     // MARK: - Typical astrophotography values
 
-    func testTypicalGoodFrame() {
-        // Good seeing: FWHM 2.5, round stars, decent SNR, healthy star count
+    @Test("Typical good frame scores 65–90")
+    func typicalGoodFrame() {
         let score = MetricsCalculator.qualityScore(fwhm: 2.5, eccentricity: 0.15,
                                                     snr: 120, starCount: 350)
-        XCTAssertGreaterThanOrEqual(score, 65)
-        XCTAssertLessThanOrEqual(score, 90)
+        #expect(score >= 65 && score <= 90)
     }
 
-    func testTypicalBadFrame() {
-        // Poor seeing: bloated stars, trailing, low SNR from clouds
+    @Test("Typical bad frame scores ≤ 30")
+    func typicalBadFrame() {
         let score = MetricsCalculator.qualityScore(fwhm: 5.5, eccentricity: 0.4,
                                                     snr: 25, starCount: 40)
-        XCTAssertLessThanOrEqual(score, 30)
+        #expect(score <= 30)
     }
 }

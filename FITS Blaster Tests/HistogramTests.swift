@@ -6,133 +6,133 @@
 //  uniform/skewed distributions, edge cases, and the median helper.
 //
 
-import XCTest
+import Testing
 @testable import FITS_Blaster
 
-final class HistogramTests: XCTestCase {
+struct HistogramTests {
 
     // MARK: - Bin count
 
-    func testHistogramAlwaysReturns256Bins() {
-        let pixels: [Float] = [0, 50, 100, 200, 255]
-        let hist = MetricsCalculator.computeHistogram(pixels: pixels, minVal: 0, maxVal: 255)
-        XCTAssertEqual(hist.count, 256)
+    @Test("Histogram always returns 256 bins")
+    func histogramReturns256Bins() {
+        let hist = MetricsCalculator.computeHistogram(pixels: [0, 50, 100, 200, 255],
+                                                       minVal: 0, maxVal: 255)
+        #expect(hist.count == 256)
     }
 
     // MARK: - Empty and degenerate inputs
 
-    func testEmptyArrayReturns256Zeros() {
+    @Test("Empty array returns 256 zeros")
+    func emptyArrayReturns256Zeros() {
         let hist = MetricsCalculator.computeHistogram(pixels: [], minVal: 0, maxVal: 255)
-        XCTAssertEqual(hist.count, 256)
-        XCTAssertEqual(hist.reduce(0, +), 0)
+        #expect(hist.count == 256)
+        #expect(hist.reduce(0, +) == 0)
     }
 
-    func testEqualMinMaxReturns256Zeros() {
-        // All pixels identical → maxVal == minVal → guard returns zeros
-        let pixels: [Float] = [42, 42, 42]
-        let hist = MetricsCalculator.computeHistogram(pixels: pixels, minVal: 42, maxVal: 42)
-        XCTAssertEqual(hist.reduce(0, +), 0)
+    @Test("Equal min/max returns 256 zeros")
+    func equalMinMaxReturns256Zeros() {
+        let hist = MetricsCalculator.computeHistogram(pixels: [42, 42, 42], minVal: 42, maxVal: 42)
+        #expect(hist.reduce(0, +) == 0)
     }
 
     // MARK: - Single pixel
 
-    func testSinglePixelAtMinGoesToFirstBin() {
+    @Test("Single pixel at min goes to first bin")
+    func singlePixelAtMin() {
         let hist = MetricsCalculator.computeHistogram(pixels: [0], minVal: 0, maxVal: 100)
-        XCTAssertEqual(hist[0], 1)
-        XCTAssertEqual(hist.reduce(0, +), 1)
+        #expect(hist[0] == 1)
+        #expect(hist.reduce(0, +) == 1)
     }
 
-    func testSinglePixelAtMaxGoesToLastBin() {
+    @Test("Single pixel at max goes to last bin")
+    func singlePixelAtMax() {
         let hist = MetricsCalculator.computeHistogram(pixels: [100], minVal: 0, maxVal: 100)
-        XCTAssertEqual(hist[255], 1)
-        XCTAssertEqual(hist.reduce(0, +), 1)
+        #expect(hist[255] == 1)
+        #expect(hist.reduce(0, +) == 1)
     }
 
     // MARK: - Known distribution
 
-    func testTwoValuesSplitToFirstAndLastBins() {
-        let pixels: [Float] = [0, 1000]
-        let hist = MetricsCalculator.computeHistogram(pixels: pixels, minVal: 0, maxVal: 1000)
-        XCTAssertEqual(hist[0], 1)
-        XCTAssertEqual(hist[255], 1)
-        XCTAssertEqual(hist.reduce(0, +), 2)
+    @Test("Two extreme values split to first and last bins")
+    func twoValuesSplitToFirstAndLastBins() {
+        let hist = MetricsCalculator.computeHistogram(pixels: [0, 1000], minVal: 0, maxVal: 1000)
+        #expect(hist[0] == 1)
+        #expect(hist[255] == 1)
+        #expect(hist.reduce(0, +) == 2)
     }
 
-    func testMidValueGoesToMiddleBin() {
-        let pixels: [Float] = [500]
-        let hist = MetricsCalculator.computeHistogram(pixels: pixels, minVal: 0, maxVal: 1000)
-        // 500/1000 * 255 ≈ 127
+    @Test("Mid value goes to middle bin")
+    func midValueGoesToMiddleBin() {
+        let hist = MetricsCalculator.computeHistogram(pixels: [500], minVal: 0, maxVal: 1000)
         let midBin = Int((500.0 / 1000.0) * 255.0)
-        XCTAssertEqual(hist[midBin], 1)
+        #expect(hist[midBin] == 1)
     }
 
     // MARK: - Stride sampling
 
-    func testStrideSamplingOnLargeArray() {
-        // With > 60,000 pixels, stride > 1, so not every pixel is counted.
-        // Total samples should be approximately count / stride.
+    @Test("Large arrays are stride-sampled")
+    func strideSamplingOnLargeArray() {
         let count = 120_000
         let pixels = [Float](repeating: 500, count: count)
         let hist = MetricsCalculator.computeHistogram(pixels: pixels, minVal: 0, maxVal: 1000)
         let totalSampled = hist.reduce(0, +)
-
-        let stride = max(1, count / 60_000)   // = 2
+        let stride = max(1, count / 60_000)
         let expectedSamples = (count + stride - 1) / stride
-        // Allow some tolerance for off-by-one in stride loop
-        XCTAssertGreaterThan(totalSampled, expectedSamples - 2)
-        XCTAssertLessThanOrEqual(totalSampled, expectedSamples + 1)
+        #expect(totalSampled >= expectedSamples - 2 && totalSampled <= expectedSamples + 1)
     }
 
-    func testNoStrideSamplingOnSmallArray() {
-        // With ≤ 60,000 pixels, every pixel should be counted.
+    @Test("Small arrays are fully sampled")
+    func noStrideSamplingOnSmallArray() {
         let count = 100
         let pixels = (0..<count).map { Float($0) }
-        let hist = MetricsCalculator.computeHistogram(pixels: pixels,
-                                                       minVal: 0, maxVal: Float(count - 1))
-        XCTAssertEqual(hist.reduce(0, +), count)
+        let hist = MetricsCalculator.computeHistogram(pixels: pixels, minVal: 0, maxVal: Float(count - 1))
+        #expect(hist.reduce(0, +) == count)
     }
 
     // MARK: - Auto min/max overload
 
-    func testAutoMinMaxOverload() {
+    @Test("Auto min/max overload finds bounds and samples all pixels")
+    func autoMinMaxOverload() {
         let pixels: [Float] = [10, 20, 30, 40, 50]
         let hist = MetricsCalculator.computeHistogram(pixels: pixels, width: 5, height: 1)
-        XCTAssertEqual(hist.count, 256)
-        // All 5 pixels should be sampled (count < 60,000)
-        XCTAssertEqual(hist.reduce(0, +), 5)
-        // Min pixel (10) → bin 0, max pixel (50) → bin 255
-        XCTAssertEqual(hist[0], 1)
-        XCTAssertEqual(hist[255], 1)
+        #expect(hist.count == 256)
+        #expect(hist.reduce(0, +) == 5)
+        #expect(hist[0] == 1, "Min pixel should be in first bin")
+        #expect(hist[255] == 1, "Max pixel should be in last bin")
     }
 
-    // MARK: - Negative pixel values (BZERO-shifted data)
+    // MARK: - Negative pixel values
 
-    func testNegativePixelValues() {
-        let pixels: [Float] = [-100, -50, 0, 50, 100]
-        let hist = MetricsCalculator.computeHistogram(pixels: pixels, minVal: -100, maxVal: 100)
-        XCTAssertEqual(hist.count, 256)
-        XCTAssertEqual(hist.reduce(0, +), 5)
-        XCTAssertEqual(hist[0], 1)     // -100 → first bin
-        XCTAssertEqual(hist[255], 1)   // 100 → last bin
+    @Test("Negative pixel values (BZERO-shifted data)")
+    func negativePixelValues() {
+        let hist = MetricsCalculator.computeHistogram(pixels: [-100, -50, 0, 50, 100],
+                                                       minVal: -100, maxVal: 100)
+        #expect(hist.count == 256)
+        #expect(hist.reduce(0, +) == 5)
+        #expect(hist[0] == 1, "-100 should be in first bin")
+        #expect(hist[255] == 1, "100 should be in last bin")
     }
 
     // MARK: - Median helper
 
-    func testMedianOddCount() {
-        XCTAssertEqual(MetricsCalculator.median([3, 1, 2]), 2)
+    @Test("Median of odd count")
+    func medianOddCount() {
+        #expect(MetricsCalculator.median([3, 1, 2]) == 2)
     }
 
-    func testMedianEvenCount() {
-        // vDSP sort + index count/2 → picks element at index 2 (0-indexed) from sorted
-        let result = MetricsCalculator.median([4, 1, 3, 2])
-        XCTAssertEqual(result, 3)  // sorted: [1,2,3,4], index 4/2=2 → 3
+    @Test("Median of even count picks element at count/2")
+    func medianEvenCount() {
+        // sorted: [1,2,3,4], index 4/2=2 → 3
+        #expect(MetricsCalculator.median([4, 1, 3, 2]) == 3)
     }
 
-    func testMedianSingleElement() {
-        XCTAssertEqual(MetricsCalculator.median([42]), 42)
+    @Test("Median of single element")
+    func medianSingleElement() {
+        #expect(MetricsCalculator.median([42]) == 42)
     }
 
-    func testMedianEmptyReturnsNil() {
-        XCTAssertNil(MetricsCalculator.median([]))
+    @Test("Median of empty array returns nil")
+    func medianEmptyReturnsNil() {
+        #expect(MetricsCalculator.median([]) == nil)
     }
 }

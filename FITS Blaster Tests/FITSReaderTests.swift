@@ -7,188 +7,194 @@
 //  FITS file in the system temp directory and removes it on teardown.
 //
 
-import XCTest
+import Foundation
+import Testing
 @testable import FITS_Blaster
 
-final class FITSReaderTests: XCTestCase {
+struct FITSReaderTests {
 
     // MARK: - cleanHeaderString
 
-    func testCleanHeaderStringStripsLeadingAndTrailingQuotes() {
-        XCTAssertEqual(FITSReader.cleanHeaderString("'Ha              '"), "Ha")
-        XCTAssertEqual(FITSReader.cleanHeaderString("'  OIII  '"), "OIII")
-        XCTAssertEqual(FITSReader.cleanHeaderString("'Lum'"), "Lum")
+    @Test("Strips FITS string quoting and whitespace", arguments: [
+        ("'Ha              '", "Ha"),
+        ("'  OIII  '",         "OIII"),
+        ("'Lum'",              "Lum"),
+    ])
+    func cleanHeaderStringStripsQuotes(input: String, expected: String) {
+        #expect(FITSReader.cleanHeaderString(input) == expected)
     }
 
-    func testCleanHeaderStringPreservesUnquotedValues() {
-        XCTAssertEqual(FITSReader.cleanHeaderString("Ha"), "Ha")
-        XCTAssertEqual(FITSReader.cleanHeaderString("  trimmed  "), "trimmed")
+    @Test("Preserves unquoted values", arguments: [
+        ("Ha",          "Ha"),
+        ("  trimmed  ", "trimmed"),
+    ])
+    func cleanHeaderStringPreservesUnquoted(input: String, expected: String) {
+        #expect(FITSReader.cleanHeaderString(input) == expected)
     }
 
-    func testCleanHeaderStringHandlesEmpty() {
-        XCTAssertEqual(FITSReader.cleanHeaderString(""), "")
-        XCTAssertEqual(FITSReader.cleanHeaderString("''"), "")
+    @Test("Handles empty strings", arguments: [
+        ("",   ""),
+        ("''", ""),
+    ])
+    func cleanHeaderStringHandlesEmpty(input: String, expected: String) {
+        #expect(FITSReader.cleanHeaderString(input) == expected)
     }
 
     // MARK: - peekBitpix
 
-    func testPeekBitpixReturns16ForInt16File() throws {
-        let url = try makeFITSFile(bitpix: 16, width: 4, height: 4)
+    @Test("peekBitpix returns correct value", arguments: [
+        (8,   "Int8"),
+        (16,  "Int16"),
+        (32,  "Int32"),
+        (-32, "Float32"),
+    ])
+    func peekBitpixReturnsCorrectValue(bitpix: Int, label: String) throws {
+        let url = try makeFITSFile(bitpix: bitpix, width: 4, height: 4)
         defer { try? FileManager.default.removeItem(at: url) }
-        XCTAssertEqual(FITSReader.peekBitpix(url: url), 16)
+        #expect(FITSReader.peekBitpix(url: url) == bitpix, "Expected BITPIX \(bitpix) for \(label)")
     }
 
-    func testPeekBitpixReturns8ForInt8File() throws {
-        let url = try makeFITSFile(bitpix: 8, width: 2, height: 2)
-        defer { try? FileManager.default.removeItem(at: url) }
-        XCTAssertEqual(FITSReader.peekBitpix(url: url), 8)
-    }
-
-    func testPeekBitpixReturns32ForInt32File() throws {
-        let url = try makeFITSFile(bitpix: 32, width: 2, height: 2)
-        defer { try? FileManager.default.removeItem(at: url) }
-        XCTAssertEqual(FITSReader.peekBitpix(url: url), 32)
-    }
-
-    func testPeekBitpixReturnsMinusMinus32ForFloatFile() throws {
-        let url = try makeFITSFile(bitpix: -32, width: 2, height: 2)
-        defer { try? FileManager.default.removeItem(at: url) }
-        XCTAssertEqual(FITSReader.peekBitpix(url: url), -32)
-    }
-
-    func testPeekBitpixReturnsNilForMissingFile() {
+    @Test("peekBitpix returns nil for missing file")
+    func peekBitpixReturnsNilForMissingFile() {
         let url = URL(fileURLWithPath: "/tmp/no-such-file-\(UUID().uuidString).fits")
-        XCTAssertNil(FITSReader.peekBitpix(url: url))
+        #expect(FITSReader.peekBitpix(url: url) == nil)
     }
 
     // MARK: - read(from:) — header parsing
 
-    func testReadParsesWidthAndHeight() throws {
+    @Test("read parses width and height")
+    func readParsesWidthAndHeight() throws {
         let url = try makeFITSFile(bitpix: 16, width: 8, height: 6)
         defer { try? FileManager.default.removeItem(at: url) }
         let image = try FITSReader.read(from: url)
-        XCTAssertEqual(image.width,  8)
-        XCTAssertEqual(image.height, 6)
+        #expect(image.width == 8)
+        #expect(image.height == 6)
     }
 
-    func testReadParsesBitpix() throws {
+    @Test("read parses bitpix")
+    func readParsesBitpix() throws {
         let url = try makeFITSFile(bitpix: 16, width: 4, height: 4)
         defer { try? FileManager.default.removeItem(at: url) }
         let image = try FITSReader.read(from: url)
-        XCTAssertEqual(image.bitpix, 16)
+        #expect(image.bitpix == 16)
     }
 
-    func testReadPixelCountMatchesDimensions() throws {
+    @Test("read pixel count matches dimensions")
+    func readPixelCountMatchesDimensions() throws {
         let url = try makeFITSFile(bitpix: 16, width: 5, height: 7)
         defer { try? FileManager.default.removeItem(at: url) }
         let image = try FITSReader.read(from: url)
-        XCTAssertEqual(image.pixelValues.count, 5 * 7)
+        #expect(image.pixelValues.count == 5 * 7)
     }
 
     // MARK: - read(from:) — BZERO application
 
-    func testReadZeroPixelsWithNoBZERO() throws {
-        // All-zero pixel data with no BZERO → all floats should be 0.
+    @Test("Zero pixels with no BZERO remain zero")
+    func readZeroPixelsWithNoBZERO() throws {
         let url = try makeFITSFile(bitpix: 16, width: 4, height: 4, bzero: nil)
         defer { try? FileManager.default.removeItem(at: url) }
         let image = try FITSReader.read(from: url)
-        XCTAssertEqual(image.minValue, 0, accuracy: 0.5)
-        XCTAssertEqual(image.maxValue, 0, accuracy: 0.5)
+        #expect(abs(image.minValue) < 0.5, "Min should be ~0")
+        #expect(abs(image.maxValue) < 0.5, "Max should be ~0")
     }
 
-    func testReadBZEROIsAppliedToAllZeroPixels() throws {
-        // All-zero pixel data with BZERO = 32768 (standard unsigned-16 offset).
-        // Each stored value is 0; after BZERO application every float = 32768.
+    @Test("BZERO is applied to all-zero pixels")
+    func readBZEROIsAppliedToAllZeroPixels() throws {
         let url = try makeFITSFile(bitpix: 16, width: 4, height: 4, bzero: 32768)
         defer { try? FileManager.default.removeItem(at: url) }
         let image = try FITSReader.read(from: url)
-        XCTAssertEqual(image.minValue, 32768, accuracy: 0.5)
-        XCTAssertEqual(image.maxValue, 32768, accuracy: 0.5)
+        #expect(abs(image.minValue - 32768) < 0.5)
+        #expect(abs(image.maxValue - 32768) < 0.5)
     }
 
-    func testReadBZEROIsAppliedToNonZeroPixels() throws {
-        // Pixel data containing one big-endian 16-bit value of 100.
-        // With BZERO = 1000, the result float should be 1100.
+    @Test("BZERO is applied to non-zero pixels")
+    func readBZEROIsAppliedToNonZeroPixels() throws {
         let url = try makeFITSFile(bitpix: 16, width: 1, height: 1,
                                    bzero: 1000, pixelBigEndian16: 100)
         defer { try? FileManager.default.removeItem(at: url) }
         let image = try FITSReader.read(from: url)
-        XCTAssertEqual(image.pixelValues.first ?? 0, 1100, accuracy: 0.5)
+        let value = try #require(image.pixelValues.first)
+        #expect(abs(value - 1100) < 0.5)
     }
 
-    // MARK: - read(from:) — byte-swap (FITS Standard §4.4.1)
+    // MARK: - read(from:) — byte-swap
 
-    func testReadByteSwapsInt16BigEndian() throws {
-        // The 16-bit big-endian value 0x01F4 = 500.
-        // After byte swap and BZERO=0, the float should be 500.
+    @Test("read byte-swaps Int16 big-endian correctly")
+    func readByteSwapsInt16BigEndian() throws {
         let url = try makeFITSFile(bitpix: 16, width: 1, height: 1,
                                    bzero: nil, pixelBigEndian16: 500)
         defer { try? FileManager.default.removeItem(at: url) }
         let image = try FITSReader.read(from: url)
-        XCTAssertEqual(image.pixelValues.first ?? 0, 500, accuracy: 0.5)
+        let value = try #require(image.pixelValues.first)
+        #expect(abs(value - 500) < 0.5)
     }
 
     // MARK: - read(from:) — error cases
 
-    func testReadThrowsForFloatFITS() throws {
+    @Test("read throws unsupportedBitpix for float FITS")
+    func readThrowsForFloatFITS() throws {
         let url = try makeFITSFile(bitpix: -32, width: 4, height: 4)
         defer { try? FileManager.default.removeItem(at: url) }
-        XCTAssertThrowsError(try FITSReader.read(from: url)) { error in
-            guard case FITSError.unsupportedBitpix(-32) = error else {
-                return XCTFail("Expected unsupportedBitpix(-32), got \(error)")
-            }
+        do {
+            _ = try FITSReader.read(from: url)
+            Issue.record("Expected unsupportedBitpix(-32) to be thrown")
+        } catch FITSError.unsupportedBitpix(-32) {
+            // expected
+        } catch {
+            Issue.record("Wrong error thrown: \(error)")
         }
     }
 
-    func testReadThrowsForDoubleFITS() throws {
+    @Test("read throws for double FITS")
+    func readThrowsForDoubleFITS() throws {
         let url = try makeFITSFile(bitpix: -64, width: 2, height: 2)
         defer { try? FileManager.default.removeItem(at: url) }
-        XCTAssertThrowsError(try FITSReader.read(from: url))
+        do {
+            _ = try FITSReader.read(from: url)
+            Issue.record("Expected an error to be thrown")
+        } catch {
+            // expected
+        }
     }
 
-    func testReadThrowsForMissingFile() {
+    @Test("read throws for missing file")
+    func readThrowsForMissingFile() {
         let url = URL(fileURLWithPath: "/tmp/no-such-file-\(UUID().uuidString).fits")
-        XCTAssertThrowsError(try FITSReader.read(from: url))
+        do {
+            _ = try FITSReader.read(from: url)
+            Issue.record("Expected an error to be thrown")
+        } catch {
+            // expected
+        }
     }
 
     // MARK: - FITS file builder helpers
 
-    /// Writes a minimal valid FITS file to a temp URL and returns that URL.
     private func makeFITSFile(bitpix: Int, width: Int, height: Int,
                                bzero: Double? = nil,
                                pixelBigEndian16: Int16? = nil) throws -> URL {
         let url = FileManager.default.temporaryDirectory
             .appending(component: "\(UUID().uuidString).fits")
 
-        // ── Header block ──────────────────────────────────────────────────────
         var cards: [String] = [
-            card("SIMPLE", bool: true,  comment: "Standard FITS"),
-            card("BITPIX", int: bitpix, comment: "Bits per data value"),
-            card("NAXIS",  int: 2,      comment: "Number of axes"),
-            card("NAXIS1", int: width,  comment: "Width"),
-            card("NAXIS2", int: height, comment: "Height"),
+            card("SIMPLE", bool: true),
+            card("BITPIX", int: bitpix),
+            card("NAXIS",  int: 2),
+            card("NAXIS1", int: width),
+            card("NAXIS2", int: height),
         ]
-        if let bz = bzero {
-            cards.append(card("BZERO", float: bz, comment: "Offset"))
-        }
+        if let bz = bzero { cards.append(card("BZERO", float: bz)) }
         cards.append(endCard())
 
-        // Pad to 2880-byte boundary with spaces.
         var headerData = Data(cards.joined().utf8)
-        while headerData.count % 2880 != 0 { headerData.append(0x20) } // ASCII space
+        while headerData.count % 2880 != 0 { headerData.append(0x20) }
 
-        // ── Pixel data block ──────────────────────────────────────────────────
         let bytesPerPixel = abs(bitpix) / 8
-        let totalPixels   = width * height
-        var pixelData = Data(count: totalPixels * bytesPerPixel)
-
-        // If a specific 16-bit value is requested, write it big-endian.
-        if let val = pixelBigEndian16, bitpix == 16, totalPixels >= 1 {
+        var pixelData = Data(count: width * height * bytesPerPixel)
+        if let val = pixelBigEndian16, bitpix == 16, width * height >= 1 {
             pixelData[0] = UInt8((val >> 8) & 0xFF)
             pixelData[1] = UInt8(val & 0xFF)
         }
-
-        // Pad pixel block to 2880-byte boundary.
         while pixelData.count % 2880 != 0 { pixelData.append(0x00) }
 
         var fileData = headerData
@@ -197,45 +203,28 @@ final class FITSReaderTests: XCTestCase {
         return url
     }
 
-    // MARK: - Card builders (FITS §4.1 — 80-character fixed-width records)
-
-    /// Logical (T/F) card.
-    private func card(_ key: String, bool value: Bool, comment: String = "") -> String {
-        // Logical values are right-justified in column 30 (1-indexed).
+    private func card(_ key: String, bool value: Bool) -> String {
         let v = String(repeating: " ", count: 19) + (value ? "T" : "F")
-        return fitsCard(key, value: v, comment: comment)
+        return fitsCard(key, value: v)
     }
 
-    /// Integer card — right-justified in the value field.
-    private func card(_ key: String, int value: Int, comment: String = "") -> String {
+    private func card(_ key: String, int value: Int) -> String {
         let s = String(value)
-        let v = String(repeating: " ", count: max(0, 20 - s.count)) + s
-        return fitsCard(key, value: v, comment: comment)
+        return fitsCard(key, value: String(repeating: " ", count: max(0, 20 - s.count)) + s)
     }
 
-    /// Floating-point card — formatted without exponent for simple values.
-    private func card(_ key: String, float value: Double, comment: String = "") -> String {
-        let s: String
-        if value == value.rounded() && abs(value) < 1e15 {
-            s = String(format: "%.1f", value)
-        } else {
-            s = String(format: "%E", value)
-        }
-        let v = String(repeating: " ", count: max(0, 20 - s.count)) + s
-        return fitsCard(key, value: v, comment: comment)
+    private func card(_ key: String, float value: Double) -> String {
+        let s = value == value.rounded() && abs(value) < 1e15
+            ? String(format: "%.1f", value) : String(format: "%E", value)
+        return fitsCard(key, value: String(repeating: " ", count: max(0, 20 - s.count)) + s)
     }
 
-    /// Assembles a complete 80-character header card.
-    /// Layout: keyword(8) + "= "(2) + value(20) + " / "(3) + comment, padded to 80.
-    private func fitsCard(_ key: String, value: String, comment: String) -> String {
+    private func fitsCard(_ key: String, value: String) -> String {
         let keyword = key.padding(toLength: 8, withPad: " ", startingAt: 0)
-        var card = keyword + "= " + value
-        if !comment.isEmpty { card += " / " + comment }
-        if card.count > 80 { return String(card.prefix(80)) }
+        let card = keyword + "= " + value
         return card.padding(toLength: 80, withPad: " ", startingAt: 0)
     }
 
-    /// The END card — keyword padded to 80 characters with spaces.
     private func endCard() -> String {
         "END".padding(toLength: 80, withPad: " ", startingAt: 0)
     }
