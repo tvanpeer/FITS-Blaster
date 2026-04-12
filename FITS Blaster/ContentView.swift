@@ -194,10 +194,14 @@ struct ContentView: View {
         case .previous:          store.stopPlayback(); store.selectPrevious(in: sidebarNavigationEntries)
         case .next:              store.stopPlayback(); store.selectNext(in: sidebarNavigationEntries)
         case .reject:
+            let preReject = sidebarNavigationEntries
             if settings.useToggleReject { store.toggleRejectSelected() } else { store.rejectSelected() }
+            store.advanceCursorIfNeeded(from: preReject)
         case .undo:
             guard !settings.useToggleReject else { return false }
+            let preUndo = sidebarNavigationEntries
             store.undoRejectSelected()
+            store.advanceCursorIfNeeded(from: preUndo)
         case .flag:
             let preFlag = sidebarNavigationEntries
             store.toggleFlagSelected()

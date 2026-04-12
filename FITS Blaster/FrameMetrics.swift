@@ -155,9 +155,9 @@ struct FrameMetrics: Sendable {
     /// - Grey: no problem detected, not in top third.
     func badgeColor(problem: BadgeProblem?, isTopThird: Bool) -> Color {
         if let problem {
-            switch problem {
-            case .trailing, .focusFail: return .red
-            case .lowStars:             return Color(red: 0.85, green: 0.55, blue: 0.0)
+            return switch problem {
+            case .trailing, .focusFail: .red
+            case .lowStars:             Color(red: 0.85, green: 0.55, blue: 0.0)
             }
         }
         return isTopThird ? .green : Color(white: 0.55)

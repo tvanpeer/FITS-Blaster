@@ -15,7 +15,7 @@ struct ExportSheet: View {
     @State private var format = ExportFormat.plainText
 
     private var keptCount: Int {
-        store.entries.filter { !$0.isRejected }.count
+        store.entries.count { !$0.isRejected }
     }
 
     var body: some View {

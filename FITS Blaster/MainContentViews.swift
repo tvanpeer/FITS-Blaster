@@ -26,11 +26,11 @@ struct ResizableChartLayout: View {
 
             // Drag handle
             Rectangle()
-                .fill(Color.secondary.opacity(0.15))
+                .fill(.quinary)
                 .frame(height: 5)
                 .overlay(
                     RoundedRectangle(cornerRadius: 1)
-                        .fill(Color.secondary.opacity(0.5))
+                        .fill(.quaternary)
                         .frame(width: 32, height: 3)
                 )
                 .onHover { inside in
@@ -144,9 +144,11 @@ struct FITSToolbar: View {
             .help(settings.isSimpleMode ? "Switch to Geek Mode (\(AppSettings.displayString(for: settings.toggleModeKey)))" : "Switch to Simple Mode (\(AppSettings.displayString(for: settings.toggleModeKey)))")
 
             if !settings.isSimpleMode {
-                Button("", systemImage: "sidebar.right") {
+                Button(settings.showInspector ? "Hide Inspector" : "Show Inspector",
+                       systemImage: "sidebar.right") {
                     settings.showInspector.toggle()
                 }
+                .labelStyle(.iconOnly)
                 .help(settings.showInspector ? "Hide Inspector" : "Show Inspector")
             }
         }
@@ -303,8 +305,8 @@ private struct BatchProgressBar: View {
             // means @Observable tracking is NOT established for individual entries,
             // so this view is never re-rendered by per-entry isProcessing/metrics changes.
             repeat {
-                loadedCount  = store.entries.filter { !$0.isProcessing }.count
-                metricsCount = store.entries.filter {  $0.metrics != nil }.count
+                loadedCount  = store.entries.count { !$0.isProcessing }
+                metricsCount = store.entries.count { $0.metrics != nil }
                 try? await Task.sleep(for: .milliseconds(200))
             } while !Task.isCancelled
         }

@@ -29,6 +29,8 @@ struct InspectorView: View {
         }
         .scrollIndicators(.hidden)
         .background(.background)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Inspector")
     }
 }
 

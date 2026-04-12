@@ -27,10 +27,10 @@ enum BayerPattern: String {
     ///   BGGR → R at (odd,  odd)  → 3
     var rOffset: UInt32 {
         switch self {
-        case .rggb: return 0
-        case .grbg: return 1
-        case .gbrg: return 2
-        case .bggr: return 3
+        case .rggb: 0
+        case .grbg: 1
+        case .gbrg: 2
+        case .bggr: 3
         }
     }
 

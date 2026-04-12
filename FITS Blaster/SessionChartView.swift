@@ -237,9 +237,11 @@ struct SessionChartView: View {
                 }
             }
 
-            Button("", systemImage: settings.chartUseBars ? "chart.bar.fill" : "circle.grid.3x3.fill") {
+            Button(settings.chartUseBars ? "Switch to dots" : "Switch to bars",
+                   systemImage: settings.chartUseBars ? "chart.bar.fill" : "circle.grid.3x3.fill") {
                 settings.chartUseBars.toggle()
             }
+            .labelStyle(.iconOnly)
             .buttonStyle(.borderless)
             .controlSize(.mini)
             .help(settings.chartUseBars ? "Switch to dots" : "Switch to bars")
@@ -374,6 +376,7 @@ struct SessionChartView: View {
                     .onTapGesture { location in
                         handleTap(at: location, proxy: proxy, geo: geo)
                     }
+                    .accessibilityAddTraits(.isButton)
                     .gesture(
                         DragGesture(minimumDistance: 6)
                             .onChanged { value in

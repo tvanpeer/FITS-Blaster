@@ -116,7 +116,8 @@ struct ThumbnailSidebar: View {
                             // Header is placed inline (not in a Section) to avoid Xcode 16
                             // misresolving Section as Chart.Section when Charts is in scope.
                             ForEach(store.visibilityGroupedSortedEntries, id: \.group) { group, entries in
-                                FilterGroupHeader(group: group, entries: entries)
+                                FilterGroupHeader(group: group, entryCount: entries.count,
+                                                     stats: store.groupStatistics[group])
                                 ForEach(entries) { entry in
                                     thumbnailButton(for: entry)
                                 }
@@ -209,26 +210,23 @@ struct FilterStrip: View {
     @Bindable var store: ImageStore
 
     var body: some View {
-        ScrollView(.horizontal) {
-            HStack(spacing: 5) {
-                FilterChip(label: "All",
-                           color: .accentColor,
-                           isSelected: store.sidebarFilterGroup == nil) {
-                    store.sidebarFilterGroup = nil
-                }
-                ForEach(store.activeFilterGroups) { group in
-                    FilterChip(label: group.rawValue,
-                               color: group.color,
-                               isSelected: store.sidebarFilterGroup == group) {
-                        store.sidebarFilterGroup =
-                            store.sidebarFilterGroup == group ? nil : group
-                    }
+        HStack(spacing: 5) {
+            FilterChip(label: "All",
+                       color: .accentColor,
+                       isSelected: store.sidebarFilterGroup == nil) {
+                store.sidebarFilterGroup = nil
+            }
+            ForEach(store.activeFilterGroups) { group in
+                FilterChip(label: group.rawValue,
+                           color: group.color,
+                           isSelected: store.sidebarFilterGroup == group) {
+                    store.sidebarFilterGroup =
+                        store.sidebarFilterGroup == group ? nil : group
                 }
             }
-            .padding(.horizontal)
-            .padding(.vertical, 5)
         }
-        .scrollIndicators(.hidden)
+        .padding(.horizontal)
+        .padding(.vertical, 5)
     }
 }
 
@@ -249,6 +247,8 @@ struct FilterChip: View {
                 .clipShape(.rect(cornerRadius: 4))
         }
         .buttonStyle(.plain)
+        .accessibilityLabel("\(label) filter")
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }
 
@@ -256,19 +256,8 @@ struct FilterChip: View {
 
 struct FilterGroupHeader: View {
     let group: FilterGroup
-    let entries: [ImageEntry]
-
-    private var medianFWHM: Float? {
-        let values = entries.compactMap { $0.metrics?.fwhm }.sorted()
-        guard !values.isEmpty else { return nil }
-        return values[values.count / 2]
-    }
-
-    private var medianScore: Int? {
-        let values = entries.compactMap { $0.metrics?.qualityScore }.sorted()
-        guard !values.isEmpty else { return nil }
-        return values[values.count / 2]
-    }
+    let entryCount: Int
+    let stats: GroupStats?
 
     var body: some View {
         HStack(spacing: 5) {
@@ -277,16 +266,16 @@ struct FilterGroupHeader: View {
                 .frame(width: 8, height: 8)
             Text(group.rawValue)
                 .scaledFont(size: 10, weight: .bold)
-            Text("\(entries.count)")
+            Text("\(entryCount)")
                 .scaledFont(size: 10)
                 .foregroundStyle(.secondary)
             Spacer()
-            if let fwhm = medianFWHM {
+            if let fwhm = stats?.medianFWHM {
                 Text("\(fwhm, format: .number.precision(.fractionLength(1)))px")
                     .scaledFont(size: 9, monospaced: true)
                     .foregroundStyle(.secondary)
             }
-            if let score = medianScore {
+            if let score = stats?.medianScore {
                 Text("▸\(score)")
                     .scaledFont(size: 9, monospaced: true)
                     .foregroundStyle(.secondary)

@@ -4,6 +4,29 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-04-12 — SwiftUI review fixes, accessibility, tests, and rejected-view cursor fix
+
+### Added
+- 111 unit and integration tests covering FITSReader, quality scoring, filter group normalisation, frame metrics, Bayer pattern parsing, histogram computation, and star detection with synthetic images (single star FWHM accuracy, multi-star count, gradient background robustness, noise rejection, elongated star eccentricity, FITS round-trip pipeline, CPU image stretch).
+
+### Fixed
+- Undo-reject and reject actions now advance the cursor to the next visible entry, matching the flagged-view behaviour.
+- VoiceOver: inspector toggle and chart style buttons now have accessible labels instead of empty strings.
+- VoiceOver: session chart tap overlay now declares `.isButton` trait.
+- VoiceOver: filter strip chips are individually focusable (replaced ScrollView with HStack) and announce selected state.
+- VoiceOver: inspector panel exposes children to VoiceOver navigation.
+
+### Improved
+- Settings tabs migrated from deprecated `.tabItem()` to the `Tab` API.
+- Filter group header uses cached `GroupStats` instead of recomputing O(n log n) median on every render.
+- `.filter { }.count` replaced with `.count(where:)` in ExportPanel and BatchProgressBar.
+- Drag handle uses semantic `.quinary`/`.quaternary` colours instead of manual opacity.
+- `AppDelegate` annotated `@MainActor` for strict concurrency.
+- Unnecessary explicit `return` removed from single-expression switch cases.
+- Menu command views extracted from `FitsBlasterApp.swift` into `MenuCommands.swift`.
+
+---
+
 ## 2026-04-09 — Session chart bars, filter fix, play mode, flip, and beta channel
 
 ### Added
