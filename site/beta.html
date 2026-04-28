@@ -305,51 +305,29 @@
     <!-- v1.23-beta.3 -->
     <div class="entry">
         <div class="entry-header">
-            <div class="entry-title">FITS header export columns and CSV decimal fix — v1.23-beta.3</div>
+            <div class="entry-title">FITS header export columns, export defaults, CSV decimal fix — v1.23-beta.3</div>
             <div class="entry-date">2026-04-28</div>
         </div>
         <div class="section">
             <span class="section-label label-added">Added</span>
             <ul>
-                <li>Configurable FITS header columns in CSV/TSV exports — choose which header keys appear as columns in Settings → Export, or override per-export from the redesigned export sheet. Defaults cover acquisition, focus, weather, and pointing fields commonly written by ASCOM, INDI, and Boltwood drivers.</li>
-                <li>Tab-separated (.tsv) export format — opens in plain-text editors with aligned columns.</li>
-                <li>Optional inclusion of rejected frames in exports. Plain text adds a <code># REJECTED</code> suffix; CSV/TSV add a <code>status</code> column.</li>
+                <li>Configurable FITS header columns in CSV/TSV exports. Choose which header keys appear as columns in Settings → Export, or override per-export via the new export sheet. Defaults cover acquisition, focus, weather, and pointing fields (OBJECT, DATE-OBS, EXPTIME, FILTER, GAIN, OFFSET, CCD-TEMP, FOCUSPOS, AIRMASS, OBJCTALT, AMBTEMP, HUMIDITY).</li>
+                <li>Tab-separated (.tsv) export format alongside CSV — handy for opening in plain text editors with aligned columns.</li>
+                <li>Optional inclusion of rejected frames in exports. Plain text adds a <code># REJECTED</code> suffix; CSV/TSV add a <code>status</code> column (<code>kept</code> / <code>rejected</code>).</li>
                 <li>Quality score column in CSV/TSV exports.</li>
             </ul>
         </div>
         <div class="section">
             <span class="section-label label-fixed">Fixed</span>
             <ul>
-                <li>CSV exports could emit integer FWHM and eccentricity values on systems with comma-decimal locales (Dutch, German, French). Numbers now use a fixed POSIX locale and always have the configured decimal places.</li>
+                <li>CSV exports could emit integer values for FWHM and eccentricity on systems with comma-decimal locales (Dutch/German/French), because the formatter used the user's region. Numbers now use a fixed <code>en_US_POSIX</code> locale and always have the configured decimal places.</li>
             </ul>
         </div>
         <div class="section">
             <span class="section-label label-improved">Improved</span>
             <ul>
-                <li>Export sheet pre-populates from Settings → Export defaults; per-export edits show an "applies to this export only" notice (matching the Open Folder panel pattern).</li>
-            </ul>
-        </div>
-    </div>
-    <!-- v1.23-beta.2 -->
-    <div class="entry">
-        <div class="entry-header">
-            <div class="entry-title">QuickLook previews and thumbnails for all FITS formats — v1.23-beta.2</div>
-            <div class="entry-date">2026-04-12</div>
-        </div>
-        <div class="section">
-            <span class="section-label label-added">Added</span>
-            <ul>
-                <li>QuickLook preview and thumbnail support for floating-point FITS files (BITPIX -32 and -64). Previously these showed blank icons in Finder.</li>
-                <li>QuickLook preview and thumbnail support for 3-channel RGB colour FITS files (NAXIS3=3), such as stacked integrations from Astro Pixel Processor.</li>
-                <li>Asinh stretch (beta=50) for float FITS previews — compresses bright cores while revealing faint nebulosity in linear astrophotography data.</li>
-                <li>Large-file subsampling: files over 2048px are stride-sampled during preview to stay within QuickLook's memory limit (~120 MB), enabling previews of 1+ GB stacked integrations.</li>
-                <li><code>FITSReader.readForPreview(from:)</code> — dedicated read path that accepts float BITPIX and multi-channel files without affecting the main app's integer-only pipeline.</li>
-            </ul>
-        </div>
-        <div class="section">
-            <span class="section-label label-improved">Improved</span>
-            <ul>
-                <li>Zero-pixel exclusion in percentile estimation prevents stacking artifacts (unfilled corners) from skewing the preview stretch.</li>
+                <li>Export sheet redesigned with format picker, rejected-frames toggle, and a FITS header column list. All values pre-populate from Settings → Export defaults; if you change anything, an orange notice signals "applies to this export only" (same pattern as the Open Folder panel).</li>
+                <li>Export plain text retains its file-list-only output, but now includes a per-line marker for rejected frames when they are exported.</li>
             </ul>
         </div>
     </div>

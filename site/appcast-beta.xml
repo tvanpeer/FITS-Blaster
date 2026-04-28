@@ -6,6 +6,76 @@
         <description>Beta release notes for FITS Blaster</description>
         <language>en-us</language>
         <item>
+            <title>FITS Blaster 1.23-beta.3</title>
+            <pubDate>Tue, 28 Apr 2026 19:24:49 +0000</pubDate>
+            <sparkle:version>190</sparkle:version>
+            <sparkle:shortVersionString>1.23-beta.3</sparkle:shortVersionString>
+            <description><![CDATA[
+<h2>2026-04-28 — FITS header export columns, export defaults, CSV decimal fix</h2>
+<h3>Added</h3>
+<ul>
+  <li>Configurable FITS header columns in CSV/TSV exports. Choose which header keys appear as columns in Settings → Export, or override per-export via the new export sheet. Defaults cover acquisition, focus, weather, and pointing fields (OBJECT, DATE-OBS, EXPTIME, FILTER, GAIN, OFFSET, CCD-TEMP, FOCUSPOS, AIRMASS, OBJCTALT, AMBTEMP, HUMIDITY).</li>
+  <li>Tab-separated (.tsv) export format alongside CSV — handy for opening in plain text editors with aligned columns.</li>
+  <li>Optional inclusion of rejected frames in exports. Plain text adds a `# REJECTED` suffix; CSV/TSV add a `status` column (`kept` / `rejected`).</li>
+  <li>Quality score column in CSV/TSV exports.</li>
+</ul>
+<h3>Fixed</h3>
+<ul>
+  <li>CSV exports could emit integer values for FWHM and eccentricity on systems with comma-decimal locales (Dutch/German/French), because the formatter used the user&#x27;s region. Numbers now use a fixed `en_US_POSIX` locale and always have the configured decimal places.</li>
+</ul>
+<h3>Improved</h3>
+<ul>
+  <li>Export sheet redesigned with format picker, rejected-frames toggle, and a FITS header column list. All values pre-populate from Settings → Export defaults; if you change anything, an orange notice signals &quot;applies to this export only&quot; (same pattern as the Open Folder panel).</li>
+  <li>Export plain text retains its file-list-only output, but now includes a per-line marker for rejected frames when they are exported.</li>
+</ul>
+<p>---</p>
+<h2>2026-04-12 — QuickLook previews and thumbnails for all FITS formats</h2>
+<h3>Added</h3>
+<ul>
+  <li>QuickLook preview and thumbnail support for floating-point FITS files (BITPIX -32 and -64). Previously these showed blank icons in Finder.</li>
+  <li>QuickLook preview and thumbnail support for 3-channel RGB colour FITS files (NAXIS3=3), such as stacked integrations from Astro Pixel Processor.</li>
+  <li>Asinh stretch (beta=50) for float FITS previews — compresses bright cores while revealing faint nebulosity in linear astrophotography data.</li>
+  <li>Large-file subsampling: files over 2048px are stride-sampled during preview to stay within QuickLook&#x27;s memory limit (~120 MB), enabling previews of 1+ GB stacked integrations.</li>
+  <li>`FITSReader.readForPreview(from:)` — dedicated read path that accepts float BITPIX and multi-channel files without affecting the main app&#x27;s integer-only pipeline.</li>
+</ul>
+<h3>Improved</h3>
+<ul>
+  <li>Zero-pixel exclusion in percentile estimation prevents stacking artifacts (unfilled corners) from skewing the preview stretch.</li>
+</ul>
+<p>---</p>
+<h2>2026-04-12 — SwiftUI review fixes, accessibility, tests, and rejected-view cursor fix</h2>
+<h3>Added</h3>
+<ul>
+  <li>111 unit and integration tests covering FITSReader, quality scoring, filter group normalisation, frame metrics, Bayer pattern parsing, histogram computation, and star detection with synthetic images (single star FWHM accuracy, multi-star count, gradient background robustness, noise rejection, elongated star eccentricity, FITS round-trip pipeline, CPU image stretch).</li>
+</ul>
+<h3>Fixed</h3>
+<ul>
+  <li>Undo-reject and reject actions now advance the cursor to the next visible entry, matching the flagged-view behaviour.</li>
+  <li>VoiceOver: inspector toggle and chart style buttons now have accessible labels instead of empty strings.</li>
+  <li>VoiceOver: session chart tap overlay now declares `.isButton` trait.</li>
+  <li>VoiceOver: filter strip chips are individually focusable (replaced ScrollView with HStack) and announce selected state.</li>
+  <li>VoiceOver: inspector panel exposes children to VoiceOver navigation.</li>
+</ul>
+<h3>Improved</h3>
+<ul>
+  <li>Settings tabs migrated from deprecated `.tabItem()` to the `Tab` API.</li>
+  <li>Filter group header uses cached `GroupStats` instead of recomputing O(n log n) median on every render.</li>
+  <li>`.filter { }.count` replaced with `.count(where:)` in ExportPanel and BatchProgressBar.</li>
+  <li>Drag handle uses semantic `.quinary`/`.quaternary` colours instead of manual opacity.</li>
+  <li>`AppDelegate` annotated `@MainActor` for strict concurrency.</li>
+  <li>Unnecessary explicit `return` removed from single-expression switch cases.</li>
+  <li>Menu command views extracted from `FitsBlasterApp.swift` into `MenuCommands.swift`.</li>
+</ul>
+<p>---</p>
+<p>**[Full changelog](https://astrophoto-app.com/changelog.html)**</p>
+            ]]></description>
+            <enclosure
+                url="https://github.com/tvanpeer/FITS-Blaster/releases/download/v1.23-beta.3/FITS-Blaster-1.23-beta.3.dmg"
+                length="8442619"
+                type="application/octet-stream"
+                sparkle:edSignature="z75IaX/RDg+VO2EA5SsWHAih5DPDx+L3hgALTrGFpwbf6hljQ0sOSlKzGVsQk589tzcczZxMQY8m3oZi53WWBw==" />
+        </item>
+        <item>
             <title>FITS Blaster 1.23-beta.2</title>
             <pubDate>Sun, 12 Apr 2026 15:03:54 +0000</pubDate>
             <sparkle:version>186</sparkle:version>
