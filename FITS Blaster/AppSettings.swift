@@ -214,6 +214,49 @@ final class AppSettings {
         didSet { UserDefaults.standard.set(excludedSubfolderNames, forKey: "excludedSubfolderNames") }
     }
 
+    // MARK: - Export Defaults
+
+    /// Default export format used to pre-select the format picker in the export sheet.
+    var defaultExportFormat: ExportFormat = .plainText {
+        didSet { UserDefaults.standard.set(defaultExportFormat.rawValue, forKey: "defaultExportFormat") }
+    }
+
+    /// Whether rejected frames are included in exports by default.
+    /// In plain text mode, rejected lines are suffixed with " # REJECTED".
+    /// In CSV/TSV modes, a `status` column is emitted with values "kept" or "rejected".
+    var includeRejectedInExport: Bool = false {
+        didSet { UserDefaults.standard.set(includeRejectedInExport, forKey: "includeRejectedInExport") }
+    }
+
+    /// FITS header keys to include as additional columns in CSV/TSV exports.
+    /// Defaults to a curated session-report set covering acquisition, focus, weather,
+    /// and pointing fields commonly written by Boltwood, ASCOM, and Indi drivers.
+    var exportHeaderKeys: [String] = [
+        "OBJECT", "DATE-OBS", "EXPTIME", "FILTER",
+        "GAIN", "OFFSET", "CCD-TEMP",
+        "FOCUSPOS", "AIRMASS", "OBJCTALT",
+        "AMBTEMP", "HUMIDITY"
+    ] {
+        didSet { UserDefaults.standard.set(exportHeaderKeys, forKey: "exportHeaderKeys") }
+    }
+
+    /// Reasonable starter set of header keys to offer in Settings even before any
+    /// FITS files are loaded. The picker also unions in keys from currently-loaded
+    /// entries so rig-specific keys (e.g. FOCUSER, ROTATOR, DEWPOINT) become available.
+    static let knownExportHeaderKeys: [String] = [
+        "OBJECT", "DATE-OBS", "DATE-LOC", "EXPTIME", "EXPOSURE", "FILTER",
+        "GAIN", "OFFSET", "CCD-TEMP", "SET-TEMP",
+        "XBINNING", "YBINNING", "XPIXSZ", "YPIXSZ",
+        "TELESCOP", "INSTRUME", "FOCALLEN", "FOCRATIO", "APERTURE",
+        "FOCUSPOS", "FOCTEMP", "FOCUSER",
+        "RA", "DEC", "OBJCTRA", "OBJCTDEC", "OBJCTALT", "OBJCTAZ",
+        "AIRMASS", "PIERSIDE", "ROTATOR", "ROTANGLE",
+        "AMBTEMP", "HUMIDITY", "DEWPOINT", "PRESSURE",
+        "CLOUDCVR", "WINDSPD", "WINDDIR", "SKYBRIGHT", "SKYTEMP",
+        "IMAGETYP", "FRAMETYP",
+        "SITELAT", "SITELONG", "SITEELEV"
+    ]
+
     // MARK: - Init
 
     init() {
@@ -271,6 +314,12 @@ final class AppSettings {
         debayerColorImages      = UD.bool(   "debayerColorImages",     default: debayerColorImages)
         zoomScale               = UD.double( "zoomScale",              default: zoomScale)
         playbackSpeed           = UD.double( "playbackSpeed",          default: playbackSpeed)
+
+        // Export defaults
+        if let raw = UserDefaults.standard.string(forKey: "defaultExportFormat"),
+           let fmt = ExportFormat(rawValue: raw) { defaultExportFormat = fmt }
+        includeRejectedInExport = UD.bool(   "includeRejectedInExport", default: includeRejectedInExport)
+        exportHeaderKeys        = UD.strings("exportHeaderKeys",        default: exportHeaderKeys)
 
         // Text size (stored as index into availableTypeSizes)
         if let idx = UserDefaults.standard.object(forKey: "dynamicTypeSize") as? Int,

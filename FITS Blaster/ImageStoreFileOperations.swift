@@ -242,42 +242,104 @@ extension ImageStore {
     // MARK: - Export
 
     /// Presents a save panel and writes a frame list in the chosen format.
-    /// Only non-rejected frames are included.
-    func export(format: ExportFormat) {
+    ///
+    /// - Parameters:
+    ///   - format: Plain text (paths), CSV, or TSV.
+    ///   - includeRejected: When true, rejected frames are also written. In plain
+    ///     text they get a trailing `# REJECTED` marker; in CSV/TSV a `status`
+    ///     column distinguishes `kept` from `rejected`.
+    ///   - headerKeys: FITS header keys to add as extra columns in CSV/TSV.
+    ///     Ignored for plain text.
+    func export(format: ExportFormat, includeRejected: Bool, headerKeys: [String]) {
         let panel = NSSavePanel()
         panel.title = "Export Frame List"
+        panel.nameFieldStringValue = "frames.\(format.fileExtension)"
         switch format {
-        case .plainText:
-            panel.nameFieldStringValue = "frames.txt"
-            panel.allowedContentTypes = [.plainText]
-        case .csv:
-            panel.nameFieldStringValue = "frames.csv"
-            panel.allowedContentTypes = [.commaSeparatedText]
+        case .plainText: panel.allowedContentTypes = [.plainText]
+        case .csv:       panel.allowedContentTypes = [.commaSeparatedText]
+        case .tsv:       panel.allowedContentTypes = [.tabSeparatedText]
         }
 
         guard panel.runModal() == .OK, let url = panel.url else { return }
 
-        let kept = entries.filter { !$0.isRejected }
+        let frames = includeRejected ? entries : entries.filter { !$0.isRejected }
+        let content = Self.exportContent(frames: frames, format: format,
+                                         includeRejected: includeRejected,
+                                         headerKeys: headerKeys)
+        try? content.write(to: url, atomically: true, encoding: .utf8)
+    }
 
-        let content: String
+    /// Pure builder so the output is unit-testable without showing a save panel.
+    /// Numbers are formatted with a fixed `en_US_POSIX` locale so CSV files written
+    /// on Dutch / German / French systems do not produce comma-decimal collisions
+    /// with the comma delimiter.
+    static func exportContent(frames: [ImageEntry], format: ExportFormat,
+                              includeRejected: Bool, headerKeys: [String]) -> String {
         switch format {
         case .plainText:
-            content = kept.map { $0.url.path(percentEncoded: false) }.joined(separator: "\n")
-        case .csv:
-            var lines = ["path,fwhm,eccentricity,snr,stars"]
-            for entry in kept {
-                let m     = entry.metrics
-                let path  = entry.url.path(percentEncoded: false)
-                let fwhm  = m.flatMap { $0.fwhm }.map        { $0.formatted(.number.precision(.fractionLength(2))) } ?? ""
-                let ecc   = m.flatMap { $0.eccentricity }.map { $0.formatted(.number.precision(.fractionLength(3))) } ?? ""
-                let snr   = m.flatMap { $0.snr }.map          { $0.formatted(.number.precision(.fractionLength(1))) } ?? ""
-                let stars = m.flatMap { $0.starCount }.map     { String($0) } ?? ""
-                lines.append("\(path),\(fwhm),\(ecc),\(snr),\(stars)")
-            }
-            content = lines.joined(separator: "\n")
-        }
+            return frames.map { entry in
+                let path = entry.url.path(percentEncoded: false)
+                return entry.isRejected ? "\(path) # REJECTED" : path
+            }.joined(separator: "\n")
 
-        try? content.write(to: url, atomically: true, encoding: .utf8)
+        case .csv, .tsv:
+            let delim = format.delimiter
+
+            var headerCols = ["path"]
+            if includeRejected { headerCols.append("status") }
+            headerCols.append(contentsOf: ["fwhm", "eccentricity", "snr", "stars", "score"])
+            headerCols.append(contentsOf: headerKeys)
+
+            var lines = [headerCols.map { quote($0, format: format) }.joined(separator: delim)]
+
+            for entry in frames {
+                var cols: [String] = []
+                cols.append(entry.url.path(percentEncoded: false))
+                if includeRejected { cols.append(entry.isRejected ? "rejected" : "kept") }
+                let m = entry.metrics
+                cols.append(formatFraction(m?.fwhm,         digits: 2))
+                cols.append(formatFraction(m?.eccentricity, digits: 3))
+                cols.append(formatFraction(m?.snr,          digits: 1))
+                cols.append(m?.starCount.map { String($0) } ?? "")
+                cols.append(m.map { String($0.qualityScore) } ?? "")
+                for key in headerKeys {
+                    let raw = entry.headers[key] ?? ""
+                    cols.append(FITSReader.cleanHeaderString(raw))
+                }
+                lines.append(cols.map { quote($0, format: format) }.joined(separator: delim))
+            }
+            return lines.joined(separator: "\n")
+        }
+    }
+
+    /// Formats an optional `Float` with a fixed number of decimal places, using a
+    /// POSIX locale so the decimal separator is always a period regardless of the
+    /// user's region. Returns "" when the value is nil.
+    private static func formatFraction(_ value: Float?, digits: Int) -> String {
+        guard let value else { return "" }
+        return Double(value).formatted(
+            .number.precision(.fractionLength(digits))
+                  .grouping(.never)
+                  .locale(Locale(identifier: "en_US_POSIX"))
+        )
+    }
+
+    /// Quotes a cell per RFC 4180 when needed (CSV) or escapes embedded tabs/newlines
+    /// (TSV). Plain text never reaches here because it bypasses the column path.
+    private static func quote(_ s: String, format: ExportFormat) -> String {
+        switch format {
+        case .csv:
+            if s.contains(",") || s.contains("\"") || s.contains("\n") {
+                return "\"\(s.replacing("\"", with: "\"\""))\""
+            }
+            return s
+        case .tsv:
+            // Tabs and newlines inside a value would break the row layout; replace
+            // with spaces. FITS header strings essentially never contain either.
+            return s.replacing("\t", with: " ").replacing("\n", with: " ")
+        case .plainText:
+            return s
+        }
     }
 
     // MARK: - FITS file discovery

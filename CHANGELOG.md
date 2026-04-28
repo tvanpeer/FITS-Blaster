@@ -4,6 +4,23 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-04-28 — FITS header export columns, export defaults, CSV decimal fix
+
+### Added
+- Configurable FITS header columns in CSV/TSV exports. Choose which header keys appear as columns in Settings → Export, or override per-export via the new export sheet. Defaults cover acquisition, focus, weather, and pointing fields (OBJECT, DATE-OBS, EXPTIME, FILTER, GAIN, OFFSET, CCD-TEMP, FOCUSPOS, AIRMASS, OBJCTALT, AMBTEMP, HUMIDITY).
+- Tab-separated (.tsv) export format alongside CSV — handy for opening in plain text editors with aligned columns.
+- Optional inclusion of rejected frames in exports. Plain text adds a `# REJECTED` suffix; CSV/TSV add a `status` column (`kept` / `rejected`).
+- Quality score column in CSV/TSV exports.
+
+### Fixed
+- CSV exports could emit integer values for FWHM and eccentricity on systems with comma-decimal locales (Dutch/German/French), because the formatter used the user's region. Numbers now use a fixed `en_US_POSIX` locale and always have the configured decimal places.
+
+### Improved
+- Export sheet redesigned with format picker, rejected-frames toggle, and a FITS header column list. All values pre-populate from Settings → Export defaults; if you change anything, an orange notice signals "applies to this export only" (same pattern as the Open Folder panel).
+- Export plain text retains its file-list-only output, but now includes a per-line marker for rejected frames when they are exported.
+
+---
+
 ## 2026-04-12 — QuickLook previews and thumbnails for all FITS formats
 
 ### Added

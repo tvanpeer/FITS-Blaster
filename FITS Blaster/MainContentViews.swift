@@ -156,6 +156,7 @@ struct FITSToolbar: View {
         .sheet(isPresented: $showExportSheet) {
             ExportSheet(isPresented: $showExportSheet)
                 .environment(store)
+                .environment(settings)
         }
         .sheet(isPresented: $showAutoRejectSheet) {
             AutoRejectSheet(isPresented: $showAutoRejectSheet)

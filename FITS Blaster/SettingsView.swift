@@ -23,6 +23,9 @@ struct SettingsView: View {
             Tab("Files & Folders", systemImage: "folder") {
                 FilesAndFoldersTab()
             }
+            Tab("Export", systemImage: "square.and.arrow.up") {
+                ExportSettingsTab()
+            }
         }
         .frame(minWidth: 580, minHeight: 400)
         .environment(\.fontSizeMultiplier, settings.fontSizeMultiplier)
