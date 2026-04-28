@@ -222,6 +222,35 @@
 
 <div class="content">
 
+    <!-- v1.23-beta.3 -->
+    <div class="entry">
+        <div class="entry-header">
+            <div class="entry-title">FITS header export columns and CSV decimal fix — v1.23-beta.3</div>
+            <div class="entry-date">2026-04-28</div>
+        </div>
+        <div class="section">
+            <span class="section-label label-added">Added</span>
+            <ul>
+                <li>Configurable FITS header columns in CSV/TSV exports — choose which header keys appear as columns in Settings → Export, or override per-export from the redesigned export sheet.</li>
+                <li>Tab-separated (.tsv) export format alongside CSV.</li>
+                <li>Optional inclusion of rejected frames. Plain text adds <code># REJECTED</code> suffix; CSV/TSV add a <code>status</code> column.</li>
+                <li>Quality score column in CSV/TSV exports.</li>
+            </ul>
+        </div>
+        <div class="section">
+            <span class="section-label label-fixed">Fixed</span>
+            <ul>
+                <li>CSV exports could emit integer FWHM and eccentricity on systems with comma-decimal locales (Dutch, German, French). Numbers now use a fixed POSIX locale.</li>
+            </ul>
+        </div>
+        <div class="section">
+            <span class="section-label label-improved">Improved</span>
+            <ul>
+                <li>Export sheet pre-populates from Settings → Export defaults; per-export edits show an "applies to this export only" notice.</li>
+            </ul>
+        </div>
+    </div>
+
     <!-- v1.23-beta.2 -->
     <div class="entry">
         <div class="entry-header">

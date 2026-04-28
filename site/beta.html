@@ -287,7 +287,7 @@
     <h1>FITS Blaster</h1>
     <div class="beta-badge">Beta</div>
     <p>Test the latest features before they ship. Beta builds may contain bugs.</p>
-    <a class="download-btn" href="https://github.com/tvanpeer/FITS-Blaster/releases/download/v1.23-beta.2/FITS-Blaster-1.23-beta.2.dmg">Download Beta 1.23-beta.2</a>
+    <a class="download-btn" href="https://github.com/tvanpeer/FITS-Blaster/releases/download/v1.23-beta.3/FITS-Blaster-1.23-beta.3.dmg">Download Beta 1.23-beta.3</a>
     <p class="download-sub">macOS 15.7 or later &nbsp;&middot;&nbsp; Free</p>
 </header>
 
@@ -302,6 +302,34 @@
 <section class="content">
     <h2>Latest beta</h2>
     <!-- beta-entry-start -->
+    <!-- v1.23-beta.3 -->
+    <div class="entry">
+        <div class="entry-header">
+            <div class="entry-title">FITS header export columns and CSV decimal fix — v1.23-beta.3</div>
+            <div class="entry-date">2026-04-28</div>
+        </div>
+        <div class="section">
+            <span class="section-label label-added">Added</span>
+            <ul>
+                <li>Configurable FITS header columns in CSV/TSV exports — choose which header keys appear as columns in Settings → Export, or override per-export from the redesigned export sheet. Defaults cover acquisition, focus, weather, and pointing fields commonly written by ASCOM, INDI, and Boltwood drivers.</li>
+                <li>Tab-separated (.tsv) export format — opens in plain-text editors with aligned columns.</li>
+                <li>Optional inclusion of rejected frames in exports. Plain text adds a <code># REJECTED</code> suffix; CSV/TSV add a <code>status</code> column.</li>
+                <li>Quality score column in CSV/TSV exports.</li>
+            </ul>
+        </div>
+        <div class="section">
+            <span class="section-label label-fixed">Fixed</span>
+            <ul>
+                <li>CSV exports could emit integer FWHM and eccentricity values on systems with comma-decimal locales (Dutch, German, French). Numbers now use a fixed POSIX locale and always have the configured decimal places.</li>
+            </ul>
+        </div>
+        <div class="section">
+            <span class="section-label label-improved">Improved</span>
+            <ul>
+                <li>Export sheet pre-populates from Settings → Export defaults; per-export edits show an "applies to this export only" notice (matching the Open Folder panel pattern).</li>
+            </ul>
+        </div>
+    </div>
     <!-- v1.23-beta.2 -->
     <div class="entry">
         <div class="entry-header">
