@@ -222,6 +222,40 @@
 
 <div class="content">
 
+    <!-- v1.23-beta.4 -->
+    <div class="entry">
+        <div class="entry-header">
+            <div class="entry-title">Export path styles, padded text report, smarter header columns — v1.23-beta.4</div>
+            <div class="entry-date">2026-04-29</div>
+        </div>
+        <div class="section">
+            <span class="section-label label-added">Added</span>
+            <ul>
+                <li>File path style picker for exports — absolute path, relative to the longest folder shared by all exported frames, or filename only. Default is configurable in Settings → Export with a per-export override in the export sheet. Relative mode collapses a single-folder session to bare filenames automatically.</li>
+            </ul>
+        </div>
+        <div class="section">
+            <span class="section-label label-changed">Changed</span>
+            <ul>
+                <li>Plain text (.txt) export is now a space-padded human-readable report rather than a bare list of file paths. Same columns as CSV/TSV, but every cell is padded so the file lines up cleanly in any text editor — numeric columns right-aligned, text columns left-aligned. Use CSV or TSV for machine-parseable output.</li>
+            </ul>
+        </div>
+        <div class="section">
+            <span class="section-label label-fixed">Fixed</span>
+            <ul>
+                <li>CSV/TSV exports left FWHM, eccentricity, SNR, stars, and score blank when a metric was disabled or the user had switched out of compute-everything mode after the first batch. The exporter now falls back to the cached metric values that are preserved for the lifetime of the session.</li>
+            </ul>
+        </div>
+        <div class="section">
+            <span class="section-label label-improved">Improved</span>
+            <ul>
+                <li>Simple-mode exports (and any session where no frame has any metrics data) now omit the <code>fwhm</code>, <code>eccentricity</code>, <code>snr</code>, <code>stars</code>, and <code>score</code> columns entirely instead of emitting empty cells.</li>
+                <li>FITS header column picker (Settings → Export and the export sheet) dims keys not present in any currently loaded file, so it's clear before exporting which keys will produce data. Selected-but-absent keys are dropped from the output, and the .txt report lists them in a <code># Skipped columns with no data: …</code> footer so the omission is auditable when re-reading the file later.</li>
+                <li>FITS header column picker is now available for plain text exports too.</li>
+            </ul>
+        </div>
+    </div>
+
     <!-- v1.23-beta.3 -->
     <div class="entry">
         <div class="entry-header">
