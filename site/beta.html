@@ -287,7 +287,7 @@
     <h1>FITS Blaster</h1>
     <div class="beta-badge">Beta</div>
     <p>Test the latest features before they ship. Beta builds may contain bugs.</p>
-    <a class="download-btn" href="https://github.com/tvanpeer/FITS-Blaster/releases/download/v1.23-beta.4/FITS-Blaster-1.23-beta.4.dmg">Download Beta 1.23-beta.4</a>
+    <a class="download-btn" href="https://github.com/tvanpeer/FITS-Blaster/releases/download/v1.23-beta.5/FITS-Blaster-1.23-beta.5.dmg">Download Beta 1.23-beta.5</a>
     <p class="download-sub">macOS 15.7 or later &nbsp;&middot;&nbsp; Free</p>
 </header>
 
@@ -302,6 +302,31 @@
 <section class="content">
     <h2>Latest beta</h2>
     <!-- beta-entry-start -->
+    <!-- v1.23-beta.5 -->
+    <div class="entry">
+        <div class="entry-header">
+            <div class="entry-title">Beta update channel actually works now — v1.23-beta.5</div>
+            <div class="entry-date">2026-04-29</div>
+        </div>
+        <div class="section">
+            <span class="section-label label-fixed">Fixed</span>
+            <ul>
+                <li>The "Beta updates" preference advertised on this page was never actually wired up — every beta build was checking the stable appcast and reporting "you're up to date" by comparing the beta build number against 1.22 (build 168). Beta builds now route Sparkle's feed at the beta channel, so Check for Updates inside FITS Blaster finally tells beta users about new betas.</li>
+            </ul>
+        </div>
+        <div class="section">
+            <span class="section-label label-added">Added</span>
+            <ul>
+                <li>Settings → Interface → Software Updates section with a "Receive beta releases" toggle. Beta builds default the toggle on; stable builds default it off. Available in non-App-Store builds only.</li>
+            </ul>
+        </div>
+        <div class="section">
+            <span class="section-label label-changed">Changed</span>
+            <ul>
+                <li>Heads-up to anyone running beta.3: that build has the bug above and won't auto-update to this one. Download v1.23-beta.5 once manually from this page and future betas will be offered automatically.</li>
+            </ul>
+        </div>
+    </div>
     <!-- v1.23-beta.4 -->
     <div class="entry">
         <div class="entry-header">

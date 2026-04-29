@@ -222,6 +222,26 @@
 
 <div class="content">
 
+    <!-- v1.23-beta.5 -->
+    <div class="entry">
+        <div class="entry-header">
+            <div class="entry-title">Beta update channel actually works now — v1.23-beta.5</div>
+            <div class="entry-date">2026-04-29</div>
+        </div>
+        <div class="section">
+            <span class="section-label label-fixed">Fixed</span>
+            <ul>
+                <li>The "Beta updates" preference advertised on the beta page was never actually wired up — every beta build was checking the stable appcast and reporting "you're up to date" by comparing the beta build number against 1.22 (build 168). Beta builds now route Sparkle's feed at the beta channel, so Check for Updates finally tells beta users about new betas.</li>
+            </ul>
+        </div>
+        <div class="section">
+            <span class="section-label label-added">Added</span>
+            <ul>
+                <li>Settings → Interface → Software Updates section with a "Receive beta releases" toggle. Beta builds default the toggle on; stable builds default it off. Available in non-App-Store builds only.</li>
+            </ul>
+        </div>
+    </div>
+
     <!-- v1.23-beta.4 -->
     <div class="entry">
         <div class="entry-header">
