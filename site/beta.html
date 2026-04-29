@@ -311,51 +311,19 @@
         <div class="section">
             <span class="section-label label-fixed">Fixed</span>
             <ul>
-                <li>The "Beta updates" preference advertised on this page was never actually wired up — every beta build was checking the stable appcast and reporting "you're up to date" by comparing the beta build number against 1.22 (build 168). Beta builds now route Sparkle's feed at the beta channel, so Check for Updates inside FITS Blaster finally tells beta users about new betas.</li>
+                <li>The "Beta updates" preference promised on the website was never actually wired up: every beta build was checking the stable appcast (<code>appcast.xml</code>) and reporting "you're up to date" by comparing the beta build number against the latest stable (1.22 / build 168). A new <code>BetaChannelUpdaterDelegate</code> now routes Sparkle's feed at <code>appcast-beta.xml</code> when the toggle is on. Beta builds default the toggle on; stable builds default it off.</li>
             </ul>
         </div>
         <div class="section">
             <span class="section-label label-added">Added</span>
             <ul>
-                <li>Settings → Interface → Software Updates section with a "Receive beta releases" toggle. Beta builds default the toggle on; stable builds default it off. Available in non-App-Store builds only.</li>
+                <li>Settings → Interface → Software Updates section with a "Receive beta releases" toggle. Available in non-App-Store builds only (App Store builds don't ship Sparkle).</li>
             </ul>
         </div>
         <div class="section">
-            <span class="section-label label-changed">Changed</span>
+            <span class="section-label label-note">Note</span>
             <ul>
-                <li>Heads-up to anyone running beta.3: that build has the bug above and won't auto-update to this one. Download v1.23-beta.5 once manually from this page and future betas will be offered automatically.</li>
-            </ul>
-        </div>
-    </div>
-    <!-- v1.23-beta.4 -->
-    <div class="entry">
-        <div class="entry-header">
-            <div class="entry-title">Export path styles, padded text report, Simple-mode column tidy-up — v1.23-beta.4</div>
-            <div class="entry-date">2026-04-29</div>
-        </div>
-        <div class="section">
-            <span class="section-label label-added">Added</span>
-            <ul>
-                <li>File path style option for exports: absolute path (current behaviour), relative to the longest folder shared by all exported frames, or filename only. Default is configurable in Settings → Export, with a per-export override in the export sheet. Relative mode collapses a single-folder session to bare filenames automatically.</li>
-            </ul>
-        </div>
-        <div class="section">
-            <span class="section-label label-changed">Changed</span>
-            <ul>
-                <li>The plain text (.txt) export is now a space-padded human-readable report rather than a bare list of file paths. It includes the same columns as CSV/TSV (path, optional status, metrics when available, selected FITS header columns) but every cell is padded so the file lines up cleanly in any text editor — numeric columns right-aligned, text columns left-aligned. Use CSV or TSV when you need a machine-parseable file.</li>
-            </ul>
-        </div>
-        <div class="section">
-            <span class="section-label label-fixed">Fixed</span>
-            <ul>
-                <li>CSV/TSV exports left FWHM, eccentricity, SNR, stars, and score blank when a metric was disabled or the user had switched out of compute-everything mode after the first batch. The exporter now falls back to the cached metric values that are preserved for the lifetime of the session.</li>
-            </ul>
-        </div>
-        <div class="section">
-            <span class="section-label label-improved">Improved</span>
-            <ul>
-                <li>Simple-mode exports (and any session where no frame has any metrics data) now omit the <code>fwhm</code>, <code>eccentricity</code>, <code>snr</code>, <code>stars</code>, and <code>score</code> columns entirely instead of emitting empty cells, so the resulting CSV/TSV jumps straight from <code>path</code> to the selected FITS header columns.</li>
-                <li>FITS header column picker (Settings → Export and the export sheet) now dims keys that aren't present in any currently-loaded file, so it's clear before exporting which keys will produce data and which won't. Selected-but-absent keys are dropped from the output, and the .txt report lists them in a <code># Skipped columns with no data: …</code> footer so the omission is auditable when re-reading the file later.</li>
+                <li>This fix can only help users running this build forward; existing users on beta.3 (which has the bug) won't see this build via auto-update and will need to download once manually from the beta page.</li>
             </ul>
         </div>
     </div>
