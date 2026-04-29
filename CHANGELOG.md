@@ -4,6 +4,19 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-04-29 — Beta update channel actually works now
+
+### Fixed
+- The "Beta updates" preference promised on the website was never actually wired up: every beta build was checking the stable appcast (`appcast.xml`) and reporting "you're up to date" by comparing the beta build number against the latest stable (1.22 / build 168). A new `BetaChannelUpdaterDelegate` now routes Sparkle's feed at `appcast-beta.xml` when the toggle is on. Beta builds default the toggle on; stable builds default it off.
+
+### Added
+- Settings → Interface → Software Updates section with a "Receive beta releases" toggle. Available in non-App-Store builds only (App Store builds don't ship Sparkle).
+
+### Note
+- This fix can only help users running this build forward; existing users on beta.3 (which has the bug) won't see this build via auto-update and will need to download once manually from the beta page.
+
+---
+
 ## 2026-04-29 — Export path styles, padded text report, Simple-mode column tidy-up
 
 ### Added

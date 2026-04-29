@@ -43,8 +43,11 @@ struct FitsBlasterApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @State private var settings = AppSettings()
     @State private var store = ImageStore()
+    private static let updaterDelegate = BetaChannelUpdaterDelegate()
     private let updaterController = SPUStandardUpdaterController(
-        startingUpdater: true, updaterDelegate: nil, userDriverDelegate: nil
+        startingUpdater: true,
+        updaterDelegate: FitsBlasterApp.updaterDelegate,
+        userDriverDelegate: nil
     )
 
     init() {

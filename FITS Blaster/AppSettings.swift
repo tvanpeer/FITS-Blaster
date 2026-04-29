@@ -145,6 +145,18 @@ final class AppSettings {
         didSet { UserDefaults.standard.set(appearanceMode.rawValue, forKey: "appearanceMode") }
     }
 
+    /// Routes Sparkle's update feed to the beta appcast when true. Default is
+    /// derived from the running build's marketing version: a beta build
+    /// (e.g. "1.23-beta.4") opts in by default; a stable build opts out.
+    /// Read by `BetaChannelUpdaterDelegate` straight from UserDefaults at every
+    /// update check, so flipping the toggle takes effect on the next check.
+    var useBetaUpdateChannel: Bool = {
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? ""
+        return version.localizedCaseInsensitiveContains("beta")
+    }() {
+        didSet { UserDefaults.standard.set(useBetaUpdateChannel, forKey: "useBetaUpdateChannel") }
+    }
+
     // MARK: - Text Size
 
     /// The subset of DynamicTypeSize values exposed in Settings, from smallest to largest.
@@ -313,6 +325,7 @@ final class AppSettings {
         isSimpleMode            = UD.bool("isSimpleMode",              default: isSimpleMode)
         if let raw = UserDefaults.standard.string(forKey: "appearanceMode"),
            let mode = AppearanceMode(rawValue: raw) { appearanceMode = mode }
+        useBetaUpdateChannel    = UD.bool("useBetaUpdateChannel",      default: useBetaUpdateChannel)
 
         // Files & folders
         includeSubfolders       = UD.bool(   "includeSubfolders",      default: includeSubfolders)

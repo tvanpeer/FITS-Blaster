@@ -166,6 +166,15 @@ struct UISettingsTab: View {
                 }
             }
 
+            #if !APPSTORE
+            Section("Software Updates") {
+                Toggle("Receive beta releases", isOn: $settings.useBetaUpdateChannel)
+                Text("When enabled, \"Check for Updates\" looks at the beta channel. Beta builds get new features first but may contain bugs. Turn this off to stay on stable releases only.")
+                    .scaledFont(size: 10)
+                    .foregroundStyle(.secondary)
+            }
+            #endif
+
         }
         .formStyle(.grouped)
     }
