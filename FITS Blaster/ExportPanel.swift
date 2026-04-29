@@ -21,8 +21,10 @@ struct ExportSheet: View {
 
     @State private var format: ExportFormat = .plainText
     @State private var includeRejected: Bool = false
+    @State private var pathStyle: PathStyle = .absolute
     @State private var selectedHeaderKeys: [String] = []
     @State private var availableKeys: [String] = []
+    @State private var presentKeys: Set<String> = []
     @State private var showHeaderPicker: Bool = false
 
     private var frameCount: Int {
@@ -33,11 +35,8 @@ struct ExportSheet: View {
     private var divergesFromDefaults: Bool {
         format != settings.defaultExportFormat
             || includeRejected != settings.includeRejectedInExport
+            || pathStyle != settings.exportPathStyle
             || selectedHeaderKeys != settings.exportHeaderKeys
-    }
-
-    private var supportsHeaders: Bool {
-        format == .csv || format == .tsv
     }
 
     var body: some View {
@@ -49,23 +48,30 @@ struct ExportSheet: View {
                             Text(fmt.displayName).tag(fmt)
                         }
                     }
+                    Picker("File paths", selection: $pathStyle) {
+                        ForEach(PathStyle.allCases, id: \.self) { style in
+                            Text(style.displayName).tag(style)
+                        }
+                    }
                     Toggle("Include rejected frames", isOn: $includeRejected)
                 }
 
-                if supportsHeaders {
-                    Section {
-                        DisclosureGroup(isExpanded: $showHeaderPicker) {
-                            ExportSheetHeaderList(
-                                selection: $selectedHeaderKeys,
-                                availableKeys: availableKeys
-                            )
-                        } label: {
-                            HStack {
-                                Text("FITS header columns")
-                                Spacer()
-                                Text("\(selectedHeaderKeys.count) selected")
-                                    .foregroundStyle(.secondary)
-                            }
+                Section {
+                    DisclosureGroup(isExpanded: $showHeaderPicker) {
+                        Text("Dimmed keys are not present in any currently loaded file. They are still selectable, but empty columns are dropped at export time (the .txt report notes which were skipped).")
+                            .scaledFont(size: 10)
+                            .foregroundStyle(.secondary)
+                        ExportSheetHeaderList(
+                            selection: $selectedHeaderKeys,
+                            availableKeys: availableKeys,
+                            presentKeys: presentKeys
+                        )
+                    } label: {
+                        HStack {
+                            Text("FITS header columns")
+                            Spacer()
+                            Text("\(selectedHeaderKeys.count) selected")
+                                .foregroundStyle(.secondary)
                         }
                     }
                 }
@@ -93,7 +99,8 @@ struct ExportSheet: View {
                     isPresented = false
                     store.export(format: format,
                                  includeRejected: includeRejected,
-                                 headerKeys: selectedHeaderKeys)
+                                 headerKeys: selectedHeaderKeys,
+                                 pathStyle: pathStyle)
                 }
                 .buttonStyle(.borderedProminent)
                 .disabled(frameCount == 0)
@@ -101,10 +108,11 @@ struct ExportSheet: View {
             }
             .padding()
         }
-        .frame(width: 460, height: supportsHeaders ? 460 : 280)
+        .frame(width: 460, height: 460)
         .onAppear {
             format             = settings.defaultExportFormat
             includeRejected    = settings.includeRejectedInExport
+            pathStyle          = settings.exportPathStyle
             selectedHeaderKeys = settings.exportHeaderKeys
             refreshAvailableKeys()
         }
@@ -112,11 +120,17 @@ struct ExportSheet: View {
 
     private func refreshAvailableKeys() {
         var keys = Set(AppSettings.knownExportHeaderKeys)
+        var present: Set<String> = []
         for entry in store.entries {
-            keys.formUnion(entry.headers.keys)
+            for (key, value) in entry.headers
+            where !FITSReader.cleanHeaderString(value).isEmpty {
+                keys.insert(key)
+                present.insert(key)
+            }
         }
         keys.formUnion(selectedHeaderKeys)
         availableKeys = keys.sorted()
+        presentKeys = present
     }
 }
 
@@ -128,6 +142,7 @@ struct ExportSheet: View {
 private struct ExportSheetHeaderList: View {
     @Binding var selection: [String]
     let availableKeys: [String]
+    let presentKeys: Set<String>
 
     private let columns = [
         GridItem(.flexible(), alignment: .leading),
@@ -141,6 +156,7 @@ private struct ExportSheetHeaderList: View {
                     Toggle(isOn: binding(for: key)) {
                         Text(key)
                             .scaledFont(size: 11, monospaced: true)
+                            .foregroundStyle(presentKeys.contains(key) ? .primary : .secondary)
                     }
                     .toggleStyle(.checkbox)
                 }

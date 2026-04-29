@@ -250,7 +250,7 @@ extension ImageStore {
     ///     column distinguishes `kept` from `rejected`.
     ///   - headerKeys: FITS header keys to add as extra columns in CSV/TSV.
     ///     Ignored for plain text.
-    func export(format: ExportFormat, includeRejected: Bool, headerKeys: [String]) {
+    func export(format: ExportFormat, includeRejected: Bool, headerKeys: [String], pathStyle: PathStyle) {
         let panel = NSSavePanel()
         panel.title = "Export Frame List"
         panel.nameFieldStringValue = "frames.\(format.fileExtension)"
@@ -265,7 +265,8 @@ extension ImageStore {
         let frames = includeRejected ? entries : entries.filter { !$0.isRejected }
         let content = Self.exportContent(frames: frames, format: format,
                                          includeRejected: includeRejected,
-                                         headerKeys: headerKeys)
+                                         headerKeys: headerKeys,
+                                         pathStyle: pathStyle)
         try? content.write(to: url, atomically: true, encoding: .utf8)
     }
 
@@ -274,35 +275,70 @@ extension ImageStore {
     /// on Dutch / German / French systems do not produce comma-decimal collisions
     /// with the comma delimiter.
     static func exportContent(frames: [ImageEntry], format: ExportFormat,
-                              includeRejected: Bool, headerKeys: [String]) -> String {
+                              includeRejected: Bool, headerKeys: [String],
+                              pathStyle: PathStyle) -> String {
+        let basePath = pathStyle == .relative
+            ? commonAncestorPath(of: frames.map { $0.url })
+            : ""
+
+        // Drop selected header keys for which no frame has any value. The
+        // user is informed upfront in the picker (absent keys appear dimmed),
+        // so silently omitting empty columns here keeps the output clean.
+        // Plain text additionally surfaces what was dropped via a footer line.
+        let usedKeys = headerKeys.filter { key in
+            frames.contains { entry in
+                let raw = entry.headers[key] ?? ""
+                return !FITSReader.cleanHeaderString(raw).isEmpty
+            }
+        }
+        let skippedKeys = headerKeys.filter { !usedKeys.contains($0) }
+
         switch format {
         case .plainText:
-            return frames.map { entry in
-                let path = entry.url.path(percentEncoded: false)
-                return entry.isRejected ? "\(path) # REJECTED" : path
-            }.joined(separator: "\n")
+            return formatPaddedReport(frames: frames,
+                                      includeRejected: includeRejected,
+                                      headerKeys: usedKeys,
+                                      skippedKeys: skippedKeys,
+                                      pathStyle: pathStyle,
+                                      basePath: basePath)
 
         case .csv, .tsv:
             let delim = format.delimiter
 
+            // Metric columns are omitted entirely when no frame has any metric
+            // data — typically a Simple-mode session that never computed them.
+            // If any frame has values (even partial), keep the columns so the
+            // CSV stays parseable and rows with missing data are simply blank.
+            let includeMetrics = frames.contains {
+                ($0.metrics ?? $0.cachedMetrics) != nil
+            }
+
             var headerCols = ["path"]
             if includeRejected { headerCols.append("status") }
-            headerCols.append(contentsOf: ["fwhm", "eccentricity", "snr", "stars", "score"])
-            headerCols.append(contentsOf: headerKeys)
+            if includeMetrics {
+                headerCols.append(contentsOf: ["fwhm", "eccentricity", "snr", "stars", "score"])
+            }
+            headerCols.append(contentsOf: usedKeys)
 
             var lines = [headerCols.map { quote($0, format: format) }.joined(separator: delim)]
 
             for entry in frames {
                 var cols: [String] = []
-                cols.append(entry.url.path(percentEncoded: false))
+                cols.append(formatPath(entry.url, style: pathStyle, basePath: basePath))
                 if includeRejected { cols.append(entry.isRejected ? "rejected" : "kept") }
-                let m = entry.metrics
-                cols.append(formatFraction(m?.fwhm,         digits: 2))
-                cols.append(formatFraction(m?.eccentricity, digits: 3))
-                cols.append(formatFraction(m?.snr,          digits: 1))
-                cols.append(m?.starCount.map { String($0) } ?? "")
-                cols.append(m.map { String($0.qualityScore) } ?? "")
-                for key in headerKeys {
+                if includeMetrics {
+                    // Prefer cachedMetrics when metrics is nil (e.g. user
+                    // disabled a metric after the first compute) so the export
+                    // still carries the values that were measured at some
+                    // point during the session.
+                    let m = entry.metrics ?? entry.cachedMetrics
+                    cols.append(formatFraction(m?.fwhm,         digits: 2))
+                    cols.append(formatFraction(m?.eccentricity, digits: 3))
+                    cols.append(formatFraction(m?.snr,          digits: 1))
+                    cols.append(m?.starCount.map { String($0) } ?? "")
+                    cols.append(m.map { String($0.qualityScore) } ?? "")
+                }
+                for key in usedKeys {
                     let raw = entry.headers[key] ?? ""
                     cols.append(FITSReader.cleanHeaderString(raw))
                 }
@@ -310,6 +346,132 @@ extension ImageStore {
             }
             return lines.joined(separator: "\n")
         }
+    }
+
+    /// Builds a space-padded, human-readable report (the plain-text export
+    /// format). Columns mirror the CSV/TSV layout, but each cell is padded so
+    /// the file lines up cleanly in any text editor. Numeric columns are right-
+    /// aligned; everything else is left-aligned. The trailing column is not
+    /// padded out, to keep lines free of trailing whitespace.
+    private static func formatPaddedReport(frames: [ImageEntry],
+                                           includeRejected: Bool,
+                                           headerKeys: [String],
+                                           skippedKeys: [String],
+                                           pathStyle: PathStyle,
+                                           basePath: String) -> String {
+        let includeMetrics = frames.contains {
+            ($0.metrics ?? $0.cachedMetrics) != nil
+        }
+
+        var headerCols = ["path"]
+        if includeRejected { headerCols.append("status") }
+        if includeMetrics {
+            headerCols.append(contentsOf: ["fwhm", "eccentricity", "snr", "stars", "score"])
+        }
+        headerCols.append(contentsOf: headerKeys)
+
+        var rows: [[String]] = [headerCols]
+        for entry in frames {
+            var cols: [String] = []
+            cols.append(formatPath(entry.url, style: pathStyle, basePath: basePath))
+            if includeRejected { cols.append(entry.isRejected ? "rejected" : "kept") }
+            if includeMetrics {
+                let m = entry.metrics ?? entry.cachedMetrics
+                cols.append(formatFraction(m?.fwhm,         digits: 2))
+                cols.append(formatFraction(m?.eccentricity, digits: 3))
+                cols.append(formatFraction(m?.snr,          digits: 1))
+                cols.append(m?.starCount.map { String($0) } ?? "")
+                cols.append(m.map { String($0.qualityScore) } ?? "")
+            }
+            for key in headerKeys {
+                let raw = entry.headers[key] ?? ""
+                cols.append(sanitizePadded(FITSReader.cleanHeaderString(raw)))
+            }
+            rows.append(cols)
+        }
+
+        let columnCount = headerCols.count
+        var widths = Array(repeating: 0, count: columnCount)
+        for row in rows {
+            for (i, cell) in row.enumerated() where i < columnCount {
+                widths[i] = max(widths[i], cell.count)
+            }
+        }
+
+        // A column is right-aligned when every non-empty data value parses as
+        // a number — captures fwhm/snr/score/stars and numeric FITS headers
+        // like EXPTIME, GAIN, AIRMASS without hard-coding key names.
+        var rightAlign = Array(repeating: false, count: columnCount)
+        for i in 0..<columnCount {
+            let header = headerCols[i]
+            if header == "path" || header == "status" { continue }
+            var anyValue = false
+            var allNumeric = true
+            for row in rows.dropFirst() where i < row.count && !row[i].isEmpty {
+                anyValue = true
+                if Double(row[i]) == nil { allNumeric = false; break }
+            }
+            rightAlign[i] = anyValue && allNumeric
+        }
+
+        let separator = "  "
+        let lines = rows.map { row -> String in
+            row.enumerated().map { (i, cell) -> String in
+                let isLast = (i == columnCount - 1)
+                let pad = max(0, widths[i] - cell.count)
+                if rightAlign[i] {
+                    return String(repeating: " ", count: pad) + cell
+                }
+                return isLast ? cell : cell + String(repeating: " ", count: pad)
+            }.joined(separator: separator)
+        }
+        var report = lines.joined(separator: "\n")
+        if !skippedKeys.isEmpty {
+            report += "\n\n# Skipped columns with no data: " + skippedKeys.joined(separator: ", ")
+        }
+        return report
+    }
+
+    /// Replaces tabs and newlines with spaces so a value can never break the
+    /// padded layout. FITS header strings essentially never contain either.
+    private static func sanitizePadded(_ s: String) -> String {
+        s.replacing("\t", with: " ").replacing("\n", with: " ").replacing("\r", with: " ")
+    }
+
+    /// Renders a file URL according to the chosen path style. For `.relative`,
+    /// `basePath` should be the longest common ancestor directory; if a URL does
+    /// not begin with it (which shouldn't happen in practice) the absolute path
+    /// is returned as a safe fallback.
+    private static func formatPath(_ url: URL, style: PathStyle, basePath: String) -> String {
+        let full = url.path(percentEncoded: false)
+        switch style {
+        case .absolute:
+            return full
+        case .filename:
+            return url.lastPathComponent
+        case .relative:
+            guard !basePath.isEmpty, full.hasPrefix(basePath) else { return full }
+            let stripped = full.dropFirst(basePath.count)
+            return stripped.hasPrefix("/") ? String(stripped.dropFirst()) : String(stripped)
+        }
+    }
+
+    /// Longest directory shared by every URL's parent. Returns an empty string
+    /// when the input is empty or the only common component is `/`.
+    static func commonAncestorPath(of urls: [URL]) -> String {
+        guard let first = urls.first else { return "" }
+        var common = first.deletingLastPathComponent().pathComponents
+        for url in urls.dropFirst() {
+            let parent = url.deletingLastPathComponent().pathComponents
+            var prefix: [String] = []
+            for (a, b) in zip(common, parent) {
+                if a == b { prefix.append(a) } else { break }
+            }
+            common = prefix
+            if common.count <= 1 { break }
+        }
+        guard common.count > 1 else { return "" }
+        return "/" + common.dropFirst().joined(separator: "/")
     }
 
     /// Formats an optional `Float` with a fixed number of decimal places, using a

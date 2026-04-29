@@ -4,6 +4,23 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-04-29 — Export path styles, padded text report, Simple-mode column tidy-up
+
+### Added
+- File path style option for exports: absolute path (current behaviour), relative to the longest folder shared by all exported frames, or filename only. Default is configurable in Settings → Export, with a per-export override in the export sheet. Relative mode collapses a single-folder session to bare filenames automatically.
+
+### Changed
+- The plain text (.txt) export is now a space-padded human-readable report rather than a bare list of file paths. It includes the same columns as CSV/TSV (path, optional status, metrics when available, selected FITS header columns) but every cell is padded so the file lines up cleanly in any text editor — numeric columns right-aligned, text columns left-aligned. Use CSV or TSV when you need a machine-parseable file.
+
+### Fixed
+- CSV/TSV exports left FWHM, eccentricity, SNR, stars, and score blank when a metric was disabled or the user had switched out of compute-everything mode after the first batch. The exporter now falls back to the cached metric values that are preserved for the lifetime of the session.
+
+### Improved
+- Simple-mode exports (and any session where no frame has any metrics data) now omit the `fwhm`, `eccentricity`, `snr`, `stars`, and `score` columns entirely instead of emitting empty cells, so the resulting CSV/TSV jumps straight from `path` to the selected FITS header columns.
+- FITS header column picker (Settings → Export and the export sheet) now dims keys that aren't present in any currently-loaded file, so it's clear before exporting which keys will produce data and which won't. Selected-but-absent keys are dropped from the output, and the .txt report lists them in a `# Skipped columns with no data: …` footer so the omission is auditable when re-reading the file later.
+
+---
+
 ## 2026-04-28 — FITS header export columns, export defaults, CSV decimal fix
 
 ### Added

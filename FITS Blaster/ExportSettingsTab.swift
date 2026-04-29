@@ -18,6 +18,10 @@ struct ExportSettingsTab: View {
     /// cheap even with thousands of frames.
     @State private var availableKeys: [String] = []
 
+    /// Keys that are actually present (non-empty) in at least one loaded file.
+    /// Used to dim curated keys that aren't yet relevant to the current session.
+    @State private var presentKeys: Set<String> = []
+
     var body: some View {
         @Bindable var settings = settings
 
@@ -28,19 +32,31 @@ struct ExportSettingsTab: View {
                         Text(fmt.displayName).tag(fmt)
                     }
                 }
+                Picker("File paths", selection: $settings.exportPathStyle) {
+                    ForEach(PathStyle.allCases, id: \.self) { style in
+                        Text(style.displayName).tag(style)
+                    }
+                }
+                Text("Relative paths strip the longest folder shared by all exported frames, so a single-folder session collapses to bare filenames automatically.")
+                    .scaledFont(size: 10)
+                    .foregroundStyle(.secondary)
                 Toggle("Include rejected frames by default", isOn: $settings.includeRejectedInExport)
                 Text("In plain text exports, rejected lines are suffixed with \" # REJECTED\". In CSV and TSV, a status column is added.")
                     .scaledFont(size: 10)
                     .foregroundStyle(.secondary)
             }
 
-            Section("FITS Header Columns (CSV / TSV)") {
+            Section("FITS Header Columns") {
+                Text("Header keys discovered in the currently-loaded FITS files are merged with a curated list of common keys. Dimmed keys are not present in any loaded file (still selectable; empty columns are dropped at export time).")
+                    .scaledFont(size: 10)
+                    .foregroundStyle(.secondary)
                 ExportHeaderKeyPicker(
                     selection: Binding(
                         get: { settings.exportHeaderKeys },
                         set: { settings.exportHeaderKeys = $0 }
                     ),
-                    availableKeys: availableKeys
+                    availableKeys: availableKeys,
+                    presentKeys: presentKeys
                 )
                 HStack {
                     Spacer()
@@ -53,9 +69,6 @@ struct ExportSettingsTab: View {
                         ]
                     }
                 }
-                Text("Header keys discovered in the currently-loaded FITS files are merged with a curated list of common keys. Selected keys appear as columns in the CSV/TSV export.")
-                    .scaledFont(size: 10)
-                    .foregroundStyle(.secondary)
             }
         }
         .formStyle(.grouped)
@@ -65,13 +78,19 @@ struct ExportSettingsTab: View {
 
     private func refreshAvailableKeys() {
         var keys = Set(AppSettings.knownExportHeaderKeys)
+        var present: Set<String> = []
         for entry in store.entries {
-            keys.formUnion(entry.headers.keys)
+            for (key, value) in entry.headers
+            where !FITSReader.cleanHeaderString(value).isEmpty {
+                keys.insert(key)
+                present.insert(key)
+            }
         }
         // Always show selected keys even if neither list contains them anymore
         // (e.g. user typed a custom key in a previous version of the app).
         keys.formUnion(settings.exportHeaderKeys)
         availableKeys = keys.sorted()
+        presentKeys = present
     }
 }
 
@@ -83,6 +102,7 @@ struct ExportSettingsTab: View {
 private struct ExportHeaderKeyPicker: View {
     @Binding var selection: [String]
     let availableKeys: [String]
+    let presentKeys: Set<String>
 
     private let columns = [
         GridItem(.flexible(), alignment: .leading),
@@ -96,6 +116,7 @@ private struct ExportHeaderKeyPicker: View {
                     Toggle(isOn: binding(for: key)) {
                         Text(key)
                             .scaledFont(size: 11, monospaced: true)
+                            .foregroundStyle(presentKeys.contains(key) ? .primary : .secondary)
                     }
                     .toggleStyle(.checkbox)
                 }

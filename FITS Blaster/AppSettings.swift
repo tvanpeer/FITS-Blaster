@@ -228,6 +228,13 @@ final class AppSettings {
         didSet { UserDefaults.standard.set(includeRejectedInExport, forKey: "includeRejectedInExport") }
     }
 
+    /// How file paths are rendered in exports. Relative mode strips the longest
+    /// common ancestor of all exported frames, so a single-folder session
+    /// collapses to bare filenames automatically.
+    var exportPathStyle: PathStyle = .absolute {
+        didSet { UserDefaults.standard.set(exportPathStyle.rawValue, forKey: "exportPathStyle") }
+    }
+
     /// FITS header keys to include as additional columns in CSV/TSV exports.
     /// Defaults to a curated session-report set covering acquisition, focus, weather,
     /// and pointing fields commonly written by Boltwood, ASCOM, and Indi drivers.
@@ -320,6 +327,8 @@ final class AppSettings {
            let fmt = ExportFormat(rawValue: raw) { defaultExportFormat = fmt }
         includeRejectedInExport = UD.bool(   "includeRejectedInExport", default: includeRejectedInExport)
         exportHeaderKeys        = UD.strings("exportHeaderKeys",        default: exportHeaderKeys)
+        if let raw = UserDefaults.standard.string(forKey: "exportPathStyle"),
+           let style = PathStyle(rawValue: raw) { exportPathStyle = style }
 
         // Text size (stored as index into availableTypeSizes)
         if let idx = UserDefaults.standard.object(forKey: "dynamicTypeSize") as? Int,
