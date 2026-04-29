@@ -6,6 +6,71 @@
         <description>Beta release notes for FITS Blaster</description>
         <language>en-us</language>
         <item>
+            <title>FITS Blaster 1.23-beta.4</title>
+            <pubDate>Wed, 29 Apr 2026 09:18:16 +0000</pubDate>
+            <sparkle:version>193</sparkle:version>
+            <sparkle:shortVersionString>1.23-beta.4</sparkle:shortVersionString>
+            <description><![CDATA[
+<h2>2026-04-29 — Export path styles, padded text report, Simple-mode column tidy-up</h2>
+<h3>Added</h3>
+<ul>
+  <li>File path style option for exports: absolute path (current behaviour), relative to the longest folder shared by all exported frames, or filename only. Default is configurable in Settings → Export, with a per-export override in the export sheet. Relative mode collapses a single-folder session to bare filenames automatically.</li>
+</ul>
+<h3>Changed</h3>
+<ul>
+  <li>The plain text (.txt) export is now a space-padded human-readable report rather than a bare list of file paths. It includes the same columns as CSV/TSV (path, optional status, metrics when available, selected FITS header columns) but every cell is padded so the file lines up cleanly in any text editor — numeric columns right-aligned, text columns left-aligned. Use CSV or TSV when you need a machine-parseable file.</li>
+</ul>
+<h3>Fixed</h3>
+<ul>
+  <li>CSV/TSV exports left FWHM, eccentricity, SNR, stars, and score blank when a metric was disabled or the user had switched out of compute-everything mode after the first batch. The exporter now falls back to the cached metric values that are preserved for the lifetime of the session.</li>
+</ul>
+<h3>Improved</h3>
+<ul>
+  <li>Simple-mode exports (and any session where no frame has any metrics data) now omit the `fwhm`, `eccentricity`, `snr`, `stars`, and `score` columns entirely instead of emitting empty cells, so the resulting CSV/TSV jumps straight from `path` to the selected FITS header columns.</li>
+  <li>FITS header column picker (Settings → Export and the export sheet) now dims keys that aren&#x27;t present in any currently-loaded file, so it&#x27;s clear before exporting which keys will produce data and which won&#x27;t. Selected-but-absent keys are dropped from the output, and the .txt report lists them in a `# Skipped columns with no data: …` footer so the omission is auditable when re-reading the file later.</li>
+</ul>
+<p>---</p>
+<h2>2026-04-28 — FITS header export columns, export defaults, CSV decimal fix</h2>
+<h3>Added</h3>
+<ul>
+  <li>Configurable FITS header columns in CSV/TSV exports. Choose which header keys appear as columns in Settings → Export, or override per-export via the new export sheet. Defaults cover acquisition, focus, weather, and pointing fields (OBJECT, DATE-OBS, EXPTIME, FILTER, GAIN, OFFSET, CCD-TEMP, FOCUSPOS, AIRMASS, OBJCTALT, AMBTEMP, HUMIDITY).</li>
+  <li>Tab-separated (.tsv) export format alongside CSV — handy for opening in plain text editors with aligned columns.</li>
+  <li>Optional inclusion of rejected frames in exports. Plain text adds a `# REJECTED` suffix; CSV/TSV add a `status` column (`kept` / `rejected`).</li>
+  <li>Quality score column in CSV/TSV exports.</li>
+</ul>
+<h3>Fixed</h3>
+<ul>
+  <li>CSV exports could emit integer values for FWHM and eccentricity on systems with comma-decimal locales (Dutch/German/French), because the formatter used the user&#x27;s region. Numbers now use a fixed `en_US_POSIX` locale and always have the configured decimal places.</li>
+</ul>
+<h3>Improved</h3>
+<ul>
+  <li>Export sheet redesigned with format picker, rejected-frames toggle, and a FITS header column list. All values pre-populate from Settings → Export defaults; if you change anything, an orange notice signals &quot;applies to this export only&quot; (same pattern as the Open Folder panel).</li>
+  <li>Export plain text retains its file-list-only output, but now includes a per-line marker for rejected frames when they are exported.</li>
+</ul>
+<p>---</p>
+<h2>2026-04-12 — QuickLook previews and thumbnails for all FITS formats</h2>
+<h3>Added</h3>
+<ul>
+  <li>QuickLook preview and thumbnail support for floating-point FITS files (BITPIX -32 and -64). Previously these showed blank icons in Finder.</li>
+  <li>QuickLook preview and thumbnail support for 3-channel RGB colour FITS files (NAXIS3=3), such as stacked integrations from Astro Pixel Processor.</li>
+  <li>Asinh stretch (beta=50) for float FITS previews — compresses bright cores while revealing faint nebulosity in linear astrophotography data.</li>
+  <li>Large-file subsampling: files over 2048px are stride-sampled during preview to stay within QuickLook&#x27;s memory limit (~120 MB), enabling previews of 1+ GB stacked integrations.</li>
+  <li>`FITSReader.readForPreview(from:)` — dedicated read path that accepts float BITPIX and multi-channel files without affecting the main app&#x27;s integer-only pipeline.</li>
+</ul>
+<h3>Improved</h3>
+<ul>
+  <li>Zero-pixel exclusion in percentile estimation prevents stacking artifacts (unfilled corners) from skewing the preview stretch.</li>
+</ul>
+<p>---</p>
+<p>**[Full changelog](https://astrophoto-app.com/changelog.html)**</p>
+            ]]></description>
+            <enclosure
+                url="https://github.com/tvanpeer/FITS-Blaster/releases/download/v1.23-beta.4/FITS-Blaster-1.23-beta.4.dmg"
+                length="8461898"
+                type="application/octet-stream"
+                sparkle:edSignature="BJn0N4vHT4AneyEEmTuZ5Ae4/J3LgUtOpURnWanEZh7x+gpTu4KtOp6Uj+hMjxyF4eHWtSQ7zj/JdtZmFNAIBw==" />
+        </item>
+        <item>
             <title>FITS Blaster 1.23-beta.3</title>
             <pubDate>Tue, 28 Apr 2026 19:24:49 +0000</pubDate>
             <sparkle:version>190</sparkle:version>

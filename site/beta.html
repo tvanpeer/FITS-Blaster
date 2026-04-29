@@ -305,19 +305,19 @@
     <!-- v1.23-beta.4 -->
     <div class="entry">
         <div class="entry-header">
-            <div class="entry-title">Export path styles, padded text report, smarter header columns — v1.23-beta.4</div>
+            <div class="entry-title">Export path styles, padded text report, Simple-mode column tidy-up — v1.23-beta.4</div>
             <div class="entry-date">2026-04-29</div>
         </div>
         <div class="section">
             <span class="section-label label-added">Added</span>
             <ul>
-                <li>File path style picker for exports — absolute path, relative to the longest folder shared by all exported frames, or filename only. Default is configurable in Settings → Export with a per-export override in the export sheet. Relative mode collapses a single-folder session to bare filenames automatically.</li>
+                <li>File path style option for exports: absolute path (current behaviour), relative to the longest folder shared by all exported frames, or filename only. Default is configurable in Settings → Export, with a per-export override in the export sheet. Relative mode collapses a single-folder session to bare filenames automatically.</li>
             </ul>
         </div>
         <div class="section">
             <span class="section-label label-changed">Changed</span>
             <ul>
-                <li>Plain text (.txt) export is now a space-padded human-readable report rather than a bare list of file paths. Same columns as CSV/TSV, but every cell is padded so the file lines up cleanly in any text editor — numeric columns right-aligned, text columns left-aligned. Use CSV or TSV for machine-parseable output.</li>
+                <li>The plain text (.txt) export is now a space-padded human-readable report rather than a bare list of file paths. It includes the same columns as CSV/TSV (path, optional status, metrics when available, selected FITS header columns) but every cell is padded so the file lines up cleanly in any text editor — numeric columns right-aligned, text columns left-aligned. Use CSV or TSV when you need a machine-parseable file.</li>
             </ul>
         </div>
         <div class="section">
@@ -329,38 +329,8 @@
         <div class="section">
             <span class="section-label label-improved">Improved</span>
             <ul>
-                <li>Simple-mode exports (and any session where no frame has any metrics data) now omit the <code>fwhm</code>, <code>eccentricity</code>, <code>snr</code>, <code>stars</code>, and <code>score</code> columns entirely instead of emitting empty cells.</li>
-                <li>FITS header column picker (Settings → Export and the export sheet) dims keys not present in any currently loaded file, so it's clear before exporting which keys will produce data. Selected-but-absent keys are dropped from the output, and the .txt report lists them in a <code># Skipped columns with no data: …</code> footer so the omission is auditable when re-reading the file later.</li>
-                <li>FITS header column picker is now available for plain text exports too.</li>
-            </ul>
-        </div>
-    </div>
-    <!-- v1.23-beta.3 -->
-    <div class="entry">
-        <div class="entry-header">
-            <div class="entry-title">FITS header export columns, export defaults, CSV decimal fix — v1.23-beta.3</div>
-            <div class="entry-date">2026-04-28</div>
-        </div>
-        <div class="section">
-            <span class="section-label label-added">Added</span>
-            <ul>
-                <li>Configurable FITS header columns in CSV/TSV exports. Choose which header keys appear as columns in Settings → Export, or override per-export via the new export sheet. Defaults cover acquisition, focus, weather, and pointing fields (OBJECT, DATE-OBS, EXPTIME, FILTER, GAIN, OFFSET, CCD-TEMP, FOCUSPOS, AIRMASS, OBJCTALT, AMBTEMP, HUMIDITY).</li>
-                <li>Tab-separated (.tsv) export format alongside CSV — handy for opening in plain text editors with aligned columns.</li>
-                <li>Optional inclusion of rejected frames in exports. Plain text adds a <code># REJECTED</code> suffix; CSV/TSV add a <code>status</code> column (<code>kept</code> / <code>rejected</code>).</li>
-                <li>Quality score column in CSV/TSV exports.</li>
-            </ul>
-        </div>
-        <div class="section">
-            <span class="section-label label-fixed">Fixed</span>
-            <ul>
-                <li>CSV exports could emit integer values for FWHM and eccentricity on systems with comma-decimal locales (Dutch/German/French), because the formatter used the user's region. Numbers now use a fixed <code>en_US_POSIX</code> locale and always have the configured decimal places.</li>
-            </ul>
-        </div>
-        <div class="section">
-            <span class="section-label label-improved">Improved</span>
-            <ul>
-                <li>Export sheet redesigned with format picker, rejected-frames toggle, and a FITS header column list. All values pre-populate from Settings → Export defaults; if you change anything, an orange notice signals "applies to this export only" (same pattern as the Open Folder panel).</li>
-                <li>Export plain text retains its file-list-only output, but now includes a per-line marker for rejected frames when they are exported.</li>
+                <li>Simple-mode exports (and any session where no frame has any metrics data) now omit the <code>fwhm</code>, <code>eccentricity</code>, <code>snr</code>, <code>stars</code>, and <code>score</code> columns entirely instead of emitting empty cells, so the resulting CSV/TSV jumps straight from <code>path</code> to the selected FITS header columns.</li>
+                <li>FITS header column picker (Settings → Export and the export sheet) now dims keys that aren't present in any currently-loaded file, so it's clear before exporting which keys will produce data and which won't. Selected-but-absent keys are dropped from the output, and the .txt report lists them in a <code># Skipped columns with no data: …</code> footer so the omission is auditable when re-reading the file later.</li>
             </ul>
         </div>
     </div>
