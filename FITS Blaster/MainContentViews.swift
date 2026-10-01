@@ -504,9 +504,14 @@ private struct ZoomControl: View {
         .tooltip("Zoom — click to reset")
         Slider(value: $bound.zoomScale, in: 0.25...4.0)
             .frame(width: 80)
-        Text("\(settings.zoomScale, format: .number.precision(.fractionLength(1)))×")
-            .scaledFont(size: 10, monospaced: true)
-            .frame(width: 34, alignment: .leading)
+        Button("\(settings.zoomScale, format: .number.precision(.fractionLength(1)))×") {
+            settings.zoomScale = 1.0
+        }
+        .buttonStyle(.borderless)
+        .scaledFont(size: 10, monospaced: true)
+        .frame(width: 34, alignment: .leading)
+        .tooltip("Click for 1:1 (100%)")
+        .disabled(settings.zoomScale == 1.0)
     }
 }
 
