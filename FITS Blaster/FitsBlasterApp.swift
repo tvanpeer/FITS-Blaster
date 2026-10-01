@@ -5,7 +5,9 @@
 //  Created by Tom van Peer on 28/02/2026.
 //
 
+#if !APPSTORE
 import Sparkle
+#endif
 import SwiftUI
 
 // MARK: - App Delegate
@@ -43,12 +45,14 @@ struct FitsBlasterApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @State private var settings = AppSettings()
     @State private var store = ImageStore()
+    #if !APPSTORE
     private static let updaterDelegate = BetaChannelUpdaterDelegate()
     private let updaterController = SPUStandardUpdaterController(
         startingUpdater: true,
         updaterDelegate: FitsBlasterApp.updaterDelegate,
         userDriverDelegate: nil
     )
+    #endif
 
     init() {
         // NSInitialToolTipDelay is an undocumented AppKit UserDefaults key (milliseconds).
@@ -96,9 +100,12 @@ struct FitsBlasterApp: App {
                 DeflagAllCommand()
             }
             CommandGroup(replacing: .appInfo) {
+                #if !APPSTORE
                 CheckForUpdatesView(updater: updaterController.updater)
                 Divider()
+                #endif
                 Button("About FITS Blaster") {
+                    #if !APPSTORE
                     NSApp.orderFrontStandardAboutPanel(options: [
                         .credits: NSAttributedString(
                             string: "If FITS Blaster saves you time, consider supporting development on Ko-fi.",
@@ -109,6 +116,9 @@ struct FitsBlasterApp: App {
                             ]
                         )
                     ])
+                    #else
+                    NSApp.orderFrontStandardAboutPanel(options: [:])
+                    #endif
                 }
             }
             CommandGroup(replacing: .help) {

@@ -84,7 +84,7 @@ struct IntegrationTests {
         let url = FileManager.default.temporaryDirectory
             .appending(component: "\(UUID().uuidString).fits")
 
-        var cards: [String] = [
+        let cards: [String] = [
             card("SIMPLE", bool: true), card("BITPIX", int: 16),
             card("NAXIS", int: 2), card("NAXIS1", int: width),
             card("NAXIS2", int: height), card("BZERO", float: 32768), endCard()

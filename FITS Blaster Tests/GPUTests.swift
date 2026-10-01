@@ -184,7 +184,7 @@ struct GPUTests {
             .appending(component: "\(UUID().uuidString).fits")
         defer { try? FileManager.default.removeItem(at: url) }
 
-        var cards: [String] = [
+        let cards: [String] = [
             fitsCard("SIMPLE", bool: true), fitsCard("BITPIX", int: 16),
             fitsCard("NAXIS", int: 2), fitsCard("NAXIS1", int: width),
             fitsCard("NAXIS2", int: height), endCard()

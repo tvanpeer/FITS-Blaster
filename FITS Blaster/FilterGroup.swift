@@ -111,15 +111,15 @@ enum FilterGroup: String, CaseIterable, Identifiable, Hashable {
         // above use whole-word forms (s == "ho", hasPrefix("ho ")) for the same reason.
         // Ordering within this block also matters: each check must not be a substring of
         // a later one (e.g. "sii" must come after "so" so "sii+oiii" is caught by .so first).
-        if s == "ha" || s.contains("halpha") || s.contains("h-alpha")
+        if s == "ha" || s == "h" || s.contains("halpha") || s.contains("h-alpha")
             || s.contains("h_alpha") || s.contains("656nm") {
             return .ha
         }
-        if s.contains("oiii") || s.contains("o-iii") || s == "o3"
+        if s.contains("oiii") || s.contains("o-iii") || s == "o3" || s == "o"
             || s.contains("500nm") {
             return .oiii
         }
-        if s.contains("sii") || s.contains("s-ii") || s == "s2"
+        if s.contains("sii") || s.contains("s-ii") || s == "s2" || s == "s"
             || s.contains("672nm") {
             return .sii
         }
@@ -129,7 +129,7 @@ enum FilterGroup: String, CaseIterable, Identifiable, Hashable {
         }
 
         // ── Broadband
-        if s == "l" || s.contains("lum") || s.contains("clear")
+        if s == "l" || s == "ir" || s.contains("lum") || s.contains("clear")
             || s.contains("ir cut") || s.contains("baader l") {
             return .luminance
         }

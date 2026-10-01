@@ -76,12 +76,12 @@ struct ContentView: View {
 
     private var contentWithSelectionFocus: some View {
         splitContentWithAppFocus
-            .focusedSceneValue(\.selectAllAction)          { store.selectAllVisible() }
-            .focusedSceneValue(\.deselectAllAction)        { store.deselectAll() }
-            .focusedSceneValue(\.invertSelectionAction)    { store.invertSelection() }
-            .focusedSceneValue(\.selectAllRejectedAction)  { store.selectAllRejected() }
-            .focusedSceneValue(\.toggleFlagAction)         { store.toggleFlagSelected() }
-            .focusedSceneValue(\.deflagAllAction)          { store.deflagAll() }
+            .focusedSceneValue(\.selectAllAction,         FocusedAction { store.selectAllVisible() })
+            .focusedSceneValue(\.deselectAllAction,       FocusedAction { store.deselectAll() })
+            .focusedSceneValue(\.invertSelectionAction,   FocusedAction { store.invertSelection() })
+            .focusedSceneValue(\.selectAllRejectedAction, FocusedAction { store.selectAllRejected() })
+            .focusedSceneValue(\.toggleFlagAction,        FocusedAction { store.toggleFlagSelected() })
+            .focusedSceneValue(\.deflagAllAction,         FocusedAction { store.deflagAll() })
             .focusedSceneValue(\.flagKeyString,              settings.flagKey)
             .focusedSceneValue(\.deflagAllKeyString,         settings.deflagAllKey)
             .focusedSceneValue(\.selectAllKeyString,         settings.selectAllKey)
@@ -102,7 +102,7 @@ struct ContentView: View {
             ))
             .focusedSceneValue(\.toggleModeKeyString, settings.toggleModeKey)
             .focusedSceneValue(\.debayerKeyString, settings.debayerKey)
-            .focusedSceneValue(\.openFolderAction) { store.openFolderPanel(settings: settings) }
+            .focusedSceneValue(\.openFolderAction, FocusedAction { store.openFolderPanel(settings: settings) })
     }
 
     private var splitContent: some View {

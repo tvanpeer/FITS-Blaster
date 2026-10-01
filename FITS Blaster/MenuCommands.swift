@@ -5,7 +5,9 @@
 //  Menu bar command views used by FitsBlasterApp.
 //
 
+#if !APPSTORE
 import Sparkle
+#endif
 import SwiftUI
 
 /// Opens the main window (⌘N). If a main window is already open or miniaturised
@@ -164,6 +166,7 @@ struct DeflagAllCommand: View {
     }
 }
 
+#if !APPSTORE
 /// Menu item that triggers a manual update check via Sparkle.
 struct CheckForUpdatesView: View {
     let updater: SPUUpdater
@@ -174,6 +177,7 @@ struct CheckForUpdatesView: View {
         }
     }
 }
+#endif
 
 /// Toggles Simple/Geek mode from the View menu using the focused window's binding.
 struct SimpleModeCommand: View {
