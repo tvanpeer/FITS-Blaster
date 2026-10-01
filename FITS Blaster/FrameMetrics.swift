@@ -74,6 +74,8 @@ struct FrameMetrics: Sendable {
     let starCount: Int?
     /// Composite quality score 0–100 derived from whichever metrics were enabled
     let qualityScore: Int
+    /// Median sky background level in ADU, from stratified sampling (nil if star detection skipped)
+    let skyBackground: Float?
 
     // MARK: Merge / Filter
 
@@ -85,7 +87,8 @@ struct FrameMetrics: Sendable {
         let s  = config.computeSNR          ? snr          : nil
         let sc = config.computeStarCount    ? starCount    : nil
         return FrameMetrics(fwhm: f, eccentricity: e, snr: s, starCount: sc,
-                            qualityScore: MetricsCalculator.qualityScore(fwhm: f, eccentricity: e, snr: s, starCount: sc))
+                            qualityScore: MetricsCalculator.qualityScore(fwhm: f, eccentricity: e, snr: s, starCount: sc),
+                            skyBackground: skyBackground)
     }
 
     /// Returns a new FrameMetrics merging self with `other`, preferring `other`'s non-nil values.
@@ -94,8 +97,10 @@ struct FrameMetrics: Sendable {
         let e  = other.eccentricity ?? eccentricity
         let s  = other.snr          ?? snr
         let sc = other.starCount    ?? starCount
+        let bg = other.skyBackground ?? skyBackground
         return FrameMetrics(fwhm: f, eccentricity: e, snr: s, starCount: sc,
-                            qualityScore: MetricsCalculator.qualityScore(fwhm: f, eccentricity: e, snr: s, starCount: sc))
+                            qualityScore: MetricsCalculator.qualityScore(fwhm: f, eccentricity: e, snr: s, starCount: sc),
+                            skyBackground: bg)
     }
 
     /// True when this cached result already provides every metric requested by `config`.

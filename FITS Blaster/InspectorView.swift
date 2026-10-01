@@ -98,6 +98,10 @@ private struct InspectorMetricsSection: View {
                     if config.computeStarCount, let v = metrics.starCount {
                         MetricRow(label: "Stars", value: "\(v)")
                     }
+                    if let bg = metrics.skyBackground {
+                        MetricRow(label: "Sky BG",
+                                  value: "\(Int(bg.rounded())) ADU")
+                    }
                     Divider().padding(.vertical, 4)
                     MetricRow(label: "Score", value: "\(metrics.qualityScore) / 100")
                         .foregroundStyle(metrics.scoreColor)

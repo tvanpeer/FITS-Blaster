@@ -341,7 +341,8 @@ struct MetricsCalculator {
                                  starCount:    config.computeStarCount    ? starCount    : nil)
 
         return FrameMetrics(fwhm: fwhm, eccentricity: eccentricity,
-                            snr: snr, starCount: starCount, qualityScore: score)
+                            snr: snr, starCount: starCount, qualityScore: score,
+                            skyBackground: background)
     }
 
     // MARK: - Private orchestration
@@ -479,6 +480,7 @@ struct MetricsCalculator {
                                  starCount:    config.computeStarCount    ? starCount    : nil)
 
         return FrameMetrics(fwhm: fwhm, eccentricity: eccentricity,
-                            snr: snr, starCount: starCount, qualityScore: score)
+                            snr: snr, starCount: starCount, qualityScore: score,
+                            skyBackground: background)
     }
 }

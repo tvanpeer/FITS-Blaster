@@ -210,7 +210,7 @@ struct FilterStrip: View {
     @Bindable var store: ImageStore
 
     var body: some View {
-        HStack(spacing: 5) {
+        WrappingChips(spacing: 5) {
             FilterChip(label: "All",
                        color: .accentColor,
                        isSelected: store.sidebarFilterGroup == nil) {

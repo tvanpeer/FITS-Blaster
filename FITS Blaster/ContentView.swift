@@ -108,7 +108,7 @@ struct ContentView: View {
     private var splitContent: some View {
         HSplitView {
             ThumbnailSidebar()
-                .frame(minWidth: 140, idealWidth: 165, maxWidth: 220)
+                .frame(minWidth: 140, idealWidth: 200, maxWidth: 360)
 
             VStack(spacing: 0) {
                 FITSToolbar(store: store)
