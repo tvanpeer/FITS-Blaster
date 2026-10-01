@@ -4,6 +4,18 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-01 — Filter pills, sky background, and 1:1 zoom
+
+### Improved
+- Filter pills in the thumbnail sidebar now wrap onto multiple rows when many filter groups are active, instead of overflowing into a single cramped line.
+- The thumbnail sidebar can now be dragged up to 360 px wide (previously capped at 220 px).
+- The zoom percentage label (e.g. "0.5×") is now a button — click it to jump instantly to 1:1 (100%) for pixel peeping. Tooltip reads "Click for 1:1 (100%)".
+
+### Added
+- **Sky background** metric in the inspector panel: the median ADU level of the sky background, estimated as a free side-effect of star detection. Useful as a relative sky-darkness indicator across a session.
+
+---
+
 ## 2026-10-01 — Single-letter filter codes recognised
 
 ### Fixed
