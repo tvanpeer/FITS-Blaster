@@ -287,7 +287,7 @@
     <h1>FITS Blaster</h1>
     <div class="beta-badge">Beta</div>
     <p>Test the latest features before they ship. Beta builds may contain bugs.</p>
-    <a class="download-btn" href="https://github.com/tvanpeer/FITS-Blaster/releases/download/v1.23-beta.6/FITS-Blaster-1.23-beta.6.dmg">Download Beta 1.23-beta.6</a>
+    <a class="download-btn" href="https://github.com/tvanpeer/FITS-Blaster/releases/download/v1.23-beta.7/FITS-Blaster-1.23-beta.7.dmg">Download Beta 1.23-beta.7</a>
     <p class="download-sub">macOS 15.7 or later &nbsp;&middot;&nbsp; Free</p>
 </header>
 
@@ -302,16 +302,24 @@
 <section class="content">
     <h2>Latest beta</h2>
     <!-- beta-entry-start -->
-    <!-- v1.23-beta.6 -->
+    <!-- v1.23-beta.7 -->
     <div class="entry">
         <div class="entry-header">
-            <div class="entry-title">Single-letter filter codes recognised — v1.23-beta.6</div>
+            <div class="entry-title">Filter pills, sky background, and 1:1 zoom — v1.23-beta.7</div>
             <div class="entry-date">2026-10-01</div>
         </div>
         <div class="section">
-            <span class="section-label label-fixed">Fixed</span>
+            <span class="section-label label-improved">Improved</span>
             <ul>
-                <li>Filter names consisting of a single letter — <strong>H</strong>, <strong>O</strong>, <strong>S</strong> — were shown as "Unfiltered" instead of being mapped to Hα, OIII, and SII respectively. Also added <strong>IR</strong> as an alias for Luminance. Affects users whose capture software writes short codes in the FITS FILTER header (common with N.I.N.A., SGP, and some ASIAIR configurations).</li>
+                <li>Filter pills in the thumbnail sidebar now wrap onto multiple rows when many filter groups are active, instead of overflowing into a single cramped line.</li>
+                <li>The thumbnail sidebar can now be dragged up to 360 px wide (previously capped at 220 px).</li>
+                <li>The zoom percentage label (e.g. "0.5×") is now a button — click it to jump instantly to 1:1 (100%) for pixel peeping. Tooltip reads "Click for 1:1 (100%)".</li>
+            </ul>
+        </div>
+        <div class="section">
+            <span class="section-label label-added">Added</span>
+            <ul>
+                <li><strong>Sky background</strong> metric in the inspector panel: the median ADU level of the sky background, estimated as a free side-effect of star detection. Useful as a relative sky-darkness indicator across a session.</li>
             </ul>
         </div>
     </div>
