@@ -431,7 +431,7 @@
 			buildSettings = {
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 196;
+				CURRENT_PROJECT_VERSION = 197;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 6GBJ9SAJ6Y;
 				ENABLE_APP_SANDBOX = YES;
@@ -446,7 +446,7 @@
 					"@executable_path/../Frameworks",
 					"@executable_path/../../../../Frameworks",
 				);
-				MARKETING_VERSION = "1.23-beta.5";
+				MARKETING_VERSION = "1.23-beta.6";
 				PRODUCT_BUNDLE_IDENTIFIER = com.astrophotoapp.FitsBlaster.FITSBlasterQL;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -462,7 +462,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 196;
+				CURRENT_PROJECT_VERSION = 197;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 6GBJ9SAJ6Y;
 				ENABLE_APP_SANDBOX = YES;
@@ -477,7 +477,7 @@
 					"@executable_path/../Frameworks",
 					"@executable_path/../../../../Frameworks",
 				);
-				MARKETING_VERSION = "1.23-beta.5";
+				MARKETING_VERSION = "1.23-beta.6";
 				PRODUCT_BUNDLE_IDENTIFIER = com.astrophotoapp.FitsBlaster.FITSBlasterQL;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -494,7 +494,7 @@
 			buildSettings = {
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 196;
+				CURRENT_PROJECT_VERSION = 197;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 6GBJ9SAJ6Y;
 				ENABLE_APP_SANDBOX = YES;
@@ -509,7 +509,7 @@
 					"@executable_path/../Frameworks",
 					"@executable_path/../../../../Frameworks",
 				);
-				MARKETING_VERSION = "1.23-beta.5";
+				MARKETING_VERSION = "1.23-beta.6";
 				PRODUCT_BUNDLE_IDENTIFIER = com.astrophotoapp.FitsBlaster.FITSBlasterQLThumb;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -525,7 +525,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 196;
+				CURRENT_PROJECT_VERSION = 197;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 6GBJ9SAJ6Y;
 				ENABLE_APP_SANDBOX = YES;
@@ -540,7 +540,7 @@
 					"@executable_path/../Frameworks",
 					"@executable_path/../../../../Frameworks",
 				);
-				MARKETING_VERSION = "1.23-beta.5";
+				MARKETING_VERSION = "1.23-beta.6";
 				PRODUCT_BUNDLE_IDENTIFIER = com.astrophotoapp.FitsBlaster.FITSBlasterQLThumb;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -687,7 +687,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 196;
+				CURRENT_PROJECT_VERSION = 197;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 6GBJ9SAJ6Y;
 				ENABLE_APP_SANDBOX = YES;
@@ -702,7 +702,7 @@
 					"@executable_path/../Frameworks",
 					"@executable_path/../../../../Frameworks",
 				);
-				MARKETING_VERSION = "1.23-beta.5";
+				MARKETING_VERSION = "1.23-beta.6";
 				PRODUCT_BUNDLE_IDENTIFIER = com.astrophotoapp.FitsBlaster.FITSBlasterQL;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -718,7 +718,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 196;
+				CURRENT_PROJECT_VERSION = 197;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 6GBJ9SAJ6Y;
 				ENABLE_APP_SANDBOX = YES;
@@ -733,7 +733,7 @@
 					"@executable_path/../Frameworks",
 					"@executable_path/../../../../Frameworks",
 				);
-				MARKETING_VERSION = "1.23-beta.5";
+				MARKETING_VERSION = "1.23-beta.6";
 				PRODUCT_BUNDLE_IDENTIFIER = com.astrophotoapp.FitsBlaster.FITSBlasterQLThumb;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -887,7 +887,7 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 196;
+				CURRENT_PROJECT_VERSION = 197;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 6GBJ9SAJ6Y;
 				ENABLE_APP_SANDBOX = YES;
@@ -913,7 +913,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 15.6;
-				MARKETING_VERSION = "1.23-beta.5";
+				MARKETING_VERSION = "1.23-beta.6";
 				PRODUCT_BUNDLE_IDENTIFIER = com.astrophotoapp.FitsBlaster;
 				PRODUCT_NAME = "FITS Blaster";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -936,7 +936,7 @@
 				"CODE_SIGN_ENTITLEMENTS[sdk=*]" = "FITS Blaster/FITS Blaster.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 196;
+				CURRENT_PROJECT_VERSION = 197;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 6GBJ9SAJ6Y;
 				ENABLE_APP_SANDBOX = YES;
@@ -961,7 +961,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 15.6;
-				MARKETING_VERSION = "1.23-beta.5";
+				MARKETING_VERSION = "1.23-beta.6";
 				PRODUCT_BUNDLE_IDENTIFIER = com.astrophotoapp.FitsBlaster;
 				PRODUCT_NAME = "FITS Blaster";
 				REGISTER_APP_GROUPS = YES;

@@ -4,6 +4,13 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-01 — Single-letter filter codes recognised
+
+### Fixed
+- Filter names consisting of a single letter — **H**, **O**, **S** — were shown as "Unfiltered" instead of being mapped to Hα, OIII, and SII respectively. Also added **IR** as an alias for Luminance. Affects users whose capture software writes short codes in the FITS FILTER header (common with N.I.N.A., SGP, and some ASIAIR configurations).
+
+---
+
 ## 2026-04-29 — Beta update channel actually works now
 
 ### Fixed
