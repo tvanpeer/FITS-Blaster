@@ -222,6 +222,34 @@
 
 <div class="content">
 
+    <!-- v1.23-beta.9 -->
+    <div class="entry">
+        <div class="entry-header">
+            <div class="entry-title">STF auto-stretch, Sky BG auto-flag, full-screen layout fixes — v1.23-beta.9</div>
+            <div class="entry-date">2026-10-02</div>
+        </div>
+        <div class="section">
+            <span class="section-label label-improved">Improved</span>
+            <ul>
+                <li>Replaced gamma 2.2 stretch with a PixInsight-style Screen Transfer Function (STF). The algorithm computes the image median and MAD to set a statistical black point, then applies a Midtone Transfer Function (MTF) that places the sky background at ~25% grey — darker background, more contrast in faint nebulosity, no blown-out highlights.</li>
+                <li>The image now auto-fits to the newly available space when switching modes or showing/hiding the inspector.</li>
+            </ul>
+        </div>
+        <div class="section">
+            <span class="section-label label-added">Added</span>
+            <ul>
+                <li>Sky background threshold in the Auto-Flag sheet: flag frames where sky brightness exceeds a multiple of the group median (relative mode) or a fixed ADU ceiling (absolute mode).</li>
+            </ul>
+        </div>
+        <div class="section">
+            <span class="section-label label-fixed">Fixed</span>
+            <ul>
+                <li>Switching between Geek and Simple mode in full screen no longer leaves a black dead column where the inspector panel used to be.</li>
+                <li>Inspector panel now correctly reappears when switching back to Geek mode after having been in Simple mode.</li>
+            </ul>
+        </div>
+    </div>
+
     <!-- v1.23-beta.8 -->
     <div class="entry">
         <div class="entry-header">
