@@ -6,6 +6,49 @@
         <description>Beta release notes for FITS Blaster</description>
         <language>en-us</language>
         <item>
+            <title>FITS Blaster 1.23-beta.8</title>
+            <pubDate>Fri, 02 Oct 2026 09:54:06 +0000</pubDate>
+            <sparkle:version>200</sparkle:version>
+            <sparkle:shortVersionString>1.23-beta.8</sparkle:shortVersionString>
+            <description><![CDATA[
+<h2>2026-10-02 — Consistent stretch and sky background chart</h2>
+<h3>Improved</h3>
+<ul>
+  <li>Greyscale (mono) images in the same folder and filter group are now rendered with a consistent shared stretch, eliminating the brightness flickering when scrolling quickly through a session.</li>
+  <li>Sky background value is now shown in the inline metrics row above the chart alongside FWHM, Ecc, SNR, and Stars.</li>
+</ul>
+<h3>Added</h3>
+<ul>
+  <li><b>Sky BG</b> chart metric: plot the sky background ADU level across the session, with per-filter-group median lines.</li>
+</ul>
+<p>---</p>
+<h2>2026-10-01 — Filter pills, sky background, and 1:1 zoom</h2>
+<h3>Improved</h3>
+<ul>
+  <li>Filter pills in the thumbnail sidebar now wrap onto multiple rows when many filter groups are active, instead of overflowing into a single cramped line.</li>
+  <li>The thumbnail sidebar can now be dragged up to 360 px wide (previously capped at 220 px).</li>
+  <li>The zoom percentage label (e.g. &quot;0.5×&quot;) is now a button — click it to jump instantly to 1:1 (100%) for pixel peeping. Tooltip reads &quot;Click for 1:1 (100%)&quot;.</li>
+</ul>
+<h3>Added</h3>
+<ul>
+  <li><b>Sky background</b> metric in the inspector panel: the median ADU level of the sky background, estimated as a free side-effect of star detection. Useful as a relative sky-darkness indicator across a session.</li>
+</ul>
+<p>---</p>
+<h2>2026-10-01 — Single-letter filter codes recognised</h2>
+<h3>Fixed</h3>
+<ul>
+  <li>Filter names consisting of a single letter — <b>H</b>, <b>O</b>, <b>S</b> — were shown as &quot;Unfiltered&quot; instead of being mapped to Hα, OIII, and SII respectively. Also added <b>IR</b> as an alias for Luminance. Affects users whose capture software writes short codes in the FITS FILTER header (common with N.I.N.A., SGP, and some ASIAIR configurations).</li>
+</ul>
+<p>---</p>
+<p>**[Full changelog](https://astrophoto-app.com/changelog.html)**</p>
+            ]]></description>
+            <enclosure
+                url="https://github.com/tvanpeer/FITS-Blaster/releases/download/v1.23-beta.8/FITS-Blaster-1.23-beta.8.dmg"
+                length="8478039"
+                type="application/octet-stream"
+                sparkle:edSignature="1WTVvLjvbJbgseQULKZ7s855llmh2ba3taoRvIHgb9iKBjnEVUJeSYm/06ozbVPDLCEKYU8YLywjP8Tm7Ys9Cg==" />
+        </item>
+        <item>
             <title>FITS Blaster 1.23-beta.7</title>
             <pubDate>Thu, 01 Oct 2026 18:13:22 +0000</pubDate>
             <sparkle:version>199</sparkle:version>

@@ -287,7 +287,7 @@
     <h1>FITS Blaster</h1>
     <div class="beta-badge">Beta</div>
     <p>Test the latest features before they ship. Beta builds may contain bugs.</p>
-    <a class="download-btn" href="https://github.com/tvanpeer/FITS-Blaster/releases/download/v1.23-beta.7/FITS-Blaster-1.23-beta.7.dmg">Download Beta 1.23-beta.7</a>
+    <a class="download-btn" href="https://github.com/tvanpeer/FITS-Blaster/releases/download/v1.23-beta.8/FITS-Blaster-1.23-beta.8.dmg">Download Beta 1.23-beta.8</a>
     <p class="download-sub">macOS 15.7 or later &nbsp;&middot;&nbsp; Free</p>
 </header>
 
@@ -302,24 +302,23 @@
 <section class="content">
     <h2>Latest beta</h2>
     <!-- beta-entry-start -->
-    <!-- v1.23-beta.7 -->
+    <!-- v1.23-beta.8 -->
     <div class="entry">
         <div class="entry-header">
-            <div class="entry-title">Filter pills, sky background, and 1:1 zoom — v1.23-beta.7</div>
-            <div class="entry-date">2026-10-01</div>
+            <div class="entry-title">Consistent stretch and sky background chart — v1.23-beta.8</div>
+            <div class="entry-date">2026-10-02</div>
         </div>
         <div class="section">
             <span class="section-label label-improved">Improved</span>
             <ul>
-                <li>Filter pills in the thumbnail sidebar now wrap onto multiple rows when many filter groups are active, instead of overflowing into a single cramped line.</li>
-                <li>The thumbnail sidebar can now be dragged up to 360 px wide (previously capped at 220 px).</li>
-                <li>The zoom percentage label (e.g. "0.5×") is now a button — click it to jump instantly to 1:1 (100%) for pixel peeping. Tooltip reads "Click for 1:1 (100%)".</li>
+                <li>Greyscale (mono) images in the same folder and filter group are now rendered with a consistent shared stretch, eliminating the brightness flickering when scrolling quickly through a session.</li>
+                <li>Sky background value is now shown in the inline metrics row above the chart alongside FWHM, Ecc, SNR, and Stars.</li>
             </ul>
         </div>
         <div class="section">
             <span class="section-label label-added">Added</span>
             <ul>
-                <li><strong>Sky background</strong> metric in the inspector panel: the median ADU level of the sky background, estimated as a free side-effect of star detection. Useful as a relative sky-darkness indicator across a session.</li>
+                <li><strong>Sky BG</strong> chart metric: plot the sky background ADU level across the session, with per-filter-group median lines.</li>
             </ul>
         </div>
     </div>
