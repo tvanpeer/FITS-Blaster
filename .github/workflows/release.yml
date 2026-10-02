@@ -82,13 +82,13 @@ jobs:
       - name: Rename app for beta
         if: env.IS_BETA == 'true'
         run: |
-          mv "$RUNNER_TEMP/export/FITS Blaster.app" "$RUNNER_TEMP/export/FITS Blaster ${VERSION}.app"
+          mv "$RUNNER_TEMP/export/FITS Blaster.app" "$RUNNER_TEMP/export/FITS Blaster Beta.app"
 
       - name: Create DMG
         run: |
           brew install create-dmg
           if [ "$IS_BETA" = "true" ]; then
-            APP_NAME="FITS Blaster ${VERSION}.app"
+            APP_NAME="FITS Blaster Beta.app"
           else
             APP_NAME="FITS Blaster.app"
           fi
@@ -140,7 +140,7 @@ jobs:
       - name: Generate Sparkle appcast
         run: |
           if [ "$IS_BETA" = "true" ]; then
-            APP_PATH="$RUNNER_TEMP/export/FITS Blaster ${VERSION}.app"
+            APP_PATH="$RUNNER_TEMP/export/FITS Blaster Beta.app"
           else
             APP_PATH="$RUNNER_TEMP/export/FITS Blaster.app"
           fi
