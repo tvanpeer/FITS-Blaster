@@ -10,6 +10,26 @@ import AppKit
 import Metal
 import Accelerate
 
+// MARK: - GreyClips
+
+/// Percentile clip bounds for a greyscale (mono) image.
+/// Stored on `ImageEntry` during Phase A so the post-batch normalisation step
+/// can compute per-(folder, filter) medians and re-render with shared bounds.
+struct GreyClips: Sendable {
+    let low: Float
+    let high: Float
+
+    var isValid: Bool { high > low }
+
+    static func median(of clips: [GreyClips]) -> GreyClips {
+        guard !clips.isEmpty else { return GreyClips(low: 0, high: 1) }
+        let mid   = clips.count / 2
+        let lows  = clips.map(\.low).sorted()
+        let highs = clips.map(\.high).sorted()
+        return GreyClips(low: lows[mid], high: highs[mid])
+    }
+}
+
 // MARK: - BayerClips
 
 /// Per-channel percentile clip bounds for a Bayer image.
@@ -419,6 +439,34 @@ struct ImageStretcher {
     }
 
     // MARK: - Metal Bayer Path
+
+    /// Stretch using pre-computed greyscale clip bounds, bypassing percentile estimation.
+    /// Use the result of `computeGreyClips` (or a per-group median) to re-render an image
+    /// with consistent stretch across a folder of same-filter frames.
+    @concurrent static func createImage(inputBuffer: MTLBuffer, width: Int, height: Int,
+                                        clips: GreyClips, maxDisplaySize: Int = 0,
+                                        bayerPattern: BayerPattern? = nil) async -> NSImage? {
+        guard clips.isValid else { return nil }
+        if let result = await metalStretch(inputBuffer: inputBuffer, width: width, height: height,
+                                           lowClip: clips.low, highClip: clips.high,
+                                           maxDisplaySize: maxDisplaySize,
+                                           bayerPattern: bayerPattern) {
+            return result
+        }
+        return cpuFallbackOnBuffer(inputBuffer.contents().assumingMemoryBound(to: Float.self),
+                                   width: width, height: height,
+                                   lowClip: clips.low, highClip: clips.high,
+                                   maxDisplaySize: maxDisplaySize)
+    }
+
+    /// Compute greyscale percentile clip bounds from a Metal shared buffer without rendering.
+    /// Store the result on `ImageEntry.greyClips` during Phase A, then compute per-(folder, filter)
+    /// medians and call `createImage(inputBuffer:clips:)` for the normalisation pass.
+    static func computeGreyClips(_ buffer: MTLBuffer, pixelCount: Int) -> GreyClips {
+        let ptr = buffer.contents().assumingMemoryBound(to: Float.self)
+        let (low, high) = estimatePercentiles(ptr, count: pixelCount)
+        return GreyClips(low: low, high: high)
+    }
 
     /// GPU-accelerated Bayer demosaic + stretch using pre-computed clip bounds.
     /// Call `computeBayerClips` first to obtain `clips`, then pass the median/shared

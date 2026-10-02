@@ -98,6 +98,10 @@ extension ImageStore {
                                   maxThumbnailSize: maxThumbnailSize,
                                   metricsConfig: metricsConfig,
                                   debayerColorImages: debayerColorImages)
+            if !Task.isCancelled {
+                await normalizeGreyStretch(newEntries, maxDisplaySize: maxDisplaySize,
+                                           maxThumbnailSize: maxThumbnailSize)
+            }
             guard !Task.isCancelled else { return }
             batchElapsed = CFAbsoluteTimeGetCurrent() - startTime
             isBatchProcessing = false
@@ -156,6 +160,11 @@ extension ImageStore {
                                   maxThumbnailSize: settings.maxThumbnailSize,
                                   metricsConfig: settings.metricsConfig,
                                   debayerColorImages: settings.debayerColorImages)
+            if !Task.isCancelled {
+                await normalizeGreyStretch(entriesToProcess,
+                                           maxDisplaySize: settings.maxDisplaySize,
+                                           maxThumbnailSize: settings.maxThumbnailSize)
+            }
             for dirURL in accessedDirs { dirURL.stopAccessingSecurityScopedResource() }
             guard !Task.isCancelled else { return }
             batchElapsed = CFAbsoluteTimeGetCurrent() - startTime
@@ -202,6 +211,11 @@ extension ImageStore {
                 if let cached = entry.cachedMetrics {
                     entry.metrics = cached.filtered(by: metricsConfig)
                 }
+            }
+            if !Task.isCancelled {
+                await normalizeGreyStretch(entriesToProcess,
+                                           maxDisplaySize: settings.maxDisplaySize,
+                                           maxThumbnailSize: settings.maxThumbnailSize)
             }
             for dirURL in accessedDirs { dirURL.stopAccessingSecurityScopedResource() }
             guard !Task.isCancelled else { return }
@@ -388,6 +402,7 @@ extension ImageStore {
                         entry.histogram    = fast.histogram
                         entry.headers      = fast.headers
                         entry.bayerClips   = fast.bayerClips
+                        entry.greyClips    = fast.greyClips
                         // Pre-populate the greyscale cache so any toggle to grey is instant.
                         if BayerPattern.parse(from: fast.headers) != nil {
                             entry.cachedGreyscaleDisplay = fast.display
@@ -624,6 +639,77 @@ extension ImageStore {
         }
     }
 
+    // MARK: - Greyscale normalisation
+
+    /// Groups non-Bayer entries by (folder, filter), computes the per-group median
+    /// clip bounds from the `greyClips` stored during Phase A, then re-renders each
+    /// group with the shared clips so same-filter frames have consistent stretch.
+    ///
+    /// Groups with fewer than two images are skipped — a single image is already as
+    /// consistent as it can be. Bayer images (handled by the colour normalisation path)
+    /// are always excluded.
+    private func normalizeGreyStretch(_ entries: [ImageEntry],
+                                      maxDisplaySize: Int,
+                                      maxThumbnailSize: Int) async {
+        let greyEntries = entries.filter { !$0.isBayer && $0.greyClips != nil }
+        guard !greyEntries.isEmpty else { return }
+
+        let groups = Dictionary(grouping: greyEntries) {
+            "\($0.qualifiedFolderPath)::\($0.filterGroup.rawValue)"
+        }
+
+        await withTaskGroup(of: Void.self) { group in
+            for (_, groupEntries) in groups {
+                guard groupEntries.count >= 2 else { continue }
+                let clips = GreyClips.median(of: groupEntries.compactMap(\.greyClips))
+                guard clips.isValid else { continue }
+                group.addTask { [weak self] in
+                    guard let self else { return }
+                    await self.renderGroupWithSharedGreyClips(groupEntries, clips: clips,
+                                                              maxDisplaySize: maxDisplaySize,
+                                                              maxThumbnailSize: maxThumbnailSize)
+                }
+            }
+        }
+    }
+
+    /// Re-renders a (folder, filter) group of greyscale images with the given shared clip bounds.
+    private func renderGroupWithSharedGreyClips(_ entries: [ImageEntry],
+                                                clips: GreyClips,
+                                                maxDisplaySize: Int,
+                                                maxThumbnailSize: Int) async {
+        let concurrency = max(4, ProcessInfo.processInfo.activeProcessorCount - 2)
+        await withTaskGroup(of: Void.self) { group in
+            var active = 0
+            for entry in entries {
+                if active >= concurrency { await group.next(); active -= 1 }
+                let url     = entry.url
+                let headers = entry.headers
+                group.addTask {
+                    let didStart = url.startAccessingSecurityScopedResource()
+                    defer { if didStart { url.stopAccessingSecurityScopedResource() } }
+                    guard let device = ImageStretcher.metalDevice,
+                          let result = try? FITSReader.readIntoBuffer(from: url, device: device)
+                    else { return }
+                    let bayerPattern = BayerPattern.parse(from: headers)
+                    let display = await ImageStretcher.createImage(
+                        inputBuffer: result.metalBuffer,
+                        width: result.metadata.width, height: result.metadata.height,
+                        clips: clips, maxDisplaySize: maxDisplaySize,
+                        bayerPattern: bayerPattern)
+                    let thumb = display.flatMap {
+                        ImageStretcher.createThumbnail(from: $0, maxSize: maxThumbnailSize)
+                    }
+                    await MainActor.run {
+                        if let d = display { entry.displayImage = d }
+                        if let t = thumb   { entry.thumbnail    = t }
+                    }
+                }
+                active += 1
+            }
+        }
+    }
+
     /// Renders one folder group's Bayer images in colour using the per-channel median of
     /// the individual `bayerClips` already computed during Phase A or sampling.
     ///
@@ -759,6 +845,16 @@ extension ImageStore {
                 bayerClips = nil
             }
 
+            // Compute greyscale clip bounds for non-Bayer images so the post-batch
+            // normalisation pass can re-render with per-(folder, filter) median clips.
+            let greyClips: GreyClips?
+            if BayerPattern.parse(from: meta.headers) == nil {
+                greyClips = ImageStretcher.computeGreyClips(bufferResult.metalBuffer,
+                                                            pixelCount: meta.width * meta.height)
+            } else {
+                greyClips = nil
+            }
+
             let thumb = display.flatMap { ImageStretcher.createThumbnail(from: $0, maxSize: maxThumbnailSize) }
             // metalBuffer is retained in FastLoadResult so Phase B can use it.
             return FastLoadResult(
@@ -767,7 +863,7 @@ extension ImageStore {
                 error: nil, histogram: histogram, headers: meta.headers,
                 metalBuffer: bufferResult.metalBuffer, metalDevice: device,
                 width: meta.width, height: meta.height, bitpix: meta.bitpix,
-                bayerClips: bayerClips)
+                bayerClips: bayerClips, greyClips: greyClips)
         }
 
         do {
@@ -786,13 +882,13 @@ extension ImageStore {
                                   histogram: histogram, headers: headers,
                                   metalBuffer: nil, metalDevice: nil,
                                   width: w, height: h, bitpix: fits.bitpix,
-                                  bayerClips: nil)
+                                  bayerClips: nil, greyClips: nil)
         } catch {
             return FastLoadResult(display: nil, thumb: nil, info: "", error: error.localizedDescription,
                                   histogram: nil, headers: [:],
                                   metalBuffer: nil, metalDevice: nil,
                                   width: 0, height: 0, bitpix: 0,
-                                  bayerClips: nil)
+                                  bayerClips: nil, greyClips: nil)
         }
     }
 }
@@ -819,6 +915,8 @@ struct FastLoadResult {
     /// Per-channel Bayer clip bounds computed during the grey-pass.
     /// `nil` for non-Bayer images or when `debayerColorImages` is false.
     let bayerClips:  BayerClips?
+    /// Greyscale clip bounds for non-Bayer images, used by the post-batch normalisation pass.
+    let greyClips:   GreyClips?
 }
 
 // MARK: - FolderTracker

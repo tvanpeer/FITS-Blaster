@@ -248,10 +248,11 @@ private struct InfoBar: View {
             // Inline metrics summary (Geek mode only)
             if !settings.isSimpleMode, let m = entry.metrics, m.hasData {
                 HStack(spacing: 12) {
-                    if let v = m.fwhm        { MetricChip(label: "FWHM", value: "\(v.formatted(.number.precision(.fractionLength(1)))) px") }
-                    if let v = m.eccentricity { MetricChip(label: "Ecc",  value: v.formatted(.number.precision(.fractionLength(2)))) }
-                    if let v = m.snr          { MetricChip(label: "SNR",  value: v.formatted(.number.precision(.fractionLength(0)))) }
-                    if let v = m.starCount     { MetricChip(label: "★",   value: "\(v)") }
+                    if let v = m.fwhm          { MetricChip(label: "FWHM",   value: "\(v.formatted(.number.precision(.fractionLength(1)))) px") }
+                    if let v = m.eccentricity  { MetricChip(label: "Ecc",    value: v.formatted(.number.precision(.fractionLength(2)))) }
+                    if let v = m.snr           { MetricChip(label: "SNR",    value: v.formatted(.number.precision(.fractionLength(0)))) }
+                    if let v = m.starCount     { MetricChip(label: "★",      value: "\(v)") }
+                    if let v = m.skyBackground { MetricChip(label: "Sky BG", value: "\(Int(v.rounded())) ADU") }
                 }
             }
 

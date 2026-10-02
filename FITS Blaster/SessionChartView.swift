@@ -15,16 +15,18 @@ enum ChartMetric: String, CaseIterable, Identifiable {
     case eccentricity = "Ecc"
     case snr          = "SNR"
     case starCount    = "Stars"
+    case skyBackground = "Sky BG"
 
     var id: String { rawValue }
 
     var helpText: String {
         switch self {
-        case .score:        return "Overall quality score (composite of all metrics)"
-        case .fwhm:         return "Full Width at Half Maximum — smaller is sharper"
-        case .eccentricity: return "Star eccentricity — closer to 0 is rounder"
-        case .snr:          return "Signal-to-Noise Ratio — higher is better"
-        case .starCount:    return "Number of detected stars"
+        case .score:         return "Overall quality score (composite of all metrics)"
+        case .fwhm:          return "Full Width at Half Maximum — smaller is sharper"
+        case .eccentricity:  return "Star eccentricity — closer to 0 is rounder"
+        case .snr:           return "Signal-to-Noise Ratio — higher is better"
+        case .starCount:     return "Number of detected stars"
+        case .skyBackground: return "Median sky background in ADU — lower means darker sky"
         }
     }
 
@@ -43,6 +45,8 @@ enum ChartMetric: String, CaseIterable, Identifiable {
             return m.snr.map(Double.init)
         case .starCount:
             return m.starCount.map(Double.init)
+        case .skyBackground:
+            return m.skyBackground.map(Double.init)
         }
     }
 
@@ -50,22 +54,24 @@ enum ChartMetric: String, CaseIterable, Identifiable {
     /// Returns nil when the metric was not computed or has no data for the group.
     func median(from stats: GroupStats) -> Double? {
         switch self {
-        case .score:        return stats.medianScore.map(Double.init)
-        case .fwhm:         return stats.medianFWHM.map(Double.init)
-        case .eccentricity: return stats.medianEccentricity.map(Double.init)
-        case .snr:          return stats.medianSNR.map(Double.init)
-        case .starCount:    return stats.medianStarCount.map(Double.init)
+        case .score:         return stats.medianScore.map(Double.init)
+        case .fwhm:          return stats.medianFWHM.map(Double.init)
+        case .eccentricity:  return stats.medianEccentricity.map(Double.init)
+        case .snr:           return stats.medianSNR.map(Double.init)
+        case .starCount:     return stats.medianStarCount.map(Double.init)
+        case .skyBackground: return stats.medianSkyBackground.map(Double.init)
         }
     }
 
     /// Short label used when displaying the value alongside thumbnails.
     var shortLabel: String {
         switch self {
-        case .score:        return "Score"
-        case .fwhm:         return "FWHM"
-        case .eccentricity: return "Ecc"
-        case .snr:          return "SNR"
-        case .starCount:    return "Stars"
+        case .score:         return "Score"
+        case .fwhm:          return "FWHM"
+        case .eccentricity:  return "Ecc"
+        case .snr:           return "SNR"
+        case .starCount:     return "Stars"
+        case .skyBackground: return "Sky BG"
         }
     }
 
@@ -78,13 +84,15 @@ enum ChartMetric: String, CaseIterable, Identifiable {
             return value.formatted(.number.precision(.fractionLength(1)))
         case .eccentricity:
             return value.formatted(.number.precision(.fractionLength(2)))
+        case .skyBackground:
+            return value.formatted(.number.precision(.fractionLength(0)))
         }
     }
 
     /// True when a lower value represents a better frame (inverts threshold shading).
     var isLowerBetter: Bool {
         switch self {
-        case .fwhm, .eccentricity: return true
+        case .fwhm, .eccentricity, .skyBackground: return true
         default: return false
         }
     }

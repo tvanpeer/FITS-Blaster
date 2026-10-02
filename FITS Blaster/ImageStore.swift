@@ -138,6 +138,11 @@ final class ImageEntry: Identifiable {
     /// True if this image contains raw Bayer CFA data (BAYERPAT/COLORTYP/CFA_PAT header present).
     var isBayer: Bool { BayerPattern.parse(from: headers) != nil }
 
+    /// Percentile clip bounds computed during Phase A for greyscale (non-Bayer) images.
+    /// Used by the post-batch normalisation step to compute per-(folder, filter) medians
+    /// before re-rendering with a consistent shared stretch across same-filter frames.
+    var greyClips: GreyClips?
+
     /// Per-channel clip bounds computed during the grey-pass for Bayer images.
     /// Used by the post-batch normalisation step to compute per-folder median clips
     /// before re-rendering in colour with a consistent shared stretch.
@@ -571,14 +576,16 @@ final class ImageStore {
             let stars  = groupEntries.compactMap { $0.metrics?.starCount }.sorted()
             let snrs   = groupEntries.compactMap { $0.metrics?.snr }.sorted()
             let scores = groupEntries.compactMap { $0.metrics?.qualityScore }.sorted()
+            let bgs    = groupEntries.compactMap { $0.metrics?.skyBackground }.sorted()
             result[group] = GroupStats(
-                medianFWHM:         fwhms.isEmpty  ? nil : fwhms[fwhms.count / 2],
-                medianEccentricity: eccs.isEmpty   ? nil : eccs[eccs.count / 2],
-                medianStarCount:    stars.isEmpty  ? nil : stars[stars.count / 2],
-                medianSNR:          snrs.isEmpty   ? nil : snrs[snrs.count / 2],
-                medianScore:        scores.isEmpty ? nil : scores[scores.count / 2],
-                topThirdScoreFloor: scores.count < 3 ? nil : scores[scores.count * 2 / 3],
-                isNarrowband:       group.isNarrowband
+                medianFWHM:           fwhms.isEmpty  ? nil : fwhms[fwhms.count / 2],
+                medianEccentricity:   eccs.isEmpty   ? nil : eccs[eccs.count / 2],
+                medianStarCount:      stars.isEmpty  ? nil : stars[stars.count / 2],
+                medianSNR:            snrs.isEmpty   ? nil : snrs[snrs.count / 2],
+                medianScore:          scores.isEmpty ? nil : scores[scores.count / 2],
+                medianSkyBackground:  bgs.isEmpty    ? nil : bgs[bgs.count / 2],
+                topThirdScoreFloor:   scores.count < 3 ? nil : scores[scores.count * 2 / 3],
+                isNarrowband:         group.isNarrowband
             )
         }
         groupStatistics = result

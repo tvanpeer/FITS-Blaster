@@ -4,6 +4,17 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-02 — Consistent stretch and sky background chart
+
+### Improved
+- Greyscale (mono) images in the same folder and filter group are now rendered with a consistent shared stretch, eliminating the brightness flickering when scrolling quickly through a session.
+- Sky background value is now shown in the inline metrics row above the chart alongside FWHM, Ecc, SNR, and Stars.
+
+### Added
+- **Sky BG** chart metric: plot the sky background ADU level across the session, with per-filter-group median lines.
+
+---
+
 ## 2026-10-01 — Filter pills, sky background, and 1:1 zoom
 
 ### Improved
