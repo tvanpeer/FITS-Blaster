@@ -222,6 +222,63 @@
 
 <div class="content">
 
+    <!-- v1.23-beta.8 -->
+    <div class="entry">
+        <div class="entry-header">
+            <div class="entry-title">Consistent stretch and sky background chart — v1.23-beta.8</div>
+            <div class="entry-date">2026-10-02</div>
+        </div>
+        <div class="section">
+            <span class="section-label label-improved">Improved</span>
+            <ul>
+                <li>Greyscale (mono) images in the same folder and filter group are now rendered with a consistent shared stretch, eliminating the brightness flickering when scrolling quickly through a session.</li>
+                <li>Sky background value is now shown in the inline metrics row above the chart alongside FWHM, Ecc, SNR, and Stars.</li>
+            </ul>
+        </div>
+        <div class="section">
+            <span class="section-label label-added">Added</span>
+            <ul>
+                <li><strong>Sky BG</strong> chart metric: plot the sky background ADU level across the session, with per-filter-group median lines.</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- v1.23-beta.7 -->
+    <div class="entry">
+        <div class="entry-header">
+            <div class="entry-title">Filter pills, sky background, and 1:1 zoom — v1.23-beta.7</div>
+            <div class="entry-date">2026-10-01</div>
+        </div>
+        <div class="section">
+            <span class="section-label label-improved">Improved</span>
+            <ul>
+                <li>Filter pills in the thumbnail sidebar now wrap onto multiple rows when many filter groups are active, instead of overflowing into a single cramped line.</li>
+                <li>The thumbnail sidebar can now be dragged up to 360 px wide (previously capped at 220 px).</li>
+                <li>The zoom percentage label (e.g. "0.5×") is now a button — click it to jump instantly to 1:1 (100%) for pixel peeping.</li>
+            </ul>
+        </div>
+        <div class="section">
+            <span class="section-label label-added">Added</span>
+            <ul>
+                <li><strong>Sky background</strong> metric in the inspector panel: the median ADU level of the sky background, estimated as a free side-effect of star detection. Useful as a relative sky-darkness indicator across a session.</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- v1.23-beta.6 -->
+    <div class="entry">
+        <div class="entry-header">
+            <div class="entry-title">Single-letter filter codes recognised — v1.23-beta.6</div>
+            <div class="entry-date">2026-10-01</div>
+        </div>
+        <div class="section">
+            <span class="section-label label-fixed">Fixed</span>
+            <ul>
+                <li>Filter names consisting of a single letter — <strong>H</strong>, <strong>O</strong>, <strong>S</strong> — were shown as "Unfiltered" instead of being mapped to Hα, OIII, and SII respectively. Also added <strong>IR</strong> as an alias for Luminance. Affects users whose capture software writes short codes in the FITS FILTER header (common with N.I.N.A., SGP, and some ASIAIR configurations).</li>
+            </ul>
+        </div>
+    </div>
+
     <!-- v1.23-beta.5 -->
     <div class="entry">
         <div class="entry-header">
