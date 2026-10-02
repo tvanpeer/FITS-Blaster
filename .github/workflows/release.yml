@@ -179,7 +179,7 @@ jobs:
             git add site/index.html site/changelog.html site/appcast.xml
             git diff --staged --quiet || git commit -m "release: update site and appcast for v${{ env.VERSION }} [skip ci]"
           fi
-          git pull --rebase origin main
+          git pull --rebase -X ours origin main
           git push origin HEAD:main
 
       - name: Deploy site to hosting
