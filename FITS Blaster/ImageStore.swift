@@ -20,8 +20,9 @@ enum ThumbnailSortOrder: String, CaseIterable {
     case fwhm         = "FWHM"
     case eccentricity = "Eccentricity"
     case snr          = "SNR"
-    case starCount    = "Stars"
-    case rejected     = "Rejected"
+    case starCount      = "Stars"
+    case skyBackground  = "Sky BG"
+    case rejected       = "Rejected"
 }
 
 // MARK: - Export format
@@ -457,6 +458,15 @@ final class ImageStore {
             cachedSortedEntries = entries.sorted { a, b in
                 switch (a.metrics?.starCount, b.metrics?.starCount) {
                 case let (ca?, cb?): return asc ? ca < cb : ca > cb
+                case (_?, nil):      return true
+                case (nil, _?):      return false
+                default:             return false
+                }
+            }
+        case .skyBackground:
+            cachedSortedEntries = entries.sorted { a, b in
+                switch (a.metrics?.skyBackground, b.metrics?.skyBackground) {
+                case let (ba?, bb?): return asc ? ba < bb : ba > bb
                 case (_?, nil):      return true
                 case (nil, _?):      return false
                 default:             return false
