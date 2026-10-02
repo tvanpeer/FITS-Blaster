@@ -4,6 +4,17 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-02 — Sky BG sort and auto-flag, stable beta app name
+
+### Added
+- Sky BG sort option in the thumbnail sort menu.
+- Sky background threshold in the Auto-Flag sheet: flag frames where sky brightness exceeds a multiple of the group median (relative mode) or a fixed ADU ceiling (absolute mode).
+
+### Fixed
+- Beta builds are now distributed as `FITS Blaster Beta.app` instead of a versioned name (e.g. `FITS Blaster 1.23-beta.6.app`). The versioned name prevented Sparkle from renaming the bundle on update, leaving users with a stale app name after every in-place upgrade.
+
+---
+
 ## 2026-10-02 — Consistent stretch and sky background chart
 
 ### Improved
