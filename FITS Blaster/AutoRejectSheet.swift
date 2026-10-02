@@ -35,6 +35,11 @@ struct AutoRejectConfig: Sendable {
     var snrMultiplier: Double = 0.50        // relative: reject if SNR < multiplier × group median
     var absoluteSNRFloor: Double = 20.0     // absolute: reject if SNR falls below this
 
+    // Sky background
+    var useSkyBackground: Bool = false
+    var skyBackgroundMultiplier: Double = 1.5   // relative: reject if sky BG > multiplier × group median
+    var absoluteSkyBackgroundCeiling: Double = 3000.0  // absolute: reject if sky BG (ADU) exceeds this
+
     // Quality score (absolute mode only)
     var useScore: Bool = false
     var scoreFloor: Int = 40
@@ -62,6 +67,7 @@ struct AutoRejectSheet: View {
                 EccentricitySection(config: $config)
                 StarCountSection(config: $config)
                 SNRSection(config: $config)
+                SkyBackgroundSection(config: $config)
                 if config.mode == .absolute {
                     ScoreSection(config: $config)
                 }
@@ -213,6 +219,31 @@ private struct SNRSection: View {
                             .foregroundStyle(.secondary)
                     }
                     Slider(value: $config.absoluteSNRFloor, in: 5.0...1000.0, step: 5.0)
+                }
+            }
+        }
+    }
+}
+
+private struct SkyBackgroundSection: View {
+    @Binding var config: AutoRejectConfig
+
+    var body: some View {
+        Section("Light Pollution (Sky BG)") {
+            Toggle("Enable sky background threshold", isOn: $config.useSkyBackground)
+            if config.useSkyBackground {
+                if config.mode == .relative {
+                    LabeledContent("Select if sky BG >") {
+                        Text("\(config.skyBackgroundMultiplier, format: .number.precision(.fractionLength(1)))× median")
+                            .foregroundStyle(.secondary)
+                    }
+                    Slider(value: $config.skyBackgroundMultiplier, in: 1.2...3.0, step: 0.1)
+                } else {
+                    LabeledContent("Select if sky BG >") {
+                        Text("\(config.absoluteSkyBackgroundCeiling, format: .number.precision(.fractionLength(0))) ADU")
+                            .foregroundStyle(.secondary)
+                    }
+                    Slider(value: $config.absoluteSkyBackgroundCeiling, in: 500...20000, step: 500)
                 }
             }
         }

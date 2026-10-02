@@ -17,7 +17,6 @@ class PreviewProvider: QLPreviewProvider, QLPreviewingController {
         let url = request.fileURL
 
         var fitsImage = try FITSReader.readForPreview(from: url)
-        let isFloat = fitsImage.bitpix < 0
         let nsImage: NSImage?
         if fitsImage.channels == 3 {
             nsImage = ImageStretcher.createRGBImage(from: &fitsImage.pixelValues,
@@ -28,8 +27,7 @@ class PreviewProvider: QLPreviewProvider, QLPreviewingController {
             nsImage = ImageStretcher.createImage(from: &fitsImage.pixelValues,
                                                   width: fitsImage.width,
                                                   height: fitsImage.height,
-                                                  maxDisplaySize: 1024,
-                                                  useAsinhStretch: isFloat)
+                                                  maxDisplaySize: 1024)
         }
         guard let image = nsImage,
               let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else {

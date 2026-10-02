@@ -18,15 +18,17 @@ import Accelerate
 struct GreyClips: Sendable {
     let low: Float
     let high: Float
+    let midtone: Float  // MTF midtone parameter derived from STF statistics
 
     var isValid: Bool { high > low }
 
     static func median(of clips: [GreyClips]) -> GreyClips {
-        guard !clips.isEmpty else { return GreyClips(low: 0, high: 1) }
-        let mid   = clips.count / 2
-        let lows  = clips.map(\.low).sorted()
-        let highs = clips.map(\.high).sorted()
-        return GreyClips(low: lows[mid], high: highs[mid])
+        guard !clips.isEmpty else { return GreyClips(low: 0, high: 1, midtone: 0.25) }
+        let mid      = clips.count / 2
+        let lows     = clips.map(\.low).sorted()
+        let highs    = clips.map(\.high).sorted()
+        let midtones = clips.map(\.midtone).sorted()
+        return GreyClips(low: lows[mid], high: highs[mid], midtone: midtones[mid])
     }
 }
 
@@ -37,25 +39,31 @@ struct GreyClips: Sendable {
 /// step can compute per-folder medians and re-render in colour with shared bounds.
 struct BayerClips: Sendable {
     let loR, hiR: Float
+    let midR: Float  // MTF midtone for R channel
     let loG, hiG: Float
+    let midG: Float  // MTF midtone for G channel
     let loB, hiB: Float
+    let midB: Float  // MTF midtone for B channel
 
     var isValid: Bool { hiR > loR && hiG > loG && hiB > loB }
 
     /// Compute per-channel medians from a collection of per-image clips.
     static func median(of clips: [BayerClips]) -> BayerClips {
-        guard !clips.isEmpty else { return BayerClips(loR: 0, hiR: 1, loG: 0, hiG: 1, loB: 0, hiB: 1) }
+        guard !clips.isEmpty else {
+            return BayerClips(loR: 0, hiR: 1, midR: 0.25,
+                              loG: 0, hiG: 1, midG: 0.25,
+                              loB: 0, hiB: 1, midB: 0.25)
+        }
         let mid = clips.count / 2
         func med(_ kp: KeyPath<BayerClips, Float>) -> Float {
             clips.map { $0[keyPath: kp] }.sorted()[mid]
         }
         return BayerClips(
-            loR: med(\.loR), hiR: med(\.hiR),
-            loG: med(\.loG), hiG: med(\.hiG),
-            loB: med(\.loB), hiB: med(\.hiB)
+            loR: med(\.loR), hiR: med(\.hiR), midR: med(\.midR),
+            loG: med(\.loG), hiG: med(\.hiG), midG: med(\.midG),
+            loB: med(\.loB), hiB: med(\.hiB), midB: med(\.midB)
         )
     }
-
 }
 
 /// Converts raw FITS pixel data into a displayable image using a Metal compute
@@ -91,8 +99,9 @@ struct ImageStretcher {
 
     /// Parameters struct matching the Metal shader's StretchParams (must stay in sync with FITSStretch.metal)
     private struct StretchParams {
-        var lowClip: Float
+        var shadowClip: Float   // STF shadow clipping point (replaces percentile lowClip)
         var highClip: Float
+        var mtfMidtone: Float   // MTF midtone — background maps to this output level
         var srcWidth: UInt32    // physical buffer width
         var srcHeight: UInt32   // physical buffer height
         var dstWidth: UInt32
@@ -101,14 +110,17 @@ struct ImageStretcher {
         var bayerBin: UInt32
     }
 
-    /// Parameters struct matching the Metal shader's BayerStretchParams (12 × 4 bytes = 48 bytes)
+    /// Parameters struct matching the Metal shader's BayerStretchParams (15 × 4 bytes = 60 bytes)
     private struct BayerStretchParams {
-        var lowClipR: Float
+        var shadowClipR: Float
         var highClipR: Float
-        var lowClipG: Float
+        var mtfMidtoneR: Float
+        var shadowClipG: Float
         var highClipG: Float
-        var lowClipB: Float
+        var mtfMidtoneG: Float
+        var shadowClipB: Float
         var highClipB: Float
+        var mtfMidtoneB: Float
         var srcWidth: UInt32
         var srcHeight: UInt32
         var dstWidth: UInt32
@@ -134,15 +146,12 @@ struct ImageStretcher {
                                         maxDisplaySize: Int = 0,
                                         bayerPattern: BayerPattern? = nil) async -> NSImage? {
         let pixelCount = width * height
-
-        // Read percentiles from the shared buffer without copying
         let floatPtr = inputBuffer.contents().assumingMemoryBound(to: Float.self)
-        let (lowClip, highClip) = estimatePercentiles(floatPtr, count: pixelCount)
-        let range = highClip - lowClip
-        guard range > 0 else { return nil }
+        let (shadowClip, highClip, midtone) = computeSTFClips(floatPtr, count: pixelCount)
+        guard highClip > shadowClip else { return nil }
 
         if let result = await metalStretch(inputBuffer: inputBuffer, width: width, height: height,
-                                           lowClip: lowClip, highClip: highClip,
+                                           shadowClip: shadowClip, highClip: highClip, midtone: midtone,
                                            maxDisplaySize: maxDisplaySize,
                                            bayerPattern: bayerPattern) {
             return result
@@ -151,7 +160,7 @@ struct ImageStretcher {
         // CPU fallback — operate directly on Metal shared buffer (no copy)
         return cpuFallbackOnBuffer(inputBuffer.contents().assumingMemoryBound(to: Float.self),
                                    width: width, height: height,
-                                   lowClip: lowClip, highClip: highClip,
+                                   shadowClip: shadowClip, highClip: highClip, midtone: midtone,
                                    maxDisplaySize: maxDisplaySize)
     }
 
@@ -159,22 +168,14 @@ struct ImageStretcher {
     /// Scaling is done on the UInt8 buffer with vImageScale before creating the CGImage,
     /// avoiding an expensive full-res CGImage → CGContext round-trip.
     static func createImage(from pixels: inout [Float], width: Int, height: Int,
-                            maxDisplaySize: Int = 1024, useAsinhStretch: Bool = false) -> NSImage? {
-        let (lowClip, highClip): (Float, Float)
-        if useAsinhStretch {
-            (lowClip, highClip) = pixels.withUnsafeBufferPointer { buf in
-                estimatePercentilesWide(buf.baseAddress!, count: buf.count)
-            }
-        } else {
-            (lowClip, highClip) = estimatePercentiles(pixels)
+                            maxDisplaySize: Int = 1024) -> NSImage? {
+        let (shadowClip, highClip, midtone) = pixels.withUnsafeBufferPointer { buf in
+            computeSTFClips(buf.baseAddress!, count: buf.count)
         }
-        let range = highClip - lowClip
-        guard range > 0 else { return nil }
-
+        guard highClip > shadowClip else { return nil }
         return cpuFallback(&pixels, width: width, height: height,
-                           lowClip: lowClip, highClip: highClip,
-                           maxDisplaySize: maxDisplaySize,
-                           useAsinhStretch: useAsinhStretch)
+                           shadowClip: shadowClip, highClip: highClip, midtone: midtone,
+                           maxDisplaySize: maxDisplaySize)
     }
 
     /// Stretch interleaved RGB float data (R,G,B,R,G,B,...) into a display image.
@@ -198,14 +199,16 @@ struct ImageStretcher {
             bPlane[i] = pixels[i * 3 + 2]
         }
 
-        // Per-channel percentile clip bounds (1%/99% to skip zero-padded corners).
-        let (loR, hiR) = estimatePercentilesWide(rPlane, count: pixelCount)
-        let (loG, hiG) = estimatePercentilesWide(gPlane, count: pixelCount)
-        let (loB, hiB) = estimatePercentilesWide(bPlane, count: pixelCount)
+        // Per-channel STF clip bounds and MTF midtones.
+        let (loR, hiR, midR) = computeSTFClips(rPlane, count: pixelCount)
+        let (loG, hiG, midG) = computeSTFClips(gPlane, count: pixelCount)
+        let (loB, hiB, midB) = computeSTFClips(bPlane, count: pixelCount)
 
-        // Apply the same gamma 2.2 LUT stretch as the greyscale path, per channel.
-        // vImageInterpolatedLookupTable_PlanarF normalises [highClip..lowClip] → [0..1]
-        // then applies the LUT curve. Note: highClip is the first bound, lowClip second.
+        // Per-channel MTF LUTs (built once per image; ~4096 floats each, negligible cost).
+        var lutR = makeMTFLUT(midtone: midR)
+        var lutG = makeMTFLUT(midtone: midG)
+        var lutB = makeMTFLUT(midtone: midB)
+
         let rStretched = UnsafeMutablePointer<Float>.allocate(capacity: pixelCount)
         let gStretched = UnsafeMutablePointer<Float>.allocate(capacity: pixelCount)
         let bStretched = UnsafeMutablePointer<Float>.allocate(capacity: pixelCount)
@@ -224,10 +227,10 @@ struct ImageStretcher {
         var bDst = vImage_Buffer(data: bStretched, height: vImagePixelCount(height),
                                   width: vImagePixelCount(width), rowBytes: width * MemoryLayout<Float>.stride)
 
-        let lutCount = vImagePixelCount(asinhStretchLUT.count)
-        vImageInterpolatedLookupTable_PlanarF(&rSrc, &rDst, asinhStretchLUT, lutCount, hiR, loR, vImage_Flags(kvImageNoFlags))
-        vImageInterpolatedLookupTable_PlanarF(&gSrc, &gDst, asinhStretchLUT, lutCount, hiG, loG, vImage_Flags(kvImageNoFlags))
-        vImageInterpolatedLookupTable_PlanarF(&bSrc, &bDst, asinhStretchLUT, lutCount, hiB, loB, vImage_Flags(kvImageNoFlags))
+        let lutCount = vImagePixelCount(lutR.count)
+        vImageInterpolatedLookupTable_PlanarF(&rSrc, &rDst, &lutR, lutCount, hiR, loR, vImage_Flags(kvImageNoFlags))
+        vImageInterpolatedLookupTable_PlanarF(&gSrc, &gDst, &lutG, lutCount, hiG, loG, vImage_Flags(kvImageNoFlags))
+        vImageInterpolatedLookupTable_PlanarF(&bSrc, &bDst, &lutB, lutCount, hiB, loB, vImage_Flags(kvImageNoFlags))
 
         // Convert each channel Float [0,1] → UInt8 [0,255]
         let r8 = UnsafeMutablePointer<UInt8>.allocate(capacity: pixelCount)
@@ -343,7 +346,8 @@ struct ImageStretcher {
     /// CGDataProvider.
     @concurrent private static func metalStretch(
         inputBuffer: MTLBuffer, width: Int, height: Int,
-        lowClip: Float, highClip: Float, maxDisplaySize: Int = 0,
+        shadowClip: Float, highClip: Float, midtone: Float,
+        maxDisplaySize: Int = 0,
         bayerPattern: BayerPattern? = nil
     ) async -> NSImage? {
         guard let device = metalDevice,
@@ -375,7 +379,7 @@ struct ImageStretcher {
         }
 
         var params = StretchParams(
-            lowClip: lowClip, highClip: highClip,
+            shadowClip: shadowClip, highClip: highClip, mtfMidtone: midtone,
             srcWidth: UInt32(width), srcHeight: UInt32(height),
             dstWidth: UInt32(dstW), dstHeight: UInt32(dstH),
             bayerBin: isBayerBin ? 1 : 0
@@ -448,14 +452,14 @@ struct ImageStretcher {
                                         bayerPattern: BayerPattern? = nil) async -> NSImage? {
         guard clips.isValid else { return nil }
         if let result = await metalStretch(inputBuffer: inputBuffer, width: width, height: height,
-                                           lowClip: clips.low, highClip: clips.high,
+                                           shadowClip: clips.low, highClip: clips.high, midtone: clips.midtone,
                                            maxDisplaySize: maxDisplaySize,
                                            bayerPattern: bayerPattern) {
             return result
         }
         return cpuFallbackOnBuffer(inputBuffer.contents().assumingMemoryBound(to: Float.self),
                                    width: width, height: height,
-                                   lowClip: clips.low, highClip: clips.high,
+                                   shadowClip: clips.low, highClip: clips.high, midtone: clips.midtone,
                                    maxDisplaySize: maxDisplaySize)
     }
 
@@ -464,8 +468,8 @@ struct ImageStretcher {
     /// medians and call `createImage(inputBuffer:clips:)` for the normalisation pass.
     static func computeGreyClips(_ buffer: MTLBuffer, pixelCount: Int) -> GreyClips {
         let ptr = buffer.contents().assumingMemoryBound(to: Float.self)
-        let (low, high) = estimatePercentiles(ptr, count: pixelCount)
-        return GreyClips(low: low, high: high)
+        let (shadowClip, highClip, midtone) = computeSTFClips(ptr, count: pixelCount)
+        return GreyClips(low: shadowClip, high: highClip, midtone: midtone)
     }
 
     /// GPU-accelerated Bayer demosaic + stretch using pre-computed clip bounds.
@@ -521,9 +525,9 @@ struct ImageStretcher {
         }
 
         var params = BayerStretchParams(
-            lowClipR: clips.loR, highClipR: clips.hiR,
-            lowClipG: clips.loG, highClipG: clips.hiG,
-            lowClipB: clips.loB, highClipB: clips.hiB,
+            shadowClipR: clips.loR, highClipR: clips.hiR, mtfMidtoneR: clips.midR,
+            shadowClipG: clips.loG, highClipG: clips.hiG, mtfMidtoneG: clips.midG,
+            shadowClipB: clips.loB, highClipB: clips.hiB, mtfMidtoneB: clips.midB,
             srcWidth: UInt32(width), srcHeight: UInt32(height),
             dstWidth: UInt32(dstW), dstHeight: UInt32(dstH),
             rOffset: rOffset,
@@ -577,47 +581,34 @@ struct ImageStretcher {
 
     // MARK: - CPU Stretch
 
-    /// 4096-entry interpolated LUT: maps [0,1] → pow(x, 1/2.2).
-    /// vImageInterpolatedLookupTable_PlanarF linearly interpolates between entries,
-    /// so 4096 entries gives smooth, artifact-free output.
-    private static let stretchLUT: [Float] = {
+    /// Build a 4096-entry MTF (Midtone Transfer Function) LUT for a given midtone value.
+    /// The MTF places the background at `midtone` output level: MTF(m, x) = (m−1)x / ((2m−1)x − m).
+    /// Built per-image since midtone is derived from the image's own statistics (~microseconds).
+    private static func makeMTFLUT(midtone m: Float) -> [Float] {
         let n = 4096
         return (0..<n).map { i in
             let t = Float(i) / Float(n - 1)
-            return pow(t, 1.0 / 2.2)
+            guard t > 0 else { return 0 }
+            return max(0, min(1, (m - 1) * t / ((2 * m - 1) * t - m)))
         }
-    }()
+    }
 
-    /// Asinh stretch LUT for float FITS previews. Much more aggressive than gamma 2.2 —
-    /// compresses the bright end and lifts faint nebulosity, which is what linear
-    /// astrophotography data needs. The softening parameter (beta = 5) controls how
-    /// aggressively faint detail is boosted.
-    private static let asinhStretchLUT: [Float] = {
-        let n = 4096
-        let beta: Float = 50.0
-        let scale = 1.0 / asinh(beta)
-        return (0..<n).map { i in
-            let t = Float(i) / Float(n - 1)
-            return asinh(t * beta) * scale
-        }
-    }()
-
-    /// Shared implementation: interpolated LUT (normalize+clip+gamma) + convert + flip + scale.
+    /// Shared implementation: STF-normalized MTF LUT + convert + flip + scale.
     /// Scaling is done on the UInt8 buffer with vImageScale_Planar8, which is much faster
     /// than creating a full-res CGImage and scaling via CGContext.
     private static func cpuStretch(
         srcData: UnsafeMutablePointer<Float>, pixelCount: Int, width: Int, height: Int,
-        lowClip: Float, highClip: Float, maxDisplaySize: Int = 0,
-        useAsinhStretch: Bool = false
+        shadowClip: Float, highClip: Float, midtone: Float = 0.25,
+        maxDisplaySize: Int = 0
     ) -> NSImage? {
         let floatRowBytes = width * MemoryLayout<Float>.stride
 
-        // Pass 1: Interpolated LUT does normalize+clip+stretch in one vectorized pass.
-        let lut = useAsinhStretch ? asinhStretchLUT : stretchLUT
+        // Pass 1: Interpolated LUT normalizes [shadowClip, highClip] → [0, 1] and applies MTF.
+        var lut = makeMTFLUT(midtone: midtone)
         let stretchedPtr = UnsafeMutablePointer<Float>.allocate(capacity: pixelCount)
         var srcBuf = vImage_Buffer(data: srcData, height: vImagePixelCount(height), width: vImagePixelCount(width), rowBytes: floatRowBytes)
         var dstBufF = vImage_Buffer(data: stretchedPtr, height: vImagePixelCount(height), width: vImagePixelCount(width), rowBytes: floatRowBytes)
-        vImageInterpolatedLookupTable_PlanarF(&srcBuf, &dstBufF, lut, vImagePixelCount(lut.count), highClip, lowClip, vImage_Flags(kvImageNoFlags))
+        vImageInterpolatedLookupTable_PlanarF(&srcBuf, &dstBufF, &lut, vImagePixelCount(lut.count), highClip, shadowClip, vImage_Flags(kvImageNoFlags))
 
         // Pass 2: Float [0,1] → UInt8 [0,255]
         let bytes8 = UnsafeMutablePointer<UInt8>.allocate(capacity: pixelCount)
@@ -676,25 +667,27 @@ struct ImageStretcher {
 
     private static func cpuFallback(
         _ pixels: inout [Float], width: Int, height: Int,
-        lowClip: Float, highClip: Float, maxDisplaySize: Int = 0,
-        useAsinhStretch: Bool = false
+        shadowClip: Float, highClip: Float, midtone: Float = 0.25,
+        maxDisplaySize: Int = 0
     ) -> NSImage? {
         let pixelCount = width * height
         return pixels.withUnsafeMutableBufferPointer { buf in
             cpuStretch(srcData: buf.baseAddress!, pixelCount: pixelCount, width: width, height: height,
-                       lowClip: lowClip, highClip: highClip, maxDisplaySize: maxDisplaySize,
-                       useAsinhStretch: useAsinhStretch)
+                       shadowClip: shadowClip, highClip: highClip, midtone: midtone,
+                       maxDisplaySize: maxDisplaySize)
         }
     }
 
     /// CPU fallback operating directly on a raw float pointer (e.g. Metal shared buffer).
     private static func cpuFallbackOnBuffer(
         _ floatPtr: UnsafeMutablePointer<Float>, width: Int, height: Int,
-        lowClip: Float, highClip: Float, maxDisplaySize: Int = 0
+        shadowClip: Float, highClip: Float, midtone: Float = 0.25,
+        maxDisplaySize: Int = 0
     ) -> NSImage? {
         let pixelCount = width * height
         return cpuStretch(srcData: floatPtr, pixelCount: pixelCount, width: width, height: height,
-                          lowClip: lowClip, highClip: highClip, maxDisplaySize: maxDisplaySize)
+                          shadowClip: shadowClip, highClip: highClip, midtone: midtone,
+                          maxDisplaySize: maxDisplaySize)
     }
 
     // MARK: - Percentile Estimation
@@ -755,23 +748,65 @@ struct ImageStretcher {
             }
         }
 
-        func clips(_ s: inout [Float]) -> (Float, Float) {
-            guard !s.isEmpty else { return (0, 1) }
+        func stf(_ s: inout [Float]) -> (lo: Float, hi: Float, mid: Float) {
+            guard s.count > 1 else { return (0, 1, 0.25) }
             vDSP.sort(&s, sortOrder: .ascending)
-            let lo = s[Int(Float(s.count) * 0.001)]
-            let hi = s[Int(Float(s.count - 1) * 0.999)]
-            return (lo, hi > lo ? hi : lo + 1)
+            let n  = s.count
+            let hi = s[min(n - 1, Int(Float(n - 1) * 0.9999))]
+            let median = s[n / 2]
+            var madArr = s.map { abs($0 - median) }
+            vDSP.sort(&madArr, sortOrder: .ascending)
+            let mad = madArr[madArr.count / 2]
+            let lo  = max(0, median - 2.8 * mad)
+            let range = hi - lo
+            guard range > 0 else { return (lo, hi, 0.25) }
+            let x   = max(1e-4, min(0.9999, (median - lo) / range))
+            let mid = max(0.01, min(0.99, 3 * x / (2 * x + 1)))
+            return (lo, hi > lo ? hi : lo + 1, mid)
         }
 
-        let (loR, hiR) = clips(&rSamples)
-        let (loG, hiG) = clips(&gSamples)
-        let (loB, hiB) = clips(&bSamples)
-        return BayerClips(loR: loR, hiR: hiR, loG: loG, hiG: hiG, loB: loB, hiB: hiB)
+        let (loR, hiR, midR) = stf(&rSamples)
+        let (loG, hiG, midG) = stf(&gSamples)
+        let (loB, hiB, midB) = stf(&bSamples)
+        return BayerClips(loR: loR, hiR: hiR, midR: midR,
+                          loG: loG, hiG: hiG, midG: midG,
+                          loB: loB, hiB: hiB, midB: midB)
     }
 
-    /// Estimate from a raw pointer (for Metal buffer path — no array copy needed).
-    /// Always uses stride-sampling: avoids a full copy for small images while
-    /// giving equivalent accuracy to sorting the entire array.
+    /// Compute STF (Screen Transfer Function) shadow clip, highlight clip, and MTF midtone.
+    /// Samples up to `percentileSampleCount` non-zero pixels, computes the median and MAD,
+    /// then derives the shadow clip (median − 2.8 × MAD) and the MTF midtone parameter that
+    /// places the normalized background at 25% grey: m = 3x / (2x + 1) where x is the
+    /// normalized median after shadow clipping.
+    static func computeSTFClips(_ ptr: UnsafePointer<Float>, count: Int)
+        -> (shadowClip: Float, highClip: Float, midtone: Float) {
+        guard count > 0 else { return (0, 1, 0.25) }
+        let sampleStride = max(1, count / percentileSampleCount)
+        var sample = [Float]()
+        sample.reserveCapacity(min(count, percentileSampleCount))
+        var i = 0
+        while i < count {
+            let v = ptr[i]
+            if v > 0 { sample.append(v) }
+            i += sampleStride
+        }
+        guard sample.count > 10 else { return (0, 1, 0.25) }
+        vDSP.sort(&sample, sortOrder: .ascending)
+        let n        = sample.count
+        let highClip = sample[min(n - 1, Int(Float(n - 1) * 0.9999))]
+        let median   = sample[n / 2]
+        var madArr   = sample.map { abs($0 - median) }
+        vDSP.sort(&madArr, sortOrder: .ascending)
+        let mad        = madArr[madArr.count / 2]
+        let shadowClip = max(0, median - 2.8 * mad)
+        let range      = highClip - shadowClip
+        guard range > 0 else { return (shadowClip, highClip, 0.25) }
+        let x       = max(1e-4, min(0.9999, (median - shadowClip) / range))
+        let midtone = max(0.01, min(0.99, 3 * x / (2 * x + 1)))
+        return (shadowClip, highClip, midtone)
+    }
+
+    /// Estimate from a raw pointer — kept for MetricsCalculator histogram usage.
     static func estimatePercentiles(_ ptr: UnsafePointer<Float>, count: Int) -> (low: Float, high: Float) {
         guard count > 0 else { return (0, 1) }
         let sampleStride = max(1, count / percentileSampleCount)
@@ -787,34 +822,5 @@ struct ImageStretcher {
         let lo = sample[Int(Float(n) * 0.001)]
         let hi = sample[Int(Float(n - 1) * 0.999)]
         return (lo, hi > lo ? hi : lo + 1)
-    }
-
-    /// Estimate percentiles for float FITS previews, excluding zero pixels
-    /// (stacking artifacts / unfilled corners) that would skew the clip range.
-    /// Uses 0.5%/99.5% after zero removal for a balanced stretch.
-    static func estimatePercentilesWide(_ ptr: UnsafePointer<Float>, count: Int) -> (low: Float, high: Float) {
-        guard count > 0 else { return (0, 1) }
-        let sampleStride = max(1, count / percentileSampleCount)
-        var sample = [Float]()
-        sample.reserveCapacity(min(count, percentileSampleCount))
-        var i = 0
-        while i < count {
-            let v = ptr[i]
-            if v != 0 { sample.append(v) }
-            i += sampleStride
-        }
-        guard !sample.isEmpty else { return (0, 1) }
-        vDSP.sort(&sample, sortOrder: .ascending)
-        let n = sample.count
-        let lo = sample[Int(Float(n) * 0.005)]
-        let hi = sample[min(n - 1, Int(Float(n - 1) * 0.9999))]
-        return (lo, hi > lo ? hi : lo + 1)
-    }
-
-    /// Estimate from an array (for fallback path)
-    private static func estimatePercentiles(_ pixels: [Float]) -> (low: Float, high: Float) {
-        pixels.withUnsafeBufferPointer { buf in
-            estimatePercentiles(buf.baseAddress!, count: buf.count)
-        }
     }
 }

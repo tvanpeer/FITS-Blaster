@@ -381,6 +381,8 @@ private struct ImageViewer: View {
     // Named scrollPos (not scrollPosition) to avoid shadowing the SwiftUI .scrollPosition modifier.
     @State private var scrollPos = ScrollPosition(x: 0, y: 0)
     @State private var lastGeo: ViewportGeometry? = nil
+    // Set to true when the inspector or mode changes so the next geometry callback can re-fit.
+    @State private var pendingFitToContainer = false
 
     private var effectiveZoom: Double { settings.zoomScale * gestureScale }
 
@@ -414,6 +416,16 @@ private struct ImageViewer: View {
                 x: (geo.contentOffset.x + geo.containerSize.width  / 2) / cw,
                 y: (geo.contentOffset.y + geo.containerSize.height / 2) / ch
             )
+            // After a mode or inspector change, fit the image to the new container size.
+            if pendingFitToContainer {
+                pendingFitToContainer = false
+                let imgW = displayImage.size.width
+                let imgH = displayImage.size.height
+                guard imgW > 0, imgH > 0,
+                      geo.containerSize.width > 0, geo.containerSize.height > 0 else { return }
+                let fitScale = min(geo.containerSize.width / imgW, geo.containerSize.height / imgH)
+                settings.zoomScale = max(0.25, min(4.0, fitScale))
+            }
         }
         // Restore the stored scroll position when the displayed entry changes.
         .onChange(of: entryID) { _, _ in
@@ -435,6 +447,9 @@ private struct ImageViewer: View {
             let y = centerY * newCH - geo.containerSize.height / 2
             scrollPos.scrollTo(x: max(0, x), y: max(0, y))
         }
+        // Re-fit image to container when the inspector or mode changes the available space.
+        .onChange(of: settings.isSimpleMode) { _, _ in pendingFitToContainer = true }
+        .onChange(of: settings.showInspector) { _, _ in pendingFitToContainer = true }
         .gesture(
             MagnificationGesture()
                 .updating($gestureScale) { value, state, _ in state = value }

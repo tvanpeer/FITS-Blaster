@@ -25,7 +25,6 @@ class ThumbnailProvider: QLThumbnailProvider {
             var fitsImage = try FITSReader.readForPreview(from: url)
             logger.info("FITSReader succeeded: \(fitsImage.width)×\(fitsImage.height) ch=\(fitsImage.channels)")
 
-            let isFloat = fitsImage.bitpix < 0
             let nsImage: NSImage?
             if fitsImage.channels == 3 {
                 nsImage = ImageStretcher.createRGBImage(from: &fitsImage.pixelValues,
@@ -36,8 +35,7 @@ class ThumbnailProvider: QLThumbnailProvider {
                 nsImage = ImageStretcher.createImage(from: &fitsImage.pixelValues,
                                                       width: fitsImage.width,
                                                       height: fitsImage.height,
-                                                      maxDisplaySize: maxSize,
-                                                      useAsinhStretch: isFloat)
+                                                      maxDisplaySize: maxSize)
             }
 
             guard let image = nsImage else {

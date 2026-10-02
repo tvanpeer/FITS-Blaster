@@ -180,6 +180,8 @@ extension ImageStore {
                    Double(stars) < Double(medStars) * config.starCountMultiplier { return true }
                 if config.useSNR, let snr = m.snr, let medSNR = gs?.medianSNR,
                    Double(snr) < Double(medSNR) * config.snrMultiplier { return true }
+                if config.useSkyBackground, let bg = m.skyBackground, let medBG = gs?.medianSkyBackground,
+                   Double(bg) > Double(medBG) * config.skyBackgroundMultiplier { return true }
 
             case .absolute:
                 if config.useFWHM, let fwhm = m.fwhm,
@@ -188,6 +190,8 @@ extension ImageStore {
                    stars < config.absoluteStarCountFloor { return true }
                 if config.useSNR, let snr = m.snr,
                    Double(snr) < config.absoluteSNRFloor { return true }
+                if config.useSkyBackground, let bg = m.skyBackground,
+                   Double(bg) > config.absoluteSkyBackgroundCeiling { return true }
                 if config.useScore,
                    m.qualityScore < config.scoreFloor { return true }
             }

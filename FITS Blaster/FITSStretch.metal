@@ -10,8 +10,9 @@ using namespace metal;
 
 /// Parameters passed from the CPU to the GPU kernel
 struct StretchParams {
-    float lowClip;      // 0.1% percentile value
-    float highClip;     // 99.9% percentile value
+    float shadowClip;   // STF shadow clipping point (background − 2.8 × MAD)
+    float highClip;     // 99.99th percentile — clips only the very brightest stars
+    float mtfMidtone;   // MTF midtone: background maps to this output level (~0.25)
     uint  srcWidth;     // physical buffer width (pixels)
     uint  srcHeight;    // physical buffer height (pixels)
     uint  dstWidth;     // output (display) dimensions — may be downscaled
@@ -26,8 +27,8 @@ struct StretchParams {
 /// Single-pass compute kernel that performs:
 ///   1. Box-filter downsample from full-resolution input to display size
 ///   2. Vertical flip (FITS stores rows bottom-to-top)
-///   3. Percentile-clipped normalization: [lowClip, highClip] → [0, 1]
-///   4. Gamma 2.2 stretch + Float → UInt8
+///   3. STF normalization: [shadowClip, highClip] → [0, 1]
+///   4. MTF stretch (Midtone Transfer Function) + Float → UInt8
 ///
 /// When bayerBin=1 the scale is computed from srcWidth/2 × srcHeight/2 so that
 /// each output pixel's footprint covers an integer number of aligned 2×2 Bayer
@@ -82,10 +83,13 @@ kernel void sqrtStretch(
     }
     float raw = sum / float(max(n, 1u));
 
-    // Normalize to [0, 1] with clipping, then gamma stretch
-    float range = params.highClip - params.lowClip;
-    float t = clamp((raw - params.lowClip) / range, 0.0f, 1.0f);
-    outputPixels[gid.y * params.dstWidth + gid.x] = uchar(pow(t, 1.0f / 2.2f) * 255.0f);
+    // STF normalize to [0, 1], then apply MTF: (m−1)·t / ((2m−1)·t − m)
+    float range = params.highClip - params.shadowClip;
+    float t = clamp((raw - params.shadowClip) / range, 0.0f, 1.0f);
+    float m = params.mtfMidtone;
+    float stretched = (t == 0.0f) ? 0.0f
+        : clamp((m - 1.0f) * t / ((2.0f * m - 1.0f) * t - m), 0.0f, 1.0f);
+    outputPixels[gid.y * params.dstWidth + gid.x] = uchar(stretched * 255.0f);
 }
 
 // MARK: - Bayer debayer + stretch
@@ -93,14 +97,17 @@ kernel void sqrtStretch(
 /// Parameters for the Bayer demosaicing + stretch kernel. Must match the Swift
 /// BayerStretchParams struct exactly (field order, types, no padding).
 struct BayerStretchParams {
-    /// Per-channel percentile clip bounds — computed separately for R, G, B pixels
-    /// so each channel is stretched independently (eliminates green cast).
-    float lowClipR;
+    /// Per-channel STF clip bounds and MTF midtones — computed separately for R, G, B
+    /// so each channel is stretched independently (eliminates colour casts).
+    float shadowClipR;
     float highClipR;
-    float lowClipG;
+    float mtfMidtoneR;
+    float shadowClipG;
     float highClipG;
-    float lowClipB;
+    float mtfMidtoneG;
+    float shadowClipB;
     float highClipB;
+    float mtfMidtoneB;
     uint  srcWidth;     // full-resolution input dimensions
     uint  srcHeight;
     uint  dstWidth;     // output (display) dimensions — may be downscaled
@@ -117,18 +124,21 @@ struct BayerStretchParams {
     uint  bayerBin;
 };
 
-/// Stretch a single channel value to UInt8 with percentile clip + gamma 2.2.
-static inline uchar bayerStretchByte(float raw, float lo, float hi) {
+/// Stretch a single channel value to UInt8 with STF shadow clip + MTF.
+static inline uchar bayerStretchByte(float raw, float lo, float hi, float midtone) {
     float range = hi - lo;
     float t = clamp((raw - lo) / range, 0.0f, 1.0f);
-    return uchar(pow(t, 1.0f / 2.2f) * 255.0f);
+    float m = midtone;
+    float stretched = (t == 0.0f) ? 0.0f
+        : clamp((m - 1.0f) * t / ((2.0f * m - 1.0f) * t - m), 0.0f, 1.0f);
+    return uchar(stretched * 255.0f);
 }
 
 /// Single-pass kernel:
 ///   1. Box-filter downsample from full-resolution input to display size
 ///   2. Vertical flip (FITS rows are stored bottom-to-top)
 ///   3. Per-channel (R/G/B) box average across the source footprint
-///   4. Per-channel percentile-clip + gamma-2.2 stretch
+///   4. Per-channel STF shadow clip + MTF stretch
 ///
 /// Averaging the R, G, B Bayer pixels separately within each output footprint
 /// gives alias-free demosaicing without any cross-channel contamination.
@@ -195,9 +205,9 @@ kernel void bayerDebayerAndStretch(
     float G = (nG > 0u) ? sumG / float(nG) : 0.0f;
     float B = (nB > 0u) ? sumB / float(nB) : 0.0f;
 
-    uchar r8 = bayerStretchByte(R, params.lowClipR, params.highClipR);
-    uchar g8 = bayerStretchByte(G, params.lowClipG, params.highClipG);
-    uchar b8 = bayerStretchByte(B, params.lowClipB, params.highClipB);
+    uchar r8 = bayerStretchByte(R, params.shadowClipR, params.highClipR, params.mtfMidtoneR);
+    uchar g8 = bayerStretchByte(G, params.shadowClipG, params.highClipG, params.mtfMidtoneG);
+    uchar b8 = bayerStretchByte(B, params.shadowClipB, params.highClipB, params.mtfMidtoneB);
 
     outputPixels[outY * params.dstWidth + outX] = uchar4(r8, g8, b8, 255);
 }

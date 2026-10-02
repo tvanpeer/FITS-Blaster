@@ -31,23 +31,10 @@ struct ContentView: View {
                 if !isSimple {
                     store.recomputeMetrics(metricsConfig: settings.metricsConfig)
                 }
-                guard let window = hostingWindow else { return }
+                guard let window = hostingWindow,
+                      !window.styleMask.contains(.fullScreen) else { return }
                 var frame = window.frame
-                if isSimple {
-                    if settings.showInspector { frame.size.width -= 260 }
-                    frame.size.width = max(frame.size.width, 500)
-                } else {
-                    if settings.showInspector { frame.size.width += 260 }
-                    frame.size.width = max(frame.size.width, settings.showInspector ? 960 : 700)
-                }
-                window.setFrame(frame, display: true, animate: true)
-            }
-            .onChange(of: settings.showInspector) { _, shown in
-                guard !settings.isSimpleMode, let window = hostingWindow else { return }
-                let delta: CGFloat = 260
-                var frame = window.frame
-                frame.size.width += shown ? delta : -delta
-                frame.size.width = max(frame.size.width, shown ? 960 : 700)
+                frame.size.width = max(frame.size.width, isSimple ? 500 : (settings.showInspector ? 960 : 700))
                 window.setFrame(frame, display: true, animate: true)
             }
             .alert("Error", isPresented: Binding(
@@ -120,11 +107,19 @@ struct ContentView: View {
                 }
             }
             .frame(minWidth: settings.isSimpleMode ? 380 : 400)
-
-            if settings.showInspector && !settings.isSimpleMode {
-                InspectorView()
-                    .frame(minWidth: 220, idealWidth: 260, maxWidth: 320)
+        }
+        .inspector(isPresented: Binding(
+            get: { settings.showInspector && !settings.isSimpleMode },
+            set: { newValue in
+                // When simple mode hides the inspector, the binding fires set(false).
+                // Ignore it — showInspector should only change when the user explicitly
+                // dismisses the panel in geek mode, not as a side-effect of mode switches.
+                guard !settings.isSimpleMode else { return }
+                settings.showInspector = newValue
             }
+        )) {
+            InspectorView()
+                .inspectorColumnWidth(min: 220, ideal: 260, max: 320)
         }
         .overlay { if isDragTarget { DropTargetOverlay() } }
         .onDrop(of: [.fileURL], isTargeted: $isDragTarget) { providers in

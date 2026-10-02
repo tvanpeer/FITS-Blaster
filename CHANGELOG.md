@@ -4,6 +4,22 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-02 — STF auto-stretch (PixInsight-style)
+
+### Improved
+- Replaced gamma 2.2 stretch with a PixInsight-style Screen Transfer Function (STF). The new algorithm computes the image's median and MAD (Median Absolute Deviation) to set an intelligent black point, then applies a Midtone Transfer Function (MTF) that places the sky background at ~25% grey. The result: darker background, more contrast in faint nebulosity, no blown-out highlights. Applies to all paths — GPU (Metal), CPU fallback, colour (Bayer), QuickLook, and thumbnails.
+
+---
+
+## 2026-10-02 — Fix full-screen mode/inspector layout issues
+
+### Fixed
+- Switching between Geek and Simple mode in full screen no longer leaves a black dead column where the inspector panel used to be. The inspector now uses SwiftUI's `.inspector` modifier, which handles full screen correctly instead of relying on window resizing.
+- The image now auto-fits to the newly available space when switching modes or showing/hiding the inspector.
+- The inspector panel now correctly reappears when switching back to Geek mode after having been in Simple mode.
+
+---
+
 ## 2026-10-02 — Sky BG sort and auto-flag, stable beta app name
 
 ### Added
