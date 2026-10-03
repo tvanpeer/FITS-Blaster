@@ -235,7 +235,7 @@ private struct InfoBar: View {
         HStack {
             if store.isBatchProcessing {
                 BatchProgressBar(store: store, showLoadedMetrics: true)
-            } else if store.recolouringMessage != nil {
+            } else if store.restretchingMessage != nil {
                 BatchProgressBar(store: store, showLoadedMetrics: false)
             } else if let elapsed = store.batchElapsed {
                 Text("\(elapsed, format: .number.precision(.fractionLength(2)))s for \(store.entries.count) images")
@@ -271,7 +271,7 @@ private struct InfoBar: View {
 private struct BatchProgressBar: View {
     let store: ImageStore
     /// True during an active batch load (shows Loaded + Metrics + Cancel).
-    /// False during a post-load colour toggle (shows Colour bar only).
+    /// False during a post-load restretch (shows Restretching bar only).
     let showLoadedMetrics: Bool
     @Environment(AppSettings.self) private var settings
 
@@ -291,15 +291,15 @@ private struct BatchProgressBar: View {
                     ProgressBarRow(label: "Metrics", value: metricsCount, total: total, color: .indigo)
                 }
             }
-            // Sampling and Colour bars appear only when colour rendering is active
-            // (batchSamplingTotal / batchBayerTotal are non-zero). They stay visible
+            // Sampling and Restretching bars appear only when a restretch pass is active
+            // (batchSamplingTotal / batchRestretchTotal are non-zero). They stay visible
             // until the whole batch completes rather than disappearing when their own
             // pipeline finishes.
             if store.batchSamplingTotal > 0 {
                 ProgressBarRow(label: "Sampling", value: store.batchSamplingCount, total: store.batchSamplingTotal, color: .mint)
             }
-            if store.batchBayerTotal > 0 {
-                ProgressBarRow(label: "Colour", value: store.batchColourCount, total: store.batchBayerTotal, color: .orange)
+            if store.batchRestretchTotal > 0 {
+                ProgressBarRow(label: "Restretching", value: store.batchRestretchCount, total: store.batchRestretchTotal, color: .orange)
             }
         }
         .task {
@@ -330,7 +330,7 @@ private struct ProgressBarRow: View {
             Text(label)
                 .scaledFont(size: 9)
                 .foregroundStyle(.secondary)
-                .frame(width: 48, alignment: .trailing)
+                .frame(width: 64, alignment: .trailing)
             Capsule()
                 .fill(color.opacity(0.2))
                 .overlay(alignment: .leading) {

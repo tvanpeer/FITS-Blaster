@@ -4,6 +4,16 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-03 — Chart cursor and progress bar label
+
+### Fixed
+- The chart cursor dot (white, larger) now moves correctly when navigating between images. The `selectedEntry` check was inside a `@ChartContentBuilder` closure that doesn't participate in SwiftUI's `@Observable` tracking, so the chart wasn't re-rendering on selection changes. Fixed by capturing the selected entry ID before the `Chart {}` block.
+
+### Changed
+- Renamed the "Colour" progress bar to "Restretching" — it tracks the full display-image restretch pass, which covers both Bayer→colour and greyscale re-renders (e.g. when toggling the debayer setting on a previously loaded session).
+
+---
+
 ## 2026-10-03 — QuickLook thumbnail fixes and iCloud investigation
 
 ### Fixed

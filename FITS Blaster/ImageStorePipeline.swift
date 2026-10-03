@@ -354,11 +354,11 @@ extension ImageStore {
                          debayerColorImages: Bool = false) async {
 
         // Reset colour counters for this pass so a grey-mode pass never shows a stale
-        // Colour bar from a previous colour session. When debayering, set the total
+        // Restretching bar from a previous session. When debayering, set the total
         // upfront to the full entry count so the bar stays visible for the entire load
         // rather than flickering in/out as each folder completes.
-        batchBayerTotal  = debayerColorImages ? entriesToProcess.count : 0
-        batchColourCount = 0
+        batchRestretchTotal  = debayerColorImages ? entriesToProcess.count : 0
+        batchRestretchCount = 0
 
         // Phase A: high I/O concurrency keeps the SSD pipeline full.
         // Phase B: bounded separately to prevent CPU/memory over-subscription.
@@ -503,15 +503,15 @@ extension ImageStore {
             defer { for d in accessedDirs { d.stopAccessingSecurityScopedResource() } }
 
             if debayer {
-                recolouringMessage = "Rendering colour…"
-                defer { recolouringMessage = nil }
+                restretchingMessage = "Rendering colour…"
+                defer { restretchingMessage = nil }
 
                 let needsClips = bayerEntries.filter { $0.bayerClips == nil }
                 // Set progress counters upfront so the bars are stable for the full run.
                 batchSamplingTotal = bayerEntries.count
                 batchSamplingCount = bayerEntries.count - needsClips.count
-                batchBayerTotal    = bayerEntries.count
-                batchColourCount   = 0
+                batchRestretchTotal    = bayerEntries.count
+                batchRestretchCount   = 0
 
                 // Group by folder to enable per-folder streaming: colour rendering fires
                 // as soon as all entries in a folder are sampled, rather than waiting for
@@ -598,8 +598,8 @@ extension ImageStore {
                 // Use cached greyscale renders if available to avoid file re-reads.
                 let needsRender = bayerEntries.filter { $0.cachedGreyscaleDisplay == nil }
                 if !needsRender.isEmpty {
-                    recolouringMessage = "Rendering greyscale…"
-                    defer { recolouringMessage = nil }
+                    restretchingMessage = "Rendering greyscale…"
+                    defer { restretchingMessage = nil }
                     let concurrency = max(4, ProcessInfo.processInfo.activeProcessorCount - 2)
                     await withTaskGroup(of: Void.self) { group in
                         var active = 0
@@ -715,16 +715,16 @@ extension ImageStore {
     ///
     /// Called from `processParallel` and `recolorImages` as soon as all entries in a
     /// folder complete their clip computation, while FITS pages are still warm in cache.
-    /// Updates `batchColourCount` so the Colour bar advances smoothly.
-    /// `batchBayerTotal` must be set to the full entry count by the caller upfront.
+    /// Updates `batchRestretchCount` so the Restretching bar advances smoothly.
+    /// `batchRestretchTotal` must be set to the full entry count by the caller upfront.
     private func renderFolderInColour(_ entries: [ImageEntry],
                                       maxDisplaySize: Int,
                                       maxThumbnailSize: Int) async {
         let bayerEntries = entries.filter { $0.bayerClips != nil }
 
         // Non-Bayer entries in this folder need no colour rendering — count them immediately
-        // so progress advances correctly against the full batchBayerTotal.
-        batchColourCount += entries.count - bayerEntries.count
+        // so progress advances correctly against the full batchRestretchTotal.
+        batchRestretchCount += entries.count - bayerEntries.count
 
         guard !bayerEntries.isEmpty else { return }
 
@@ -743,7 +743,7 @@ extension ImageStore {
             selected.cachedColourThumb   = thumb
             selected.displayImage        = display
             selected.thumbnail           = thumb
-            batchColourCount += 1
+            batchRestretchCount += 1
         }
 
         let concurrency = max(4, ProcessInfo.processInfo.activeProcessorCount - 2)
@@ -755,7 +755,7 @@ extension ImageStore {
                 if entry.cachedColourDisplay != nil {
                     entry.displayImage = entry.cachedColourDisplay
                     entry.thumbnail    = entry.cachedColourThumb
-                    batchColourCount += 1
+                    batchRestretchCount += 1
                     continue
                 }
                 if activeCount >= concurrency { await group.next(); activeCount -= 1 }
@@ -767,7 +767,7 @@ extension ImageStore {
                               url: url, rOffset: pattern.rOffset, clips: sharedClips,
                               maxDisplaySize: maxDisplaySize, maxThumbnailSize: maxThumbnailSize
                           ) else {
-                        await MainActor.run { self.batchColourCount += 1 }
+                        await MainActor.run { self.batchRestretchCount += 1 }
                         return
                     }
                     await MainActor.run {
@@ -775,7 +775,7 @@ extension ImageStore {
                         entry.cachedColourThumb   = thumb
                         entry.displayImage        = display
                         entry.thumbnail           = thumb
-                        self.batchColourCount += 1
+                        self.batchRestretchCount += 1
                     }
                 }
                 activeCount += 1

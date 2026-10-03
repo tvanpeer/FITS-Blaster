@@ -238,17 +238,17 @@ final class ImageStore {
     // batchLoadedCount and batchMetricsCount are intentionally absent: updating them
     // per-image via MainActor.run creates back-pressure that serialises the pipeline.
     // BatchProgressBar polls entry state every 200 ms instead (see its .task modifier).
-    // Only the lower-frequency colour/sampling counters are stored here.
-    /// Set to the full entry count when colour rendering begins; 0 at all other times.
-    var batchBayerTotal: Int = 0
-    var batchColourCount: Int = 0
+    // Only the lower-frequency restretch/sampling counters are stored here.
+    /// Set to the full entry count when a restretch pass begins; 0 at all other times.
+    var batchRestretchTotal: Int = 0
+    var batchRestretchCount: Int = 0
     /// Tracks per-channel clip sampling before colour rendering begins (recolorImages path).
     var batchSamplingTotal: Int = 0
     var batchSamplingCount: Int = 0
 
-    /// Non-nil while a Bayer re-render pass is running; the value is the status message to display.
+    /// Non-nil while a restretch pass is running; the value is the status message to display.
     /// Internal (not private(set)) so the pipeline extension can update it.
-    var recolouringMessage: String? = nil
+    var restretchingMessage: String? = nil
 
     var errorMessage: String?
 
@@ -694,8 +694,8 @@ final class ImageStore {
         groupedByFolderAndFilter = []
         collapsedFolderPaths = []
         visibilityFilteredEntries = []
-        batchBayerTotal = 0
-        batchColourCount = 0
+        batchRestretchTotal = 0
+        batchRestretchCount = 0
         batchSamplingTotal = 0
         batchSamplingCount = 0
         displayBrightness = 0.0

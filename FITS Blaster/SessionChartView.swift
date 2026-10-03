@@ -318,7 +318,11 @@ struct SessionChartView: View {
     // MARK: - Chart
 
     private var chart: some View {
-        Chart {
+        // Capture outside the Chart{} builder — @ChartContentBuilder closures don't
+        // participate in SwiftUI's @Observable tracking, so selectedEntry changes
+        // wouldn't otherwise trigger a re-render.
+        let selectedID = store.selectedEntry?.id
+        return Chart {
             // Dashed median threshold lines, one per filter group
             ForEach(groupMedians, id: \.group) { item in
                 RuleMark(y: .value("Median", item.median))
@@ -328,7 +332,7 @@ struct SessionChartView: View {
 
             // One mark per frame — bars or dots depending on user preference
             ForEach(chartPoints, id: \.entry.id) { item in
-                let isCursor = store.selectedEntry === item.entry
+                let isCursor = item.entry.id == selectedID
                 let isFlagged = store.flaggedEntryIDs.contains(item.entry.id)
                 let hasFlaggedSet = !store.flaggedEntryIDs.isEmpty
                 let opacity: Double = if item.entry.isRejected { settings.rejectedDotOpacity }
