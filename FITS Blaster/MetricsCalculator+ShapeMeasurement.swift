@@ -371,6 +371,37 @@ extension MetricsCalculator {
         return (den / num).squareRoot()
     }
 
+    /// 2×2-bins a star crop extracted from a Bayer mosaic image.
+    ///
+    /// Each output pixel averages the 2×2 native block centred on the same star position,
+    /// eliminating the alternating R/G/B/G channel pattern that otherwise distorts 1D Moffat fits.
+    /// The returned crop has `binnedHalf = cropHalf / 2`; its centre is at (binnedHalf, binnedHalf).
+    /// All FWHM values measured on the binned crop must be multiplied by 2 to recover native pixels.
+    static func binCrop2x2(_ crop: [Float], cropHalf: Int) -> (crop: [Float], cropHalf: Int) {
+        let side       = 2 * cropHalf + 1
+        let binnedHalf = cropHalf / 2
+        let binnedSide = 2 * binnedHalf + 1
+        var binned     = [Float](repeating: 0, count: binnedSide * binnedSide)
+        for by in 0..<binnedSide {
+            for bx in 0..<binnedSide {
+                // Native origin for this 2×2 block, aligned so output centre → input centre.
+                let nx = cropHalf + (bx - binnedHalf) * 2
+                let ny = cropHalf + (by - binnedHalf) * 2
+                var sum: Float = 0; var n: Float = 0
+                for dy in 0..<2 {
+                    for dx in 0..<2 {
+                        let px = nx + dx, py = ny + dy
+                        if px >= 0, px < side, py >= 0, py < side {
+                            sum += crop[py * side + px]; n += 1
+                        }
+                    }
+                }
+                binned[by * binnedSide + bx] = n > 0 ? sum / n : 0
+            }
+        }
+        return (binned, binnedHalf)
+    }
+
     /// Bilinear interpolation into a crop array.
     private static func bilinearCrop(crop: [Float], cropSide: Int, x: Float, y: Float) -> Float {
         let x0 = Int(x), y0 = Int(y)

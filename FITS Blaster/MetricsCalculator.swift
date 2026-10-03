@@ -123,6 +123,9 @@ struct MetricsCalculator {
         /// Next ≤5800 candidates used only for the fast star-count pass.
         let countCandidates: [StarMeasurementCandidate]
         let totalFound:      Int
+        /// True when the source image is a raw Bayer mosaic.
+        /// Shape fits are performed on 2×2-binned crops and FWHM is scaled ×2.
+        let isBayer:         Bool
     }
 
     // MARK: - Public entry points
@@ -136,7 +139,8 @@ struct MetricsCalculator {
     /// unavailable (e.g. CI, sandboxed test environment).
     @concurrent static func compute(metalBuffer: MTLBuffer, device: MTLDevice,
                                     width: Int, height: Int,
-                                    config: MetricsConfig) async -> FrameMetrics? {
+                                    config: MetricsConfig,
+                                    isBayer: Bool = false) async -> FrameMetrics? {
         guard config.needsStarDetection else { return nil }
         let count = width * height
         guard count > 0 else { return nil }
@@ -166,14 +170,16 @@ struct MetricsCalculator {
         guard !allCandidates.isEmpty else { return nil }
         return await measureCandidates(allCandidates: allCandidates,
                                        pixels: pixels, background: background, sigma: sigma,
-                                       width: width, height: height, config: config)
+                                       width: width, height: height, config: config,
+                                       isBayer: isBayer)
     }
 
     /// CPU entry point for plain float arrays (e.g. CPU fallback read path).
     /// Scans a centre crop capped at 4096 × 4096 to keep compute time bounded
     /// on very large images. For full-frame analysis use the Metal entry point.
     @concurrent static func compute(pixels: [Float], width: Int, height: Int,
-                                    config: MetricsConfig) async -> FrameMetrics? {
+                                    config: MetricsConfig,
+                                    isBayer: Bool = false) async -> FrameMetrics? {
         guard config.needsStarDetection, !pixels.isEmpty else { return nil }
         // `pixels` is a value parameter whose heap storage is kept alive for the entire
         // duration of this async function. We extract the base address here (before the
@@ -184,16 +190,19 @@ struct MetricsCalculator {
         //   - The pointer is fully consumed before this function returns.
         let base = pixels.withUnsafeBufferPointer { $0.baseAddress! }
         let buf  = UnsafeBufferPointer(start: base, count: pixels.count)
-        return await computeImpl(pixels: buf, width: width, height: height, config: config)
+        return await computeImpl(pixels: buf, width: width, height: height, config: config,
+                                 isBayer: isBayer)
     }
 
     /// CPU entry point for a raw pointer (retained for callers that already have
     /// a pointer and do not need full-frame GPU detection).
     @concurrent static func compute(ptr: UnsafePointer<Float>, count: Int, width: Int, height: Int,
-                                    config: MetricsConfig) async -> FrameMetrics? {
+                                    config: MetricsConfig,
+                                    isBayer: Bool = false) async -> FrameMetrics? {
         guard config.needsStarDetection, count > 0 else { return nil }
         let pixels = UnsafeBufferPointer(start: ptr, count: count)
-        return await computeImpl(pixels: pixels, width: width, height: height, config: config)
+        return await computeImpl(pixels: pixels, width: width, height: height, config: config,
+                                 isBayer: isBayer)
     }
 
     // MARK: - Crop-based Phase A / Phase B entry points
@@ -203,7 +212,8 @@ struct MetricsCalculator {
     /// Phase B shape measurement. The MTLBuffer may be released immediately after
     /// this method returns — no buffer pointer is retained in the result.
     @concurrent static func extractStarData(metalBuffer: MTLBuffer, width: Int, height: Int,
-                                            config: MetricsConfig) async -> StarDetectionData? {
+                                            config: MetricsConfig,
+                                            isBayer: Bool = false) async -> StarDetectionData? {
         guard config.needsStarDetection else { return nil }
         let count = width * height
         guard count > 0 else { return nil }
@@ -256,7 +266,8 @@ struct MetricsCalculator {
         return StarDetectionData(background: background, sigma: sigma,
                                  shapeCandidates: Array(shapeCandidates),
                                  countCandidates: Array(countCandidates),
-                                 totalFound: totalFound)
+                                 totalFound: totalFound,
+                                 isBayer: isBayer)
     }
 
     /// Phase B: measure star quality from pre-extracted crops.
@@ -289,13 +300,23 @@ struct MetricsCalculator {
                     }
                     active -= 1
                 }
-                let c = candidate
+                let c       = candidate
+                let bayer   = starData.isBayer
                 group.addTask {
-                    let (fwhm, ecc, snr, peakVal) = Self.measureShapeFromCrop(
-                        crop: c.crop, cropHalf: c.cropHalf,
-                        background: background, sigma: sigma)
-                    guard fwhm >= 0.5, fwhm <= 20 else { return nil }
-                    return (fwhm, ecc, snr, peakVal)
+                    if bayer {
+                        let (bCrop, bHalf) = Self.binCrop2x2(c.crop, cropHalf: c.cropHalf)
+                        let (fwhmB, ecc, snr, peakVal) = Self.measureShapeFromCrop(
+                            crop: bCrop, cropHalf: bHalf, background: background, sigma: sigma)
+                        let fwhm = fwhmB * 2
+                        guard fwhm >= 0.5, fwhm <= 20 else { return nil }
+                        return (fwhm, ecc, snr, peakVal)
+                    } else {
+                        let (fwhm, ecc, snr, peakVal) = Self.measureShapeFromCrop(
+                            crop: c.crop, cropHalf: c.cropHalf,
+                            background: background, sigma: sigma)
+                        guard fwhm >= 0.5, fwhm <= 20 else { return nil }
+                        return (fwhm, ecc, snr, peakVal)
+                    }
                 }
                 active += 1
             }
@@ -358,7 +379,8 @@ struct MetricsCalculator {
     /// than the old 1024² limit) to cover most of a 16 MP frame while keeping
     /// compute time bounded for the rare cases where Metal is unavailable.
     @concurrent private static func computeImpl(pixels: UnsafeBufferPointer<Float>, width: Int, height: Int,
-                                                config: MetricsConfig) async -> FrameMetrics? {
+                                                config: MetricsConfig,
+                                                isBayer: Bool = false) async -> FrameMetrics? {
         // 4096² cap: large enough to cover most or all of a typical 16 MP sensor,
         // while bounding worst-case CPU time to ~80 ms for 48 MP+ files.
         let cropW = min(width,  4096)
@@ -377,7 +399,8 @@ struct MetricsCalculator {
         guard !allCandidates.isEmpty else { return nil }
         return await measureCandidates(allCandidates: allCandidates,
                                        pixels: pixels, background: background, sigma: sigma,
-                                       width: width, height: height, config: config)
+                                       width: width, height: height, config: config,
+                                       isBayer: isBayer)
     }
 
     /// Shared measurement stage: filters raw candidates, fits PSF models sequentially,
@@ -387,7 +410,8 @@ struct MetricsCalculator {
                                                      pixels: UnsafeBufferPointer<Float>,
                                                      background: Float, sigma: Float,
                                                      width: Int, height: Int,
-                                                     config: MetricsConfig) async -> FrameMetrics? {
+                                                     config: MetricsConfig,
+                                                     isBayer: Bool = false) async -> FrameMetrics? {
 
         let needMeasure = config.computeFWHM || config.computeEccentricity || config.computeSNR
 
@@ -423,11 +447,22 @@ struct MetricsCalculator {
                 }
                 let c = candidate
                 group.addTask {
-                    let (fwhm, ecc, snr, peakVal) = Self.measureShape(
-                        pixels: pixels, width: width, height: height,
-                        cx: c.x, cy: c.y, background: background, sigma: sigma)
-                    guard fwhm >= 0.5, fwhm <= 20 else { return nil }
-                    return (fwhm, ecc, snr, peakVal)
+                    if isBayer {
+                        let rawCrop = Self.extractCrop(from: pixels, width: width, height: height,
+                                                       cx: c.x, cy: c.y, cropHalf: Self.cropHalf)
+                        let (bCrop, bHalf) = Self.binCrop2x2(rawCrop, cropHalf: Self.cropHalf)
+                        let (fwhmB, ecc, snr, peakVal) = Self.measureShapeFromCrop(
+                            crop: bCrop, cropHalf: bHalf, background: background, sigma: sigma)
+                        let fwhm = fwhmB * 2
+                        guard fwhm >= 0.5, fwhm <= 20 else { return nil }
+                        return (fwhm, ecc, snr, peakVal)
+                    } else {
+                        let (fwhm, ecc, snr, peakVal) = Self.measureShape(
+                            pixels: pixels, width: width, height: height,
+                            cx: c.x, cy: c.y, background: background, sigma: sigma)
+                        guard fwhm >= 0.5, fwhm <= 20 else { return nil }
+                        return (fwhm, ecc, snr, peakVal)
+                    }
                 }
                 active += 1
             }
