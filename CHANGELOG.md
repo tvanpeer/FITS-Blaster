@@ -4,10 +4,17 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-03 — Bayer mosaic: split FWHM/eccentricity measurement
+
+### Fixed
+- Eccentricity on OSC/Bayer files regressed after the 2×2-binning fix because the isotropic blur from binning compresses the PSF axis ratio toward 1, flattening all eccentricity values and destroying the ranking. FWHM and eccentricity are now measured from separate crops for Bayer files: FWHM comes from the 2×2-binned crop (eliminating the Bayer checkerboard artefact, ×2 scale-back applied), while eccentricity, SNR, and peakVal come from the raw unbinned crop where the four-direction axis-ratio signal is preserved.
+
+---
+
 ## 2026-10-03 — Bayer mosaic: 2×2-bin crops before Moffat fitting
 
 ### Fixed
-- FWHM and eccentricity were underestimated on colour OSC cameras because metrics were computed on the raw Bayer mosaic. The alternating R/G/B/G pixel pattern along any 1D cross-section looks like a narrower PSF than it really is, causing artificially low FWHM (e.g. 1.7 px where PixInsight measures 2.6 px) and weaker eccentricity correlation. FITS Blaster now detects the Bayer pattern from FITS headers (`BAYERPAT` keyword) and, for those files, bins each star crop 2×2 before fitting. Each 2×2 block averages one R + two G + one B pixel into a single luminance sample, eliminating the checkerboard artefact. FWHM from the binned crop is scaled ×2 to recover native-pixel values. SNR and PSF-SW are computed from the binned peak, which is consistent within a session.
+- FWHM and eccentricity were underestimated on colour OSC cameras because metrics were computed on the raw Bayer mosaic. The alternating R/G/B/G pixel pattern along any 1D cross-section looks like a narrower PSF than it really is, causing artificially low FWHM (e.g. 1.7 px where PixInsight measures 2.6 px) and weaker eccentricity correlation. FITS Blaster now detects the Bayer pattern from FITS headers (`BAYERPAT` keyword) and, for those files, bins each star crop 2×2 before fitting. Each 2×2 block averages one R + two G + one B pixel into a single luminance sample, eliminating the checkerboard artefact. FWHM from the binned crop is scaled ×2 to recover native-pixel values.
 
 ---
 

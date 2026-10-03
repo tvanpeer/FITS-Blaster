@@ -305,10 +305,13 @@ struct MetricsCalculator {
                 group.addTask {
                     if bayer {
                         let (bCrop, bHalf) = Self.binCrop2x2(c.crop, cropHalf: c.cropHalf)
-                        let (fwhmB, ecc, snr, peakVal) = Self.measureShapeFromCrop(
+                        let (fwhmB, _, _, _) = Self.measureShapeFromCrop(
                             crop: bCrop, cropHalf: bHalf, background: background, sigma: sigma)
                         let fwhm = fwhmB * 2
                         guard fwhm >= 0.5, fwhm <= 20 else { return nil }
+                        let (_, ecc, snr, peakVal) = Self.measureShapeFromCrop(
+                            crop: c.crop, cropHalf: c.cropHalf, background: background, sigma: sigma)
+                        guard peakVal > 0 else { return nil }
                         return (fwhm, ecc, snr, peakVal)
                     } else {
                         let (fwhm, ecc, snr, peakVal) = Self.measureShapeFromCrop(
@@ -451,10 +454,16 @@ struct MetricsCalculator {
                         let rawCrop = Self.extractCrop(from: pixels, width: width, height: height,
                                                        cx: c.x, cy: c.y, cropHalf: Self.cropHalf)
                         let (bCrop, bHalf) = Self.binCrop2x2(rawCrop, cropHalf: Self.cropHalf)
-                        let (fwhmB, ecc, snr, peakVal) = Self.measureShapeFromCrop(
+                        // FWHM from 2×2-binned crop (eliminates Bayer alternation artefact);
+                        // eccentricity/SNR/peakVal from raw crop (binning isotropically blurs
+                        // the PSF, compressing axis ratio toward 1 and destroying ecc ranking).
+                        let (fwhmB, _, _, _) = Self.measureShapeFromCrop(
                             crop: bCrop, cropHalf: bHalf, background: background, sigma: sigma)
                         let fwhm = fwhmB * 2
                         guard fwhm >= 0.5, fwhm <= 20 else { return nil }
+                        let (_, ecc, snr, peakVal) = Self.measureShapeFromCrop(
+                            crop: rawCrop, cropHalf: Self.cropHalf, background: background, sigma: sigma)
+                        guard peakVal > 0 else { return nil }
                         return (fwhm, ecc, snr, peakVal)
                     } else {
                         let (fwhm, ecc, snr, peakVal) = Self.measureShape(
