@@ -427,8 +427,15 @@ extension MetricsCalculator {
             }
         }
         m20 /= sumW; m02 /= sumW; m11 /= sumW
-        let trace = m20 + m02
-        let disc  = max(0, trace * trace / 4 - (m20 * m02 - m11 * m11)).squareRoot()
+        // Each 2×2-binned pixel averages a 2×2 native block.  The within-block
+        // centroid variance is 0.25 native px² per axis = 0.0625 binned px².
+        // This isotropic blur inflates m20 and m02 equally, compressing the axis
+        // ratio toward 1.  Subtract the blur variance to recover the true moments.
+        let blurVar: Float = 1.0 / 16.0
+        let m20c = max(0, m20 - blurVar)
+        let m02c = max(0, m02 - blurVar)
+        let trace = m20c + m02c
+        let disc  = max(0, trace * trace / 4 - (m20c * m02c - m11 * m11)).squareRoot()
         let lambdaMax = trace / 2 + disc
         let lambdaMin = trace / 2 - disc
         guard lambdaMax > 0, lambdaMin > 0 else { return 0 }
