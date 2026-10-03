@@ -347,6 +347,8 @@ D           =  √(C² + S₂²)
 
     <p>Because the four directions span the full 180° range uniformly, elongation is detected with equal sensitivity at <strong>any angle</strong> — 0°, 45°, or anywhere between. This matches PixInsight SubframeSelector's full 2D PSF ellipse fit.</p>
 
+    <p><strong>Colour (OSC/Bayer) cameras:</strong> FITS Blaster detects the Bayer pattern from FITS headers. For Bayer files, FWHM is measured on a 2×2-binned version of each star crop (eliminating the R/G/B/G alternation artefact), and eccentricity is computed from intensity-weighted second moments of the same binned crop rather than from 1D profile fits. Because the 2×2 binning halves the spatial resolution, eccentricity has lower precision on colour cameras — it reliably detects severe elongation but does not discriminate fine gradations as well as with a mono camera. FWHM, SNR, and PSF Signal Weight are not affected by this limitation.</p>
+
     <h3>SNR — aperture photometry</h3>
     <p>A circular aperture of radius r&nbsp;=&nbsp;2&nbsp;×&nbsp;FWHM is placed at the centroid. The background-subtracted flux inside the aperture (I_net) and the pixel count (n_ap) are summed:</p>
 
