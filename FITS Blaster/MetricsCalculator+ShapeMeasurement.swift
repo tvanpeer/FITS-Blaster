@@ -97,16 +97,15 @@ extension MetricsCalculator {
 
     /// Compute FWHM, eccentricity, and aperture SNR for a single star.
     ///
-    /// **FWHM:** 1D Moffat β=4 fits along X and Y axes (PixInsight default model).
-    /// Geometric mean of the two axes gives a single representative value.
+    /// **FWHM:** 1D Moffat β=4 fits along four directions (0°, 45°, 90°, 135°).
+    /// The four α values are combined analytically to recover the true principal-axis
+    /// semi-widths of the elliptical PSF at any orientation; the geometric mean gives
+    /// a single representative FWHM matching PixInsight's summary value.
     ///
-    /// **Eccentricity:** 2D intensity-weighted image moments over a ±10px window,
-    /// giving eigenvalues λ₁ ≥ λ₂ of the moment matrix. e = √(1 − λ₂/λ₁).
-    /// Orientation-invariant: correctly detects elongation at any angle, unlike
-    /// the previous approach of comparing two axis-aligned 1D fits.
+    /// **Eccentricity:** Derived from the reconstructed principal-axis FWHM values.
+    /// Orientation-invariant: correctly detects elongation at any angle, including diagonal.
     ///
     /// **SNR:** Peak signal above background in units of sky sigma.
-    /// Scale-invariant: works equally for raw ADU, calibrated e⁻/s, and 0–1 float data.
     ///
     /// **peakVal:** Background-subtracted sub-pixel peak, returned so callers can
     /// compute PSF Signal Weight without re-deriving it from the fit coefficients.
@@ -139,62 +138,85 @@ extension MetricsCalculator {
                                x: centX, y: centY) - background
         guard peakVal > 0 else { return (0, 0, 0, 0) }
 
-        // 1D Moffat β=4 fits for FWHM along X and Y.
-        guard let fwhmX = fitMoffat1D(pixels: pixels, width: width, height: height,
-                                       centX: centX, centY: centY, peakVal: peakVal,
-                                       background: background, horizontal: true),
-              let fwhmY = fitMoffat1D(pixels: pixels, width: width, height: height,
-                                       centX: centX, centY: centY, peakVal: peakVal,
-                                       background: background, horizontal: false)
+        // Fit Moffat α along four directions: 0°, 90°, 45°, 135°.
+        let rt2: Float = 1 / Float(2).squareRoot()
+        guard let a0   = fitMoffatAlpha(pixels: pixels, width: width, height: height,
+                                        centX: centX, centY: centY, peakVal: peakVal,
+                                        background: background, dx: 1, dy: 0),
+              let a90  = fitMoffatAlpha(pixels: pixels, width: width, height: height,
+                                        centX: centX, centY: centY, peakVal: peakVal,
+                                        background: background, dx: 0, dy: 1),
+              let a45  = fitMoffatAlpha(pixels: pixels, width: width, height: height,
+                                        centX: centX, centY: centY, peakVal: peakVal,
+                                        background: background, dx: rt2, dy: rt2),
+              let a135 = fitMoffatAlpha(pixels: pixels, width: width, height: height,
+                                        centX: centX, centY: centY, peakVal: peakVal,
+                                        background: background, dx: -rt2, dy: rt2)
         else { return (0, 0, 0, 0) }
 
-        // Geometric-mean FWHM — matches PixInsight's single-value summary.
-        let fwhm = sqrt(fwhmX * fwhmY)
+        // Reconstruct true principal-axis α values from four directional measurements.
+        //
+        // For an elliptical Moffat with semi-axes a (major), b (minor), rotation θ:
+        //   1/α(φ)² = cos²(φ−θ)/a² + sin²(φ−θ)/b²
+        //
+        // This gives three independent combinations:
+        //   S  = 1/a² + 1/b²                  = (inv0 + inv90 + inv45 + inv135) / 2
+        //   C  = (1/a² − 1/b²)·cos(2θ)        = inv0  − inv90
+        //   S2 = (1/a² − 1/b²)·sin(2θ)        = inv45 − inv135
+        //
+        // Solving: |1/a² − 1/b²| = D = √(C² + S2²)
+        //   1/a_major² = (S − D) / 2  (smaller reciprocal → larger axis)
+        //   1/a_minor² = (S + D) / 2
+        let inv0   = 1 / (a0   * a0)
+        let inv90  = 1 / (a90  * a90)
+        let inv45  = 1 / (a45  * a45)
+        let inv135 = 1 / (a135 * a135)
+        let S  = (inv0 + inv90 + inv45 + inv135) / 2
+        let C  = inv0  - inv90
+        let S2 = inv45 - inv135
+        let D  = (C * C + S2 * S2).squareRoot()
+        let invMajor2 = (S - D) / 2
+        let invMinor2 = (S + D) / 2
+        guard invMajor2 > 0, invMinor2 > 0 else { return (0, 0, 0, 0) }
 
-        // Eccentricity from the FWHM axis ratio — more accurate than intensity-weighted
-        // moments and directly comparable to PixInsight's 2D PSF fit approach.
-        // e = √(1 − (minor/major)²), where minor/major are the per-axis FWHM values.
-        let fwhmMajor = max(fwhmX, fwhmY)
-        let fwhmMinor = min(fwhmX, fwhmY)
-        let axisRatio = fwhmMinor / fwhmMajor
-        let eccentricity = sqrt(max(0, 1 - axisRatio * axisRatio))
+        let fwhmFactor = 2 * (pow(Float(2), Float(0.25)) - 1).squareRoot()
+        let fwhmMajor  = fwhmFactor / invMajor2.squareRoot()
+        let fwhmMinor  = fwhmFactor / invMinor2.squareRoot()
+        let fwhm       = (fwhmMajor * fwhmMinor).squareRoot()
 
-        // Peak SNR: peakVal / σ_sky — scale-invariant (works for ADU, e⁻/s, and 0–1 float).
+        let axisRatio    = fwhmMinor / fwhmMajor
+        let eccentricity = max(0, 1 - axisRatio * axisRatio).squareRoot()
+
         let snr: Float = peakVal / sigma
 
         return (fwhm, eccentricity, snr, peakVal)
     }
 
-    /// Fit a 1D Moffat (β=4) profile through (centX, centY) along x or y.
+    /// Fit a 1D Moffat β=4 profile through (centX, centY) along unit direction (dx, dy).
     ///
-    /// Linearisation: let z = (A/I)^{1/4} − 1, then z = x²/α².
-    /// Weighted regression through origin (w = I−B) gives α directly.
-    /// Returns FWHM = 2α·√(2^{1/4}−1) in pixels, or nil on failure.
-    private static func fitMoffat1D(pixels: UnsafeBufferPointer<Float>, width: Int, height: Int,
-                                    centX: Float, centY: Float, peakVal: Float,
-                                    background: Float, horizontal: Bool) -> Float? {
+    /// Linearisation: z = (A/I)^{1/4} − 1 = t²/α², where t is the signed step distance.
+    /// Weighted regression through origin gives α directly.
+    /// Returns the Moffat α parameter in pixels, or nil on failure.
+    private static func fitMoffatAlpha(pixels: UnsafeBufferPointer<Float>, width: Int, height: Int,
+                                       centX: Float, centY: Float, peakVal: Float,
+                                       background: Float, dx: Float, dy: Float) -> Float? {
         let halfW    = 10
-        let minFrac: Float = 0.02   // ignore pixels below 2 % of peak (noise dominated)
+        let minFrac: Float = 0.02
         var num: Float = 0, den: Float = 0
 
-        for offset in -halfW...halfW where offset != 0 {
-            let fx  = horizontal ? centX + Float(offset) : centX
-            let fy  = horizontal ? centY                 : centY + Float(offset)
-            let val = bilinear(pixels: pixels, width: width, height: height, x: fx, y: fy) - background
+        for step in -halfW...halfW where step != 0 {
+            let fstep = Float(step)
+            let val = bilinear(pixels: pixels, width: width, height: height,
+                               x: centX + fstep * dx, y: centY + fstep * dy) - background
             guard val > peakVal * minFrac, val < peakVal else { continue }
-            let ratio = peakVal / val
-            let z  = ratio.squareRoot().squareRoot() - 1  // equivalent to pow(ratio, 0.25), ~5× faster
-            let x2 = Float(offset * offset)
-            let w  = val                                    // intensity weight
-            num += w * z  * x2   // Σ w·z·x²
-            den += w * x2 * x2   // Σ w·x⁴
+            let z  = (peakVal / val).squareRoot().squareRoot() - 1
+            let t2 = fstep * fstep
+            num += val * z  * t2
+            den += val * t2 * t2
         }
 
         guard den > 0, num > 0 else { return nil }
-        let alpha = sqrt(den / num)
-        // FWHM = 2α·√(2^{1/β}−1), β=4 → factor ≈ 0.870
-        let fwhmFactor = 2 * sqrt(pow(Float(2), Float(0.25)) - 1)
-        return alpha * fwhmFactor
+        return (den / num).squareRoot()
     }
 
     /// Bilinear interpolation into a float pixel array.
@@ -246,20 +268,40 @@ extension MetricsCalculator {
         let peakVal = bilinearCrop(crop: crop, cropSide: side, x: centX, y: centY) - background
         guard peakVal > 0 else { return (0, 0, 0, 0) }
 
-        guard let fwhmX = fitMoffat1DCrop(crop: crop, cropSide: side,
-                                          centX: centX, centY: centY, peakVal: peakVal,
-                                          background: background, horizontal: true),
-              let fwhmY = fitMoffat1DCrop(crop: crop, cropSide: side,
-                                          centX: centX, centY: centY, peakVal: peakVal,
-                                          background: background, horizontal: false)
+        let rt2: Float = 1 / Float(2).squareRoot()
+        guard let a0   = fitMoffatAlphaCrop(crop: crop, cropSide: side,
+                                            centX: centX, centY: centY, peakVal: peakVal,
+                                            background: background, dx: 1, dy: 0),
+              let a90  = fitMoffatAlphaCrop(crop: crop, cropSide: side,
+                                            centX: centX, centY: centY, peakVal: peakVal,
+                                            background: background, dx: 0, dy: 1),
+              let a45  = fitMoffatAlphaCrop(crop: crop, cropSide: side,
+                                            centX: centX, centY: centY, peakVal: peakVal,
+                                            background: background, dx: rt2, dy: rt2),
+              let a135 = fitMoffatAlphaCrop(crop: crop, cropSide: side,
+                                            centX: centX, centY: centY, peakVal: peakVal,
+                                            background: background, dx: -rt2, dy: rt2)
         else { return (0, 0, 0, 0) }
 
-        let fwhm = sqrt(fwhmX * fwhmY)
+        let inv0   = 1 / (a0   * a0)
+        let inv90  = 1 / (a90  * a90)
+        let inv45  = 1 / (a45  * a45)
+        let inv135 = 1 / (a135 * a135)
+        let S  = (inv0 + inv90 + inv45 + inv135) / 2
+        let C  = inv0  - inv90
+        let S2 = inv45 - inv135
+        let D  = (C * C + S2 * S2).squareRoot()
+        let invMajor2 = (S - D) / 2
+        let invMinor2 = (S + D) / 2
+        guard invMajor2 > 0, invMinor2 > 0 else { return (0, 0, 0, 0) }
 
-        let fwhmMajor = max(fwhmX, fwhmY)
-        let fwhmMinor = min(fwhmX, fwhmY)
-        let axisRatio = fwhmMinor / fwhmMajor
-        let eccentricity = sqrt(max(0, 1 - axisRatio * axisRatio))
+        let fwhmFactor = 2 * (pow(Float(2), Float(0.25)) - 1).squareRoot()
+        let fwhmMajor  = fwhmFactor / invMajor2.squareRoot()
+        let fwhmMinor  = fwhmFactor / invMinor2.squareRoot()
+        let fwhm       = (fwhmMajor * fwhmMinor).squareRoot()
+
+        let axisRatio    = fwhmMinor / fwhmMajor
+        let eccentricity = max(0, 1 - axisRatio * axisRatio).squareRoot()
 
         let snr: Float = peakVal / sigma
         return (fwhm, eccentricity, snr, peakVal)
@@ -305,31 +347,28 @@ extension MetricsCalculator {
         return alpha * fwhmFactor
     }
 
-    /// 1D Moffat β=4 fit from a pre-extracted crop.
-    private static func fitMoffat1DCrop(crop: [Float], cropSide: Int,
-                                        centX: Float, centY: Float, peakVal: Float,
-                                        background: Float, horizontal: Bool) -> Float? {
+    /// 1D Moffat β=4 fit from a pre-extracted crop along unit direction (dx, dy).
+    /// Returns the Moffat α parameter in pixels, or nil on failure.
+    private static func fitMoffatAlphaCrop(crop: [Float], cropSide: Int,
+                                           centX: Float, centY: Float, peakVal: Float,
+                                           background: Float, dx: Float, dy: Float) -> Float? {
         let halfW    = 10
         let minFrac: Float = 0.02
         var num: Float = 0, den: Float = 0
 
-        for offset in -halfW...halfW where offset != 0 {
-            let fx  = horizontal ? centX + Float(offset) : centX
-            let fy  = horizontal ? centY                 : centY + Float(offset)
-            let val = bilinearCrop(crop: crop, cropSide: cropSide, x: fx, y: fy) - background
+        for step in -halfW...halfW where step != 0 {
+            let fstep = Float(step)
+            let val = bilinearCrop(crop: crop, cropSide: cropSide,
+                                   x: centX + fstep * dx, y: centY + fstep * dy) - background
             guard val > peakVal * minFrac, val < peakVal else { continue }
-            let ratio = peakVal / val
-            let z  = ratio.squareRoot().squareRoot() - 1
-            let x2 = Float(offset * offset)
-            let w  = val
-            num += w * z  * x2
-            den += w * x2 * x2
+            let z  = (peakVal / val).squareRoot().squareRoot() - 1
+            let t2 = fstep * fstep
+            num += val * z  * t2
+            den += val * t2 * t2
         }
 
         guard den > 0, num > 0 else { return nil }
-        let alpha = sqrt(den / num)
-        let fwhmFactor = 2 * sqrt(pow(Float(2), Float(0.25)) - 1)
-        return alpha * fwhmFactor
+        return (den / num).squareRoot()
     }
 
     /// Bilinear interpolation into a crop array.

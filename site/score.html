@@ -311,28 +311,41 @@
     <h3>Sub-pixel centroid</h3>
     <p>A 5&nbsp;×&nbsp;5 intensity-weighted window gives a sub-pixel centroid (cx,&nbsp;cy) and a bilinearly-interpolated peak value.</p>
 
-    <h3>FWHM — 1D Moffat β&nbsp;=&nbsp;4 fit</h3>
-    <p>A <strong>Moffat profile</strong> with fixed β&nbsp;=&nbsp;4 (the PixInsight standard) is fitted independently along the X and Y axes through the sub-pixel centroid, using a ±10-pixel window and a linearised weighted regression. FWHM per axis is:</p>
+    <h3>FWHM and eccentricity — four-direction Moffat fit</h3>
+    <p>A <strong>Moffat β&nbsp;=&nbsp;4 profile</strong> (the PixInsight standard) is fitted along <strong>four directions</strong> — 0°, 45°, 90°, 135° — through the sub-pixel centroid, using a ±10-pixel window and a linearised weighted regression:</p>
 
-    <pre>FWHM = 2α · √(2^(1/4) − 1)   ≈   α × 0.870 × 2</pre>
+    <pre>z = (A/I)^(1/4) − 1  =  t²/α²   →   α = √(Σ w·t⁴ / Σ w·z·t²)</pre>
 
-    <p>The <strong>reported FWHM</strong> is the geometric mean of the two axes, matching PixInsight's single-value summary:</p>
+    <p>The four α values are combined analytically to reconstruct the <strong>true principal axes</strong> of the elliptical PSF at any orientation. For a Moffat ellipse with semi-axes <em>a</em> (major), <em>b</em> (minor) at angle&nbsp;θ:</p>
 
-    <pre>FWHM = √(FWHM_x × FWHM_y)</pre>
+    <pre>1/α(φ)²  =  cos²(φ−θ)/a²  +  sin²(φ−θ)/b²</pre>
+
+    <p>This gives three independent combinations that can be solved in closed form:</p>
+
+    <pre>S   =  (1/α₀² + 1/α₉₀² + 1/α₄₅² + 1/α₁₃₅²) / 2   =  1/a² + 1/b²
+C   =  1/α₀²  − 1/α₉₀²                              =  (1/a² − 1/b²)·cos(2θ)
+S₂  =  1/α₄₅² − 1/α₁₃₅²                             =  (1/a² − 1/b²)·sin(2θ)
+
+D           =  √(C² + S₂²)
+1/a_major²  =  (S − D) / 2
+1/a_minor²  =  (S + D) / 2</pre>
+
+    <p>The <strong>reported FWHM</strong> is the geometric mean of the principal-axis values:</p>
+
+    <pre>FWHM = √(FWHM_major × FWHM_minor)</pre>
 
     <p>Units are <strong>pixels</strong>. Values below 0.5&nbsp;px (hot pixels) or above 20&nbsp;px (pathological blobs) are rejected.</p>
 
-    <h3>Eccentricity — FWHM axis ratio</h3>
-    <p>Eccentricity is derived directly from the per-axis FWHM values already computed by the Moffat fits, using the standard conic definition applied to an ellipse whose semi-axes are the X- and Y-axis FWHMs:</p>
+    <p><strong>Eccentricity</strong> follows directly from the same principal axes:</p>
 
     <pre>e = √(1 − (FWHM_minor / FWHM_major)²)</pre>
 
     <ul>
-        <li><strong>e = 0</strong> — perfectly round star (FWHM<sub>x</sub> = FWHM<sub>y</sub>)</li>
+        <li><strong>e = 0</strong> — perfectly round star</li>
         <li><strong>e → 1</strong> — strongly elongated or trailed star</li>
     </ul>
 
-    <p>This uses the same Moffat fit that produces the FWHM metric, making it consistent with PixInsight's SubframeSelector results. Elongation along X or Y (the most common case for tracking errors) is fully detected; elongation at exactly 45° is detected at reduced sensitivity, but is rare in practice.</p>
+    <p>Because the four directions span the full 180° range uniformly, elongation is detected with equal sensitivity at <strong>any angle</strong> — 0°, 45°, or anywhere between. This matches PixInsight SubframeSelector's full 2D PSF ellipse fit.</p>
 
     <h3>SNR — aperture photometry</h3>
     <p>A circular aperture of radius r&nbsp;=&nbsp;2&nbsp;×&nbsp;FWHM is placed at the centroid. The background-subtracted flux inside the aperture (I_net) and the pixel count (n_ap) are summed:</p>

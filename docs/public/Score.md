@@ -62,19 +62,40 @@ FWHM = √(FWHM_x × FWHM_y)
 
 Units are **pixels**. Hot pixels (FWHM < 0.5 px) and pathological blobs (FWHM > 20 px) are rejected.
 
-### Eccentricity — FWHM axis ratio
-Eccentricity is derived directly from the per-axis FWHM values already computed by the Moffat fits:
+### Eccentricity — four-direction principal-axis reconstruction
+Eccentricity is derived from the true principal axes of the PSF ellipse, reconstructed analytically from Moffat fits along four directions: 0°, 45°, 90°, and 135°.
+
+For an elliptical Moffat with semi-axes `a` (major) and `b` (minor) at rotation angle `θ`, the directional α satisfies:
 
 ```
-e = √(1 − (FWHM_minor / FWHM_major)²)
+1/α(φ)²  =  cos²(φ−θ)/a²  +  sin²(φ−θ)/b²
 ```
 
-where `FWHM_minor` and `FWHM_major` are the smaller and larger of the X- and Y-axis fits respectively. This is the standard conic eccentricity applied to an ellipse whose semi-axes are the per-axis FWHM values.
+The four measurements produce three independent combinations:
 
-- **e = 0** — perfectly round star (FWHM_x = FWHM_y)
+```
+S   =  1/a² + 1/b²                 =  (1/α₀² + 1/α₉₀² + 1/α₄₅² + 1/α₁₃₅²) / 2
+C   =  (1/a² − 1/b²)·cos(2θ)      =  1/α₀²  − 1/α₉₀²
+S₂  =  (1/a² − 1/b²)·sin(2θ)      =  1/α₄₅² − 1/α₁₃₅²
+```
+
+Solving for the principal axes:
+
+```
+D          =  √(C² + S₂²)
+1/a_major² =  (S − D) / 2
+1/a_minor² =  (S + D) / 2
+
+FWHM_major  =  fwhmFactor / √(1/a_major²)
+FWHM_minor  =  fwhmFactor / √(1/a_minor²)
+
+e  =  √(1 − (FWHM_minor / FWHM_major)²)
+```
+
+- **e = 0** — perfectly round star
 - **e → 1** — strongly elongated / trailed star
 
-This approach uses the same Moffat fit that drives the FWHM metric, making it consistent with PixInsight's SubframeSelector results. It detects elongation along the X and Y axes and along the diagonal — elongation that is aligned exactly at 45° is detected at reduced sensitivity, but such cases are rare in practice since most trailing and coma arises from tracking errors that align with the sky axes.
+Because the reconstruction uses four evenly-spaced directions spanning 180°, it is fully **orientation-invariant** — elongation at 0°, 45°, or any other angle is detected with equal sensitivity. This matches PixInsight SubframeSelector's approach of fitting a full 2D PSF ellipse.
 
 ### SNR — aperture photometry
 A circular aperture of radius r = 2 × FWHM is placed at the centroid. The background-subtracted flux inside the aperture (I_net) and the pixel count (n_ap) are summed, then:

@@ -4,6 +4,14 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-03 — Eccentricity: orientation-invariant four-direction PSF fit
+
+### Changed
+- **Eccentricity** is now computed from a four-direction Moffat fit (0°, 45°, 90°, 135°) with analytic principal-axis reconstruction. The four directional α values satisfy a closed-form system that yields the true major/minor axes of the PSF ellipse at any rotation angle — not just axis-aligned elongation. Previously, only the 0° and 90° fits were used, so diagonal elongation (e.g. trailing at 45°) was missed entirely. The formula and the FWHM value are otherwise unchanged.
+- Documentation updated in `Score.md`, `score.html`, and `faq.html`.
+
+---
+
 ## 2026-10-03 — PSF Signal Weight formula revised
 
 ### Changed
