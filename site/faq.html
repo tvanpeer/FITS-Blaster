@@ -440,13 +440,13 @@
     <details>
         <summary>What is PSF Signal Weight (PSF·S)?</summary>
         <div class="answer">
-            <p>PSF Signal Weight is a transparency metric computed alongside the Moffat PSF fit. It estimates how many photons each star collected on average, relative to the sky noise — independently of seeing quality.</p>
-            <p>The formula is <code>PSF-SW = mean(A × α²) / σ_sky</code>, where <code>A</code> is the background-subtracted peak brightness of each star and <code>α</code> is the Moffat scale radius derived from the fitted FWHM. <code>A × α²</code> is proportional to the total integrated flux under a Moffat β=4 profile — the physical photon yield per star.</p>
-            <p>The key property is that good seeing concentrates photons into a tight PSF (high A, low α), while poor seeing spreads them out (low A, high α). The product <code>A × α²</code> stays roughly constant for the same total photon count regardless of seeing. As a result:</p>
+            <p>PSF Signal Weight is a metric computed alongside the Moffat PSF fit. It measures peak amplitude per unit of sky noise, rewarding both good transparency and good seeing.</p>
+            <p>The formula is <code>PSF-SW = mean(A) / σ_sky</code>, where <code>A</code> is the background-subtracted sub-pixel peak brightness of each star and <code>σ_sky</code> is the sky noise from Step 1.</p>
+            <p>Good transparency delivers more photons, raising <code>A</code>. Good seeing concentrates photons into a narrower PSF, also raising <code>A</code>. As a result:</p>
             <ul>
-                <li><strong>High PSF·S</strong> — good transparency, bright stars, or a long exposure. The frame collected strong signal above sky noise.</li>
-                <li><strong>Low PSF·S</strong> — haze, thin cloud, short exposure, or high sky background. The frame was photon-limited regardless of how sharp the stars look.</li>
-                <li>A frame shot through light cloud may have a high SNR and good FWHM (seeing can be excellent even when transparency is poor) but will have a noticeably lower PSF·S than a clear-sky frame from the same session.</li>
+                <li><strong>High PSF·S</strong> — good transparency and/or good seeing. Stars are bright and sharp relative to the sky noise.</li>
+                <li><strong>Low PSF·S</strong> — haze, thin cloud, poor seeing, or high sky background. The frame was photon-starved or the PSF was bloated.</li>
+                <li>Unlike SNR, PSF·S uses the star's peak rather than total aperture flux, so it is not diluted by a large aperture or high background.</li>
             </ul>
             <p>PSF Signal Weight appears in the session chart (<strong>PSF·S</strong> button), the inspector panel, and the sidebar sort menu. It is a supplemental metric and does not contribute to the composite quality score.</p>
         </div>

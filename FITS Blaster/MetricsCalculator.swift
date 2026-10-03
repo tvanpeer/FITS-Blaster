@@ -272,7 +272,6 @@ struct MetricsCalculator {
         var snrValues:  [Float] = []
         var topVerified = 0
         var psfFluxSum:  Float = 0
-        let fwhmFactor: Float = 2 * sqrt(pow(Float(2), Float(0.25)) - 1)
 
         await withTaskGroup(of: (Float, Float, Float, Float)?.self) { group in
             let innerConcurrency = 4
@@ -286,8 +285,7 @@ struct MetricsCalculator {
                             if config.computeEccentricity { eccValues.append(ecc) }
                             if config.computeSNR          { snrValues.append(snr) }
                         }
-                        let alpha = fwhm / fwhmFactor
-                        psfFluxSum += peakVal * alpha * alpha
+                        psfFluxSum += peakVal
                     }
                     active -= 1
                 }
@@ -309,8 +307,7 @@ struct MetricsCalculator {
                         if config.computeEccentricity { eccValues.append(ecc) }
                         if config.computeSNR          { snrValues.append(snr) }
                     }
-                    let alpha = fwhm / fwhmFactor
-                    psfFluxSum += peakVal * alpha * alpha
+                    psfFluxSum += peakVal
                 }
             }
         }
@@ -405,11 +402,8 @@ struct MetricsCalculator {
         var eccValues:   [Float] = []
         var snrValues:   [Float] = []
         var topVerified  = 0    // PSF-verified count within the top-200 pass
-        // PSF Signal Weight accumulator: Σ(peakVal × α²) across verified stars.
-        // α = fwhm / fwhmFactor; the Moffat β=4 volume ∝ A×α² captures integrated flux.
+        // PSF Signal Weight accumulator: Σ(peakVal) across verified stars.
         var psfFluxSum:  Float = 0
-        // FWHM = 2α·√(2^{1/4}−1) → α = FWHM / fwhmFactor
-        let fwhmFactor: Float = 2 * sqrt(pow(Float(2), Float(0.25)) - 1)
 
         await withTaskGroup(of: (Float, Float, Float, Float)?.self) { group in
             let innerConcurrency = 4
@@ -423,8 +417,7 @@ struct MetricsCalculator {
                             if config.computeEccentricity { eccValues.append(ecc) }
                             if config.computeSNR          { snrValues.append(snr) }
                         }
-                        let alpha = fwhm / fwhmFactor
-                        psfFluxSum += peakVal * alpha * alpha
+                        psfFluxSum += peakVal
                     }
                     active -= 1
                 }
@@ -446,8 +439,7 @@ struct MetricsCalculator {
                         if config.computeEccentricity { eccValues.append(ecc) }
                         if config.computeSNR          { snrValues.append(snr) }
                     }
-                    let alpha = fwhm / fwhmFactor
-                    psfFluxSum += peakVal * alpha * alpha
+                    psfFluxSum += peakVal
                 }
             }
         }
