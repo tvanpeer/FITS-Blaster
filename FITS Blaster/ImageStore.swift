@@ -15,14 +15,15 @@ import UniformTypeIdentifiers
 // MARK: - Thumbnail sort order
 
 enum ThumbnailSortOrder: String, CaseIterable {
-    case filename     = "Name"
-    case qualityScore = "Score"
-    case fwhm         = "FWHM"
-    case eccentricity = "Eccentricity"
-    case snr          = "SNR"
-    case starCount      = "Stars"
-    case skyBackground  = "Sky BG"
-    case rejected       = "Rejected"
+    case filename        = "Name"
+    case qualityScore    = "Score"
+    case fwhm            = "FWHM"
+    case eccentricity    = "Eccentricity"
+    case snr             = "SNR"
+    case starCount       = "Stars"
+    case skyBackground   = "Sky BG"
+    case psfSignalWeight = "PSF Signal"
+    case rejected        = "Rejected"
 }
 
 // MARK: - Export format
@@ -463,6 +464,15 @@ final class ImageStore {
                 default:             return false
                 }
             }
+        case .psfSignalWeight:
+            cachedSortedEntries = entries.sorted { a, b in
+                switch (a.metrics?.psfSignalWeight, b.metrics?.psfSignalWeight) {
+                case let (pa?, pb?): return asc ? pa < pb : pa > pb
+                case (_?, nil):      return true
+                case (nil, _?):      return false
+                default:             return false
+                }
+            }
         case .skyBackground:
             cachedSortedEntries = entries.sorted { a, b in
                 switch (a.metrics?.skyBackground, b.metrics?.skyBackground) {
@@ -587,15 +597,17 @@ final class ImageStore {
             let snrs   = groupEntries.compactMap { $0.metrics?.snr }.sorted()
             let scores = groupEntries.compactMap { $0.metrics?.qualityScore }.sorted()
             let bgs    = groupEntries.compactMap { $0.metrics?.skyBackground }.sorted()
+            let psfs   = groupEntries.compactMap { $0.metrics?.psfSignalWeight }.sorted()
             result[group] = GroupStats(
-                medianFWHM:           fwhms.isEmpty  ? nil : fwhms[fwhms.count / 2],
-                medianEccentricity:   eccs.isEmpty   ? nil : eccs[eccs.count / 2],
-                medianStarCount:      stars.isEmpty  ? nil : stars[stars.count / 2],
-                medianSNR:            snrs.isEmpty   ? nil : snrs[snrs.count / 2],
-                medianScore:          scores.isEmpty ? nil : scores[scores.count / 2],
-                medianSkyBackground:  bgs.isEmpty    ? nil : bgs[bgs.count / 2],
-                topThirdScoreFloor:   scores.count < 3 ? nil : scores[scores.count * 2 / 3],
-                isNarrowband:         group.isNarrowband
+                medianFWHM:            fwhms.isEmpty  ? nil : fwhms[fwhms.count / 2],
+                medianEccentricity:    eccs.isEmpty   ? nil : eccs[eccs.count / 2],
+                medianStarCount:       stars.isEmpty  ? nil : stars[stars.count / 2],
+                medianSNR:             snrs.isEmpty   ? nil : snrs[snrs.count / 2],
+                medianScore:           scores.isEmpty ? nil : scores[scores.count / 2],
+                medianSkyBackground:   bgs.isEmpty    ? nil : bgs[bgs.count / 2],
+                medianPSFSignalWeight: psfs.isEmpty   ? nil : psfs[psfs.count / 2],
+                topThirdScoreFloor:    scores.count < 3 ? nil : scores[scores.count * 2 / 3],
+                isNarrowband:          group.isNarrowband
             )
         }
         groupStatistics = result

@@ -107,9 +107,12 @@ extension MetricsCalculator {
     ///
     /// **SNR:** Peak signal above background in units of sky sigma.
     /// Scale-invariant: works equally for raw ADU, calibrated e⁻/s, and 0–1 float data.
+    ///
+    /// **peakVal:** Background-subtracted sub-pixel peak, returned so callers can
+    /// compute PSF Signal Weight without re-deriving it from the fit coefficients.
     static func measureShape(pixels: UnsafeBufferPointer<Float>, width: Int, height: Int,
                              cx: Int, cy: Int, background: Float,
-                             sigma: Float) -> (fwhm: Float, eccentricity: Float, snr: Float) {
+                             sigma: Float) -> (fwhm: Float, eccentricity: Float, snr: Float, peakVal: Float) {
         let peakIndex = cy * width + cx
         guard peakIndex >= 0 && peakIndex < pixels.count else { return (0, 0, 0) }
         guard pixels[peakIndex] > background else { return (0, 0, 0) }
@@ -202,7 +205,7 @@ extension MetricsCalculator {
         // Peak SNR: peakVal / σ_sky — scale-invariant (works for ADU, e⁻/s, and 0–1 float).
         let snr: Float = peakVal / sigma
 
-        return (fwhm, eccentricity, snr)
+        return (fwhm, eccentricity, snr, peakVal)
     }
 
     /// Fit a 1D Moffat (β=4) profile through (centX, centY) along x or y.
@@ -256,12 +259,12 @@ extension MetricsCalculator {
 
     // MARK: - Crop-based shape measurement
 
-    /// FWHM, eccentricity, and SNR from a pre-extracted crop.
+    /// FWHM, eccentricity, SNR, and peakVal from a pre-extracted crop.
     /// Mirrors `measureShape` exactly but reads from the local crop array
     /// instead of a full-frame UnsafeBufferPointer.
     static func measureShapeFromCrop(crop: [Float], cropHalf: Int,
                                      background: Float,
-                                     sigma: Float) -> (fwhm: Float, eccentricity: Float, snr: Float) {
+                                     sigma: Float) -> (fwhm: Float, eccentricity: Float, snr: Float, peakVal: Float) {
         let side = 2 * cropHalf + 1
         let cx = cropHalf, cy = cropHalf
         let peakIndex = cy * side + cx
@@ -326,7 +329,7 @@ extension MetricsCalculator {
         }
 
         let snr: Float = peakVal / sigma
-        return (fwhm, eccentricity, snr)
+        return (fwhm, eccentricity, snr, peakVal)
     }
 
     /// Lightweight FWHM check from a pre-extracted crop.

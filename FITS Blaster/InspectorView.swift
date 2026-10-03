@@ -102,6 +102,10 @@ private struct InspectorMetricsSection: View {
                         MetricRow(label: "Sky BG",
                                   value: "\(Int(bg.rounded())) ADU")
                     }
+                    if let ps = metrics.psfSignalWeight {
+                        MetricRow(label: "PSF Signal",
+                                  value: ps.formatted(.number.precision(.fractionLength(1))))
+                    }
                     Divider().padding(.vertical, 4)
                     MetricRow(label: "Score", value: "\(metrics.qualityScore) / 100")
                         .foregroundStyle(metrics.scoreColor)

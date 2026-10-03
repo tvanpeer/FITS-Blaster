@@ -4,6 +4,14 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-03 — PSF Signal Weight metric
+
+### Added
+- New **PSF Signal Weight** metric (shown as "PSF·S" in the chart): mean integrated star flux — `peakVal × α²`, where α is the Moffat β=4 scale parameter derived from the fitted FWHM — normalised by sky noise sigma. Captures sky transparency and total photon collection independently of seeing; a photometric night with mediocre seeing scores high, while a sharp night under haze scores low. Computed as a free by-product of the existing Moffat fit (no toggle needed).
+- PSF Signal Weight appears in the inspector (below Sky BG), the session chart (new "PSF·S" button), the sort menu ("PSF Signal"), and thumbnail tooltips.
+
+---
+
 ## 2026-10-03 — Chart cursor and progress bar label
 
 ### Fixed

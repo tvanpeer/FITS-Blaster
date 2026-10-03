@@ -54,6 +54,7 @@ struct GroupStats {
     let medianSNR: Float?
     let medianScore: Int?
     let medianSkyBackground: Float?
+    let medianPSFSignalWeight: Float?
     /// Minimum score required to place a frame in the top third of this group.
     /// Nil when the group has fewer than three frames with score data.
     let topThirdScoreFloor: Int?
@@ -77,6 +78,10 @@ struct FrameMetrics: Sendable {
     let qualityScore: Int
     /// Median sky background level in ADU, from stratified sampling (nil if star detection skipped)
     let skyBackground: Float?
+    /// PSF Signal Weight: mean integrated star flux (peakVal × α²) normalised by sky sigma.
+    /// Captures transparency × exposure — higher means more photons collected above sky noise.
+    /// Nil when no stars were successfully fitted.
+    let psfSignalWeight: Float?
 
     // MARK: Merge / Filter
 
@@ -89,19 +94,22 @@ struct FrameMetrics: Sendable {
         let sc = config.computeStarCount    ? starCount    : nil
         return FrameMetrics(fwhm: f, eccentricity: e, snr: s, starCount: sc,
                             qualityScore: MetricsCalculator.qualityScore(fwhm: f, eccentricity: e, snr: s, starCount: sc),
-                            skyBackground: skyBackground)
+                            skyBackground: skyBackground,
+                            psfSignalWeight: psfSignalWeight)
     }
 
     /// Returns a new FrameMetrics merging self with `other`, preferring `other`'s non-nil values.
     func merging(_ other: FrameMetrics) -> FrameMetrics {
-        let f  = other.fwhm         ?? fwhm
-        let e  = other.eccentricity ?? eccentricity
-        let s  = other.snr          ?? snr
-        let sc = other.starCount    ?? starCount
-        let bg = other.skyBackground ?? skyBackground
+        let f  = other.fwhm              ?? fwhm
+        let e  = other.eccentricity      ?? eccentricity
+        let s  = other.snr               ?? snr
+        let sc = other.starCount         ?? starCount
+        let bg = other.skyBackground     ?? skyBackground
+        let ps = other.psfSignalWeight   ?? psfSignalWeight
         return FrameMetrics(fwhm: f, eccentricity: e, snr: s, starCount: sc,
                             qualityScore: MetricsCalculator.qualityScore(fwhm: f, eccentricity: e, snr: s, starCount: sc),
-                            skyBackground: bg)
+                            skyBackground: bg,
+                            psfSignalWeight: ps)
     }
 
     /// True when this cached result already provides every metric requested by `config`.
@@ -115,7 +123,7 @@ struct FrameMetrics: Sendable {
 
     /// True when at least one metric was actually computed.
     var hasData: Bool {
-        fwhm != nil || eccentricity != nil || snr != nil || starCount != nil
+        fwhm != nil || eccentricity != nil || snr != nil || starCount != nil || psfSignalWeight != nil
     }
 
     // MARK: Badge
@@ -172,10 +180,11 @@ struct FrameMetrics: Sendable {
     /// Compact tooltip showing all available metrics, suitable for `.help()`.
     var tooltipString: String {
         var parts: [String] = []
-        if let v = fwhm         { parts.append("FWHM \(v.formatted(.number.precision(.fractionLength(1))))px") }
-        if let v = eccentricity { parts.append("Ecc \(v.formatted(.number.precision(.fractionLength(2))))") }
-        if let v = snr          { parts.append("SNR \(v.formatted(.number.precision(.fractionLength(0))))") }
-        if let v = starCount    { parts.append("\(v) stars") }
+        if let v = fwhm            { parts.append("FWHM \(v.formatted(.number.precision(.fractionLength(1))))px") }
+        if let v = eccentricity    { parts.append("Ecc \(v.formatted(.number.precision(.fractionLength(2))))") }
+        if let v = snr             { parts.append("SNR \(v.formatted(.number.precision(.fractionLength(0))))") }
+        if let v = starCount       { parts.append("\(v) stars") }
+        if let v = psfSignalWeight { parts.append("PSF·S \(v.formatted(.number.precision(.fractionLength(1))))") }
         return parts.joined(separator: " · ")
     }
 }

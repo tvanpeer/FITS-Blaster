@@ -10,23 +10,25 @@ import Charts
 
 /// The metric plotted on the Y-axis of the session overview chart.
 enum ChartMetric: String, CaseIterable, Identifiable {
-    case score        = "Score"
-    case fwhm         = "FWHM"
-    case eccentricity = "Ecc"
-    case snr          = "SNR"
-    case starCount    = "Stars"
-    case skyBackground = "Sky BG"
+    case score           = "Score"
+    case fwhm            = "FWHM"
+    case eccentricity    = "Ecc"
+    case snr             = "SNR"
+    case starCount       = "Stars"
+    case skyBackground   = "Sky BG"
+    case psfSignalWeight = "PSF·S"
 
     var id: String { rawValue }
 
     var helpText: String {
         switch self {
-        case .score:         return "Overall quality score (composite of all metrics)"
-        case .fwhm:          return "Full Width at Half Maximum — smaller is sharper"
-        case .eccentricity:  return "Star eccentricity — closer to 0 is rounder"
-        case .snr:           return "Signal-to-Noise Ratio — higher is better"
-        case .starCount:     return "Number of detected stars"
-        case .skyBackground: return "Median sky background in ADU — lower means darker sky"
+        case .score:           return "Overall quality score (composite of all metrics)"
+        case .fwhm:            return "Full Width at Half Maximum — smaller is sharper"
+        case .eccentricity:    return "Star eccentricity — closer to 0 is rounder"
+        case .snr:             return "Signal-to-Noise Ratio — higher is better"
+        case .starCount:       return "Number of detected stars"
+        case .skyBackground:   return "Median sky background in ADU — lower means darker sky"
+        case .psfSignalWeight: return "PSF Signal Weight — integrated stellar flux relative to sky noise; higher means better transparency and/or more photons collected"
         }
     }
 
@@ -47,6 +49,8 @@ enum ChartMetric: String, CaseIterable, Identifiable {
             return m.starCount.map(Double.init)
         case .skyBackground:
             return m.skyBackground.map(Double.init)
+        case .psfSignalWeight:
+            return m.psfSignalWeight.map(Double.init)
         }
     }
 
@@ -54,24 +58,26 @@ enum ChartMetric: String, CaseIterable, Identifiable {
     /// Returns nil when the metric was not computed or has no data for the group.
     func median(from stats: GroupStats) -> Double? {
         switch self {
-        case .score:         return stats.medianScore.map(Double.init)
-        case .fwhm:          return stats.medianFWHM.map(Double.init)
-        case .eccentricity:  return stats.medianEccentricity.map(Double.init)
-        case .snr:           return stats.medianSNR.map(Double.init)
-        case .starCount:     return stats.medianStarCount.map(Double.init)
-        case .skyBackground: return stats.medianSkyBackground.map(Double.init)
+        case .score:           return stats.medianScore.map(Double.init)
+        case .fwhm:            return stats.medianFWHM.map(Double.init)
+        case .eccentricity:    return stats.medianEccentricity.map(Double.init)
+        case .snr:             return stats.medianSNR.map(Double.init)
+        case .starCount:       return stats.medianStarCount.map(Double.init)
+        case .skyBackground:   return stats.medianSkyBackground.map(Double.init)
+        case .psfSignalWeight: return stats.medianPSFSignalWeight.map(Double.init)
         }
     }
 
     /// Short label used when displaying the value alongside thumbnails.
     var shortLabel: String {
         switch self {
-        case .score:         return "Score"
-        case .fwhm:          return "FWHM"
-        case .eccentricity:  return "Ecc"
-        case .snr:           return "SNR"
-        case .starCount:     return "Stars"
-        case .skyBackground: return "Sky BG"
+        case .score:           return "Score"
+        case .fwhm:            return "FWHM"
+        case .eccentricity:    return "Ecc"
+        case .snr:             return "SNR"
+        case .starCount:       return "Stars"
+        case .skyBackground:   return "Sky BG"
+        case .psfSignalWeight: return "PSF·S"
         }
     }
 
@@ -80,7 +86,7 @@ enum ChartMetric: String, CaseIterable, Identifiable {
         switch self {
         case .score, .starCount:
             return value.formatted(.number.precision(.fractionLength(0)))
-        case .fwhm, .snr:
+        case .fwhm, .snr, .psfSignalWeight:
             return value.formatted(.number.precision(.fractionLength(1)))
         case .eccentricity:
             return value.formatted(.number.precision(.fractionLength(2)))

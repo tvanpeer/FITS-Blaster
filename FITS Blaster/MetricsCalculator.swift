@@ -271,40 +271,46 @@ struct MetricsCalculator {
         var eccValues:  [Float] = []
         var snrValues:  [Float] = []
         var topVerified = 0
+        var psfFluxSum:  Float = 0
+        let fwhmFactor: Float = 2 * sqrt(pow(Float(2), Float(0.25)) - 1)
 
-        await withTaskGroup(of: (Float, Float, Float)?.self) { group in
+        await withTaskGroup(of: (Float, Float, Float, Float)?.self) { group in
             let innerConcurrency = 4
             var active = 0
             for candidate in starData.shapeCandidates {
                 if active >= innerConcurrency {
-                    if let r = await group.next(), let (fwhm, ecc, snr) = r {
+                    if let r = await group.next(), let (fwhm, ecc, snr, peakVal) = r {
                         topVerified += 1
                         if needMeasure {
                             if config.computeFWHM         { fwhmValues.append(fwhm) }
                             if config.computeEccentricity { eccValues.append(ecc) }
                             if config.computeSNR          { snrValues.append(snr) }
                         }
+                        let alpha = fwhm / fwhmFactor
+                        psfFluxSum += peakVal * alpha * alpha
                     }
                     active -= 1
                 }
                 let c = candidate
                 group.addTask {
-                    let (fwhm, ecc, snr) = Self.measureShapeFromCrop(
+                    let (fwhm, ecc, snr, peakVal) = Self.measureShapeFromCrop(
                         crop: c.crop, cropHalf: c.cropHalf,
                         background: background, sigma: sigma)
                     guard fwhm >= 0.5, fwhm <= 20 else { return nil }
-                    return (fwhm, ecc, snr)
+                    return (fwhm, ecc, snr, peakVal)
                 }
                 active += 1
             }
             for await r in group {
-                if let (fwhm, ecc, snr) = r {
+                if let (fwhm, ecc, snr, peakVal) = r {
                     topVerified += 1
                     if needMeasure {
                         if config.computeFWHM         { fwhmValues.append(fwhm) }
                         if config.computeEccentricity { eccValues.append(ecc) }
                         if config.computeSNR          { snrValues.append(snr) }
                     }
+                    let alpha = fwhm / fwhmFactor
+                    psfFluxSum += peakVal * alpha * alpha
                 }
             }
         }
@@ -335,6 +341,10 @@ struct MetricsCalculator {
         let snr          = config.computeSNR          ? median(snrValues)  : nil
         let starCount    = config.computeStarCount    ? verifiedCount      : nil
 
+        let psfSignalWeight: Float? = topVerified > 0 && sigma > 0
+            ? (psfFluxSum / Float(topVerified)) / sigma
+            : nil
+
         let score = qualityScore(fwhm:         config.computeFWHM         ? fwhm         : nil,
                                  eccentricity: config.computeEccentricity ? eccentricity : nil,
                                  snr:          config.computeSNR          ? snr          : nil,
@@ -342,7 +352,7 @@ struct MetricsCalculator {
 
         return FrameMetrics(fwhm: fwhm, eccentricity: eccentricity,
                             snr: snr, starCount: starCount, qualityScore: score,
-                            skyBackground: background)
+                            skyBackground: background, psfSignalWeight: psfSignalWeight)
     }
 
     // MARK: - Private orchestration
@@ -395,40 +405,49 @@ struct MetricsCalculator {
         var eccValues:   [Float] = []
         var snrValues:   [Float] = []
         var topVerified  = 0    // PSF-verified count within the top-200 pass
+        // PSF Signal Weight accumulator: Σ(peakVal × α²) across verified stars.
+        // α = fwhm / fwhmFactor; the Moffat β=4 volume ∝ A×α² captures integrated flux.
+        var psfFluxSum:  Float = 0
+        // FWHM = 2α·√(2^{1/4}−1) → α = FWHM / fwhmFactor
+        let fwhmFactor: Float = 2 * sqrt(pow(Float(2), Float(0.25)) - 1)
 
-        await withTaskGroup(of: (Float, Float, Float)?.self) { group in
+        await withTaskGroup(of: (Float, Float, Float, Float)?.self) { group in
             let innerConcurrency = 4
             var active = 0
             for candidate in allCandidates.prefix(Constants.topCandidatesForShape) {
                 if active >= innerConcurrency {
-                    if let r = await group.next(), let (fwhm, ecc, snr) = r {
+                    if let r = await group.next(), let (fwhm, ecc, snr, peakVal) = r {
                         topVerified += 1
                         if needMeasure {
                             if config.computeFWHM         { fwhmValues.append(fwhm) }
                             if config.computeEccentricity { eccValues.append(ecc) }
                             if config.computeSNR          { snrValues.append(snr) }
                         }
+                        let alpha = fwhm / fwhmFactor
+                        psfFluxSum += peakVal * alpha * alpha
                     }
                     active -= 1
                 }
                 let c = candidate
                 group.addTask {
-                    let (fwhm, ecc, snr) = Self.measureShape(
+                    let (fwhm, ecc, snr, peakVal) = Self.measureShape(
                         pixels: pixels, width: width, height: height,
                         cx: c.x, cy: c.y, background: background, sigma: sigma)
                     guard fwhm >= 0.5, fwhm <= 20 else { return nil }
-                    return (fwhm, ecc, snr)
+                    return (fwhm, ecc, snr, peakVal)
                 }
                 active += 1
             }
             for await r in group {
-                if let (fwhm, ecc, snr) = r {
+                if let (fwhm, ecc, snr, peakVal) = r {
                     topVerified += 1
                     if needMeasure {
                         if config.computeFWHM         { fwhmValues.append(fwhm) }
                         if config.computeEccentricity { eccValues.append(ecc) }
                         if config.computeSNR          { snrValues.append(snr) }
                     }
+                    let alpha = fwhm / fwhmFactor
+                    psfFluxSum += peakVal * alpha * alpha
                 }
             }
         }
@@ -474,6 +493,12 @@ struct MetricsCalculator {
         let snr          = config.computeSNR          ? median(snrValues)  : nil
         let starCount    = config.computeStarCount    ? verifiedCount      : nil
 
+        // PSF Signal Weight: mean integrated flux per star normalised by sky noise.
+        // Nil when no stars were successfully fitted.
+        let psfSignalWeight: Float? = topVerified > 0 && sigma > 0
+            ? (psfFluxSum / Float(topVerified)) / sigma
+            : nil
+
         let score = qualityScore(fwhm:         config.computeFWHM         ? fwhm         : nil,
                                  eccentricity: config.computeEccentricity ? eccentricity : nil,
                                  snr:          config.computeSNR          ? snr          : nil,
@@ -481,6 +506,6 @@ struct MetricsCalculator {
 
         return FrameMetrics(fwhm: fwhm, eccentricity: eccentricity,
                             snr: snr, starCount: starCount, qualityScore: score,
-                            skyBackground: background)
+                            skyBackground: background, psfSignalWeight: psfSignalWeight)
     }
 }
