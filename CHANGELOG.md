@@ -4,6 +4,13 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-03 — Bayer mosaic: moment-based eccentricity on binned crops
+
+### Fixed
+- Eccentricity on OSC/Bayer files was unreliable with 1D Moffat projections on the raw Bayer mosaic: the alternating R/G/B/G channel pattern biases each directional fit differently, producing rankings that are essentially random across sessions (Spearman r as low as −0.15). Eccentricity for Bayer files is now computed as intensity-weighted second moments on the 2×2-binned crop. This uses all 169 crop pixels and is orientation-invariant by construction, compared to only ~20 usable samples across four 1D slices. Both FWHM (from the binned Moffat fit, ×2 scale-back) and eccentricity (from moments) now come from the same binned crop, so no additional crop measurement is needed.
+
+---
+
 ## 2026-10-03 — Bayer mosaic: split FWHM/eccentricity measurement
 
 ### Fixed

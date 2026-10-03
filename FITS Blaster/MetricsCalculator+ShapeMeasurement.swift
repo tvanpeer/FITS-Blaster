@@ -402,6 +402,39 @@ extension MetricsCalculator {
         return (binned, binnedHalf)
     }
 
+    // MARK: - Moment-based eccentricity
+
+    /// Intensity-weighted second-moment eccentricity from a pre-binned crop.
+    /// More robust than 1D Moffat projections on Bayer-mosaic data because it
+    /// uses all pixels and is orientation-invariant by construction.
+    static func eccentricityFromMoments(crop: [Float], cropHalf: Int, background: Float) -> Float {
+        let side = 2 * cropHalf + 1
+        var sumW: Float = 0, sumX: Float = 0, sumY: Float = 0
+        for y in 0..<side {
+            for x in 0..<side {
+                let v = max(0, crop[y * side + x] - background)
+                sumW += v; sumX += v * Float(x); sumY += v * Float(y)
+            }
+        }
+        guard sumW > 0 else { return 0 }
+        let cx = sumX / sumW, cy = sumY / sumW
+        var m20: Float = 0, m02: Float = 0, m11: Float = 0
+        for y in 0..<side {
+            for x in 0..<side {
+                let v = max(0, crop[y * side + x] - background)
+                let dx = Float(x) - cx, dy = Float(y) - cy
+                m20 += v * dx * dx; m02 += v * dy * dy; m11 += v * dx * dy
+            }
+        }
+        m20 /= sumW; m02 /= sumW; m11 /= sumW
+        let trace = m20 + m02
+        let disc  = max(0, trace * trace / 4 - (m20 * m02 - m11 * m11)).squareRoot()
+        let lambdaMax = trace / 2 + disc
+        let lambdaMin = trace / 2 - disc
+        guard lambdaMax > 0, lambdaMin > 0 else { return 0 }
+        return max(0, 1 - lambdaMin / lambdaMax).squareRoot()
+    }
+
     /// Bilinear interpolation into a crop array.
     private static func bilinearCrop(crop: [Float], cropSide: Int, x: Float, y: Float) -> Float {
         let x0 = Int(x), y0 = Int(y)
