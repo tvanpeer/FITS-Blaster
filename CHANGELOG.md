@@ -4,6 +4,26 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-03 — QuickLook thumbnail fixes and iCloud investigation
+
+### Fixed
+- Some FITS files in a folder showed the app icon instead of a thumbnail in Finder's icon view, while the same files had a tiny thumbnail in list view. Root cause: the thumbnail extension was always loading a 2048-pixel intermediate Float array (~24 MB) regardless of the requested thumbnail size. In icon view many thumbnails are requested simultaneously, exhausting the QuickLook extension process memory limit; the process was killed and macOS cached the failure as a permanent app icon. The extension now subsamples directly to the requested size — a 512-px icon-view thumbnail uses ~1.5 MB instead of ~24 MB; a 32-px list-view thumbnail uses ~5 KB.
+- Added a clean early-exit for iCloud stubs (files with `ubiquitousItemDownloadingStatus == .notDownloaded`). Previously, calling `Data(contentsOf:)` on an undownloaded iCloud file blocked the QL extension indefinitely rather than throwing an error, causing the extension process to be killed by macOS and any other in-flight thumbnail requests in the same batch to fail.
+- Added guard against empty pixel buffer in `createImage` to prevent a force-unwrap crash on pathological FITS files with zero-size image dimensions.
+
+### Notes (iCloud thumbnails)
+- For FITS files stored in iCloud Drive: thumbnails that survive `qlmanage -r cache` are stored in iCloud's own thumbnail metadata layer, not the local QuickLook cache. `qlmanage` commands have no effect on those. The QL extension generates thumbnails only for files with no iCloud-stored thumbnail and that are locally downloaded. Files that are iCloud stubs (not downloaded) will show the app icon; marking the folder "Keep Downloaded" in Finder is required for persistent thumbnails.
+
+---
+
+## 2026-10-02 — Folder drop and full-screen traffic lights
+
+### Fixed
+- Dropping a folder onto the app icon in the Dock or Applications folder now opens that folder in FITS Blaster. The app was missing `public.folder` in its document type registration, so macOS never forwarded folder drops to the app.
+- In full-screen mode, moving the mouse to the top of the screen now reveals the traffic-light window controls (and the menu bar). A hidden `NSToolbar` is now attached to the window; without it, macOS has no hover zone to activate in full-screen mode.
+
+---
+
 ## 2026-10-02 — STF auto-stretch (PixInsight-style)
 
 ### Improved

@@ -22,7 +22,21 @@ class ThumbnailProvider: QLThumbnailProvider {
         logger.info("provideThumbnail: \(url.lastPathComponent) maxSize=\(maxSize)")
 
         do {
-            var fitsImage = try FITSReader.readForPreview(from: url)
+            // Bail out early for iCloud stubs that haven't been downloaded yet.
+            // Trying to read them returns a tiny placeholder file that fails FITS
+            // parsing; worse, a crash here poisons thumbnails for other in-flight files.
+            if let resources = try? url.resourceValues(forKeys: [.ubiquitousItemDownloadingStatusKey]),
+               resources.ubiquitousItemDownloadingStatus == .notDownloaded {
+                handler(nil, CocoaError(.fileNoSuchFile))
+                return
+            }
+
+            // Pass maxSize so readForPreview only subsamples to the needed resolution.
+            // Without this, a 32-px list-view thumbnail would still load a 2048-px
+            // intermediate Float array (~24 MB), and with many concurrent icon-view
+            // requests the QL extension process would hit its memory limit and die,
+            // leaving those files permanently showing the app icon.
+            var fitsImage = try FITSReader.readForPreview(from: url, maxSize: maxSize)
             logger.info("FITSReader succeeded: \(fitsImage.width)×\(fitsImage.height) ch=\(fitsImage.channels)")
 
             let nsImage: NSImage?

@@ -169,6 +169,7 @@ struct ImageStretcher {
     /// avoiding an expensive full-res CGImage → CGContext round-trip.
     static func createImage(from pixels: inout [Float], width: Int, height: Int,
                             maxDisplaySize: Int = 1024) -> NSImage? {
+        guard !pixels.isEmpty else { return nil }
         let (shadowClip, highClip, midtone) = pixels.withUnsafeBufferPointer { buf in
             computeSTFClips(buf.baseAddress!, count: buf.count)
         }
