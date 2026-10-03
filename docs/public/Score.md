@@ -101,6 +101,37 @@ The **median** FWHM, eccentricity, and SNR across all accepted candidates are us
 
 ---
 
+## PSF Signal Weight (PSF-SW)
+
+PSF Signal Weight is computed as a by-product of the Moffat fit — no extra processing is needed. It measures **how many photons each star collected on average, relative to the sky noise**. Unlike SNR, it is largely independent of seeing.
+
+### Formula
+
+For each of the up to 200 fitted stars, the background-subtracted sub-pixel peak `A` and the Moffat α parameter (derived from the fitted FWHM) are combined:
+
+```
+flux_i  =  A_i × α_i²
+
+PSF-SW  =  mean(flux_i) / σ_sky
+```
+
+where `α = FWHM / (2 × √(2^(1/4) − 1))` and `σ_sky` is the background sigma from Step 1.
+
+### Why A × α²?
+
+The analytical volume integral of a 2D Moffat β=4 profile is `A × π × α² / (β−1)` — the total integrated flux. The constants cancel when comparing frames, so `A × α²` captures the total photon yield per star. This is the key property: good seeing concentrates photons into a smaller PSF (low α, high A), while poor seeing spreads them out (high α, low A). The product stays **roughly constant for the same total photon count** regardless of seeing quality.
+
+### What PSF-SW tells you
+
+- **High PSF-SW** — good sky transparency, bright stars, long exposure. The frame collected a lot of signal above sky noise.
+- **Low PSF-SW** — haze, thin cloud, short exposure, or high sky background. The frame was photon-starved.
+- **Unlike FWHM**, PSF-SW does not penalise a frame for poor seeing if transparency was excellent.
+- **Unlike SNR**, PSF-SW does not reward good seeing as a proxy for transparency. A sharp frame shot through light cloud will have high SNR but low PSF-SW.
+
+PSF-SW is available in the session chart (the **PSF·S** button), the inspector, and the sidebar sort menu. It does **not** contribute to the composite quality score — it is a supplemental transparency metric intended to inform integration decisions.
+
+---
+
 ## Step 4 — Composite Score
 
 Each metric is converted to a normalised sub-score **s ∈ [0, 1]** using a piecewise-linear mapping:

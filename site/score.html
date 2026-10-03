@@ -7,7 +7,7 @@
     <link rel="icon" type="image/png" href="favicon.png">
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
     <link rel="canonical" href="https://astrophoto-app.com/score.html">
-    <meta name="description" content="How FITS Blaster calculates quality scores — background estimation, GPU star detection, FWHM and eccentricity measurement, SNR, and the composite scoring formula.">
+    <meta name="description" content="How FITS Blaster calculates quality scores — background estimation, GPU star detection, FWHM, eccentricity, SNR, PSF Signal Weight, and the composite scoring formula.">
     <meta property="og:title" content="How Scores Work — FITS Blaster">
     <meta property="og:description" content="How FITS Blaster calculates quality scores — star detection, FWHM, eccentricity, SNR, and the composite scoring formula.">
     <meta property="og:type" content="website">
@@ -268,6 +268,7 @@
         <a href="#background">Background Estimation</a>
         <a href="#detection">Star Detection</a>
         <a href="#shape">Shape Measurement</a>
+        <a href="#psfsw">PSF Signal Weight</a>
         <a href="#composite">Composite Score</a>
         <a href="#badges">Badge Colours</a>
     </nav>
@@ -350,6 +351,35 @@
     <p>This is the standard simplified CCD equation (Merline &amp; Howell 1995). Without a known camera gain, the result is a proportional proxy that correctly <strong>ranks frames relative to each other</strong> within a session on the same camera.</p>
 
     <p>The <strong>median</strong> FWHM, eccentricity, and SNR across all accepted candidates are used as the frame values.</p>
+
+    <!-- ── PSF-SW ── -->
+    <h2 id="psfsw">PSF Signal Weight (PSF-SW)</h2>
+
+    <p>PSF Signal Weight is computed as a by-product of the Moffat fit — no extra processing is needed. It measures <strong>how many photons each star collected on average, relative to the sky noise</strong>. Unlike SNR, it is largely independent of seeing.</p>
+
+    <h3>Formula</h3>
+    <p>For each of the up to 200 fitted stars, the background-subtracted sub-pixel peak <code>A</code> and the Moffat α parameter (derived from the fitted FWHM) are combined:</p>
+
+    <pre>flux_i  =  A_i × α_i²
+
+PSF-SW  =  mean(flux_i) / σ_sky</pre>
+
+    <p>where <code>α = FWHM / (2 × √(2<sup>1/4</sup> − 1))</code> and <code>σ_sky</code> is the background sigma from Step 1.</p>
+
+    <h3>Why A × α²?</h3>
+    <p>The analytical volume integral of a 2D Moffat β=4 profile is <code>A × π × α² / (β−1)</code> — the total integrated flux. The constants cancel when comparing frames, so <code>A × α²</code> captures the total photon yield per star. This is the key property: good seeing concentrates photons into a smaller PSF (low α, high A), while poor seeing spreads them out (high α, low A). The product stays <strong>roughly constant for the same total photon count</strong> regardless of seeing quality.</p>
+
+    <h3>What PSF-SW tells you</h3>
+    <ul>
+        <li><strong>High PSF-SW</strong> — good sky transparency, bright stars, long exposure. The frame collected a lot of signal above sky noise.</li>
+        <li><strong>Low PSF-SW</strong> — haze, thin cloud, short exposure, or high sky background. The frame was photon-starved.</li>
+        <li><strong>Unlike FWHM</strong>, PSF-SW does not penalise a frame for poor seeing if transparency was excellent.</li>
+        <li><strong>Unlike SNR</strong>, PSF-SW does not reward good seeing as a proxy for transparency. A sharp frame shot through light cloud will have high SNR but low PSF-SW.</li>
+    </ul>
+
+    <p>PSF-SW is available in the session chart (the <strong>PSF·S</strong> button), the inspector, and the sidebar sort menu. It does <strong>not</strong> contribute to the composite quality score — it is a supplemental transparency metric intended to inform integration decisions.</p>
+
+    <a href="#top" class="top-link">↑ Back to top</a>
 
     <!-- ── Step 4 ── -->
     <h2 id="composite">Step 4 — Composite Score</h2>
