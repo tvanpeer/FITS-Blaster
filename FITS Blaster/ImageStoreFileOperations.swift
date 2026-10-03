@@ -320,7 +320,7 @@ extension ImageStore {
             var headerCols = ["path"]
             if includeRejected { headerCols.append("status") }
             if includeMetrics {
-                headerCols.append(contentsOf: ["fwhm", "eccentricity", "snr", "stars", "score"])
+                headerCols.append(contentsOf: ["fwhm", "eccentricity", "snr", "stars", "score", "psf_signal_weight"])
             }
             headerCols.append(contentsOf: usedKeys)
 
@@ -336,11 +336,12 @@ extension ImageStore {
                     // still carries the values that were measured at some
                     // point during the session.
                     let m = entry.metrics ?? entry.cachedMetrics
-                    cols.append(formatFraction(m?.fwhm,         digits: 2))
-                    cols.append(formatFraction(m?.eccentricity, digits: 3))
-                    cols.append(formatFraction(m?.snr,          digits: 1))
+                    cols.append(formatFraction(m?.fwhm,            digits: 2))
+                    cols.append(formatFraction(m?.eccentricity,    digits: 3))
+                    cols.append(formatFraction(m?.snr,             digits: 1))
                     cols.append(m?.starCount.map { String($0) } ?? "")
                     cols.append(m.map { String($0.qualityScore) } ?? "")
+                    cols.append(formatFraction(m?.psfSignalWeight, digits: 1))
                 }
                 for key in usedKeys {
                     let raw = entry.headers[key] ?? ""
@@ -370,7 +371,7 @@ extension ImageStore {
         var headerCols = ["path"]
         if includeRejected { headerCols.append("status") }
         if includeMetrics {
-            headerCols.append(contentsOf: ["fwhm", "eccentricity", "snr", "stars", "score"])
+            headerCols.append(contentsOf: ["fwhm", "eccentricity", "snr", "stars", "score", "psf_signal_weight"])
         }
         headerCols.append(contentsOf: headerKeys)
 
@@ -381,11 +382,12 @@ extension ImageStore {
             if includeRejected { cols.append(entry.isRejected ? "rejected" : "kept") }
             if includeMetrics {
                 let m = entry.metrics ?? entry.cachedMetrics
-                cols.append(formatFraction(m?.fwhm,         digits: 2))
-                cols.append(formatFraction(m?.eccentricity, digits: 3))
-                cols.append(formatFraction(m?.snr,          digits: 1))
+                cols.append(formatFraction(m?.fwhm,            digits: 2))
+                cols.append(formatFraction(m?.eccentricity,    digits: 3))
+                cols.append(formatFraction(m?.snr,             digits: 1))
                 cols.append(m?.starCount.map { String($0) } ?? "")
                 cols.append(m.map { String($0.qualityScore) } ?? "")
+                cols.append(formatFraction(m?.psfSignalWeight, digits: 1))
             }
             for key in headerKeys {
                 let raw = entry.headers[key] ?? ""
