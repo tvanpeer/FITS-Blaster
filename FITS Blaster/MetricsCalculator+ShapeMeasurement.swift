@@ -114,8 +114,8 @@ extension MetricsCalculator {
                              cx: Int, cy: Int, background: Float,
                              sigma: Float) -> (fwhm: Float, eccentricity: Float, snr: Float, peakVal: Float) {
         let peakIndex = cy * width + cx
-        guard peakIndex >= 0 && peakIndex < pixels.count else { return (0, 0, 0) }
-        guard pixels[peakIndex] > background else { return (0, 0, 0) }
+        guard peakIndex >= 0 && peakIndex < pixels.count else { return (0, 0, 0, 0) }
+        guard pixels[peakIndex] > background else { return (0, 0, 0, 0) }
 
         // Sub-pixel centroid via intensity-weighted 5×5 window.
         let centHalf = 2
@@ -130,14 +130,14 @@ extension MetricsCalculator {
                 sumYI += Float(dy) * val
             }
         }
-        guard sumI > 0 else { return (0, 0, 0) }
+        guard sumI > 0 else { return (0, 0, 0, 0) }
         let centX = Float(cx) + sumXI / sumI
         let centY = Float(cy) + sumYI / sumI
 
         // True peak via bilinear interpolation at the sub-pixel centroid.
         let peakVal = bilinear(pixels: pixels, width: width, height: height,
                                x: centX, y: centY) - background
-        guard peakVal > 0 else { return (0, 0, 0) }
+        guard peakVal > 0 else { return (0, 0, 0, 0) }
 
         // 1D Moffat β=4 fits for FWHM along X and Y.
         guard let fwhmX = fitMoffat1D(pixels: pixels, width: width, height: height,
@@ -146,7 +146,7 @@ extension MetricsCalculator {
               let fwhmY = fitMoffat1D(pixels: pixels, width: width, height: height,
                                        centX: centX, centY: centY, peakVal: peakVal,
                                        background: background, horizontal: false)
-        else { return (0, 0, 0) }
+        else { return (0, 0, 0, 0) }
 
         // Geometric-mean FWHM — matches PixInsight's single-value summary.
         let fwhm = sqrt(fwhmX * fwhmY)
@@ -268,7 +268,7 @@ extension MetricsCalculator {
         let side = 2 * cropHalf + 1
         let cx = cropHalf, cy = cropHalf
         let peakIndex = cy * side + cx
-        guard peakIndex < crop.count, crop[peakIndex] > background else { return (0, 0, 0) }
+        guard peakIndex < crop.count, crop[peakIndex] > background else { return (0, 0, 0, 0) }
 
         let centHalf = 2
         var sumI: Float = 0, sumXI: Float = 0, sumYI: Float = 0
@@ -282,12 +282,12 @@ extension MetricsCalculator {
                 sumYI += Float(dy) * val
             }
         }
-        guard sumI > 0 else { return (0, 0, 0) }
+        guard sumI > 0 else { return (0, 0, 0, 0) }
         let centX = Float(cx) + sumXI / sumI
         let centY = Float(cy) + sumYI / sumI
 
         let peakVal = bilinearCrop(crop: crop, cropSide: side, x: centX, y: centY) - background
-        guard peakVal > 0 else { return (0, 0, 0) }
+        guard peakVal > 0 else { return (0, 0, 0, 0) }
 
         guard let fwhmX = fitMoffat1DCrop(crop: crop, cropSide: side,
                                           centX: centX, centY: centY, peakVal: peakVal,
@@ -295,7 +295,7 @@ extension MetricsCalculator {
               let fwhmY = fitMoffat1DCrop(crop: crop, cropSide: side,
                                           centX: centX, centY: centY, peakVal: peakVal,
                                           background: background, horizontal: false)
-        else { return (0, 0, 0) }
+        else { return (0, 0, 0, 0) }
 
         let fwhm = sqrt(fwhmX * fwhmY)
 
