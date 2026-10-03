@@ -62,31 +62,19 @@ FWHM = √(FWHM_x × FWHM_y)
 
 Units are **pixels**. Hot pixels (FWHM < 0.5 px) and pathological blobs (FWHM > 20 px) are rejected.
 
-### Eccentricity — 2D intensity-weighted moments
-Three second-order moments are accumulated over the same ±10-pixel window, measured from the sub-pixel centroid:
-
-| Moment | Meaning |
-|--------|---------|
-| M₂₀ = Σ(dx² · I) / ΣI | spread along X |
-| M₀₂ = Σ(dy² · I) / ΣI | spread along Y |
-| M₁₁ = Σ(dx · dy · I) / ΣI | tilt / cross-axis correlation |
-
-These form a 2 × 2 covariance matrix whose eigenvalues λ₁ ≥ λ₂ are computed in closed form:
+### Eccentricity — FWHM axis ratio
+Eccentricity is derived directly from the per-axis FWHM values already computed by the Moffat fits:
 
 ```
-λ₁,₂  =  (M₂₀ + M₀₂)/2  ±  √[ ((M₂₀ − M₀₂)/2)² + M₁₁² ]
+e = √(1 − (FWHM_minor / FWHM_major)²)
 ```
 
-Eccentricity follows the standard conic definition:
+where `FWHM_minor` and `FWHM_major` are the smaller and larger of the X- and Y-axis fits respectively. This is the standard conic eccentricity applied to an ellipse whose semi-axes are the per-axis FWHM values.
 
-```
-e = √(1 − λ_min / λ_max)
-```
-
-- **e = 0** — perfectly round star
+- **e = 0** — perfectly round star (FWHM_x = FWHM_y)
 - **e → 1** — strongly elongated / trailed star
 
-This approach correctly detects elongation at **any angle**, including 45°, which a simple comparison of two axis-aligned FWHM values cannot do.
+This approach uses the same Moffat fit that drives the FWHM metric, making it consistent with PixInsight's SubframeSelector results. It detects elongation along the X and Y axes and along the diagonal — elongation that is aligned exactly at 45° is detected at reduced sensitivity, but such cases are rare in practice since most trailing and coma arises from tracking errors that align with the sky axes.
 
 ### SNR — aperture photometry
 A circular aperture of radius r = 2 × FWHM is placed at the centroid. The background-subtracted flux inside the aperture (I_net) and the pixel count (n_ap) are summed, then:

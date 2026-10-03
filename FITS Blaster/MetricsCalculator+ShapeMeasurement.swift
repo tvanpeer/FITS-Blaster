@@ -151,56 +151,13 @@ extension MetricsCalculator {
         // Geometric-mean FWHM — matches PixInsight's single-value summary.
         let fwhm = sqrt(fwhmX * fwhmY)
 
-        // --- Eccentricity via 2D intensity-weighted central moments ---
-        //
-        // We accumulate three second-order moments over the same ±10px window
-        // used by the Moffat fits, measuring offsets from the sub-pixel centroid
-        // so the result is independent of where the star lands on the pixel grid:
-        //
-        //   M_20 = Σ(dx²·I) / ΣI   — spread along X
-        //   M_02 = Σ(dy²·I) / ΣI   — spread along Y
-        //   M_11 = Σ(dx·dy·I) / ΣI — tilt / cross-axis correlation
-        //
-        // These form a 2×2 symmetric covariance matrix  [[M_20, M_11],
-        //                                                [M_11, M_02]]
-        // whose eigenvalues λ₁ ≥ λ₂ give the squared semi-axes of the best-fit
-        // intensity ellipse. The closed-form eigenvalues are:
-        //
-        //   λ₁,₂ = (M_20 + M_02)/2  ±  √[ ((M_20−M_02)/2)² + M_11² ]
-        //
-        // Eccentricity follows the standard conic definition:
-        //   e = √(1 − λ_min / λ_max)
-        //
-        // A perfectly round star → M_11=0 and M_20=M_02 → λ₁=λ₂ → e=0.
-        // A star trailed at 45° → large M_11 → λ₁≫λ₂ → e→1.
-        let halfW = 10
-        var sumI2: Float = 0, sumXXI: Float = 0, sumYYI: Float = 0, sumXYI: Float = 0
-        for dy in -halfW...halfW {
-            for dx in -halfW...halfW {
-                let px = cx + dx, py = cy + dy
-                guard px >= 0 && px < width && py >= 0 && py < height else { continue }
-                let val = max(0, pixels[py * width + px] - background)
-                let fdx = Float(px) - centX
-                let fdy = Float(py) - centY
-                sumI2  += val
-                sumXXI += fdx * fdx * val     // M_20 numerator
-                sumYYI += fdy * fdy * val     // M_02 numerator
-                sumXYI += fdx * fdy * val     // M_11 numerator
-            }
-        }
-        let eccentricity: Float
-        if sumI2 > 0 {
-            let m20  = sumXXI / sumI2
-            let m02  = sumYYI / sumI2
-            let m11  = sumXYI / sumI2
-            let half = (m20 + m02) * 0.5
-            let disc = (((m20 - m02) * 0.5) * ((m20 - m02) * 0.5) + m11 * m11).squareRoot()
-            let lambdaMax = half + disc
-            let lambdaMin = half - disc
-            eccentricity = lambdaMax > 0 ? sqrt(max(0, 1 - lambdaMin / lambdaMax)) : 0
-        } else {
-            eccentricity = 0
-        }
+        // Eccentricity from the FWHM axis ratio — more accurate than intensity-weighted
+        // moments and directly comparable to PixInsight's 2D PSF fit approach.
+        // e = √(1 − (minor/major)²), where minor/major are the per-axis FWHM values.
+        let fwhmMajor = max(fwhmX, fwhmY)
+        let fwhmMinor = min(fwhmX, fwhmY)
+        let axisRatio = fwhmMinor / fwhmMajor
+        let eccentricity = sqrt(max(0, 1 - axisRatio * axisRatio))
 
         // Peak SNR: peakVal / σ_sky — scale-invariant (works for ADU, e⁻/s, and 0–1 float).
         let snr: Float = peakVal / sigma
@@ -299,34 +256,10 @@ extension MetricsCalculator {
 
         let fwhm = sqrt(fwhmX * fwhmY)
 
-        let halfW = 10
-        var sumI2: Float = 0, sumXXI: Float = 0, sumYYI: Float = 0, sumXYI: Float = 0
-        for dy in -halfW...halfW {
-            for dx in -halfW...halfW {
-                let px = cx + dx, py = cy + dy
-                guard px >= 0 && px < side && py >= 0 && py < side else { continue }
-                let val = max(0, crop[py * side + px] - background)
-                let fdx = Float(px) - centX
-                let fdy = Float(py) - centY
-                sumI2  += val
-                sumXXI += fdx * fdx * val
-                sumYYI += fdy * fdy * val
-                sumXYI += fdx * fdy * val
-            }
-        }
-        let eccentricity: Float
-        if sumI2 > 0 {
-            let m20  = sumXXI / sumI2
-            let m02  = sumYYI / sumI2
-            let m11  = sumXYI / sumI2
-            let half = (m20 + m02) * 0.5
-            let disc = (((m20 - m02) * 0.5) * ((m20 - m02) * 0.5) + m11 * m11).squareRoot()
-            let lambdaMax = half + disc
-            let lambdaMin = half - disc
-            eccentricity = lambdaMax > 0 ? sqrt(max(0, 1 - lambdaMin / lambdaMax)) : 0
-        } else {
-            eccentricity = 0
-        }
+        let fwhmMajor = max(fwhmX, fwhmY)
+        let fwhmMinor = min(fwhmX, fwhmY)
+        let axisRatio = fwhmMinor / fwhmMajor
+        let eccentricity = sqrt(max(0, 1 - axisRatio * axisRatio))
 
         let snr: Float = peakVal / sigma
         return (fwhm, eccentricity, snr, peakVal)

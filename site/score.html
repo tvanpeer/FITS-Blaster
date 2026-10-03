@@ -322,26 +322,17 @@
 
     <p>Units are <strong>pixels</strong>. Values below 0.5&nbsp;px (hot pixels) or above 20&nbsp;px (pathological blobs) are rejected.</p>
 
-    <h3>Eccentricity — 2D intensity-weighted moments</h3>
-    <p>Three second-order moments are accumulated over the same ±10-pixel window, measured from the sub-pixel centroid:</p>
+    <h3>Eccentricity — FWHM axis ratio</h3>
+    <p>Eccentricity is derived directly from the per-axis FWHM values already computed by the Moffat fits, using the standard conic definition applied to an ellipse whose semi-axes are the X- and Y-axis FWHMs:</p>
 
-    <table>
-        <tr><th>Moment</th><th>Meaning</th></tr>
-        <tr><td><code>M₂₀ = Σ(dx² · I) / ΣI</code></td><td>spread along X</td></tr>
-        <tr><td><code>M₀₂ = Σ(dy² · I) / ΣI</code></td><td>spread along Y</td></tr>
-        <tr><td><code>M₁₁ = Σ(dx · dy · I) / ΣI</code></td><td>tilt / cross-axis correlation</td></tr>
-    </table>
-
-    <p>These form a 2&nbsp;×&nbsp;2 covariance matrix whose eigenvalues λ₁&nbsp;≥&nbsp;λ₂ are computed in closed form, giving eccentricity via the standard conic definition:</p>
-
-    <pre>e = √(1 − λ_min / λ_max)</pre>
+    <pre>e = √(1 − (FWHM_minor / FWHM_major)²)</pre>
 
     <ul>
-        <li><strong>e = 0</strong> — perfectly round star</li>
+        <li><strong>e = 0</strong> — perfectly round star (FWHM<sub>x</sub> = FWHM<sub>y</sub>)</li>
         <li><strong>e → 1</strong> — strongly elongated or trailed star</li>
     </ul>
 
-    <p>This approach correctly detects elongation at any angle, including 45°, which a simple comparison of two axis-aligned FWHM values cannot do.</p>
+    <p>This uses the same Moffat fit that produces the FWHM metric, making it consistent with PixInsight's SubframeSelector results. Elongation along X or Y (the most common case for tracking errors) is fully detected; elongation at exactly 45° is detected at reduced sensitivity, but is rare in practice.</p>
 
     <h3>SNR — aperture photometry</h3>
     <p>A circular aperture of radius r&nbsp;=&nbsp;2&nbsp;×&nbsp;FWHM is placed at the centroid. The background-subtracted flux inside the aperture (I_net) and the pixel count (n_ap) are summed:</p>
