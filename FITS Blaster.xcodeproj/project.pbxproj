@@ -651,6 +651,7 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 15.6;
 				MARKETING_VERSION = "1.23";
+				OTHER_LDFLAGS = "-weak_framework Sparkle";
 				PRODUCT_BUNDLE_IDENTIFIER = com.astrophotoapp.FitsBlaster;
 				PRODUCT_NAME = "FITS Blaster";
 				REGISTER_APP_GROUPS = YES;
