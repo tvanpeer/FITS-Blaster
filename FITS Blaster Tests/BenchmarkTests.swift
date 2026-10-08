@@ -81,15 +81,30 @@ struct BenchmarkTests {
             return
         }
 
-        // --- Compute pass ---
+        // --- Compute pass (concurrent, matching the app's task group policy) ---
+        let maxConcurrency = max(4, ProcessInfo.processInfo.activeProcessorCount - 2)
         let computeStart = clock.now
-        for image in images {
-            _ = await MetricsCalculator.compute(
-                pixels: image.pixelValues,
-                width: image.width,
-                height: image.height,
-                config: config,
-                bayerPattern: image.bayerPattern)
+        await withTaskGroup(of: Void.self) { group in
+            var activeCount = 0
+            for image in images {
+                if activeCount >= maxConcurrency {
+                    await group.next()
+                    activeCount -= 1
+                }
+                let pixels   = image.pixelValues
+                let width    = image.width
+                let height   = image.height
+                let bayer    = image.bayerPattern
+                group.addTask {
+                    _ = await MetricsCalculator.compute(
+                        pixels: pixels,
+                        width: width,
+                        height: height,
+                        config: config,
+                        bayerPattern: bayer)
+                }
+                activeCount += 1
+            }
         }
         let computeElapsed = clock.now - computeStart
 

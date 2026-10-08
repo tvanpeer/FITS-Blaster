@@ -170,5 +170,5 @@ for r in runs:
           f"{fps(r.get('mono'), 'compute_s'):>8}"
           f"{marker}")
 print(sep)
-print("(Debug build, sequential — MP/s normalises for camera resolution; use for relative version comparisons, not absolute speed)\n")
+print("(Debug build, concurrent compute — MP/s normalises for camera resolution; use for relative version comparisons, not absolute speed)\n")
 PYEOF
