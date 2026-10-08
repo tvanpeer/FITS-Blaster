@@ -52,16 +52,16 @@ echo
 TMPLOG="$(mktemp)"
 trap 'rm -f "$TMPLOG"' EXIT
 
-env_args=()
-[[ -n "$RGB_PATH"  ]] && env_args+=("BENCH_RGB_PATH=$RGB_PATH")
-[[ -n "$MONO_PATH" ]] && env_args+=("BENCH_MONO_PATH=$MONO_PATH")
+# TEST_RUNNER_* is how xcodebuild forwards env vars into the test process
+env_prefix=()
+[[ -n "$RGB_PATH"  ]] && env_prefix+=("TEST_RUNNER_BENCH_RGB_PATH=$RGB_PATH")
+[[ -n "$MONO_PATH" ]] && env_prefix+=("TEST_RUNNER_BENCH_MONO_PATH=$MONO_PATH")
 
-xcodebuild test \
+env "${env_prefix[@]}" xcodebuild test \
     -scheme "FITS Blaster" \
     -configuration Debug \
     -destination "platform=macOS" \
     -only-testing "FITS Blaster Tests/BenchmarkTests" \
-    "${env_args[@]/#/-testenv }" \
     2>&1 | tee "$TMPLOG"
 
 # ── Parse BENCH: lines ────────────────────────────────────────────────────────
