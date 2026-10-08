@@ -59,7 +59,7 @@ env_prefix=()
 
 env "${env_prefix[@]}" xcodebuild test \
     -scheme "FITS Blaster" \
-    -configuration Debug \
+    -configuration Release \
     -destination "platform=macOS" \
     -only-testing "FITS Blaster Tests/BenchmarkTests" \
     2>&1 | tee "$TMPLOG"
@@ -167,5 +167,5 @@ for r in runs:
           f"{fps(r.get('mono')):>8}"
           f"{marker}")
 print(sep)
-print("(Debug build, Metal pipeline, concurrent — MP/s normalises for camera resolution)\n")
+print("(Release build, Metal pipeline, concurrent — MP/s normalises for camera resolution)\n")
 PYEOF
