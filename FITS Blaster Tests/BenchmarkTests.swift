@@ -2,8 +2,9 @@
 //  BenchmarkTests.swift
 //  FITS Blaster Tests
 //
-//  Throughput benchmarks — measures FITS load time and MetricsCalculator compute
-//  time separately so algorithm changes are isolated from I/O.
+//  Throughput benchmarks — mirrors the app's loadMetricsOnly code path:
+//  Metal GPU pipeline when available, CPU fallback otherwise.
+//  Frames are processed with the same concurrent task group policy as the app.
 //
 //  These tests are informational (no assertions fail). They are skipped when the
 //  env vars are not set, so they never block CI.
@@ -62,79 +63,77 @@ struct BenchmarkTests {
             return
         }
 
-        let config = MetricsConfig()
-        let clock  = ContinuousClock()
+        let config   = MetricsConfig()
+        let clock    = ContinuousClock()
+        let device   = ImageStretcher.metalDevice
+        let pathLabel = device != nil ? "Metal" : "CPU fallback"
 
-        // --- Load pass ---
-        var images: [FITSImage] = []
-        images.reserveCapacity(urls.count)
-
-        let loadStart = clock.now
-        for url in urls {
-            guard let image = try? FITSReader.read(from: url) else { continue }
-            images.append(image)
-        }
-        let loadElapsed = clock.now - loadStart
-
-        guard !images.isEmpty else {
-            print("BENCH: \(tag) failed to load any files")
-            return
-        }
-
-        // --- Compute pass (concurrent, matching the app's task group policy) ---
+        // Pipelined load+compute per frame, mirroring loadMetricsOnly.
+        // Metal buffers are released as each task finishes, so memory stays bounded.
         let maxConcurrency = max(4, ProcessInfo.processInfo.activeProcessorCount - 2)
-        let computeStart = clock.now
-        await withTaskGroup(of: Void.self) { group in
+
+        struct FrameSize { let width: Int; let height: Int }
+
+        let start = clock.now
+        let processed: [FrameSize] = await withTaskGroup(of: FrameSize?.self) { group in
             var activeCount = 0
-            for image in images {
+            var collected: [FrameSize] = []
+            collected.reserveCapacity(urls.count)
+
+            for url in urls {
                 if activeCount >= maxConcurrency {
-                    await group.next()
+                    if let r = await group.next(), let r { collected.append(r) }
                     activeCount -= 1
                 }
-                let pixels   = image.pixelValues
-                let width    = image.width
-                let height   = image.height
-                let bayer    = image.bayerPattern
                 group.addTask {
-                    _ = await MetricsCalculator.compute(
-                        pixels: pixels,
-                        width: width,
-                        height: height,
-                        config: config,
-                        bayerPattern: bayer)
+                    if let device,
+                       let buf = try? FITSReader.readIntoBuffer(from: url, device: device) {
+                        let meta = buf.metadata
+                        _ = await MetricsCalculator.compute(
+                            metalBuffer: buf.metalBuffer,
+                            device: device,
+                            width: meta.width, height: meta.height,
+                            config: config,
+                            bayerPattern: meta.bayerPattern)
+                        return FrameSize(width: meta.width, height: meta.height)
+                    } else if let fits = try? FITSReader.read(from: url) {
+                        _ = await MetricsCalculator.compute(
+                            pixels: fits.pixelValues,
+                            width: fits.width, height: fits.height,
+                            config: config,
+                            bayerPattern: fits.bayerPattern)
+                        return FrameSize(width: fits.width, height: fits.height)
+                    }
+                    return nil
                 }
                 activeCount += 1
             }
+            for await r in group { if let r { collected.append(r) } }
+            return collected
         }
-        let computeElapsed = clock.now - computeStart
+        let elapsed = clock.now - start
 
-        let n           = images.count
-        let totalMpx    = images.reduce(0.0) { $0 + Double($1.width * $1.height) / 1_000_000 }
-        let loadSec     = loadElapsed.asSeconds
-        let computeSec  = computeElapsed.asSeconds
-        let totalSec    = loadSec + computeSec
-
-        // Print in a machine-parseable format for run-benchmark.sh
-        // BENCH:<tag>:<n>:<total_mpx>:<load_s>:<compute_s>
-        print(String(format: "BENCH:%@:%d:%.2f:%.3f:%.3f", tag, n, totalMpx, loadSec, computeSec))
-
-        // Human-readable summary
-        func fps(_ sec: Double) -> String {
-            sec > 0 ? String(format: "%.1f fps", Double(n) / sec) : "—"
+        guard !processed.isEmpty else {
+            print("BENCH: \(tag) failed to process any files")
+            return
         }
-        func mps(_ sec: Double) -> String {
-            sec > 0 ? String(format: "%.0f MP/s", totalMpx / sec) : "—"
-        }
+
+        let n        = processed.count
+        let totalMpx = processed.reduce(0.0) { $0 + Double($1.width * $1.height) / 1_000_000 }
+        let sec      = elapsed.asSeconds
+
+        // Machine-parseable line for run-benchmark.sh.
+        // Format: BENCH:<tag>:<n>:<total_mpx>:<elapsed_s>
+        print(String(format: "BENCH:%@:%d:%.2f:%.3f", tag, n, totalMpx, sec))
+
+        func fps() -> String { sec > 0 ? String(format: "%.1f fps", Double(n) / sec) : "—" }
+        func mps() -> String { sec > 0 ? String(format: "%.0f MP/s", totalMpx / sec) : "—" }
         print(String(format: """
-            \n%@ benchmark (%d frames, %.0f MP total, %.0f MP/frame avg)
-              Load:    %5.2f s  (%@  %@)
-              Compute: %5.2f s  (%@  %@)
-              Total:   %5.2f s  (%@  %@)
+            \n%@ benchmark (%d frames, %.0f MP total, %.0f MP/frame avg, %@)
+              Total: %5.2f s  (%@  %@)
             """,
-            tag.uppercased(), n, totalMpx, totalMpx / Double(n),
-            loadSec,    fps(loadSec),    mps(loadSec),
-            computeSec, fps(computeSec), mps(computeSec),
-            totalSec,   fps(totalSec),   mps(totalSec)))
+            tag.uppercased(), n, totalMpx, totalMpx / Double(n), pathLabel,
+            sec, fps(), mps()))
     }
 }
 

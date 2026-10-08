@@ -65,7 +65,7 @@ env "${env_prefix[@]}" xcodebuild test \
     2>&1 | tee "$TMPLOG"
 
 # ── Parse BENCH: lines ────────────────────────────────────────────────────────
-# Format: BENCH:<tag>:<frames>:<load_s>:<compute_s>
+# Format: BENCH:<tag>:<frames>:<total_mpx>:<elapsed_s>
 
 parse_bench() {
     local tag="$1"
@@ -76,15 +76,14 @@ rgb_line="$(parse_bench rgb || true)"
 mono_line="$(parse_bench mono || true)"
 
 json_field() {
-    # json_field <line>  →  {"frames":N,"total_mpx":X,"load_s":Y,"compute_s":Z,"total_s":W} or null
+    # json_field <line>  →  {"frames":N,"total_mpx":X,"total_s":Y} or null
     local line="$1"
     if [[ -z "$line" ]]; then
         echo "null"
         return
     fi
-    IFS=: read -r _ _ frames total_mpx load_s compute_s <<< "$line"
-    total_s=$(python3 -c "print(round($load_s + $compute_s, 3))")
-    echo "{\"frames\":$frames,\"total_mpx\":$total_mpx,\"load_s\":$load_s,\"compute_s\":$compute_s,\"total_s\":$total_s}"
+    IFS=: read -r _ _ frames total_mpx elapsed_s <<< "$line"
+    echo "{\"frames\":$frames,\"total_mpx\":$total_mpx,\"total_s\":$elapsed_s}"
 }
 
 DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
@@ -127,19 +126,19 @@ for f in sorted(results_dir.glob("*.json")):
 if not runs:
     sys.exit(0)
 
-def mps(d, key):
+def mps(d):
     """Megapixels/second — normalised throughput independent of frame resolution."""
     if not d or d.get("total_mpx", 0) == 0:
         return "      —"
-    s = d.get(key, 0)
+    s = d.get("total_s", 0)
     if s <= 0:
         return "      —"
     return f"{d['total_mpx'] / s:6.0f}"
 
-def fps(d, key):
+def fps(d):
     if not d or d.get("frames", 0) == 0:
         return "    —"
-    s = d.get(key, 0)
+    s = d.get("total_s", 0)
     if s <= 0:
         return "    —"
     return f"{d['frames'] / s:4.1f}"
@@ -151,8 +150,8 @@ def mpf(d):
     return f"{d['total_mpx'] / d['frames']:4.0f}"
 
 header = (f"{'Version':<20}  "
-          f"{'RGB MP/fr':>9}  {'RGB load MP/s':>13}  {'RGB cmp MP/s':>12}  {'RGB fps':>7}  "
-          f"{'Mono MP/fr':>10}  {'Mono load MP/s':>14}  {'Mono cmp MP/s':>13}  {'Mono fps':>8}")
+          f"{'RGB MP/fr':>9}  {'RGB MP/s':>8}  {'RGB fps':>7}  "
+          f"{'Mono MP/fr':>10}  {'Mono MP/s':>9}  {'Mono fps':>8}")
 sep = "-" * len(header)
 print(f"\nFITS Blaster throughput\n{sep}")
 print(header)
@@ -161,14 +160,12 @@ for r in runs:
     marker = " ◀" if r["version"] == current_version else ""
     print(f"{r['version']:<20}  "
           f"{mpf(r.get('rgb')):>9}  "
-          f"{mps(r.get('rgb'),  'load_s'):>13}  "
-          f"{mps(r.get('rgb'),  'compute_s'):>12}  "
-          f"{fps(r.get('rgb'),  'compute_s'):>7}  "
+          f"{mps(r.get('rgb')):>8}  "
+          f"{fps(r.get('rgb')):>7}  "
           f"{mpf(r.get('mono')):>10}  "
-          f"{mps(r.get('mono'), 'load_s'):>14}  "
-          f"{mps(r.get('mono'), 'compute_s'):>13}  "
-          f"{fps(r.get('mono'), 'compute_s'):>8}"
+          f"{mps(r.get('mono')):>9}  "
+          f"{fps(r.get('mono')):>8}"
           f"{marker}")
 print(sep)
-print("(Debug build, concurrent compute — MP/s normalises for camera resolution; use for relative version comparisons, not absolute speed)\n")
+print("(Debug build, Metal pipeline, concurrent — MP/s normalises for camera resolution)\n")
 PYEOF
