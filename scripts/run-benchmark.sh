@@ -46,7 +46,7 @@ fi
 
 # ── Build & run ───────────────────────────────────────────────────────────────
 
-echo "Building and running benchmark tests for $VERSION…"
+echo "Building and running benchmark tests for $VERSION..."
 echo
 
 TMPLOG="$(mktemp)"
