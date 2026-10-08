@@ -4,6 +4,26 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-08 — Bayer mosaic: separate luminance weights for FWHM and eccentricity
+
+### Fixed
+- **FWHM on OSC/Bayer files was strongly anti-correlated with PixInsight** (Spearman r = −0.919) after adaptive per-channel sky weights were introduced for eccentricity. Root cause: PI SubframeSelector effectively weights OIII-channel G pixels 2:1 over Ha-channel R pixels on a raw Bayer mosaic (50 % of pixels are G), while adaptive weights give R and G roughly equal weight on dual-narrowband images where OIII falls in the green bandpass. FWHM measurement now uses **ITU-R BT.709 luminance weights** (wG = 0.7152) so the debayered luminance matches PI's effective OIII-channel weighting.
+- Eccentricity continues to use **adaptive sky-brightness weights** (estimated from the outer border of each star crop), which correctly normalise Ha and OIII signal for the axis-ratio measurement.
+- PSF fitting for Bayer files now runs two debayering passes per star — Rec. 709 for FWHM, adaptive for eccentricity. The overhead is negligible (eight Moffat fits instead of four).
+- Validated on three independent datasets: California Nebula (Antlia ALP-T dual narrowband, 60 frames) — FWHM r = +0.990, eccentricity r = +0.875; Gamma Cygni (Antlia ALP-T, 34 frames) — FWHM r = +0.948; M31 broadband (43 frames) — FWHM r = +0.973, eccentricity r = +0.740 (no regression).
+- A new `BayerLuminanceWeights` enum (`.rec709` / `.adaptive`) is defined in `BayerPattern.swift`.
+
+---
+
+## 2026-10-06 — App Store: build 199, Sparkle weak-link, App Store entitlements
+
+### Fixed
+- App Store builds crashed at launch because `dyld` hard-linked Sparkle at load time. `OTHER_LDFLAGS` is now `-weak_framework Sparkle` so the framework is loaded on demand, matching the sandbox environment's expectations.
+- Added `FITS Blaster App Store.entitlements` to the repository (app sandbox, user-selected read/write, app-scope bookmarks). The file was referenced in `project.pbxproj` but not tracked, so clean clones would fail to build for App Store distribution.
+- Build number bumped to 199 for the resubmission.
+
+---
+
 ## 2026-10-08 — Bayer mosaic: bilinear demosaicking for full-resolution PSF measurement
 
 ### Changed
