@@ -4,6 +4,13 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-08 — Documentation: OSC/Bayer FWHM and eccentricity
+
+### Changed
+- Updated `docs/public/Score.md`, `site/score.html`, and `site/faq.html` to reflect the current bilinear-demosaicking implementation: two-pass luminance weighting (Rec. 709 for FWHM, adaptive sky weights for eccentricity), no 2×2 binning, no ×2 scale-back, and equivalent precision to mono cameras.
+
+---
+
 ## 2026-10-08 — Bayer mosaic: separate luminance weights for FWHM and eccentricity
 
 ### Fixed

@@ -97,7 +97,12 @@ e  =  √(1 − (FWHM_minor / FWHM_major)²)
 
 Because the reconstruction uses four evenly-spaced directions spanning 180°, it is fully **orientation-invariant** — elongation at 0°, 45°, or any other angle is detected with equal sensitivity. This matches PixInsight SubframeSelector's approach of fitting a full 2D PSF ellipse.
 
-**Colour (OSC/Bayer) cameras:** FITS Blaster detects the Bayer pattern from FITS headers. For Bayer files, FWHM is measured on a 2×2-binned version of each star crop (eliminating the R/G/B/G alternation artefact), and eccentricity is computed from intensity-weighted second moments of the same binned crop rather than from 1D profile fits. Because the 2×2 binning halves the spatial resolution, eccentricity has lower precision on colour cameras — it reliably detects severe elongation but does not discriminate fine gradations as well as with a mono camera. FWHM, SNR, and PSF Signal Weight are not affected by this limitation.
+**Colour (OSC/Bayer) cameras:** FITS Blaster detects the Bayer pattern from FITS headers (`BAYERPAT`, `COLORTYP`, or `CFA_PAT`). For Bayer files, each star crop is **bilinearly demosaicked** to a full-resolution single-channel luminance image before the Moffat fit. Two luminance variants are computed per star so that each metric is measured on the weighting that best matches PixInsight SubframeSelector:
+
+- **FWHM** — ITU-R BT.709 weights (wG = 0.7152). G pixels are 50 % of any Bayer mosaic, so PixInsight's PSF fit is effectively G-dominated. Matching this produces FWHM rankings that agree closely with PixInsight's (Spearman r ≥ 0.95).
+- **Eccentricity** — adaptive per-channel weights estimated from the outer-border sky brightness of each crop. On dual-narrowband images (e.g. Ha + OIII via an Antlia ALP-T filter), all three Bayer channels carry real star flux; adaptive weights balance them correctly for an accurate axis-ratio measurement.
+
+Bilinear demosaicking preserves the full crop resolution, so eccentricity precision on OSC cameras is equivalent to a mono camera.
 
 ### SNR — aperture photometry
 A circular aperture of radius r = 2 × FWHM is placed at the centroid. The background-subtracted flux inside the aperture (I_net) and the pixel count (n_ap) are summed, then:

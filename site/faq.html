@@ -428,7 +428,7 @@
         <div class="answer">
             <p>Eccentricity measures how elongated the stars are (0 = perfectly round, 1 = infinitely elongated). A value above ~0.5 usually indicates trailing from poor polar alignment, wind shake, or a mechanical issue.</p>
             <p>FITS Blaster fits a 1D Moffat β=4 profile along four directions (0°, 45°, 90°, 135°) and uses the measurements together to reconstruct the true major and minor axes of the PSF ellipse analytically — at any orientation. Eccentricity is then <code>e = √(1 − (FWHM_minor / FWHM_major)²)</code>. This approach detects elongation at any angle with equal sensitivity, including diagonal trailing.</p>
-            <p><strong>Colour (OSC/Bayer) cameras:</strong> eccentricity is computed from intensity-weighted second moments on 2×2-binned star crops rather than from 1D profile fits. The 2×2 binning is necessary to remove the R/G/B/G alternation artefact, but it also halves the spatial resolution available for shape measurement. As a result, eccentricity reliably detects severe elongation on OSC cameras but has lower precision for fine gradations compared to a mono camera. FWHM, SNR, and PSF Signal Weight are not affected.</p>
+            <p><strong>Colour (OSC/Bayer) cameras:</strong> each star crop is bilinearly demosaicked using adaptive per-channel sky weights before the four-direction Moffat fit. Adaptive weights balance Ha and OIII signal in dual-narrowband images, so the axis-ratio measurement is accurate regardless of filter type. Eccentricity precision on OSC cameras is equivalent to a mono camera.</p>
         </div>
     </details>
 
@@ -471,8 +471,13 @@
     <details>
         <summary>Does FITS Blaster correct FWHM for Bayer (OSC) cameras?</summary>
         <div class="answer">
-            <p>Yes. FITS Blaster reads the <code>BAYERPAT</code> FITS header and, when a Bayer pattern is present, 2×2-bins each star crop before fitting the Moffat profile. Each 2×2 block averages one R, two G, and one B pixel into a single luminance sample, removing the alternating channel pattern that would otherwise make the PSF look narrower than it really is. The FWHM from the binned fit is scaled ×2 to recover native-pixel values.</p>
-            <p>Empirical comparison with PixInsight SubframeSelector across multiple OSC datasets shows Spearman rank correlation above 0.94 for FWHM and above 0.82 for SNR. Absolute FWHM values from FITS Blaster run slightly higher than PixInsight's (the 2×2 averaging adds a small amount of blur), but rankings within a session are reliable.</p>
+            <p>Yes. FITS Blaster reads the <code>BAYERPAT</code> FITS header (also <code>COLORTYP</code> and <code>CFA_PAT</code>) and, when a Bayer pattern is detected, bilinearly demosaicks each star crop to a full-resolution luminance image before fitting the Moffat profile.</p>
+            <p>FWHM and eccentricity use different luminance weights, chosen to match how each metric is effectively measured by PixInsight SubframeSelector:</p>
+            <ul>
+                <li><strong>FWHM</strong> uses ITU-R BT.709 weights (wG&nbsp;=&nbsp;0.7152). Because G pixels make up 50&nbsp;% of any Bayer mosaic, PixInsight's PSF fit is naturally G-dominated. Matching this weighting gives FWHM rankings that agree closely with PixInsight's (Spearman r&nbsp;≥&nbsp;0.95 on tested narrowband and broadband datasets).</li>
+                <li><strong>Eccentricity</strong> uses adaptive per-channel weights estimated from the outer-border sky brightness of each crop. This correctly balances Ha and OIII signal in dual-narrowband images (such as an Antlia ALP-T filter), where all three Bayer channels carry real star flux.</li>
+            </ul>
+            <p>FWHM values are at native pixel scale — no scale-back factor is applied.</p>
         </div>
     </details>
 
