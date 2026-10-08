@@ -4,6 +4,13 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-08 — Bayer mosaic: bilinear demosaicking for full-resolution PSF measurement
+
+### Changed
+- FWHM and eccentricity on OSC/Bayer files are now measured from a bilinearly debayered luminance crop rather than a 2×2-binned crop. The new path interpolates the missing R, G, B values at every pixel position (using the Bayer pattern from the FITS header), converts to luminance (Rec. 709 coefficients), and fits the PSF on the result at full native resolution. Eccentricity benefits most — the debayered crop has 4× more pixels and avoids the axis-ratio compression that 2×2 binning introduced. FWHM no longer requires a ×2 scale-back factor because the crop is already at native pixel scale. The `BayerPattern?` value is now threaded through the metrics pipeline in place of the previous `Bool`, giving the demosaicker the exact CFA pattern (RGGB, BGGR, GRBG, GBRG) at every call site.
+
+---
+
 ## 2026-10-03 — Bayer mosaic: moment-based eccentricity on binned crops
 
 ### Fixed

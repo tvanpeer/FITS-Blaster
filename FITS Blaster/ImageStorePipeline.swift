@@ -308,8 +308,7 @@ extension ImageStore {
     }
 
     @concurrent static func loadMetricsOnly(url: URL,
-                                            config: MetricsConfig,
-                                            isBayer: Bool = false) async -> FrameMetrics? {
+                                            config: MetricsConfig) async -> FrameMetrics? {
         let didStart = url.startAccessingSecurityScopedResource()
         defer { if didStart { url.stopAccessingSecurityScopedResource() } }
 
@@ -319,21 +318,19 @@ extension ImageStore {
         if let device = ImageStretcher.metalDevice,
            let bufferResult = try? FITSReader.readIntoBuffer(from: url, device: device) {
             let meta = bufferResult.metadata
-            let fileisBayer = isBayer || BayerPattern.parse(from: meta.headers) != nil
             return await MetricsCalculator.compute(metalBuffer: bufferResult.metalBuffer,
                                                    device: device,
                                                    width: meta.width, height: meta.height,
                                                    config: config,
-                                                   isBayer: fileisBayer)
+                                                   bayerPattern: BayerPattern.parse(from: meta.headers))
         }
 
         // CPU fallback when Metal is unavailable.
         guard let fits = try? FITSReader.read(from: url) else { return nil }
-        let fileisBayer = isBayer || BayerPattern.parse(from: fits.headers) != nil
         return await MetricsCalculator.compute(pixels: fits.pixelValues,
                                                width: fits.width, height: fits.height,
                                                config: config,
-                                               isBayer: fileisBayer)
+                                               bayerPattern: BayerPattern.parse(from: fits.headers))
     }
 
     // MARK: - Concurrent pipeline
@@ -449,16 +446,15 @@ extension ImageStore {
                         defer { Task { await phaseBSemaphore.signal() } }
 
                         let metrics: FrameMetrics?
-                        let isBayer = BayerPattern.parse(from: fast.headers) != nil
+                        let bayerPattern = BayerPattern.parse(from: fast.headers)
                         if let buffer = fast.metalBuffer, let device = fast.metalDevice {
                             metrics = await MetricsCalculator.compute(
                                 metalBuffer: buffer, device: device,
                                 width: fast.width, height: fast.height, config: metricsConfig,
-                                isBayer: isBayer)
+                                bayerPattern: bayerPattern)
                         } else {
                             // CPU fallback: Metal was unavailable during Phase A.
-                            metrics = await Self.loadMetricsOnly(url: url, config: metricsConfig,
-                                                                 isBayer: isBayer)
+                            metrics = await Self.loadMetricsOnly(url: url, config: metricsConfig)
                         }
                         await MainActor.run {
                             entry.metrics       = metrics

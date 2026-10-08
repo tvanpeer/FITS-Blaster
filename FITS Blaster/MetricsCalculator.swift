@@ -123,9 +123,11 @@ struct MetricsCalculator {
         /// Next ≤5800 candidates used only for the fast star-count pass.
         let countCandidates: [StarMeasurementCandidate]
         let totalFound:      Int
-        /// True when the source image is a raw Bayer mosaic.
-        /// Shape fits are performed on 2×2-binned crops and FWHM is scaled ×2.
-        let isBayer:         Bool
+        /// Non-nil when the source image is a raw Bayer mosaic; identifies the CFA pattern.
+        /// Shape fits are performed on bilinearly demosaicked luminance crops.
+        let bayerPattern:    BayerPattern?
+
+        var isBayer: Bool { bayerPattern != nil }
     }
 
     // MARK: - Public entry points
@@ -140,7 +142,7 @@ struct MetricsCalculator {
     @concurrent static func compute(metalBuffer: MTLBuffer, device: MTLDevice,
                                     width: Int, height: Int,
                                     config: MetricsConfig,
-                                    isBayer: Bool = false) async -> FrameMetrics? {
+                                    bayerPattern: BayerPattern? = nil) async -> FrameMetrics? {
         guard config.needsStarDetection else { return nil }
         let count = width * height
         guard count > 0 else { return nil }
@@ -171,7 +173,7 @@ struct MetricsCalculator {
         return await measureCandidates(allCandidates: allCandidates,
                                        pixels: pixels, background: background, sigma: sigma,
                                        width: width, height: height, config: config,
-                                       isBayer: isBayer)
+                                       bayerPattern: bayerPattern)
     }
 
     /// CPU entry point for plain float arrays (e.g. CPU fallback read path).
@@ -179,7 +181,7 @@ struct MetricsCalculator {
     /// on very large images. For full-frame analysis use the Metal entry point.
     @concurrent static func compute(pixels: [Float], width: Int, height: Int,
                                     config: MetricsConfig,
-                                    isBayer: Bool = false) async -> FrameMetrics? {
+                                    bayerPattern: BayerPattern? = nil) async -> FrameMetrics? {
         guard config.needsStarDetection, !pixels.isEmpty else { return nil }
         // `pixels` is a value parameter whose heap storage is kept alive for the entire
         // duration of this async function. We extract the base address here (before the
@@ -191,18 +193,18 @@ struct MetricsCalculator {
         let base = pixels.withUnsafeBufferPointer { $0.baseAddress! }
         let buf  = UnsafeBufferPointer(start: base, count: pixels.count)
         return await computeImpl(pixels: buf, width: width, height: height, config: config,
-                                 isBayer: isBayer)
+                                 bayerPattern: bayerPattern)
     }
 
     /// CPU entry point for a raw pointer (retained for callers that already have
     /// a pointer and do not need full-frame GPU detection).
     @concurrent static func compute(ptr: UnsafePointer<Float>, count: Int, width: Int, height: Int,
                                     config: MetricsConfig,
-                                    isBayer: Bool = false) async -> FrameMetrics? {
+                                    bayerPattern: BayerPattern? = nil) async -> FrameMetrics? {
         guard config.needsStarDetection, count > 0 else { return nil }
         let pixels = UnsafeBufferPointer(start: ptr, count: count)
         return await computeImpl(pixels: pixels, width: width, height: height, config: config,
-                                 isBayer: isBayer)
+                                 bayerPattern: bayerPattern)
     }
 
     // MARK: - Crop-based Phase A / Phase B entry points
@@ -213,7 +215,7 @@ struct MetricsCalculator {
     /// this method returns — no buffer pointer is retained in the result.
     @concurrent static func extractStarData(metalBuffer: MTLBuffer, width: Int, height: Int,
                                             config: MetricsConfig,
-                                            isBayer: Bool = false) async -> StarDetectionData? {
+                                            bayerPattern: BayerPattern? = nil) async -> StarDetectionData? {
         guard config.needsStarDetection else { return nil }
         let count = width * height
         guard count > 0 else { return nil }
@@ -267,7 +269,7 @@ struct MetricsCalculator {
                                  shapeCandidates: Array(shapeCandidates),
                                  countCandidates: Array(countCandidates),
                                  totalFound: totalFound,
-                                 isBayer: isBayer)
+                                 bayerPattern: bayerPattern)
     }
 
     /// Phase B: measure star quality from pre-extracted crops.
@@ -301,16 +303,17 @@ struct MetricsCalculator {
                     active -= 1
                 }
                 let c       = candidate
-                let bayer   = starData.isBayer
+                let pattern = starData.bayerPattern
                 group.addTask {
-                    if bayer {
-                        let (bCrop, bHalf) = Self.binCrop2x2(c.crop, cropHalf: c.cropHalf)
-                        let (fwhmB, _, snr, peakVal) = Self.measureShapeFromCrop(
-                            crop: bCrop, cropHalf: bHalf, background: background, sigma: sigma)
-                        let fwhm = fwhmB * 2
-                        guard fwhm >= 0.5, fwhm <= 20, peakVal > 0 else { return nil }
-                        let ecc = Self.eccentricityFromMoments(
-                            crop: bCrop, cropHalf: bHalf, background: background)
+                    if let pattern {
+                        let lumCrop = Self.debayerCropToLuminance(
+                            crop: c.crop, cropHalf: c.cropHalf,
+                            originX: c.x - c.cropHalf, originY: c.y - c.cropHalf,
+                            pattern: pattern)
+                        let (fwhm, ecc, snr, peakVal) = Self.measureShapeFromCrop(
+                            crop: lumCrop, cropHalf: c.cropHalf,
+                            background: background, sigma: sigma)
+                        guard fwhm >= 0.5, fwhm <= 20 else { return nil }
                         return (fwhm, ecc, snr, peakVal)
                     } else {
                         let (fwhm, ecc, snr, peakVal) = Self.measureShapeFromCrop(
@@ -382,7 +385,7 @@ struct MetricsCalculator {
     /// compute time bounded for the rare cases where Metal is unavailable.
     @concurrent private static func computeImpl(pixels: UnsafeBufferPointer<Float>, width: Int, height: Int,
                                                 config: MetricsConfig,
-                                                isBayer: Bool = false) async -> FrameMetrics? {
+                                                bayerPattern: BayerPattern? = nil) async -> FrameMetrics? {
         // 4096² cap: large enough to cover most or all of a typical 16 MP sensor,
         // while bounding worst-case CPU time to ~80 ms for 48 MP+ files.
         let cropW = min(width,  4096)
@@ -402,7 +405,7 @@ struct MetricsCalculator {
         return await measureCandidates(allCandidates: allCandidates,
                                        pixels: pixels, background: background, sigma: sigma,
                                        width: width, height: height, config: config,
-                                       isBayer: isBayer)
+                                       bayerPattern: bayerPattern)
     }
 
     /// Shared measurement stage: filters raw candidates, fits PSF models sequentially,
@@ -413,7 +416,7 @@ struct MetricsCalculator {
                                                      background: Float, sigma: Float,
                                                      width: Int, height: Int,
                                                      config: MetricsConfig,
-                                                     isBayer: Bool = false) async -> FrameMetrics? {
+                                                     bayerPattern: BayerPattern? = nil) async -> FrameMetrics? {
 
         let needMeasure = config.computeFWHM || config.computeEccentricity || config.computeSNR
 
@@ -449,19 +452,17 @@ struct MetricsCalculator {
                 }
                 let c = candidate
                 group.addTask {
-                    if isBayer {
+                    if let pattern = bayerPattern {
                         let rawCrop = Self.extractCrop(from: pixels, width: width, height: height,
                                                        cx: c.x, cy: c.y, cropHalf: Self.cropHalf)
-                        let (bCrop, bHalf) = Self.binCrop2x2(rawCrop, cropHalf: Self.cropHalf)
-                        // FWHM/SNR/peakVal from 2×2-binned crop; eccentricity from intensity-
-                        // weighted second moments on the same binned crop (more robust than 1D
-                        // Moffat projections, which are biased by the Bayer channel pattern).
-                        let (fwhmB, _, snr, peakVal) = Self.measureShapeFromCrop(
-                            crop: bCrop, cropHalf: bHalf, background: background, sigma: sigma)
-                        let fwhm = fwhmB * 2
-                        guard fwhm >= 0.5, fwhm <= 20, peakVal > 0 else { return nil }
-                        let ecc = Self.eccentricityFromMoments(
-                            crop: bCrop, cropHalf: bHalf, background: background)
+                        let lumCrop = Self.debayerCropToLuminance(
+                            crop: rawCrop, cropHalf: Self.cropHalf,
+                            originX: c.x - Self.cropHalf, originY: c.y - Self.cropHalf,
+                            pattern: pattern)
+                        let (fwhm, ecc, snr, peakVal) = Self.measureShapeFromCrop(
+                            crop: lumCrop, cropHalf: Self.cropHalf,
+                            background: background, sigma: sigma)
+                        guard fwhm >= 0.5, fwhm <= 20 else { return nil }
                         return (fwhm, ecc, snr, peakVal)
                     } else {
                         let (fwhm, ecc, snr, peakVal) = Self.measureShape(

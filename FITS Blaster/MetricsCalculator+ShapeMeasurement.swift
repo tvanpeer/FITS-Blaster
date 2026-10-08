@@ -371,75 +371,82 @@ extension MetricsCalculator {
         return (den / num).squareRoot()
     }
 
-    /// 2×2-bins a star crop extracted from a Bayer mosaic image.
+    // MARK: - Bayer demosaicking
+
+    /// Bilinearly demosaics a raw Bayer star crop to a single-channel luminance image.
     ///
-    /// Each output pixel averages the 2×2 native block centred on the same star position,
-    /// eliminating the alternating R/G/B/G channel pattern that otherwise distorts 1D Moffat fits.
-    /// The returned crop has `binnedHalf = cropHalf / 2`; its centre is at (binnedHalf, binnedHalf).
-    /// All FWHM values measured on the binned crop must be multiplied by 2 to recover native pixels.
-    static func binCrop2x2(_ crop: [Float], cropHalf: Int) -> (crop: [Float], cropHalf: Int) {
-        let side       = 2 * cropHalf + 1
-        let binnedHalf = cropHalf / 2
-        let binnedSide = 2 * binnedHalf + 1
-        var binned     = [Float](repeating: 0, count: binnedSide * binnedSide)
-        for by in 0..<binnedSide {
-            for bx in 0..<binnedSide {
-                // Native origin for this 2×2 block, aligned so output centre → input centre.
-                let nx = cropHalf + (bx - binnedHalf) * 2
-                let ny = cropHalf + (by - binnedHalf) * 2
-                var sum: Float = 0; var n: Float = 0
-                for dy in 0..<2 {
-                    for dx in 0..<2 {
-                        let px = nx + dx, py = ny + dy
-                        if px >= 0, px < side, py >= 0, py < side {
-                            sum += crop[py * side + px]; n += 1
-                        }
-                    }
-                }
-                binned[by * binnedSide + bx] = n > 0 ? sum / n : 0
-            }
-        }
-        return (binned, binnedHalf)
-    }
-
-    // MARK: - Moment-based eccentricity
-
-    /// Intensity-weighted second-moment eccentricity from a pre-binned crop.
-    /// More robust than 1D Moffat projections on Bayer-mosaic data because it
-    /// uses all pixels and is orientation-invariant by construction.
-    static func eccentricityFromMoments(crop: [Float], cropHalf: Int, background: Float) -> Float {
+    /// `originX`/`originY` are the absolute image coordinates of the crop's top-left corner,
+    /// needed to determine the Bayer colour at each pixel position.
+    /// Returns a luminance array of the same dimensions as the input crop.
+    static func debayerCropToLuminance(crop: [Float], cropHalf: Int,
+                                        originX: Int, originY: Int,
+                                        pattern: BayerPattern) -> [Float] {
         let side = 2 * cropHalf + 1
-        var sumW: Float = 0, sumX: Float = 0, sumY: Float = 0
+        let rCol = Int(pattern.rOffset) & 1
+        let rRow = (Int(pattern.rOffset) >> 1) & 1
+
+        @inline(__always) func hAvg(_ x: Int, _ y: Int) -> Float {
+            var s: Float = 0; var n: Float = 0
+            if x > 0        { s += crop[y * side + x - 1]; n += 1 }
+            if x < side - 1 { s += crop[y * side + x + 1]; n += 1 }
+            return n > 0 ? s / n : 0
+        }
+        @inline(__always) func vAvg(_ x: Int, _ y: Int) -> Float {
+            var s: Float = 0; var n: Float = 0
+            if y > 0        { s += crop[(y - 1) * side + x]; n += 1 }
+            if y < side - 1 { s += crop[(y + 1) * side + x]; n += 1 }
+            return n > 0 ? s / n : 0
+        }
+        @inline(__always) func crossAvg(_ x: Int, _ y: Int) -> Float {
+            var s: Float = 0; var n: Float = 0
+            if x > 0        { s += crop[y * side + x - 1]; n += 1 }
+            if x < side - 1 { s += crop[y * side + x + 1]; n += 1 }
+            if y > 0        { s += crop[(y - 1) * side + x]; n += 1 }
+            if y < side - 1 { s += crop[(y + 1) * side + x]; n += 1 }
+            return n > 0 ? s / n : 0
+        }
+        @inline(__always) func diagAvg(_ x: Int, _ y: Int) -> Float {
+            var s: Float = 0; var n: Float = 0
+            if x > 0        && y > 0        { s += crop[(y-1)*side+(x-1)]; n += 1 }
+            if x < side - 1 && y > 0        { s += crop[(y-1)*side+(x+1)]; n += 1 }
+            if x > 0        && y < side - 1 { s += crop[(y+1)*side+(x-1)]; n += 1 }
+            if x < side - 1 && y < side - 1 { s += crop[(y+1)*side+(x+1)]; n += 1 }
+            return n > 0 ? s / n : 0
+        }
+
+        var lum = [Float](repeating: 0, count: side * side)
         for y in 0..<side {
             for x in 0..<side {
-                let v = max(0, crop[y * side + x] - background)
-                sumW += v; sumX += v * Float(x); sumY += v * Float(y)
+                let col = (originX + x) & 1
+                let row = (originY + y) & 1
+                let isR = col == rCol && row == rRow
+                let isB = col != rCol && row != rRow
+
+                let r, g, b: Float
+                if isR {
+                    r = crop[y * side + x]
+                    g = crossAvg(x, y)
+                    b = diagAvg(x, y)
+                } else if isB {
+                    b = crop[y * side + x]
+                    g = crossAvg(x, y)
+                    r = diagAvg(x, y)
+                } else if row == rRow {
+                    // Gr pixel: R neighbours are horizontal, B neighbours are vertical
+                    g = crop[y * side + x]
+                    r = hAvg(x, y)
+                    b = vAvg(x, y)
+                } else {
+                    // Gb pixel: R neighbours are vertical, B neighbours are horizontal
+                    g = crop[y * side + x]
+                    r = vAvg(x, y)
+                    b = hAvg(x, y)
+                }
+
+                lum[y * side + x] = 0.2126 * r + 0.7152 * g + 0.0722 * b
             }
         }
-        guard sumW > 0 else { return 0 }
-        let cx = sumX / sumW, cy = sumY / sumW
-        var m20: Float = 0, m02: Float = 0, m11: Float = 0
-        for y in 0..<side {
-            for x in 0..<side {
-                let v = max(0, crop[y * side + x] - background)
-                let dx = Float(x) - cx, dy = Float(y) - cy
-                m20 += v * dx * dx; m02 += v * dy * dy; m11 += v * dx * dy
-            }
-        }
-        m20 /= sumW; m02 /= sumW; m11 /= sumW
-        // Each 2×2-binned pixel averages a 2×2 native block.  The within-block
-        // centroid variance is 0.25 native px² per axis = 0.0625 binned px².
-        // This isotropic blur inflates m20 and m02 equally, compressing the axis
-        // ratio toward 1.  Subtract the blur variance to recover the true moments.
-        let blurVar: Float = 1.0 / 16.0
-        let m20c = max(0, m20 - blurVar)
-        let m02c = max(0, m02 - blurVar)
-        let trace = m20c + m02c
-        let disc  = max(0, trace * trace / 4 - (m20c * m02c - m11 * m11)).squareRoot()
-        let lambdaMax = trace / 2 + disc
-        let lambdaMin = trace / 2 - disc
-        guard lambdaMax > 0, lambdaMin > 0 else { return 0 }
-        return max(0, 1 - lambdaMin / lambdaMax).squareRoot()
+        return lum
     }
 
     /// Bilinear interpolation into a crop array.
