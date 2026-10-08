@@ -27,7 +27,8 @@ struct AutoRejectTests {
             entry.metrics = FrameMetrics(
                 fwhm: m.fwhm, eccentricity: m.ecc, snr: m.snr, starCount: m.stars,
                 qualityScore: MetricsCalculator.qualityScore(
-                    fwhm: m.fwhm, eccentricity: m.ecc, snr: m.snr, starCount: m.stars))
+                    fwhm: m.fwhm, eccentricity: m.ecc, snr: m.snr, starCount: m.stars),
+                skyBackground: nil, psfSignalWeight: nil)
             if let filter = m.filter {
                 entry.headers = ["FILTER": filter]
             }

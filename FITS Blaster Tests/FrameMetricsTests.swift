@@ -17,13 +17,15 @@ struct FrameMetricsTests {
                              snr: Float = 100, starCount: Int = 200) -> FrameMetrics {
         FrameMetrics(fwhm: fwhm, eccentricity: eccentricity, snr: snr, starCount: starCount,
                      qualityScore: MetricsCalculator.qualityScore(fwhm: fwhm, eccentricity: eccentricity,
-                                                                   snr: snr, starCount: starCount))
+                                                                   snr: snr, starCount: starCount),
+                     skyBackground: nil, psfSignalWeight: nil)
     }
 
     private func broadbandStats(medianFWHM: Float = 3.0, medianStarCount: Int = 200) -> GroupStats {
         GroupStats(medianFWHM: medianFWHM, medianEccentricity: 0.2,
                    medianStarCount: medianStarCount, medianSNR: 100,
-                   medianScore: 70, topThirdScoreFloor: 80, isNarrowband: false)
+                   medianScore: 70, medianSkyBackground: nil, medianPSFSignalWeight: nil,
+                   topThirdScoreFloor: 80, isNarrowband: false)
     }
 
     // MARK: - hasData
@@ -35,13 +37,15 @@ struct FrameMetricsTests {
 
     @Test("hasData with no metrics")
     func hasDataWithNoMetrics() {
-        let m = FrameMetrics(fwhm: nil, eccentricity: nil, snr: nil, starCount: nil, qualityScore: 0)
+        let m = FrameMetrics(fwhm: nil, eccentricity: nil, snr: nil, starCount: nil, qualityScore: 0,
+                             skyBackground: nil, psfSignalWeight: nil)
         #expect(m.hasData == false)
     }
 
     @Test("hasData with single metric")
     func hasDataWithSingleMetric() {
-        let m = FrameMetrics(fwhm: 3.0, eccentricity: nil, snr: nil, starCount: nil, qualityScore: 50)
+        let m = FrameMetrics(fwhm: 3.0, eccentricity: nil, snr: nil, starCount: nil, qualityScore: 50,
+                             skyBackground: nil, psfSignalWeight: nil)
         #expect(m.hasData == true)
     }
 
@@ -83,8 +87,10 @@ struct FrameMetricsTests {
 
     @Test("merging fills in missing values from base")
     func mergingPrefersOtherValues() {
-        let base = FrameMetrics(fwhm: 3.0, eccentricity: 0.2, snr: nil, starCount: nil, qualityScore: 50)
-        let other = FrameMetrics(fwhm: nil, eccentricity: nil, snr: 120, starCount: 300, qualityScore: 50)
+        let base = FrameMetrics(fwhm: 3.0, eccentricity: 0.2, snr: nil, starCount: nil, qualityScore: 50,
+                                skyBackground: nil, psfSignalWeight: nil)
+        let other = FrameMetrics(fwhm: nil, eccentricity: nil, snr: 120, starCount: 300, qualityScore: 50,
+                                 skyBackground: nil, psfSignalWeight: nil)
         let merged = base.merging(other)
 
         #expect(merged.fwhm == 3.0)
@@ -95,8 +101,10 @@ struct FrameMetricsTests {
 
     @Test("merging overrides base with other's non-nil values")
     func mergingOverridesBase() {
-        let base  = FrameMetrics(fwhm: 3.0, eccentricity: 0.2, snr: 80, starCount: 150, qualityScore: 50)
-        let other = FrameMetrics(fwhm: 2.5, eccentricity: nil, snr: nil, starCount: nil, qualityScore: 50)
+        let base  = FrameMetrics(fwhm: 3.0, eccentricity: 0.2, snr: 80, starCount: 150, qualityScore: 50,
+                                 skyBackground: nil, psfSignalWeight: nil)
+        let other = FrameMetrics(fwhm: 2.5, eccentricity: nil, snr: nil, starCount: nil, qualityScore: 50,
+                                 skyBackground: nil, psfSignalWeight: nil)
         let merged = base.merging(other)
 
         #expect(merged.fwhm == 2.5, "Other's FWHM should override base")
@@ -105,8 +113,10 @@ struct FrameMetricsTests {
 
     @Test("merging recomputes score")
     func mergingRecomputesScore() {
-        let base = FrameMetrics(fwhm: 3.0, eccentricity: nil, snr: nil, starCount: nil, qualityScore: 50)
-        let other = FrameMetrics(fwhm: nil, eccentricity: 0.1, snr: nil, starCount: nil, qualityScore: 50)
+        let base = FrameMetrics(fwhm: 3.0, eccentricity: nil, snr: nil, starCount: nil, qualityScore: 50,
+                                skyBackground: nil, psfSignalWeight: nil)
+        let other = FrameMetrics(fwhm: nil, eccentricity: 0.1, snr: nil, starCount: nil, qualityScore: 50,
+                                 skyBackground: nil, psfSignalWeight: nil)
         let merged = base.merging(other)
         let expected = MetricsCalculator.qualityScore(fwhm: 3.0, eccentricity: 0.1,
                                                        snr: nil, starCount: nil)
@@ -122,7 +132,8 @@ struct FrameMetricsTests {
 
     @Test("covers returns false when a requested metric is missing")
     func coversFailsWhenMissing() {
-        let m = FrameMetrics(fwhm: 3.0, eccentricity: nil, snr: nil, starCount: nil, qualityScore: 50)
+        let m = FrameMetrics(fwhm: 3.0, eccentricity: nil, snr: nil, starCount: nil, qualityScore: 50,
+                             skyBackground: nil, psfSignalWeight: nil)
         #expect(m.covers(MetricsConfig()) == false, "Needs all four")
         let fwhmOnly = MetricsConfig(computeFWHM: true, computeEccentricity: false,
                                      computeSNR: false, computeStarCount: false)
@@ -131,7 +142,8 @@ struct FrameMetricsTests {
 
     @Test("covers with all disabled always returns true")
     func coversAllDisabledAlwaysTrue() {
-        let m = FrameMetrics(fwhm: nil, eccentricity: nil, snr: nil, starCount: nil, qualityScore: 0)
+        let m = FrameMetrics(fwhm: nil, eccentricity: nil, snr: nil, starCount: nil, qualityScore: 0,
+                             skyBackground: nil, psfSignalWeight: nil)
         let config = MetricsConfig(computeFWHM: false, computeEccentricity: false,
                                    computeSNR: false, computeStarCount: false)
         #expect(m.covers(config) == true)
@@ -186,7 +198,8 @@ struct FrameMetricsTests {
     func lowStarsNarrowbandThreshold() {
         let stats = GroupStats(medianFWHM: 3.0, medianEccentricity: 0.2,
                                medianStarCount: 100, medianSNR: 80,
-                               medianScore: 60, topThirdScoreFloor: 70, isNarrowband: true)
+                               medianScore: 60, medianSkyBackground: nil, medianPSFSignalWeight: nil,
+                               topThirdScoreFloor: 70, isNarrowband: true)
 
         // 35 stars > 30% of 100 → no problem
         #expect(fullMetrics(fwhm: 3.0, eccentricity: 0.1, starCount: 35)
