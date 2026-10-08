@@ -144,9 +144,15 @@ def fps(d, key):
         return "    —"
     return f"{d['frames'] / s:4.1f}"
 
+def mpf(d):
+    """Average megapixels per frame."""
+    if not d or not d.get("frames"):
+        return "   —"
+    return f"{d['total_mpx'] / d['frames']:4.0f}"
+
 header = (f"{'Version':<20}  "
-          f"{'RGB load MP/s':>13}  {'RGB cmp MP/s':>12}  {'RGB fps':>7}  "
-          f"{'Mono load MP/s':>14}  {'Mono cmp MP/s':>13}  {'Mono fps':>8}")
+          f"{'RGB MP/fr':>9}  {'RGB load MP/s':>13}  {'RGB cmp MP/s':>12}  {'RGB fps':>7}  "
+          f"{'Mono MP/fr':>10}  {'Mono load MP/s':>14}  {'Mono cmp MP/s':>13}  {'Mono fps':>8}")
 sep = "-" * len(header)
 print(f"\nFITS Blaster throughput\n{sep}")
 print(header)
@@ -154,9 +160,11 @@ print(sep)
 for r in runs:
     marker = " ◀" if r["version"] == current_version else ""
     print(f"{r['version']:<20}  "
+          f"{mpf(r.get('rgb')):>9}  "
           f"{mps(r.get('rgb'),  'load_s'):>13}  "
           f"{mps(r.get('rgb'),  'compute_s'):>12}  "
           f"{fps(r.get('rgb'),  'compute_s'):>7}  "
+          f"{mpf(r.get('mono')):>10}  "
           f"{mps(r.get('mono'), 'load_s'):>14}  "
           f"{mps(r.get('mono'), 'compute_s'):>13}  "
           f"{fps(r.get('mono'), 'compute_s'):>8}"
