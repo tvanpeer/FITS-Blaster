@@ -4,6 +4,8 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-08 — Add scripts/compare.py for PI SubframeSelector correlation testing
+
 ## 2026-10-08 — Documentation: OSC/Bayer FWHM and eccentricity
 
 ### Changed
