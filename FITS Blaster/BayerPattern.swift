@@ -5,6 +5,19 @@
 
 import Foundation
 
+/// Controls how per-channel sky brightness is combined into a single luminance value
+/// when demosaicking a Bayer star crop for PSF measurement.
+enum BayerLuminanceWeights {
+    /// ITU-R BT.709 fixed weights (wR=0.2126, wG=0.7152, wB=0.0722).
+    /// G is dominant, which matches PixInsight SubframeSelector's effective OIII-channel
+    /// weighting on dual-narrowband images (50% of Bayer pixels are G). Use for FWHM.
+    case rec709
+    /// Weights estimated from the per-channel sky brightness in the outer border of
+    /// each crop. Correctly normalises Ha vs OIII contributions in narrowband images,
+    /// producing an axis-ratio that reflects true PSF elongation. Use for eccentricity.
+    case adaptive
+}
+
 /// The four standard Bayer colour filter array patterns found in colour FITS images.
 ///
 /// Each case identifies which colour sits at pixel (0,0) — the top-left corner of the

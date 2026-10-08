@@ -306,14 +306,25 @@ struct MetricsCalculator {
                 let pattern = starData.bayerPattern
                 group.addTask {
                     if let pattern {
-                        let lumCrop = Self.debayerCropToLuminance(
+                        // Two-pass debayer: Rec. 709 for FWHM (matches PI's OIII-dominated
+                        // weighting), adaptive for eccentricity (correct axis-ratio for
+                        // narrowband images where Ha and OIII differ in brightness).
+                        let rec709Lum = Self.debayerCropToLuminance(
                             crop: c.crop, cropHalf: c.cropHalf,
                             originX: c.x - c.cropHalf, originY: c.y - c.cropHalf,
-                            pattern: pattern)
-                        let (fwhm, ecc, snr, peakVal) = Self.measureShapeFromCrop(
-                            crop: lumCrop, cropHalf: c.cropHalf,
+                            pattern: pattern, weights: .rec709)
+                        let (fwhm, eccRec709, snr, peakVal) = Self.measureShapeFromCrop(
+                            crop: rec709Lum, cropHalf: c.cropHalf,
                             background: background, sigma: sigma)
                         guard fwhm >= 0.5, fwhm <= 20 else { return nil }
+                        let adaptiveLum = Self.debayerCropToLuminance(
+                            crop: c.crop, cropHalf: c.cropHalf,
+                            originX: c.x - c.cropHalf, originY: c.y - c.cropHalf,
+                            pattern: pattern, weights: .adaptive)
+                        let (_, eccAdaptive, _, _) = Self.measureShapeFromCrop(
+                            crop: adaptiveLum, cropHalf: c.cropHalf,
+                            background: background, sigma: sigma)
+                        let ecc = eccAdaptive > 0 ? eccAdaptive : eccRec709
                         return (fwhm, ecc, snr, peakVal)
                     } else {
                         let (fwhm, ecc, snr, peakVal) = Self.measureShapeFromCrop(
@@ -455,14 +466,22 @@ struct MetricsCalculator {
                     if let pattern = bayerPattern {
                         let rawCrop = Self.extractCrop(from: pixels, width: width, height: height,
                                                        cx: c.x, cy: c.y, cropHalf: Self.cropHalf)
-                        let lumCrop = Self.debayerCropToLuminance(
+                        let rec709Lum = Self.debayerCropToLuminance(
                             crop: rawCrop, cropHalf: Self.cropHalf,
                             originX: c.x - Self.cropHalf, originY: c.y - Self.cropHalf,
-                            pattern: pattern)
-                        let (fwhm, ecc, snr, peakVal) = Self.measureShapeFromCrop(
-                            crop: lumCrop, cropHalf: Self.cropHalf,
+                            pattern: pattern, weights: .rec709)
+                        let (fwhm, eccRec709, snr, peakVal) = Self.measureShapeFromCrop(
+                            crop: rec709Lum, cropHalf: Self.cropHalf,
                             background: background, sigma: sigma)
                         guard fwhm >= 0.5, fwhm <= 20 else { return nil }
+                        let adaptiveLum = Self.debayerCropToLuminance(
+                            crop: rawCrop, cropHalf: Self.cropHalf,
+                            originX: c.x - Self.cropHalf, originY: c.y - Self.cropHalf,
+                            pattern: pattern, weights: .adaptive)
+                        let (_, eccAdaptive, _, _) = Self.measureShapeFromCrop(
+                            crop: adaptiveLum, cropHalf: Self.cropHalf,
+                            background: background, sigma: sigma)
+                        let ecc = eccAdaptive > 0 ? eccAdaptive : eccRec709
                         return (fwhm, ecc, snr, peakVal)
                     } else {
                         let (fwhm, ecc, snr, peakVal) = Self.measureShape(

@@ -377,10 +377,16 @@ extension MetricsCalculator {
     ///
     /// `originX`/`originY` are the absolute image coordinates of the crop's top-left corner,
     /// needed to determine the Bayer colour at each pixel position.
-    /// Returns a luminance array of the same dimensions as the input crop.
+    ///
+    /// `weights` controls how the R, G, B channels are combined:
+    /// - `.rec709` gives the ITU-R BT.709 fixed blend that matches PixInsight's effective
+    ///   OIII-channel weighting on dual-narrowband images; use this for FWHM measurement.
+    /// - `.adaptive` (default) estimates weights from the outer-border sky brightness,
+    ///   correctly normalising Ha vs OIII; use this for eccentricity measurement.
     static func debayerCropToLuminance(crop: [Float], cropHalf: Int,
                                         originX: Int, originY: Int,
-                                        pattern: BayerPattern) -> [Float] {
+                                        pattern: BayerPattern,
+                                        weights: BayerLuminanceWeights = .adaptive) -> [Float] {
         let side = 2 * cropHalf + 1
         let rCol = Int(pattern.rOffset) & 1
         let rRow = (Int(pattern.rOffset) >> 1) & 1
@@ -414,6 +420,41 @@ extension MetricsCalculator {
             return n > 0 ? s / n : 0
         }
 
+        let wR: Float
+        let wG: Float
+        let wB: Float
+        switch weights {
+        case .rec709:
+            wR = 0.2126; wG = 0.7152; wB = 0.0722
+        case .adaptive:
+            // Estimate per-channel sky brightness from the outer border of the crop
+            // (purely background — no star flux at 8+ px from a sub-5-px FWHM star).
+            // Using these as luminance weights normalises Ha vs OIII contributions in
+            // narrowband images; broadband images get roughly equal weights.
+            var skyR: Float = 0, skyG: Float = 0, skyB: Float = 0
+            var nSR:  Float = 0, nSG:  Float = 0, nSB:  Float = 0
+            let skyBorder = 4
+            for by in 0..<side {
+                for bx in 0..<side {
+                    guard bx < skyBorder || bx >= side - skyBorder ||
+                          by < skyBorder || by >= side - skyBorder else { continue }
+                    let col = (originX + bx) & 1
+                    let row = (originY + by) & 1
+                    let v = max(0, crop[by * side + bx])
+                    if      col == rCol && row == rRow { skyR += v; nSR += 1 }
+                    else if col != rCol && row != rRow { skyB += v; nSB += 1 }
+                    else                               { skyG += v; nSG += 1 }
+                }
+            }
+            let meanR = nSR > 0 ? skyR / nSR : 1
+            let meanG = nSG > 0 ? skyG / nSG : 1
+            let meanB = nSB > 0 ? skyB / nSB : 1
+            let totalSky = meanR + meanG + meanB
+            wR = totalSky > 0 ? meanR / totalSky : Float(1)/3
+            wG = totalSky > 0 ? meanG / totalSky : Float(1)/3
+            wB = totalSky > 0 ? meanB / totalSky : Float(1)/3
+        }
+
         var lum = [Float](repeating: 0, count: side * side)
         for y in 0..<side {
             for x in 0..<side {
@@ -443,7 +484,7 @@ extension MetricsCalculator {
                     b = hAvg(x, y)
                 }
 
-                lum[y * side + x] = 0.2126 * r + 0.7152 * g + 0.0722 * b
+                lum[y * side + x] = wR * r + wG * g + wB * b
             }
         }
         return lum
