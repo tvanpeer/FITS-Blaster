@@ -28,7 +28,7 @@ struct BenchmarkTests {
             print("BENCH: rgb skipped (BENCH_RGB_PATH not set)")
             return
         }
-        await runBenchmark(tag: "rgb", dirPath: pathString, expectBayer: true)
+        await runBenchmark(tag: "rgb", dirPath: pathString)
     }
 
     // MARK: - Mono
@@ -39,12 +39,12 @@ struct BenchmarkTests {
             print("BENCH: mono skipped (BENCH_MONO_PATH not set)")
             return
         }
-        await runBenchmark(tag: "mono", dirPath: pathString, expectBayer: false)
+        await runBenchmark(tag: "mono", dirPath: pathString)
     }
 
     // MARK: - Core
 
-    private func runBenchmark(tag: String, dirPath: String, expectBayer: Bool) async {
+    private func runBenchmark(tag: String, dirPath: String) async {
         let dir = URL(filePath: dirPath)
         let urls: [URL]
         do {
@@ -84,13 +84,12 @@ struct BenchmarkTests {
         // --- Compute pass ---
         let computeStart = clock.now
         for image in images {
-            // bayerPattern omitted: measures the shared mono code path so
-            // results are comparable across versions that predate that parameter.
             _ = await MetricsCalculator.compute(
                 pixels: image.pixelValues,
                 width: image.width,
                 height: image.height,
-                config: config)
+                config: config,
+                bayerPattern: image.bayerPattern)
         }
         let computeElapsed = clock.now - computeStart
 
