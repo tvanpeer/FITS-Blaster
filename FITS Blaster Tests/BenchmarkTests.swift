@@ -94,28 +94,32 @@ struct BenchmarkTests {
         let computeElapsed = clock.now - computeStart
 
         let n           = images.count
+        let totalMpx    = images.reduce(0.0) { $0 + Double($1.width * $1.height) / 1_000_000 }
         let loadSec     = loadElapsed.asSeconds
         let computeSec  = computeElapsed.asSeconds
         let totalSec    = loadSec + computeSec
 
         // Print in a machine-parseable format for run-benchmark.sh
-        // BENCH:<tag>:<n>:<load_s>:<compute_s>
-        print(String(format: "BENCH:%@:%d:%.3f:%.3f", tag, n, loadSec, computeSec))
+        // BENCH:<tag>:<n>:<total_mpx>:<load_s>:<compute_s>
+        print(String(format: "BENCH:%@:%d:%.2f:%.3f:%.3f", tag, n, totalMpx, loadSec, computeSec))
 
         // Human-readable summary
         func fps(_ sec: Double) -> String {
             sec > 0 ? String(format: "%.1f fps", Double(n) / sec) : "—"
         }
+        func mps(_ sec: Double) -> String {
+            sec > 0 ? String(format: "%.0f MP/s", totalMpx / sec) : "—"
+        }
         print(String(format: """
-            \n%@ benchmark (%d frames)
-              Load:    %5.2f s  (%@)
-              Compute: %5.2f s  (%@)
-              Total:   %5.2f s  (%@)
+            \n%@ benchmark (%d frames, %.0f MP total, %.0f MP/frame avg)
+              Load:    %5.2f s  (%@  %@)
+              Compute: %5.2f s  (%@  %@)
+              Total:   %5.2f s  (%@  %@)
             """,
-            tag.uppercased(), n,
-            loadSec,    fps(loadSec),
-            computeSec, fps(computeSec),
-            totalSec,   fps(totalSec)))
+            tag.uppercased(), n, totalMpx, totalMpx / Double(n),
+            loadSec,    fps(loadSec),    mps(loadSec),
+            computeSec, fps(computeSec), mps(computeSec),
+            totalSec,   fps(totalSec),   mps(totalSec)))
     }
 }
 
