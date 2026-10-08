@@ -84,12 +84,13 @@ struct BenchmarkTests {
         // --- Compute pass ---
         let computeStart = clock.now
         for image in images {
+            // bayerPattern omitted: measures the shared mono code path so
+            // results are comparable across versions that predate that parameter.
             _ = await MetricsCalculator.compute(
                 pixels: image.pixelValues,
                 width: image.width,
                 height: image.height,
-                config: config,
-                bayerPattern: image.bayerPattern)
+                config: config)
         }
         let computeElapsed = clock.now - computeStart
 
