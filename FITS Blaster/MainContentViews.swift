@@ -238,7 +238,11 @@ private struct InfoBar: View {
             } else if store.restretchingMessage != nil {
                 BatchProgressBar(store: store, showLoadedMetrics: false)
             } else if let elapsed = store.batchElapsed {
-                Text("\(elapsed, format: .number.precision(.fractionLength(2)))s for \(store.entries.count) images")
+                let n   = store.entries.count
+                let fps = elapsed > 0 ? Double(n) / elapsed : 0
+                let mpx = store.batchMegapixels ?? 0
+                let mps = elapsed > 0 && mpx > 0 ? mpx / elapsed : 0
+                Text("\(elapsed, format: .number.precision(.fractionLength(2)))s for \(n) images · \(fps, format: .number.precision(.fractionLength(1))) fps\(mps > 0 ? " · \(mps.formatted(.number.precision(.fractionLength(0)))) MP/s" : "")")
                     .scaledFont(size: 10, monospaced: true)
                     .foregroundStyle(.secondary)
             }

@@ -229,6 +229,7 @@ final class ImageStore {
     /// Has no relationship to `flaggedEntryIDs`.
     var markedForRejectionIDs: Set<UUID> = []
     var batchElapsed: Double?
+    var batchMegapixels: Double?
     var isBatchProcessing: Bool = false
 
     /// The currently running load / reprocess task. Stored so it can be cancelled by the user.
@@ -584,6 +585,7 @@ final class ImageStore {
         }
         isBatchProcessing = false
         batchElapsed = nil
+        batchMegapixels = nil
     }
 
     func updateGroupStatistics() {
@@ -693,6 +695,7 @@ final class ImageStore {
         markedForRejectionIDs = []
         rejectedEntryIDs = []
         batchElapsed = nil
+        batchMegapixels = nil
         isBatchProcessing = false
         errorMessage = nil
         sidebarFilterGroup = nil

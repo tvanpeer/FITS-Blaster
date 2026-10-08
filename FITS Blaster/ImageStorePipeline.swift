@@ -43,6 +43,7 @@ extension ImageStore {
         let existingURLs = Set(entries.map { $0.originalURL })
 
         batchElapsed = nil
+        batchMegapixels = nil
         isBatchProcessing = true
         let startTime = CFAbsoluteTimeGetCurrent()
 
@@ -104,6 +105,11 @@ extension ImageStore {
             }
             guard !Task.isCancelled else { return }
             batchElapsed = CFAbsoluteTimeGetCurrent() - startTime
+            batchMegapixels = entries.reduce(0.0) {
+                guard let w = $1.headers["NAXIS1"].flatMap(Int.init),
+                      let h = $1.headers["NAXIS2"].flatMap(Int.init) else { return $0 }
+                return $0 + Double(w * h) / 1_000_000
+            }
             isBatchProcessing = false
             processingTask = nil
         }
@@ -150,6 +156,7 @@ extension ImageStore {
         let accessedDirs = entriesToProcess.compactMap { accessDirectory(for: $0) }
 
         batchElapsed = nil
+        batchMegapixels = nil
         isBatchProcessing = true
         let startTime = CFAbsoluteTimeGetCurrent()
 
@@ -168,6 +175,11 @@ extension ImageStore {
             for dirURL in accessedDirs { dirURL.stopAccessingSecurityScopedResource() }
             guard !Task.isCancelled else { return }
             batchElapsed = CFAbsoluteTimeGetCurrent() - startTime
+            batchMegapixels = entries.reduce(0.0) {
+                guard let w = $1.headers["NAXIS1"].flatMap(Int.init),
+                      let h = $1.headers["NAXIS2"].flatMap(Int.init) else { return $0 }
+                return $0 + Double(w * h) / 1_000_000
+            }
             isBatchProcessing = false
             processingTask = nil
         }
@@ -192,6 +204,7 @@ extension ImageStore {
         let accessedDirs = entriesToProcess.compactMap { accessDirectory(for: $0) }
 
         batchElapsed = nil
+        batchMegapixels = nil
         isBatchProcessing = true
         let startTime = CFAbsoluteTimeGetCurrent()
 
@@ -220,6 +233,11 @@ extension ImageStore {
             for dirURL in accessedDirs { dirURL.stopAccessingSecurityScopedResource() }
             guard !Task.isCancelled else { return }
             batchElapsed = CFAbsoluteTimeGetCurrent() - startTime
+            batchMegapixels = entries.reduce(0.0) {
+                guard let w = $1.headers["NAXIS1"].flatMap(Int.init),
+                      let h = $1.headers["NAXIS2"].flatMap(Int.init) else { return $0 }
+                return $0 + Double(w * h) / 1_000_000
+            }
             isBatchProcessing = false
             processingTask = nil
         }
@@ -302,6 +320,11 @@ extension ImageStore {
             guard !Task.isCancelled else { return }
             updateGroupStatistics()
             batchElapsed = CFAbsoluteTimeGetCurrent() - startTime
+            batchMegapixels = entries.reduce(0.0) {
+                guard let w = $1.headers["NAXIS1"].flatMap(Int.init),
+                      let h = $1.headers["NAXIS2"].flatMap(Int.init) else { return $0 }
+                return $0 + Double(w * h) / 1_000_000
+            }
             isBatchProcessing = false
             processingTask = nil
         }
