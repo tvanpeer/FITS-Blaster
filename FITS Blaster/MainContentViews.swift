@@ -404,6 +404,23 @@ private struct ImageViewer: View {
                 .rotationEffect(isFlipped ? .degrees(180) : .zero)
                 .brightness(store.displayBrightness)
                 .contrast(store.displayStretch)
+                .overlay {
+                    if let anchor = store.zoomAnchor {
+                        GeometryReader { geo in
+                            ZoomAnchorIndicator()
+                                .position(
+                                    x: anchor.x * geo.size.width,
+                                    y: anchor.y * geo.size.height
+                                )
+                        }
+                    }
+                }
+                .onTapGesture { location in
+                    let w = displayImage.size.width  * effectiveZoom
+                    let h = displayImage.size.height * effectiveZoom
+                    guard w > 0, h > 0 else { return }
+                    store.zoomAnchor = CGPoint(x: location.x / w, y: location.y / h)
+                }
         }
         .scrollPosition($scrollPos)
         .scrollIndicators(.automatic)
@@ -441,15 +458,22 @@ private struct ImageViewer: View {
             let y = store.viewportCenter.y * ch - geo.containerSize.height / 2
             scrollPos.scrollTo(x: max(0, x), y: max(0, y))
         }
-        // Keep the viewport center fixed when the zoom slider moves.
+        // Keep the zoom anchor (or viewport center) fixed when zoom changes.
         .onChange(of: settings.zoomScale) { oldZoom, newZoom in
             guard let geo = lastGeo, oldZoom != newZoom, geo.contentSize.width > 0 else { return }
-            let centerX = (geo.contentOffset.x + geo.containerSize.width  / 2) / geo.contentSize.width
-            let centerY = (geo.contentOffset.y + geo.containerSize.height / 2) / geo.contentSize.height
+            let fx: Double
+            let fy: Double
+            if let anchor = store.zoomAnchor {
+                fx = anchor.x
+                fy = anchor.y
+            } else {
+                fx = (geo.contentOffset.x + geo.containerSize.width  / 2) / geo.contentSize.width
+                fy = (geo.contentOffset.y + geo.containerSize.height / 2) / geo.contentSize.height
+            }
             let newCW = displayImage.size.width  * newZoom
             let newCH = displayImage.size.height * newZoom
-            let x = centerX * newCW - geo.containerSize.width  / 2
-            let y = centerY * newCH - geo.containerSize.height / 2
+            let x = fx * newCW - geo.containerSize.width  / 2
+            let y = fy * newCH - geo.containerSize.height / 2
             scrollPos.scrollTo(x: max(0, x), y: max(0, y))
         }
         // Re-fit image to container when the inspector or mode changes the available space.
@@ -487,7 +511,8 @@ private struct ImageAdjustControls: View {
     @Environment(AppSettings.self) private var settings
 
     private var isDefault: Bool {
-        settings.zoomScale == 1.0 && store.displayBrightness == 0.0 && store.displayStretch == 1.0
+        settings.zoomScale == 1.0 && store.displayBrightness == 0.0
+            && store.displayStretch == 1.0 && store.zoomAnchor == nil
     }
 
     var body: some View {
@@ -502,6 +527,7 @@ private struct ImageAdjustControls: View {
                 settings.zoomScale = 1.0
                 store.displayBrightness = 0.0
                 store.displayStretch = 1.0
+                store.zoomAnchor = nil
             }
             .disabled(isDefault)
             .tooltip("Reset all display adjustments")
@@ -516,6 +542,7 @@ private struct ImageAdjustControls: View {
 /// state from being reset when any slider value changes.
 private struct ZoomControl: View {
     @Environment(AppSettings.self) private var settings
+    @Environment(ImageStore.self) private var store
 
     var body: some View {
         @Bindable var bound = settings
@@ -533,6 +560,36 @@ private struct ZoomControl: View {
         .frame(width: 34, alignment: .leading)
         .tooltip("Click for 1:1 (100%)")
         .disabled(settings.zoomScale == 1.0)
+        if store.zoomAnchor != nil {
+            Button("Clear zoom anchor", systemImage: "scope") {
+                store.zoomAnchor = nil
+            }
+            .labelStyle(.iconOnly)
+            .buttonStyle(.borderless)
+            .foregroundStyle(.accent)
+            .tooltip("Zoom anchor active — click to clear")
+        }
+    }
+}
+
+/// A fixed-size crosshair drawn at the zoom anchor point on the image.
+private struct ZoomAnchorIndicator: View {
+    var body: some View {
+        ZStack {
+            // Crosshair lines
+            Rectangle()
+                .fill(.white.opacity(0.9))
+                .frame(width: 18, height: 1)
+            Rectangle()
+                .fill(.white.opacity(0.9))
+                .frame(width: 1, height: 18)
+            // Centre circle
+            Circle()
+                .stroke(.white.opacity(0.9), lineWidth: 1.5)
+                .frame(width: 8, height: 8)
+        }
+        .shadow(color: .black.opacity(0.6), radius: 2)
+        .allowsHitTesting(false)
     }
 }
 

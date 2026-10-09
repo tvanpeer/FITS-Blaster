@@ -331,6 +331,11 @@ final class ImageStore {
     /// Stored so that navigating to the next image can restore the same relative scroll position.
     var viewportCenter: CGPoint = .zero
 
+    /// Normalized image coordinates (0–1) of the user-set zoom anchor.
+    /// When non-nil, zoom changes center on this point rather than the viewport center.
+    /// Persists across image navigation (same field → same sky position).
+    var zoomAnchor: CGPoint? = nil
+
     var thumbnailSortOrder: ThumbnailSortOrder = .filename {
         didSet { updateCachedSort() }
     }
@@ -683,6 +688,7 @@ final class ImageStore {
         stopPlayback()
         viewportFraction = CGRect(x: 0, y: 0, width: 1, height: 1)
         viewportCenter = .zero
+        zoomAnchor = nil
     }
 
     // MARK: - Range selection helpers (Cmd+A / Cmd+D / Cmd+I)
