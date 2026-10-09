@@ -280,6 +280,7 @@
         <p>Jump to section</p>
         <a href="#getting-started">Getting Started</a>
         <a href="#loading">Loading Images</a>
+        <a href="#viewing">Viewing Images</a>
         <a href="#metrics">Quality Metrics</a>
         <a href="#culling">Culling Frames</a>
         <a href="#speed">Speed &amp; Performance</a>
@@ -397,6 +398,56 @@
     </details>
 
     <a href="#top" class="top-link">↑ Back to top</a>
+
+    <a href="#top" class="top-link">↑ Back to top</a>
+
+    <!-- ── Viewing Images ── -->
+    <h2 id="viewing">Viewing Images</h2>
+
+    <details>
+        <summary>How do I zoom in and out?</summary>
+        <div class="answer">
+            <p>Three ways:</p>
+            <ul>
+                <li><strong>Zoom slider</strong> — the slider in the display controls bar below the image (range 0.25×–4×). Click the zoom icon or the percentage label to reset to 1:1.</li>
+                <li><strong>Trackpad pinch</strong> — pinch to zoom in or out directly on the image.</li>
+            </ul>
+            <p>Both keep the current centre of the viewport fixed as you zoom, so you don't lose your place.</p>
+        </div>
+    </details>
+
+    <details>
+        <summary>How do I zoom into a specific star or detail and keep it in view?</summary>
+        <div class="answer">
+            <p>Use the <strong>zoom anchor</strong>. Click anywhere on the image to pin that point — a small crosshair appears. All subsequent zoom changes (slider or pinch) will keep that point centred in the viewport.</p>
+            <ul>
+                <li><strong>Move the anchor:</strong> click a different spot.</li>
+                <li><strong>Clear the anchor:</strong> click the crosshair again (within about 20 px of it), or press the Defaults button in the display controls bar.</li>
+                <li><strong>Re-centre after scrolling:</strong> click the lit scope (⊕) icon in the zoom controls — it scrolls the anchor back to the centre without clearing it.</li>
+            </ul>
+            <p>The anchor persists across image navigation. Because all frames in a session cover the same field, the same position points to the same star or region in every frame — useful for comparing star shape across a run.</p>
+        </div>
+    </details>
+
+    <details>
+        <summary>What is the Target Background slider?</summary>
+        <div class="answer">
+            <p>The <strong>Target Background</strong> slider sets the desired brightness of the sky background in the displayed image, on a scale from 0.05 to 0.50.</p>
+            <p>FITS Blaster's automatic stretch (STF) always targets a background level of ~0.25, so the default value of <strong>0.25</strong> produces no visible change. Adjust it when you want a different look:</p>
+            <ul>
+                <li><strong>0.10–0.15</strong> — darker sky, more contrast; good for images with a relatively dark background.</li>
+                <li><strong>0.25–0.40</strong> — brighter background; useful for images with large extended objects (wide nebulae, galaxies) where you want to preserve mid-tone detail.</li>
+            </ul>
+            <p>The value persists across app restarts. This control is analogous to the Target Background parameter in PixInsight's Multiscale Adaptive Stretch.</p>
+        </div>
+    </details>
+
+    <details>
+        <summary>What does the Stretch slider do?</summary>
+        <div class="answer">
+            <p>The <strong>Stretch</strong> slider is a post-stretch contrast multiplier (0.5×–3.0×, default 1.0×). Increasing it brightens mid-tones and brings out faint detail; decreasing it flattens contrast. Unlike Target Background, it resets when you open a new session.</p>
+        </div>
+    </details>
 
     <!-- ── Image Quality Metrics ── -->
     <h2 id="metrics">Image Quality Metrics</h2>
