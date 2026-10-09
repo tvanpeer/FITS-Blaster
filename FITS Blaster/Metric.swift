@@ -126,7 +126,7 @@ enum Metric: String, CaseIterable, Identifiable, Sendable, Hashable {
         case .starCount:       return [.sort, .chart, .export, .statusChip]
         case .skyBackground:   return [.sort, .chart, .statusChip]
         case .psfSignalWeight: return [.sort, .chart, .export, .statusChip]
-        case .qualityScore:    return [.sort, .chart, .export]
+        case .qualityScore:    return [.sort, .chart, .export, .statusChip]
         }
     }
 
