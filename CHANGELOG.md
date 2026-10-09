@@ -4,6 +4,14 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-09 — Tests: removeSelected and sidebarNavigationEntries coverage
+
+### Tests
+- **`RemoveSelectedTests`** — 8 new tests for `removeSelected`: cursor advancement after middle removal, end-of-list fallback, single-entry removal, flagged-batch removal from middle and end, flag-vs-cursor precedence, `flaggedEntryIDs` cleared after removal, and no-op guard.
+- **`SidebarNavigationTests`** — 8 new tests for `sidebarNavigationEntries(isSimpleMode:)`: flat-list in simple mode, flat-list for single-filter sessions, filter-strip active, geek-mode filter grouping (contiguity), multi-folder section order, collapsed-folder exclusion, and multi-folder visibility filter.
+
+---
+
 ## 2026-10-09 — Tests: higher-level integration coverage
 
 ### Tests
