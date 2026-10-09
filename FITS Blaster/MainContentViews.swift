@@ -391,6 +391,24 @@ private struct ImageViewer: View {
 
     private var effectiveZoom: Double { settings.zoomScale * gestureScale }
 
+    private func adjustScroll(to newZoom: Double, geo: ViewportGeometry) {
+        let fx: Double
+        let fy: Double
+        if let anchor = store.zoomAnchor {
+            fx = anchor.x
+            fy = anchor.y
+        } else {
+            guard geo.contentSize.width > 0 else { return }
+            fx = (geo.contentOffset.x + geo.containerSize.width  / 2) / geo.contentSize.width
+            fy = (geo.contentOffset.y + geo.containerSize.height / 2) / geo.contentSize.height
+        }
+        let newCW = displayImage.size.width  * newZoom
+        let newCH = displayImage.size.height * newZoom
+        let x = fx * newCW - geo.containerSize.width  / 2
+        let y = fy * newCH - geo.containerSize.height / 2
+        scrollPos.scrollTo(x: max(0, x), y: max(0, y))
+    }
+
     var body: some View {
         @Bindable var settings = settings
 
@@ -419,7 +437,16 @@ private struct ImageViewer: View {
                     let w = displayImage.size.width  * effectiveZoom
                     let h = displayImage.size.height * effectiveZoom
                     guard w > 0, h > 0 else { return }
-                    store.zoomAnchor = CGPoint(x: location.x / w, y: location.y / h)
+                    let norm = CGPoint(x: location.x / w, y: location.y / h)
+                    if let existing = store.zoomAnchor {
+                        let dx = (norm.x - existing.x) * w
+                        let dy = (norm.y - existing.y) * h
+                        if dx * dx + dy * dy < 400 { // within 20 px
+                            store.zoomAnchor = nil
+                            return
+                        }
+                    }
+                    store.zoomAnchor = norm
                 }
         }
         .scrollPosition($scrollPos)
@@ -458,23 +485,24 @@ private struct ImageViewer: View {
             let y = store.viewportCenter.y * ch - geo.containerSize.height / 2
             scrollPos.scrollTo(x: max(0, x), y: max(0, y))
         }
-        // Keep the zoom anchor (or viewport center) fixed when zoom changes.
-        .onChange(of: settings.zoomScale) { oldZoom, newZoom in
-            guard let geo = lastGeo, oldZoom != newZoom, geo.contentSize.width > 0 else { return }
-            let fx: Double
-            let fy: Double
-            if let anchor = store.zoomAnchor {
-                fx = anchor.x
-                fy = anchor.y
-            } else {
-                fx = (geo.contentOffset.x + geo.containerSize.width  / 2) / geo.contentSize.width
-                fy = (geo.contentOffset.y + geo.containerSize.height / 2) / geo.contentSize.height
-            }
-            let newCW = displayImage.size.width  * newZoom
-            let newCH = displayImage.size.height * newZoom
-            let x = fx * newCW - geo.containerSize.width  / 2
-            let y = fy * newCH - geo.containerSize.height / 2
-            scrollPos.scrollTo(x: max(0, x), y: max(0, y))
+        // Live pinch: adjust scroll at each gesture step.
+        // When gestureScale resets to 1.0 (gesture end), use settings.zoomScale directly
+        // so the clamped case (already at 4× ceiling) still re-centres correctly even
+        // though settings.zoomScale never changes and its onChange doesn't fire.
+        .onChange(of: gestureScale) { _, newGestureScale in
+            guard let geo = lastGeo, geo.containerSize.width > 0 else { return }
+            let zoom = newGestureScale != 1.0 ? settings.zoomScale * newGestureScale : settings.zoomScale
+            adjustScroll(to: zoom, geo: geo)
+        }
+        // Slider move or pinch commit: adjust scroll to the final zoom value.
+        .onChange(of: settings.zoomScale) { _, newZoom in
+            guard let geo = lastGeo, geo.containerSize.width > 0 else { return }
+            adjustScroll(to: newZoom, geo: geo)
+        }
+        // Re-centre on the zoom anchor when the scope button is tapped.
+        .onChange(of: store.centerOnAnchorTrigger) { _, _ in
+            guard let geo = lastGeo, geo.containerSize.width > 0 else { return }
+            adjustScroll(to: settings.zoomScale, geo: geo)
         }
         // Re-fit image to container when the inspector or mode changes the available space.
         .onChange(of: settings.isSimpleMode) { _, _ in pendingFitToContainer = true }
@@ -561,13 +589,13 @@ private struct ZoomControl: View {
         .tooltip("Click for 1:1 (100%)")
         .disabled(settings.zoomScale == 1.0)
         if store.zoomAnchor != nil {
-            Button("Clear zoom anchor", systemImage: "scope") {
-                store.zoomAnchor = nil
+            Button("Centre on anchor", systemImage: "scope") {
+                store.centerOnAnchorTrigger.toggle()
             }
             .labelStyle(.iconOnly)
             .buttonStyle(.borderless)
-            .foregroundStyle(.accent)
-            .tooltip("Zoom anchor active — click to clear")
+            .foregroundStyle(.tint)
+            .tooltip("Zoom anchor active — click to centre viewport on it")
         }
     }
 }

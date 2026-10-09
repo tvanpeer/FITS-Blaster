@@ -336,6 +336,9 @@ final class ImageStore {
     /// Persists across image navigation (same field → same sky position).
     var zoomAnchor: CGPoint? = nil
 
+    /// Toggled by the scope button to ask ImageViewer to scroll the anchor into the centre.
+    var centerOnAnchorTrigger: Bool = false
+
     var thumbnailSortOrder: ThumbnailSortOrder = .filename {
         didSet { updateCachedSort() }
     }
