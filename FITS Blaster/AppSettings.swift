@@ -197,6 +197,13 @@ final class AppSettings {
         didSet { UserDefaults.standard.set(zoomScale, forKey: "zoomScale") }
     }
 
+    /// Target sky background brightness in the displayed image (0.05–0.50, default 0.25).
+    /// Applied as `.brightness(targetBackground − 0.25)` on top of the STF-stretched image,
+    /// which itself targets ~0.25. Persisted across sessions.
+    var targetBackground: Double = 0.25 {
+        didSet { UserDefaults.standard.set(targetBackground, forKey: "targetBackground") }
+    }
+
     /// Seconds per frame during playback (0.2–5.0).
     var playbackSpeed: Double = 1.0 {
         didSet { UserDefaults.standard.set(playbackSpeed, forKey: "playbackSpeed") }
@@ -318,6 +325,7 @@ final class AppSettings {
         excludedSubfolderNames  = UD.strings("excludedSubfolderNames", default: excludedSubfolderNames)
         debayerColorImages      = UD.bool(   "debayerColorImages",     default: debayerColorImages)
         zoomScale               = UD.double( "zoomScale",              default: zoomScale)
+        targetBackground        = UD.double( "targetBackground",       default: targetBackground)
         playbackSpeed           = UD.double( "playbackSpeed",          default: playbackSpeed)
 
         // Export defaults

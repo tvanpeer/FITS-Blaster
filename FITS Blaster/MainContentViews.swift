@@ -420,7 +420,7 @@ private struct ImageViewer: View {
                     height: displayImage.size.height * effectiveZoom
                 )
                 .rotationEffect(isFlipped ? .degrees(180) : .zero)
-                .brightness(store.displayBrightness)
+                .brightness(settings.targetBackground - 0.25)
                 .contrast(store.displayStretch)
                 .overlay {
                     if let anchor = store.zoomAnchor {
@@ -539,7 +539,7 @@ private struct ImageAdjustControls: View {
     @Environment(AppSettings.self) private var settings
 
     private var isDefault: Bool {
-        settings.zoomScale == 1.0 && store.displayBrightness == 0.0
+        settings.zoomScale == 1.0 && settings.targetBackground == 0.25
             && store.displayStretch == 1.0 && store.zoomAnchor == nil
     }
 
@@ -547,13 +547,13 @@ private struct ImageAdjustControls: View {
         HStack(spacing: 12) {
             ZoomControl()
             Divider().frame(height: 14)
-            BrightnessControl()
+            TargetBackgroundControl()
             Divider().frame(height: 14)
             StretchControl()
 
             Button("Defaults", systemImage: "arrow.counterclockwise") {
                 settings.zoomScale = 1.0
-                store.displayBrightness = 0.0
+                settings.targetBackground = 0.25
                 store.displayStretch = 1.0
                 store.zoomAnchor = nil
             }
@@ -621,17 +621,21 @@ private struct ZoomAnchorIndicator: View {
     }
 }
 
-private struct BrightnessControl: View {
-    @Environment(ImageStore.self) private var store
+private struct TargetBackgroundControl: View {
+    @Environment(AppSettings.self) private var settings
 
     var body: some View {
-        @Bindable var bound = store
-        Button("Brightness", systemImage: "sun.max") {
-            store.displayBrightness = 0.0
+        @Bindable var bound = settings
+        Button("Target BG", systemImage: "circle.lefthalf.filled") {
+            settings.targetBackground = 0.25
         }
-        .tooltip("Brightness — click to reset")
-        Slider(value: $bound.displayBrightness, in: -0.5...0.5)
+        .tooltip("Target Background — click to reset to 0.25")
+        Slider(value: $bound.targetBackground, in: 0.05...0.50)
             .frame(width: 80)
+        Text(settings.targetBackground, format: .number.precision(.fractionLength(2)))
+            .scaledFont(size: 10, monospaced: true)
+            .frame(width: 34, alignment: .leading)
+            .foregroundStyle(.secondary)
     }
 }
 

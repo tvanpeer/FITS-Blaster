@@ -270,12 +270,9 @@ final class ImageStore {
 
     // MARK: - Session-level display adjustments
 
-    /// Brightness offset applied to the displayed image (-0.5 to 0.5, 0 = normal).
-    /// Resets when a new session is loaded.
-    var displayBrightness: Double = 0.0
-
     /// Contrast multiplier applied to the displayed image (0.5 to 3.0, 1.0 = normal).
     /// Higher values produce a stronger stretch; maps to SwiftUI's .contrast() modifier.
+    /// Resets when a new session is loaded.
     var displayStretch: Double = 1.0
 
     // MARK: - Playback
@@ -686,7 +683,6 @@ final class ImageStore {
         batchRestretchCount = 0
         batchSamplingTotal = 0
         batchSamplingCount = 0
-        displayBrightness = 0.0
         displayStretch = 1.0
         stopPlayback()
         viewportFraction = CGRect(x: 0, y: 0, width: 1, height: 1)
