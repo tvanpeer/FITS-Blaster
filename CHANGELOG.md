@@ -4,6 +4,15 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-09 — Tests: higher-level integration coverage
+
+### Tests
+- **`GroupStatisticsTests`** — 8 new tests for `updateGroupStatistics`: `medianSkyBackground` and `medianPSFSignalWeight` computation (first coverage of these fields), per-filter-group isolation, nil-field exclusion, even-count median, and `topThirdScoreFloor` edge cases.
+- **`SortOrderTests`** — 9 new tests for `updateCachedSort`: metric-based ascending/descending, nil-metrics trailing in both directions, load-order (filename) sort, and rejected-entry placement.
+- **`FlagVisibilityTests`** — 6 new tests for the auto-flag + visibility pipeline: `applyAutoFlag` populates `flaggedEntryIDs`, additive (union) semantics, `.active` visibility mode, and `deflagAll`.
+
+---
+
 ## 2026-10-09 — Tests: coverage for beta features
 
 ### Tests
