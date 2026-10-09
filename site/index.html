@@ -7,7 +7,7 @@
     <link rel="icon" type="image/png" href="favicon.png">
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
     <link rel="canonical" href="https://astrophoto-app.com/">
-    <meta name="description" content="FITS Blaster is a free macOS app for culling astrophotography FITS images. GPU-accelerated star quality metrics — FWHM, eccentricity, SNR, star count — with session charts and batch rejection.">
+    <meta name="description" content="FITS Blaster is a free macOS app for culling astrophotography FITS images. GPU-accelerated star quality metrics — FWHM, eccentricity, SNR, star count, PSF Signal Weight — with session charts and batch rejection.">
     <meta property="og:title" content="FITS Blaster — Astrophotography Image Culling for Mac">
     <meta property="og:description" content="Free macOS app for culling astrophotography FITS images. GPU-accelerated star quality metrics with session charts and batch rejection.">
     <meta property="og:type" content="website">
@@ -26,7 +26,7 @@
         "operatingSystem": "macOS 15.7+",
         "applicationCategory": "PhotographyApplication",
         "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
-        "description": "Fast, focused FITS image culling for astrophotographers on Mac. Measures star quality — FWHM, eccentricity, SNR, star count — directly from raw pixel data.",
+        "description": "Fast, focused FITS image culling for astrophotographers on Mac. Measures star quality — FWHM, eccentricity, SNR, star count, PSF Signal Weight — directly from raw pixel data.",
         "url": "https://astrophoto-app.com/",
         "downloadUrl": "https://github.com/tvanpeer/FITS-Blaster/releases/download/v1.22.1/FITS-Blaster-1.22.1.dmg",
         "softwareVersion": "1.22.1",
@@ -342,7 +342,7 @@
 <section class="features">
     <h2>What it does</h2>
     <ul>
-        <li>Measures star quality — FWHM, eccentricity, SNR, and star count — directly from raw pixel data</li>
+        <li>Measures star quality — FWHM, eccentricity, SNR, star count, PSF Signal Weight, and sky background — directly from raw pixel data</li>
         <li>GPU-accelerated rendering of 16 MP+ FITS files with no perceptible lag</li>
         <li>Session chart with drag-to-select for fast batch culling</li>
         <li>Filter-aware grouping: Ha, OIII, SII, RGB, and more</li>
@@ -362,7 +362,7 @@
         <figcaption>Thumbnail sidebar with filter grouping</figcaption>
     </figure>
     <figure>
-        <img src="screenshot-inspector.png" alt="Inspector panel showing FWHM, eccentricity, SNR, star count, and FITS headers">
+        <img src="screenshot-inspector.png" alt="Inspector panel showing FWHM, eccentricity, SNR, star count, PSF Signal Weight, sky background, score, and FITS headers">
         <figcaption>Inspector with quality metrics and FITS headers</figcaption>
     </figure>
 </section>

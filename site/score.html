@@ -259,9 +259,10 @@
 <div class="container">
 
     <h1 id="top">How the Quality Score Works</h1>
-    <p class="meta">FITS Blaster &nbsp;·&nbsp; Last updated: March 2026</p>
+    <p class="meta">FITS Blaster &nbsp;·&nbsp; Last updated: October 2026</p>
 
-    <p>The quality score is a single integer from <strong>0 to 100</strong> that summarises the optical quality of a FITS frame. It is a weighted average of up to four individual metrics: FWHM, eccentricity, SNR, and star count. Only the metrics enabled in Settings contribute; their weights are renormalised so they always sum to 1.0 regardless of which subset is active.</p>
+    <p>The quality score is a single integer from <strong>0 to 100</strong> that summarises the optical quality of a FITS frame. It is a weighted average of up to four individual metrics: FWHM, eccentricity, SNR, and star count. Only metrics for which a value was successfully measured contribute; their weights are renormalised so they always sum to 1.0 regardless of which subset is active. In Geek mode all four are always computed, so all four always contribute.</p>
+    <p><strong>PSF Signal Weight</strong> and <strong>Sky Background</strong> are additional metrics shown in the inspector and session chart, but they are not included in the composite score.</p>
 
     <nav class="toc">
         <p>Jump to section</p>
