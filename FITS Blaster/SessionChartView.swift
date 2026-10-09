@@ -6,104 +6,6 @@
 import SwiftUI
 import Charts
 
-// MARK: - ChartMetric
-
-/// The metric plotted on the Y-axis of the session overview chart.
-enum ChartMetric: String, CaseIterable, Identifiable {
-    case score           = "Score"
-    case fwhm            = "FWHM"
-    case eccentricity    = "Ecc"
-    case snr             = "SNR"
-    case starCount       = "Stars"
-    case skyBackground   = "Sky BG"
-    case psfSignalWeight = "PSF·S"
-
-    var id: String { rawValue }
-
-    var helpText: String {
-        switch self {
-        case .score:           return "Overall quality score (composite of all metrics)"
-        case .fwhm:            return "Full Width at Half Maximum — smaller is sharper"
-        case .eccentricity:    return "Star eccentricity — closer to 0 is rounder"
-        case .snr:             return "Signal-to-Noise Ratio — higher is better"
-        case .starCount:       return "Number of detected stars"
-        case .skyBackground:   return "Median sky background in ADU — lower means darker sky"
-        case .psfSignalWeight: return "PSF Signal Weight — integrated stellar flux relative to sky noise; higher means better transparency and/or more photons collected"
-        }
-    }
-
-    /// Extract a chartable Double from a FrameMetrics value.
-    /// Returns nil if this metric was not computed or has no data.
-    func value(for metrics: FrameMetrics?) -> Double? {
-        guard let m = metrics else { return nil }
-        switch self {
-        case .score:
-            return m.hasData ? Double(m.qualityScore) : nil
-        case .fwhm:
-            return m.fwhm.map(Double.init)
-        case .eccentricity:
-            return m.eccentricity.map(Double.init)
-        case .snr:
-            return m.snr.map(Double.init)
-        case .starCount:
-            return m.starCount.map(Double.init)
-        case .skyBackground:
-            return m.skyBackground.map(Double.init)
-        case .psfSignalWeight:
-            return m.psfSignalWeight.map(Double.init)
-        }
-    }
-
-    /// Look up the pre-computed per-group median for this metric from cached GroupStats.
-    /// Returns nil when the metric was not computed or has no data for the group.
-    func median(from stats: GroupStats) -> Double? {
-        switch self {
-        case .score:           return stats.medianScore.map(Double.init)
-        case .fwhm:            return stats.medianFWHM.map(Double.init)
-        case .eccentricity:    return stats.medianEccentricity.map(Double.init)
-        case .snr:             return stats.medianSNR.map(Double.init)
-        case .starCount:       return stats.medianStarCount.map(Double.init)
-        case .skyBackground:   return stats.medianSkyBackground.map(Double.init)
-        case .psfSignalWeight: return stats.medianPSFSignalWeight.map(Double.init)
-        }
-    }
-
-    /// Short label used when displaying the value alongside thumbnails.
-    var shortLabel: String {
-        switch self {
-        case .score:           return "Score"
-        case .fwhm:            return "FWHM"
-        case .eccentricity:    return "Ecc"
-        case .snr:             return "SNR"
-        case .starCount:       return "Stars"
-        case .skyBackground:   return "Sky BG"
-        case .psfSignalWeight: return "PSF·S"
-        }
-    }
-
-    /// Formats a raw Double value for compact display next to a thumbnail.
-    func formattedValue(_ value: Double) -> String {
-        switch self {
-        case .score, .starCount:
-            return value.formatted(.number.precision(.fractionLength(0)))
-        case .fwhm, .snr, .psfSignalWeight:
-            return value.formatted(.number.precision(.fractionLength(1)))
-        case .eccentricity:
-            return value.formatted(.number.precision(.fractionLength(2)))
-        case .skyBackground:
-            return value.formatted(.number.precision(.fractionLength(0)))
-        }
-    }
-
-    /// True when a lower value represents a better frame (inverts threshold shading).
-    var isLowerBetter: Bool {
-        switch self {
-        case .fwhm, .eccentricity, .skyBackground: return true
-        default: return false
-        }
-    }
-}
-
 // MARK: - SessionChartView
 
 /// Resizable strip below the main image showing the selected quality metric
@@ -117,7 +19,7 @@ struct SessionChartView: View {
     @Environment(ImageStore.self) private var store
     @Environment(AppSettings.self) private var settings
 
-    @AppStorage("sessionChartMetric") private var selectedMetric: ChartMetric = .score
+    @AppStorage("sessionChartMetric") private var selectedMetric: Metric = .qualityScore
     /// View-space X positions tracked during a drag gesture.
     @State private var dragStartX: CGFloat?
     @State private var dragCurrentX: CGFloat?
@@ -147,7 +49,7 @@ struct SessionChartView: View {
     /// paired with their 0-based position in `chartEntries`.
     private var chartPoints: [(index: Int, entry: ImageEntry, value: Double)] {
         chartEntries.enumerated().compactMap { index, entry in
-            guard let value = selectedMetric.value(for: entry.metrics) else { return nil }
+            guard let value = selectedMetric.value(from: entry.metrics) else { return nil }
             return (index: index, entry: entry, value: value)
         }
     }
@@ -189,7 +91,7 @@ struct SessionChartView: View {
         let grouped = Dictionary(grouping: chartEntries) { $0.filterGroup }
         return FilterGroup.allCases.compactMap { group in
             let values = (grouped[group] ?? [])
-                .compactMap { selectedMetric.value(for: $0.metrics) }
+                .compactMap { selectedMetric.value(from: $0.metrics) }
                 .sorted()
             guard values.count >= 2 else { return nil }
             return (group: group, median: values[values.count / 2])
@@ -233,17 +135,17 @@ struct SessionChartView: View {
     private var header: some View {
         HStack(spacing: 4) {
             // Metric selector
-            ForEach(ChartMetric.allCases) { metric in
+            ForEach(Metric.allCases.filter { $0.contexts.contains(.chart) }) { metric in
                 if selectedMetric == metric {
                     Button { selectedMetric = metric } label: {
-                        Text(metric.rawValue).scaledFont(size: 10)
+                        Text(metric.shortLabel).scaledFont(size: 10)
                     }
                     .buttonStyle(.borderedProminent)
                     .controlSize(.mini)
                     .help(metric.helpText)
                 } else {
                     Button { selectedMetric = metric } label: {
-                        Text(metric.rawValue).scaledFont(size: 10)
+                        Text(metric.shortLabel).scaledFont(size: 10)
                     }
                     .buttonStyle(.bordered)
                     .controlSize(.mini)
@@ -313,7 +215,7 @@ struct SessionChartView: View {
         } else if store.isBatchProcessing {
             message = "Computing metrics…"
         } else {
-            message = "No \(selectedMetric.rawValue) data for this session"
+            message = "No \(selectedMetric.displayName) data for this session"
         }
         return Text(message)
             .scaledFont(size: 10)
@@ -349,14 +251,14 @@ struct SessionChartView: View {
                 if settings.chartUseBars {
                     BarMark(
                         x: .value("Frame", item.index + 1),
-                        y: .value(selectedMetric.rawValue, item.value)
+                        y: .value(selectedMetric.displayName, item.value)
                     )
                     .foregroundStyle(color)
                     .opacity(opacity)
                 } else {
                     PointMark(
                         x: .value("Frame", item.index + 1),
-                        y: .value(selectedMetric.rawValue, item.value)
+                        y: .value(selectedMetric.displayName, item.value)
                     )
                     .foregroundStyle(color)
                     .symbolSize(isCursor ? 40 : 28)
@@ -460,7 +362,7 @@ struct SessionChartView: View {
         let index = frameNumber - 1
         let entries = chartEntries
         guard entries.indices.contains(index),
-              let value = selectedMetric.value(for: entries[index].metrics) else { return nil }
+              let value = selectedMetric.value(from: entries[index].metrics) else { return nil }
         let label = "\(selectedMetric.shortLabel): \(selectedMetric.formattedValue(value))"
         let clampedX = max(50, min(currentX, geo.size.width - 50))
         return (label: label, x: clampedX)

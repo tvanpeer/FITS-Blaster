@@ -393,6 +393,38 @@ final class AppSettings {
             : metricsConfig
     }
 
+    // MARK: - Per-metric toggle helpers (for Metric.settings context)
+
+    /// Whether computation of the given metric is enabled.
+    /// Only metrics with a `.settings` context have individual toggles.
+    func isComputeEnabled(_ metric: Metric) -> Bool {
+        switch metric {
+        case .fwhm:         return computeFWHM
+        case .eccentricity: return computeEccentricity
+        case .snr:          return computeSNR
+        case .starCount:    return computeStarCount
+        default:            return true
+        }
+    }
+
+    func setComputeEnabled(_ metric: Metric, _ enabled: Bool) {
+        switch metric {
+        case .fwhm:         computeFWHM = enabled
+        case .eccentricity: computeEccentricity = enabled
+        case .snr:          computeSNR = enabled
+        case .starCount:    computeStarCount = enabled
+        default:            break
+        }
+    }
+
+    /// A `Binding<Bool>` suitable for use in Toggle views for metrics with a `.settings` context.
+    func computeBinding(for metric: Metric) -> Binding<Bool> {
+        Binding(
+            get: { self.isComputeEnabled(metric) },
+            set: { self.setComputeEnabled(metric, $0) }
+        )
+    }
+
     // MARK: - Helpers
 
     private func keyEquivalent(for string: String, fallback: KeyEquivalent) -> KeyEquivalent {

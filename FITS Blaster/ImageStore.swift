@@ -14,16 +14,30 @@ import UniformTypeIdentifiers
 
 // MARK: - Thumbnail sort order
 
-enum ThumbnailSortOrder: String, CaseIterable {
-    case filename        = "Name"
-    case qualityScore    = "Score"
-    case fwhm            = "FWHM"
-    case eccentricity    = "Eccentricity"
-    case snr             = "SNR"
-    case starCount       = "Stars"
-    case skyBackground   = "Sky BG"
-    case psfSignalWeight = "PSF Signal"
-    case rejected        = "Rejected"
+/// Sort order for the thumbnail sidebar.
+///
+/// Metric-based orders are expressed as `.byMetric(Metric)` so adding a
+/// new `Metric` case with a `.sort` context automatically appears in the picker.
+enum ThumbnailSortOrder: Hashable {
+    case filename
+    case byMetric(Metric)
+    case rejected
+
+    /// Human-readable label shown in the sort picker.
+    var label: String {
+        switch self {
+        case .filename:         return "Name"
+        case .byMetric(let m):  return m.displayName
+        case .rejected:         return "Rejected"
+        }
+    }
+
+    /// All valid options in picker order: filename → metrics (by Metric.allCases order) → rejected.
+    static var allSortOptions: [ThumbnailSortOrder] {
+        [.filename]
+        + Metric.allCases.filter { $0.contexts.contains(.sort) }.map { .byMetric($0) }
+        + [.rejected]
+    }
 }
 
 // MARK: - Export format
@@ -423,61 +437,12 @@ final class ImageStore {
         switch thumbnailSortOrder {
         case .filename:
             cachedSortedEntries = asc ? entries : entries.reversed()
-        case .qualityScore:
+        case .byMetric(let metric):
             cachedSortedEntries = entries.sorted { a, b in
-                let av = a.metrics?.qualityScore ?? -1
-                let bv = b.metrics?.qualityScore ?? -1
-                return asc ? av < bv : av > bv
-            }
-        case .fwhm:
-            cachedSortedEntries = entries.sorted { a, b in
-                switch (a.metrics?.fwhm, b.metrics?.fwhm) {
-                case let (fa?, fb?): return asc ? fa < fb : fa > fb
-                case (_?, nil):      return true
-                case (nil, _?):      return false
-                default:             return false
-                }
-            }
-        case .eccentricity:
-            cachedSortedEntries = entries.sorted { a, b in
-                switch (a.metrics?.eccentricity, b.metrics?.eccentricity) {
-                case let (ea?, eb?): return asc ? ea < eb : ea > eb
-                case (_?, nil):      return true
-                case (nil, _?):      return false
-                default:             return false
-                }
-            }
-        case .snr:
-            cachedSortedEntries = entries.sorted { a, b in
-                switch (a.metrics?.snr, b.metrics?.snr) {
-                case let (sa?, sb?): return asc ? sa < sb : sa > sb
-                case (_?, nil):      return true
-                case (nil, _?):      return false
-                default:             return false
-                }
-            }
-        case .starCount:
-            cachedSortedEntries = entries.sorted { a, b in
-                switch (a.metrics?.starCount, b.metrics?.starCount) {
-                case let (ca?, cb?): return asc ? ca < cb : ca > cb
-                case (_?, nil):      return true
-                case (nil, _?):      return false
-                default:             return false
-                }
-            }
-        case .psfSignalWeight:
-            cachedSortedEntries = entries.sorted { a, b in
-                switch (a.metrics?.psfSignalWeight, b.metrics?.psfSignalWeight) {
-                case let (pa?, pb?): return asc ? pa < pb : pa > pb
-                case (_?, nil):      return true
-                case (nil, _?):      return false
-                default:             return false
-                }
-            }
-        case .skyBackground:
-            cachedSortedEntries = entries.sorted { a, b in
-                switch (a.metrics?.skyBackground, b.metrics?.skyBackground) {
-                case let (ba?, bb?): return asc ? ba < bb : ba > bb
+                let av = metric.value(from: a.metrics)
+                let bv = metric.value(from: b.metrics)
+                switch (av, bv) {
+                case let (av?, bv?): return asc ? av < bv : av > bv
                 case (_?, nil):      return true
                 case (nil, _?):      return false
                 default:             return false

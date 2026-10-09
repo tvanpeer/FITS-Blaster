@@ -74,10 +74,11 @@ private struct InspectorMetricsSection: View {
                 .foregroundStyle(.secondary)
 
             HStack(spacing: 4) {
-                Toggle(isOn: $settings.computeFWHM)   { Text("FWHM").scaledFont(size: 10) }
-                Toggle(isOn: $settings.computeEccentricity) { Text("Ecc").scaledFont(size: 10) }
-                Toggle(isOn: $settings.computeSNR)    { Text("SNR").scaledFont(size: 10) }
-                Toggle(isOn: $settings.computeStarCount)   { Text("Stars").scaledFont(size: 10) }
+                ForEach(Metric.allCases.filter { $0.contexts.contains(.settings) }) { metric in
+                    Toggle(isOn: settings.computeBinding(for: metric)) {
+                        Text(metric.shortLabel).scaledFont(size: 10)
+                    }
+                }
             }
             .toggleStyle(.button)
 

@@ -32,8 +32,8 @@ struct ThumbnailSidebar: View {
                         .scaledFont(size: 10)
                         .foregroundStyle(.secondary)
                     Picker("Sort", selection: $bindableStore.thumbnailSortOrder) {
-                        ForEach(ThumbnailSortOrder.allCases, id: \.self) { order in
-                            Text(order.rawValue).tag(order)
+                        ForEach(ThumbnailSortOrder.allSortOptions, id: \.self) { order in
+                            Text(order.label).tag(order)
                         }
                     }
                     .labelsHidden()
@@ -352,7 +352,7 @@ struct ThumbnailCell: View {
     let entry: ImageEntry
     @Environment(ImageStore.self) private var store
     @Environment(AppSettings.self) private var settings
-    @AppStorage("sessionChartMetric") private var selectedMetric: ChartMetric = .score
+    @AppStorage("sessionChartMetric") private var selectedMetric: Metric = .qualityScore
 
     private var isCursor: Bool { store.selectedEntry === entry }
     private var isFlagged: Bool { store.flaggedEntryIDs.contains(entry.id) }
@@ -409,7 +409,7 @@ struct ThumbnailCell: View {
                             .foregroundStyle(.secondary)
                     }
                     Spacer(minLength: 0)
-                    if let value = selectedMetric.value(for: entry.metrics) {
+                    if let value = selectedMetric.value(from: entry.metrics) {
                         Text("\(selectedMetric.shortLabel) \(selectedMetric.formattedValue(value))")
                             .scaledFont(size: 9)
                             .foregroundStyle(.secondary)

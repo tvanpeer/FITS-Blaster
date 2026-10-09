@@ -179,12 +179,12 @@ struct FrameMetrics: Sendable {
 
     /// Compact tooltip showing all available metrics, suitable for `.help()`.
     var tooltipString: String {
-        var parts: [String] = []
-        if let v = fwhm            { parts.append("FWHM \(v.formatted(.number.precision(.fractionLength(1))))px") }
-        if let v = eccentricity    { parts.append("Ecc \(v.formatted(.number.precision(.fractionLength(2))))") }
-        if let v = snr             { parts.append("SNR \(v.formatted(.number.precision(.fractionLength(0))))") }
-        if let v = starCount       { parts.append("\(v) stars") }
-        if let v = psfSignalWeight { parts.append("PSF·S \(v.formatted(.number.precision(.fractionLength(1))))") }
-        return parts.joined(separator: " · ")
+        Metric.allCases
+            .filter { $0.contexts.contains(.statusChip) }
+            .compactMap { metric -> String? in
+                guard let v = metric.value(from: self) else { return nil }
+                return metric.tooltipPart(from: v)
+            }
+            .joined(separator: " · ")
     }
 }
