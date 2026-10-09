@@ -286,4 +286,80 @@ struct AutoRejectTests {
         #expect(rejected.count == 1, "Only the Ha outlier should be rejected")
         #expect(rejected.first === entries[2])
     }
+
+    // MARK: - Sky background (relative mode)
+
+    @Test("Relative mode rejects entries with sky BG > multiplier × median")
+    func relativeSkyBackground() {
+        // Three entries: sky BG 1000, 1000, 2500 ADU. Median = 1000. Multiplier 1.5 → threshold 1500.
+        // 2500 > 1500 → rejected.
+        let store = ImageStore()
+        var entries: [ImageEntry] = []
+        for bg: Float in [1000, 1000, 2500] {
+            let entry = ImageEntry(url: URL(fileURLWithPath: "/tmp/\(UUID().uuidString).fits"))
+            entry.isProcessing = false
+            entry.metrics = FrameMetrics(fwhm: 3.0, eccentricity: 0.1, snr: 100, starCount: 200,
+                                         qualityScore: 70, skyBackground: bg, psfSignalWeight: nil)
+            store.entries.append(entry)
+            entries.append(entry)
+        }
+        store.updateGroupStatistics()
+
+        var config = AutoRejectConfig()
+        config.mode = .relative
+        config.useFWHM = false; config.useEccentricity = false
+        config.useStarCount = false; config.useSNR = false
+        config.useSkyBackground = true
+        config.skyBackgroundMultiplier = 1.5
+
+        let rejected = store.previewAutoReject(config: config)
+        #expect(rejected.count == 1, "Only the 2500 ADU entry should be rejected")
+        #expect(rejected.first === entries[2])
+    }
+
+    // MARK: - Sky background (absolute mode)
+
+    @Test("Absolute mode rejects entries exceeding sky BG ceiling")
+    func absoluteSkyBackground() {
+        let store = ImageStore()
+        var entries: [ImageEntry] = []
+        for bg: Float in [500, 5000] {
+            let entry = ImageEntry(url: URL(fileURLWithPath: "/tmp/\(UUID().uuidString).fits"))
+            entry.isProcessing = false
+            entry.metrics = FrameMetrics(fwhm: 3.0, eccentricity: 0.1, snr: 100, starCount: 200,
+                                         qualityScore: 70, skyBackground: bg, psfSignalWeight: nil)
+            store.entries.append(entry)
+            entries.append(entry)
+        }
+
+        var config = AutoRejectConfig()
+        config.mode = .absolute
+        config.useFWHM = false; config.useEccentricity = false
+        config.useStarCount = false; config.useSNR = false
+        config.useSkyBackground = true
+        config.absoluteSkyBackgroundCeiling = 3000
+
+        let rejected = store.previewAutoReject(config: config)
+        #expect(rejected.count == 1, "Only the 5000 ADU entry should be rejected")
+        #expect(rejected.first === entries[1])
+    }
+
+    @Test("Sky BG disabled does not reject bright-sky entries")
+    func skyBackgroundDisabledIgnored() {
+        let store = ImageStore()
+        let entry = ImageEntry(url: URL(fileURLWithPath: "/tmp/\(UUID().uuidString).fits"))
+        entry.isProcessing = false
+        entry.metrics = FrameMetrics(fwhm: 3.0, eccentricity: 0.1, snr: 100, starCount: 200,
+                                     qualityScore: 70, skyBackground: 99999, psfSignalWeight: nil)
+        store.entries.append(entry)
+
+        var config = AutoRejectConfig()
+        config.mode = .absolute
+        config.useFWHM = false; config.useEccentricity = false
+        config.useStarCount = false; config.useSNR = false
+        config.useSkyBackground = false
+        config.absoluteSkyBackgroundCeiling = 100
+
+        #expect(store.previewAutoReject(config: config).isEmpty, "Sky BG disabled → nothing rejected")
+    }
 }

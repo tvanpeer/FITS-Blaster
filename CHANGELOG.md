@@ -4,6 +4,15 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-09 — Tests: coverage for beta features
+
+### Tests
+- **`AutoRejectTests`** — three new tests for the sky background threshold introduced in beta 2: relative mode (rejects frames with sky BG > multiplier × group median), absolute mode (ceiling ADU value), and disabled-flag guard.
+- **`MetricTests`** (new file) — covers the `Metric` enum introduced as single source of truth: `value(from:)` extraction for all seven metrics including `skyBackground` and `psfSignalWeight`, `median(from:)` from `GroupStats`, `isHigherBetter` for all cases, and `contexts` (verifies `skyBackground` is excluded from the export context).
+- **`ExportTests`** (new file) — covers `ImageStore.exportContent`: CSV/TSV column layout, `sky_bg` exclusion from export columns, `status` column present/absent, POSIX decimal separator, all three path styles, FITS header key inclusion/omission, and `commonAncestorPath` edge cases.
+
+---
+
 ## 2026-10-09 — Target Background display control; zoom anchor; chart and metric UI improvements
 
 ### Added
