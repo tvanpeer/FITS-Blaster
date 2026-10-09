@@ -4,6 +4,23 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-09 — Target Background display control; zoom anchor; chart and metric UI improvements
+
+### Added
+- **Target Background slider** replaces the old Brightness slider in the display controls bar. The value (0.05–0.50, default 0.25) sets the desired sky background brightness level in the displayed image, matching the PixInsight MAS convention. The STF stretch already targets ~0.25, so the default produces no visible change. The value persists across app restarts (moved from session-level `ImageStore` to `AppSettings`).
+- **Zoom anchor** — click anywhere on the image to pin a point of interest. A crosshair marks the pinned point. All subsequent zoom changes (slider and pinch-to-zoom) keep that point centred in the viewport. The anchor persists across image navigation (same normalised coordinates = same sky position). Click the crosshair again to clear it. The lit scope icon in the zoom toolbar re-centres the viewport on the anchor after scrolling. The Defaults reset button also clears the anchor.
+- **Quality Score** added to the inline metric chip row (shown when enabled in Settings → Quality Metrics).
+
+### Fixed
+- **Chart y-axis domain for single-image folders**: when only one frame was loaded (or all visible frames had the same metric value), the y-axis fell back to the hardcoded 0–1 range. Values outside that range (e.g. Sky BG = 1296 ADU, FWHM = 3.6 px) rendered as a bar or dot overflowing the chart area and drawing over the image preview. The domain now centres on the actual value with a ±20 % (min 0.5) margin.
+
+### Changed
+- **Metric chip row** is now opt-in via Settings → Quality Metrics (default off). The inspector remains the canonical metric display.
+- **Per-metric compute toggles** (FWHM/Ecc/SNR/Stars on/off) removed; quality score always uses all available metrics.
+- Internal: `Metric` enum introduced as single source of truth for all quality parameters. Each metric declares which UI locations it appears in via a `MetricContext` OptionSet (sort, chart, export, status chip), eliminating separate `ChartMetric` and related enums.
+
+---
+
 ## 2026-10-08 — Throughput benchmark framework (BenchmarkTests, run-benchmark.sh)
 
 ## 2026-10-08 — Add scripts/compare.py for PI SubframeSelector correlation testing

@@ -45,6 +45,23 @@ When FITS Blaster loads images from a session with multiple filters (for example
 
 If no filter information is present in the headers, all frames appear in a single group.
 
+### How do I zoom into a specific star or detail?
+Use the **zoom anchor**. Click anywhere on the image to pin that point — a small crosshair appears. All subsequent zoom changes (the zoom slider below the image, or a trackpad pinch) will keep that point centred in the viewport. This is useful when you want to inspect the same star or nebula region across many frames without losing your place.
+
+- **Move the anchor:** click a different spot on the image.
+- **Clear the anchor:** click the crosshair again (within about 20 px of it).
+- **Re-centre after scrolling:** click the lit scope icon in the zoom controls bar — it scrolls the anchor back to the centre of the viewport without clearing it.
+- The anchor persists across image navigation. Because all frames in a session cover the same field, the same normalised position points to the same sky region in every frame.
+
+### What is the Target Background slider?
+The **Target Background** slider (in the display controls bar below the image) sets the desired brightness level of the sky background in the displayed image. The value is a normalised brightness from 0.05 to 0.50.
+
+- **0.25** (the default) matches the output of FITS Blaster's automatic STF stretch, so it produces no visible change.
+- **Lower values** (e.g. 0.10–0.15) darken the sky background — typical for deep-sky images with relatively dark skies.
+- **Higher values** (e.g. 0.25–0.40) are useful for images with large extended objects (nebulae, galaxies) where the object fills much of the frame and you want to preserve detail in the mid-tones.
+
+This control is analogous to the Target Background parameter in PixInsight's Multiscale Adaptive Stretch. The value persists across app restarts.
+
 ### Should I use colour or greyscale display?
 **Greyscale** loads and renders much faster and is usually all you need for judging star shape, focus, and trailing. FITS Blaster always loads greyscale first, so you can start culling immediately regardless of display mode.
 

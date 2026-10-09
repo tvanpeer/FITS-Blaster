@@ -315,6 +315,30 @@
         <strong>Simple vs Geek mode</strong> — press <kbd>G</kbd> to toggle. Simple mode hides metrics and the session chart for a quick visual pass. Geek mode enables the full quality analysis. The toolbar button shows the current mode name.
     </div>
 
+    <!-- ── Display controls ── -->
+    <h2>Display Controls</h2>
+
+    <p>A slim controls bar sits below the image viewer. All three sliders are non-destructive display adjustments — they never touch the original FITS data.</p>
+
+    <div class="interface-grid">
+        <div class="interface-item">
+            <div class="interface-item-title">Zoom</div>
+            <p>Scales the image from 0.25× to 4×. Click the icon or the percentage label to reset to 1:1. Pinch on the trackpad also zooms. The zoom level persists across restarts.</p>
+        </div>
+        <div class="interface-item">
+            <div class="interface-item-title">Target Background</div>
+            <p>Sets the desired sky background brightness (0.05–0.50, default 0.25). The STF auto-stretch targets ~0.25, so the default is a no-op. Lower values (0.10–0.15) darken the background; higher values (0.25–0.40) suit images with large extended objects. Persists across restarts.</p>
+        </div>
+        <div class="interface-item">
+            <div class="interface-item-title">Stretch</div>
+            <p>Post-stretch contrast multiplier (0.5×–3.0×, default 1.0×). Increasing it brightens mid-tones and brings out faint structure; decreasing it flattens contrast. Resets when a new session is loaded.</p>
+        </div>
+    </div>
+
+    <div class="tip">
+        <strong>Zoom anchor.</strong> Click anywhere on the image to pin a point of interest — a crosshair marks it. All zoom changes then keep that point centred. Click the lit scope icon to re-centre the viewport on the anchor after scrolling. Click the crosshair itself to clear it. The anchor persists across image navigation, so the same sky region stays in view as you step through frames.
+    </div>
+
     <!-- ── The basic workflow ── -->
     <h2>The Basic Workflow</h2>
 
