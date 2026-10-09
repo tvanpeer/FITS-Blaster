@@ -229,6 +229,13 @@ struct ImageDisplayTab: View {
                     .foregroundStyle(.secondary)
             }
 
+            Section("Quality Metrics") {
+                Toggle("Show metric chips above session chart", isOn: $settings.showMetricChips)
+                Text("Displays a compact chip row (FWHM, Ecc, SNR, Stars, Sky BG, PSF·S) above the chart for the selected frame. All metrics are always visible in the Inspector on the right.")
+                    .scaledFont(size: 10)
+                    .foregroundStyle(.secondary)
+            }
+
             Section("Session Chart Brightness") {
                 LabeledContent("Rejected frames") {
                     OpacitySlider(value: $settings.rejectedDotOpacity)

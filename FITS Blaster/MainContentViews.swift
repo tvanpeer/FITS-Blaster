@@ -250,8 +250,8 @@ private struct InfoBar: View {
 
             Spacer()
 
-            // Inline metrics summary (Geek mode only)
-            if !settings.isSimpleMode, let m = entry.metrics, m.hasData {
+            // Optional inline metrics chip row (Geek mode only, user-configurable in Settings)
+            if !settings.isSimpleMode, settings.showMetricChips, let m = entry.metrics, m.hasData {
                 HStack(spacing: 12) {
                     ForEach(Metric.allCases.filter { $0.contexts.contains(.statusChip) }) { metric in
                         if let v = metric.value(from: m) {

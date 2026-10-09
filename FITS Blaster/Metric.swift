@@ -22,10 +22,8 @@ struct MetricContext: OptionSet, Sendable {
     static let chart      = MetricContext(rawValue: 1 << 1)
     /// CSV / TSV / plain-text export columns.
     static let export     = MetricContext(rawValue: 1 << 2)
-    /// Inline status chip row above the image.
+    /// Inline status chip row above the image (shown when AppSettings.showMetricChips is true).
     static let statusChip = MetricContext(rawValue: 1 << 3)
-    /// Toggle buttons in the Inspector's Quality Metrics section.
-    static let settings   = MetricContext(rawValue: 1 << 4)
 }
 
 // MARK: - Metric
@@ -122,10 +120,10 @@ enum Metric: String, CaseIterable, Identifiable, Sendable, Hashable {
 
     var contexts: MetricContext {
         switch self {
-        case .fwhm:            return [.sort, .chart, .export, .statusChip, .settings]
-        case .eccentricity:    return [.sort, .chart, .export, .statusChip, .settings]
-        case .snr:             return [.sort, .chart, .export, .statusChip, .settings]
-        case .starCount:       return [.sort, .chart, .export, .statusChip, .settings]
+        case .fwhm:            return [.sort, .chart, .export, .statusChip]
+        case .eccentricity:    return [.sort, .chart, .export, .statusChip]
+        case .snr:             return [.sort, .chart, .export, .statusChip]
+        case .starCount:       return [.sort, .chart, .export, .statusChip]
         case .skyBackground:   return [.sort, .chart, .statusChip]
         case .psfSignalWeight: return [.sort, .chart, .export, .statusChip]
         case .qualityScore:    return [.sort, .chart, .export]

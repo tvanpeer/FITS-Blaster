@@ -115,22 +115,12 @@ final class AppSettings {
         didSet { UserDefaults.standard.set(maxThumbnailSize, forKey: "maxThumbnailSize") }
     }
 
-    // MARK: - Quality Metric Toggles
-
-    var computeFWHM: Bool = true {
-        didSet { UserDefaults.standard.set(computeFWHM, forKey: "computeFWHM") }
-    }
-    var computeEccentricity: Bool = true {
-        didSet { UserDefaults.standard.set(computeEccentricity, forKey: "computeEccentricity") }
-    }
-    var computeSNR: Bool = true {
-        didSet { UserDefaults.standard.set(computeSNR, forKey: "computeSNR") }
-    }
-    var computeStarCount: Bool = true {
-        didSet { UserDefaults.standard.set(computeStarCount, forKey: "computeStarCount") }
-    }
-
     // MARK: - UI State
+
+    /// When true, a compact metric chip row is shown above the session chart.
+    var showMetricChips: Bool = false {
+        didSet { UserDefaults.standard.set(showMetricChips, forKey: "showMetricChips") }
+    }
 
     var showInspector: Bool = true {
         didSet { UserDefaults.standard.set(showInspector, forKey: "showInspector") }
@@ -309,18 +299,13 @@ final class AppSettings {
         maxDisplaySize          = UD.positiveInt("maxDisplaySize",     default: maxDisplaySize)
         maxThumbnailSize        = UD.positiveInt("maxThumbnailSize",   default: maxThumbnailSize)
 
-        // Metric toggles — UD.bool uses object(forKey:) to distinguish never-set from false
-        computeFWHM             = UD.bool("computeFWHM",               default: computeFWHM)
-        computeEccentricity     = UD.bool("computeEccentricity",       default: computeEccentricity)
-        computeSNR              = UD.bool("computeSNR",                default: computeSNR)
-        computeStarCount        = UD.bool("computeStarCount",          default: computeStarCount)
-
         // Chart dot brightness
         chartUseBars            = UD.bool(  "chartUseBars",             default: chartUseBars)
         rejectedDotOpacity      = UD.double("rejectedDotOpacity",      default: rejectedDotOpacity)
         dimmedDotOpacity        = UD.double("dimmedDotOpacity",        default: dimmedDotOpacity)
 
         // UI state
+        showMetricChips         = UD.bool("showMetricChips",           default: showMetricChips)
         showInspector           = UD.bool("showInspector",             default: showInspector)
         isSimpleMode            = UD.bool("isSimpleMode",              default: isSimpleMode)
         if let raw = UserDefaults.standard.string(forKey: "appearanceMode"),
@@ -380,49 +365,12 @@ final class AppSettings {
 
     // MARK: - Metrics config helpers
 
-    var metricsConfig: MetricsConfig {
-        MetricsConfig(computeFWHM: computeFWHM, computeEccentricity: computeEccentricity,
-                      computeSNR: computeSNR, computeStarCount: computeStarCount)
-    }
-
-    /// Returns an all-disabled config in Simple mode so no star detection is triggered.
+    /// All metrics are always computed. In Simple mode, star detection is skipped entirely.
     var effectiveMetricsConfig: MetricsConfig {
         isSimpleMode
             ? MetricsConfig(computeFWHM: false, computeEccentricity: false,
                             computeSNR: false, computeStarCount: false)
-            : metricsConfig
-    }
-
-    // MARK: - Per-metric toggle helpers (for Metric.settings context)
-
-    /// Whether computation of the given metric is enabled.
-    /// Only metrics with a `.settings` context have individual toggles.
-    func isComputeEnabled(_ metric: Metric) -> Bool {
-        switch metric {
-        case .fwhm:         return computeFWHM
-        case .eccentricity: return computeEccentricity
-        case .snr:          return computeSNR
-        case .starCount:    return computeStarCount
-        default:            return true
-        }
-    }
-
-    func setComputeEnabled(_ metric: Metric, _ enabled: Bool) {
-        switch metric {
-        case .fwhm:         computeFWHM = enabled
-        case .eccentricity: computeEccentricity = enabled
-        case .snr:          computeSNR = enabled
-        case .starCount:    computeStarCount = enabled
-        default:            break
-        }
-    }
-
-    /// A `Binding<Bool>` suitable for use in Toggle views for metrics with a `.settings` context.
-    func computeBinding(for metric: Metric) -> Binding<Bool> {
-        Binding(
-            get: { self.isComputeEnabled(metric) },
-            set: { self.setComputeEnabled(metric, $0) }
-        )
+            : MetricsConfig()
     }
 
     // MARK: - Helpers

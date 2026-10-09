@@ -11,7 +11,6 @@ import SwiftUI
 
 struct InspectorView: View {
     @Environment(ImageStore.self) private var store
-    @Environment(AppSettings.self) private var settings
 
     private var entry: ImageEntry? { store.selectedEntry }
 
@@ -21,7 +20,6 @@ struct InspectorView: View {
                 InspectorHistogramSection(histogram: entry?.histogram)
                 Divider()
                 InspectorMetricsSection(metrics: entry?.metrics,
-                                        config: settings.metricsConfig,
                                         isProcessing: entry?.isProcessing ?? false)
                 Divider()
                 InspectorHeadersSection(headers: entry?.headers ?? [:])
@@ -61,64 +59,47 @@ private struct InspectorHistogramSection: View {
 
 private struct InspectorMetricsSection: View {
     let metrics: FrameMetrics?
-    let config: MetricsConfig
     let isProcessing: Bool
-    @Environment(AppSettings.self) private var settings
 
     var body: some View {
-        @Bindable var settings = settings
-
         VStack(alignment: .leading, spacing: 8) {
             Text("Quality Metrics")
                 .scaledFont(size: 10, weight: .bold)
                 .foregroundStyle(.secondary)
 
-            HStack(spacing: 4) {
-                ForEach(Metric.allCases.filter { $0.contexts.contains(.settings) }) { metric in
-                    Toggle(isOn: settings.computeBinding(for: metric)) {
-                        Text(metric.shortLabel).scaledFont(size: 10)
-                    }
-                }
-            }
-            .toggleStyle(.button)
-
             if let metrics, metrics.hasData {
                 VStack(spacing: 0) {
-                    if config.computeFWHM, let v = metrics.fwhm {
+                    if let v = metrics.fwhm {
                         MetricRow(label: "FWHM",
                                   value: "\(v.formatted(.number.precision(.fractionLength(1)))) px")
                     }
-                    if config.computeEccentricity, let v = metrics.eccentricity {
+                    if let v = metrics.eccentricity {
                         MetricRow(label: "Eccentricity",
                                   value: v.formatted(.number.precision(.fractionLength(3))))
                     }
-                    if config.computeSNR, let v = metrics.snr {
+                    if let v = metrics.snr {
                         MetricRow(label: "SNR",
                                   value: v.formatted(.number.precision(.fractionLength(1))))
                     }
-                    if config.computeStarCount, let v = metrics.starCount {
+                    if let v = metrics.starCount {
                         MetricRow(label: "Stars", value: "\(v)")
                     }
-                    if let bg = metrics.skyBackground {
+                    if let v = metrics.skyBackground {
                         MetricRow(label: "Sky BG",
-                                  value: "\(Int(bg.rounded())) ADU")
+                                  value: "\(Int(v.rounded())) ADU")
                     }
-                    if let ps = metrics.psfSignalWeight {
+                    if let v = metrics.psfSignalWeight {
                         MetricRow(label: "PSF Signal",
-                                  value: ps.formatted(.number.precision(.fractionLength(1))))
+                                  value: v.formatted(.number.precision(.fractionLength(1))))
                     }
                     Divider().padding(.vertical, 4)
                     MetricRow(label: "Score", value: "\(metrics.qualityScore) / 100")
                         .foregroundStyle(metrics.scoreColor)
                 }
-            } else if config.needsStarDetection {
+            } else {
                 Text(isProcessing ? "Computing…" : "No stars detected")
                     .scaledFont(size: 10)
                     .foregroundStyle(.secondary)
-            } else {
-                Text("All metrics disabled")
-                    .scaledFont(size: 10)
-                    .foregroundStyle(.tertiary)
             }
         }
         .padding()
