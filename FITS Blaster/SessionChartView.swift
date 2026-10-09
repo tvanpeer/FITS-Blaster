@@ -62,11 +62,17 @@ struct SessionChartView: View {
         let pointValues  = chartPoints.map(\.value)
         let medianValues = groupMedians.map(\.median)
         let allValues    = pointValues + medianValues
-        guard let minVal = allValues.min(), let maxVal = allValues.max(), minVal < maxVal else {
+        guard let minVal = allValues.min(), let maxVal = allValues.max() else {
             return 0...1
         }
+        guard minVal < maxVal else {
+            // Single frame (or all values equal) — show a symmetric range around the value
+            // so the dot/bar sits in the centre rather than overflowing the 0…1 fallback.
+            let padding = max(abs(minVal) * 0.20, 0.5)
+            return max(0, minVal - padding)...(minVal + padding)
+        }
         let range   = maxVal - minVal
-        let padding = max(range * 0.10, 0.01)  // at least a tiny margin for flat data
+        let padding = max(range * 0.10, 0.01)
         let lower   = max(0, minVal - padding)
         let upper   = maxVal + padding
         return lower...upper
