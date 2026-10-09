@@ -117,6 +117,39 @@ No correction is applied, and none is needed. Empirical tests with both narrowba
 
 ---
 
+## Viewing Images
+
+### How do I zoom in and out?
+Three ways:
+
+- **Zoom slider** — the slider in the display controls bar below the image (range 0.25×–4×). Click the zoom icon or the percentage label to reset to 1:1.
+- **Trackpad pinch** — pinch to zoom in or out directly on the image.
+- Both keep the current centre of the viewport fixed as you zoom, so you don't lose your place.
+
+### How do I zoom into a specific star or detail and keep it in view?
+Use the **zoom anchor**. Click anywhere on the image to pin that point — a small crosshair appears. All subsequent zoom changes (slider or pinch) will keep that point centred in the viewport.
+
+- **Move the anchor:** click a different spot.
+- **Clear the anchor:** click the crosshair again (within about 20 px of it), or press the Defaults button in the display controls bar.
+- **Re-centre after scrolling:** click the lit scope (⊕) icon in the zoom controls — it scrolls the anchor back to the centre without clearing it.
+
+The anchor persists across image navigation. Because all frames in a session cover the same field, the same position points to the same star or region in every frame — useful for comparing star shape across a run.
+
+### What is the Target Background slider?
+The **Target Background** slider (in the display controls bar) sets the desired brightness of the sky background in the displayed image, on a scale from 0.05 to 0.50.
+
+FITS Blaster's automatic stretch (STF) always targets a background level of ~0.25, so the default value of **0.25** produces no visible change. Adjust it when you want a different look:
+
+- **0.10–0.15** — darker sky, more contrast; good for images with a relatively dark background.
+- **0.25–0.40** — brighter background; useful for images with large extended objects (wide nebulae, galaxies) where you want to preserve detail in the mid-tones without clipping.
+
+The value persists across app restarts. This control is analogous to the Target Background parameter in PixInsight's Multiscale Adaptive Stretch.
+
+### What does the Stretch slider do?
+The **Stretch** slider (in the display controls bar) is a post-stretch contrast multiplier (0.5×–3.0×, default 1.0×). Increasing it brightens mid-tones and brings out faint detail; decreasing it flattens contrast. Unlike Target Background, it resets when you open a new session.
+
+---
+
 ## Culling Frames
 
 ### What does a typical culling session look like?
