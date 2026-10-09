@@ -1,6 +1,8 @@
 # How the Quality Score Is Calculated
 
-The quality score is a single integer from **0 to 100** that summarises the optical quality of a FITS frame. It is a weighted average of up to four individual metrics: FWHM, eccentricity, SNR, and star count. Only the metrics that are enabled in Settings contribute; their weights are renormalised so they always sum to 1.0 regardless of which subset is active.
+The quality score is a single integer from **0 to 100** that summarises the optical quality of a FITS frame. It is a weighted average of up to four individual metrics: FWHM, eccentricity, SNR, and star count. Only metrics for which a value was successfully measured (non-nil) contribute; their weights are renormalised so they always sum to 1.0 regardless of which subset is active. In Geek mode, all four are always computed, so all four always contribute.
+
+**PSF Signal Weight** and **Sky Background** are additional metrics shown in the inspector, metric chips, and session chart, but they are not included in the composite score.
 
 ---
 
