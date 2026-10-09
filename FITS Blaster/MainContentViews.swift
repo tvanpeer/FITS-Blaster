@@ -28,11 +28,11 @@ struct ResizableChartLayout: View {
             Rectangle()
                 .fill(.quinary)
                 .frame(height: 5)
-                .overlay(
+                .overlay {
                     RoundedRectangle(cornerRadius: 1)
                         .fill(.quaternary)
                         .frame(width: 32, height: 3)
-                )
+                }
                 .onHover { inside in
                     if inside { NSCursor.resizeUpDown.push() } else { NSCursor.pop() }
                 }
@@ -597,45 +597,6 @@ private struct ZoomControl: View {
             .foregroundStyle(.tint)
             .tooltip("Zoom anchor active — click to centre viewport on it")
         }
-    }
-}
-
-/// A fixed-size crosshair drawn at the zoom anchor point on the image.
-private struct ZoomAnchorIndicator: View {
-    var body: some View {
-        ZStack {
-            // Crosshair lines
-            Rectangle()
-                .fill(.white.opacity(0.9))
-                .frame(width: 18, height: 1)
-            Rectangle()
-                .fill(.white.opacity(0.9))
-                .frame(width: 1, height: 18)
-            // Centre circle
-            Circle()
-                .stroke(.white.opacity(0.9), lineWidth: 1.5)
-                .frame(width: 8, height: 8)
-        }
-        .shadow(color: .black.opacity(0.6), radius: 2)
-        .allowsHitTesting(false)
-    }
-}
-
-private struct TargetBackgroundControl: View {
-    @Environment(AppSettings.self) private var settings
-
-    var body: some View {
-        @Bindable var bound = settings
-        Button("Target BG", systemImage: "circle.lefthalf.filled") {
-            settings.targetBackground = 0.25
-        }
-        .tooltip("Target Background — click to reset to 0.25")
-        Slider(value: $bound.targetBackground, in: 0.05...0.50)
-            .frame(width: 80)
-        Text(settings.targetBackground, format: .number.precision(.fractionLength(2)))
-            .scaledFont(size: 10, monospaced: true)
-            .frame(width: 34, alignment: .leading)
-            .foregroundStyle(.secondary)
     }
 }
 

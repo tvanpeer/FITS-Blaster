@@ -20,13 +20,6 @@ struct SessionChartView: View {
     @Environment(AppSettings.self) private var settings
 
     @AppStorage("sessionChartMetric") private var selectedMetric: Metric = .qualityScore
-    /// View-space X positions tracked during a drag gesture.
-    @State private var dragStartX: CGFloat?
-    @State private var dragCurrentX: CGFloat?
-    /// Frames staged for batch flagging after a drag-select.
-    @State private var pendingFlag: [ImageEntry] = []
-    @State private var showFlagConfirm = false
-
     /// Subfolder paths whose entries are shown in the chart.
     /// Empty set means "All" — no folder filtering applied.
     @State private var selectedFolderPaths: Set<String> = []
@@ -34,7 +27,6 @@ struct SessionChartView: View {
     // MARK: - Derived data
 
     /// Entries shown in the chart strip, filtered by `selectedFolderPaths` and `rejectionVisibility`.
-    /// When no folders are selected (or only one folder exists), all matching entries are returned.
     private var chartEntries: [ImageEntry] {
         let base: [ImageEntry]
         if !selectedFolderPaths.isEmpty, store.isMultiFolder {
@@ -54,30 +46,6 @@ struct SessionChartView: View {
         }
     }
 
-    /// Y-axis domain computed from the visible data so the chart fills the available height.
-    /// Starts 10% below the minimum value (never below 0 for counts/scores) and ends
-    /// 10% above the maximum, so data always occupies most of the plot area.
-    private var yAxisDomain: ClosedRange<Double> {
-        // Include both data points and median lines so neither gets clipped.
-        let pointValues  = chartPoints.map(\.value)
-        let medianValues = groupMedians.map(\.median)
-        let allValues    = pointValues + medianValues
-        guard let minVal = allValues.min(), let maxVal = allValues.max() else {
-            return 0...1
-        }
-        guard minVal < maxVal else {
-            // Single frame (or all values equal) — show a symmetric range around the value
-            // so the dot/bar sits in the centre rather than overflowing the 0…1 fallback.
-            let padding = max(abs(minVal) * 0.20, 0.5)
-            return max(0, minVal - padding)...(minVal + padding)
-        }
-        let range   = maxVal - minVal
-        let padding = max(range * 0.10, 0.01)
-        let lower   = max(0, minVal - padding)
-        let upper   = maxVal + padding
-        return lower...upper
-    }
-
     /// Per-group median of the active metric, used for threshold lines.
     /// Groups with fewer than two data points are skipped.
     ///
@@ -86,14 +54,12 @@ struct SessionChartView: View {
     /// Falls back to a live per-render computation when a folder filter is selected.
     private var groupMedians: [(group: FilterGroup, median: Double)] {
         if selectedFolderPaths.isEmpty || !store.isMultiFolder {
-            // Fast path: read pre-computed medians — no sort needed.
             return FilterGroup.allCases.compactMap { group in
                 guard let stats = store.groupStatistics[group],
                       let median = selectedMetric.median(from: stats) else { return nil }
                 return (group: group, median: median)
             }
         }
-        // Folder-filtered subset: compute from the visible entries.
         let grouped = Dictionary(grouping: chartEntries) { $0.filterGroup }
         return FilterGroup.allCases.compactMap { group in
             let values = (grouped[group] ?? [])
@@ -108,39 +74,39 @@ struct SessionChartView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            header
+            ChartHeader(selectedMetric: $selectedMetric)
             if store.isMultiFolder {
                 Divider()
-                folderStrip
+                FolderFilterStrip(selectedFolderPaths: $selectedFolderPaths)
             }
             Divider()
             if chartPoints.isEmpty {
-                placeholder
+                ChartPlaceholder(selectedMetric: selectedMetric)
             } else {
-                chart
+                ChartBody(
+                    chartEntries: chartEntries,
+                    chartPoints: chartPoints,
+                    groupMedians: groupMedians,
+                    selectedMetric: selectedMetric
+                )
             }
         }
         .background(.background)
         .onChange(of: store.activeFolderPaths) { _, newPaths in
             selectedFolderPaths = selectedFolderPaths.filter { newPaths.contains($0) }
         }
-        .alert("Select \(pendingFlag.count) Frame\(pendingFlag.count == 1 ? "" : "s")?",
-               isPresented: $showFlagConfirm) {
-            Button("Select") {
-                store.flagEntries(pendingFlag)
-                pendingFlag = []
-            }
-            Button("Cancel", role: .cancel) { pendingFlag = [] }
-        } message: {
-            Text("The frames will be added to the selection. Switch to the Selected view to inspect and reject them.")
-        }
     }
+}
 
-    // MARK: - Header
+// MARK: - ChartHeader
 
-    private var header: some View {
+private struct ChartHeader: View {
+    @Binding var selectedMetric: Metric
+    @Environment(AppSettings.self) private var settings
+    @Environment(ImageStore.self) private var store
+
+    var body: some View {
         HStack(spacing: 4) {
-            // Metric selector
             ForEach(Metric.allCases.filter { $0.contexts.contains(.chart) }) { metric in
                 if selectedMetric == metric {
                     Button { selectedMetric = metric } label: {
@@ -170,7 +136,6 @@ struct SessionChartView: View {
 
             Spacer()
 
-            // Filter legend — only groups present in the session
             ForEach(store.activeFilterGroups) { group in
                 HStack(spacing: 3) {
                     Circle()
@@ -185,10 +150,15 @@ struct SessionChartView: View {
         .padding(.horizontal)
         .padding(.vertical, 5)
     }
+}
 
-    // MARK: - Folder strip
+// MARK: - FolderFilterStrip
 
-    private var folderStrip: some View {
+private struct FolderFilterStrip: View {
+    @Binding var selectedFolderPaths: Set<String>
+    @Environment(ImageStore.self) private var store
+
+    var body: some View {
         WrappingChips(spacing: 4) {
             FilterChip(label: "All", color: .accentColor,
                        isSelected: selectedFolderPaths.isEmpty) {
@@ -211,40 +181,86 @@ struct SessionChartView: View {
         .padding(.horizontal)
         .padding(.vertical, 4)
     }
+}
 
-    // MARK: - Placeholder
+// MARK: - ChartPlaceholder
 
-    private var placeholder: some View {
-        let message: String
-        if store.entries.isEmpty {
-            message = "Open a folder with ⌘O to Blast through your session"
-        } else if store.isBatchProcessing {
-            message = "Computing metrics…"
-        } else {
-            message = "No \(selectedMetric.displayName) data for this session"
-        }
-        return Text(message)
+private struct ChartPlaceholder: View {
+    let selectedMetric: Metric
+    @Environment(ImageStore.self) private var store
+
+    var body: some View {
+        Text(message)
             .scaledFont(size: 10)
             .foregroundStyle(.tertiary)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    // MARK: - Chart
+    private var message: String {
+        if store.entries.isEmpty {
+            "Open a folder with ⌘O to Blast through your session"
+        } else if store.isBatchProcessing {
+            "Computing metrics…"
+        } else {
+            "No \(selectedMetric.displayName) data for this session"
+        }
+    }
+}
 
-    private var chart: some View {
+// MARK: - ChartBody
+
+private struct ChartBody: View {
+    let chartEntries: [ImageEntry]
+    let chartPoints: [(index: Int, entry: ImageEntry, value: Double)]
+    let groupMedians: [(group: FilterGroup, median: Double)]
+    let selectedMetric: Metric
+
+    @Environment(ImageStore.self) private var store
+    @Environment(AppSettings.self) private var settings
+
+    @State private var dragStartX: CGFloat?
+    @State private var dragCurrentX: CGFloat?
+    @State private var pendingFlag: [ImageEntry] = []
+    @State private var showFlagConfirm = false
+
+    // MARK: - Y-axis domain
+
+    /// Computed from the visible data so the chart fills the available height.
+    /// Starts 10% below the minimum value (never below 0) and ends 10% above the
+    /// maximum. Handles the single-frame case with a symmetric range so the dot/bar
+    /// sits in the centre rather than overflowing the 0…1 fallback.
+    private var yAxisDomain: ClosedRange<Double> {
+        let pointValues  = chartPoints.map(\.value)
+        let medianValues = groupMedians.map(\.median)
+        let allValues    = pointValues + medianValues
+        guard let minVal = allValues.min(), let maxVal = allValues.max() else {
+            return 0...1
+        }
+        guard minVal < maxVal else {
+            let padding = max(abs(minVal) * 0.20, 0.5)
+            return max(0, minVal - padding)...(minVal + padding)
+        }
+        let range   = maxVal - minVal
+        let padding = max(range * 0.10, 0.01)
+        let lower   = max(0, minVal - padding)
+        let upper   = maxVal + padding
+        return lower...upper
+    }
+
+    // MARK: - Body
+
+    var body: some View {
         // Capture outside the Chart{} builder — @ChartContentBuilder closures don't
         // participate in SwiftUI's @Observable tracking, so selectedEntry changes
         // wouldn't otherwise trigger a re-render.
         let selectedID = store.selectedEntry?.id
-        return Chart {
-            // Dashed median threshold lines, one per filter group
+        Chart {
             ForEach(groupMedians, id: \.group) { item in
                 RuleMark(y: .value("Median", item.median))
                     .foregroundStyle(item.group.color.opacity(0.40))
                     .lineStyle(StrokeStyle(lineWidth: 1, dash: [5, 4]))
             }
 
-            // One mark per frame — bars or dots depending on user preference
             ForEach(chartPoints, id: \.entry.id) { item in
                 let isCursor = item.entry.id == selectedID
                 let isFlagged = store.flaggedEntryIDs.contains(item.entry.id)
@@ -292,10 +308,8 @@ struct SessionChartView: View {
         }
         .chartOverlay { proxy in
             GeometryReader { geo in
-                // Drag-selection highlight rectangle
                 dragHighlight(proxy: proxy, geo: geo)
 
-                // Transparent overlay that captures tap + drag gestures
                 Rectangle()
                     .fill(.clear)
                     .contentShape(Rectangle())
@@ -318,9 +332,18 @@ struct SessionChartView: View {
                             }
                     )
 
-                // Value tooltip shown while dragging
                 dragTooltip(proxy: proxy, geo: geo)
             }
+        }
+        .alert("Select \(pendingFlag.count) Frame\(pendingFlag.count == 1 ? "" : "s")?",
+               isPresented: $showFlagConfirm) {
+            Button("Select") {
+                store.flagEntries(pendingFlag)
+                pendingFlag = []
+            }
+            Button("Cancel", role: .cancel) { pendingFlag = [] }
+        } message: {
+            Text("The frames will be added to the selection. Switch to the Selected view to inspect and reject them.")
         }
     }
 
@@ -349,26 +372,22 @@ struct SessionChartView: View {
     private func handleTap(at location: CGPoint, proxy: ChartProxy, geo: GeometryProxy) {
         guard let plotFrame = proxy.plotFrame else { return }
         let xInPlot = location.x - geo[plotFrame].minX
-        // Chart X axis is 1-based frame numbers; subtract 1 for the chartEntries index
         guard let frameNumber: Int = proxy.value(atX: xInPlot, as: Int.self) else { return }
         let index = frameNumber - 1
-        let entries = chartEntries
-        guard entries.indices.contains(index) else { return }
-        store.selectedEntry = entries[index]
+        guard chartEntries.indices.contains(index) else { return }
+        store.selectedEntry = chartEntries[index]
     }
 
     // MARK: - Drag tooltip
 
-    /// Returns the metric value and screen position for the frame currently under the drag cursor.
     private func hoveredInfo(proxy: ChartProxy, geo: GeometryProxy) -> (label: String, x: CGFloat)? {
         guard let currentX = dragCurrentX, let plotFrame = proxy.plotFrame else { return nil }
         let plotRect = geo[plotFrame]
         let xInPlot = currentX - plotRect.minX
         guard let frameNumber: Int = proxy.value(atX: xInPlot, as: Int.self) else { return nil }
         let index = frameNumber - 1
-        let entries = chartEntries
-        guard entries.indices.contains(index),
-              let value = selectedMetric.value(from: entries[index].metrics) else { return nil }
+        guard chartEntries.indices.contains(index),
+              let value = selectedMetric.value(from: chartEntries[index].metrics) else { return nil }
         let label = "\(selectedMetric.shortLabel): \(selectedMetric.formattedValue(value))"
         let clampedX = max(50, min(currentX, geo.size.width - 50))
         return (label: label, x: clampedX)
@@ -399,12 +418,11 @@ struct SessionChartView: View {
         guard let startFrame: Int = proxy.value(atX: minX, as: Int.self),
               let endFrame:   Int = proxy.value(atX: maxX, as: Int.self) else { return }
 
-        let entries = chartEntries
-        let lo = max(0,                min(startFrame, endFrame) - 1)
-        let hi = min(entries.count - 1, max(startFrame, endFrame) - 1)
+        let lo = max(0,                    min(startFrame, endFrame) - 1)
+        let hi = min(chartEntries.count - 1, max(startFrame, endFrame) - 1)
         guard lo <= hi else { return }
 
-        let candidates = Array(entries[lo...hi]).filter { !$0.isRejected }
+        let candidates = Array(chartEntries[lo...hi]).filter { !$0.isRejected }
         guard !candidates.isEmpty else { return }
         pendingFlag     = candidates
         showFlagConfirm = true
