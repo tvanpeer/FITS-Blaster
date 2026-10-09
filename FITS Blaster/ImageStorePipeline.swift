@@ -165,7 +165,7 @@ extension ImageStore {
             await processParallel(entriesToProcess, selectFirst: false,
                                   maxDisplaySize: settings.maxDisplaySize,
                                   maxThumbnailSize: settings.maxThumbnailSize,
-                                  metricsConfig: settings.metricsConfig,
+                                  metricsConfig: settings.effectiveMetricsConfig,
                                   debayerColorImages: settings.debayerColorImages)
             if !Task.isCancelled {
                 await normalizeGreyStretch(entriesToProcess,
@@ -192,7 +192,7 @@ extension ImageStore {
     /// displayed values remain unchanged throughout.
     func regenerateSizes(settings: AppSettings) {
         let entriesToProcess = entries
-        let metricsConfig    = settings.metricsConfig
+        let metricsConfig    = settings.effectiveMetricsConfig
         for entry in entriesToProcess {
             entry.isProcessing = true
             entry.displayImage = nil

@@ -19,17 +19,13 @@ struct ContentView: View {
 
     var body: some View {
         contentWithFocus
-            .onChange(of: settings.metricsConfig) { _, newConfig in
-                guard !settings.isSimpleMode else { return }
-                store.recomputeMetrics(metricsConfig: newConfig)
-            }
             .onChange(of: settings.debayerColorImages) { _, _ in
                 guard !store.entries.isEmpty else { return }
                 store.recolorImages(settings: settings)
             }
             .onChange(of: settings.isSimpleMode) { _, isSimple in
                 if !isSimple {
-                    store.recomputeMetrics(metricsConfig: settings.metricsConfig)
+                    store.recomputeMetrics(metricsConfig: settings.effectiveMetricsConfig)
                 }
                 guard let window = hostingWindow,
                       !window.styleMask.contains(.fullScreen) else { return }
