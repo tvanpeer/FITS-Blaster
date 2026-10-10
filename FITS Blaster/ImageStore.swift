@@ -342,6 +342,9 @@ final class ImageStore {
     /// Toggled by the scope button to ask ImageViewer to scroll the anchor into the centre.
     var centerOnAnchorTrigger: Bool = false
 
+    /// Toggled by the "Fit" button to ask ImageViewer to scale the image to fill the container.
+    var fitToContainerTrigger: Bool = false
+
     var thumbnailSortOrder: ThumbnailSortOrder = .filename {
         didSet { updateCachedSort() }
     }

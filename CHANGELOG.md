@@ -4,6 +4,13 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-10 — Feature: zoom to fit button
+
+### New features
+- **Zoom to fit** — added a small "fit" button (`↙↗` icon) in the image adjust controls strip, next to the zoom percentage. Tapping it scales the image to fill the available viewer area without scrolling.
+
+---
+
 ## 2026-10-10 — Fix: CLI filter logic and Open Folder options popover
 
 ### Bug fixes

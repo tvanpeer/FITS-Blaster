@@ -547,6 +547,15 @@ private struct ImageViewer: View {
             guard let geo = lastGeo, geo.containerSize.width > 0 else { return }
             adjustScroll(to: settings.zoomScale, geo: geo)
         }
+        // Fit image to container when the "Fit" button is tapped.
+        .onChange(of: store.fitToContainerTrigger) { _, _ in
+            guard let geo = lastGeo,
+                  geo.containerSize.width > 0, geo.containerSize.height > 0,
+                  displayImage.size.width > 0, displayImage.size.height > 0 else { return }
+            let fitScale = min(geo.containerSize.width  / displayImage.size.width,
+                               geo.containerSize.height / displayImage.size.height)
+            settings.zoomScale = max(0.25, min(4.0, fitScale))
+        }
         // Re-fit image to container when the inspector or mode changes the available space.
         .onChange(of: settings.isSimpleMode) { _, _ in pendingFitToContainer = true }
         .onChange(of: settings.showInspector) { _, _ in pendingFitToContainer = true }
@@ -631,6 +640,12 @@ private struct ZoomControl: View {
         .frame(width: 34, alignment: .leading)
         .tooltip("Click for 1:1 (100%)")
         .disabled(settings.zoomScale == 1.0)
+        Button("Fit", systemImage: "arrow.up.left.and.arrow.down.right") {
+            store.fitToContainerTrigger.toggle()
+        }
+        .labelStyle(.iconOnly)
+        .buttonStyle(.borderless)
+        .tooltip("Zoom to fit")
         if store.zoomAnchor != nil {
             Button("Centre on anchor", systemImage: "scope") {
                 store.centerOnAnchorTrigger.toggle()
