@@ -24,6 +24,7 @@ let headless = CommandLine.arguments.dropFirst().contains(where: isCLIArg)
 let headless = false
 #endif
 
+#if !APPSTORE
 if headless {
     Task { @MainActor in
         await CLIRunner.run()
@@ -33,3 +34,6 @@ if headless {
 } else {
     FitsBlasterApp.main()
 }
+#else
+FitsBlasterApp.main()
+#endif
