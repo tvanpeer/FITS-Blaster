@@ -5,51 +5,6 @@
 
 import SwiftUI
 
-// MARK: - Auto-reject configuration
-
-/// Thresholds for one-click quality-based frame rejection.
-struct AutoRejectConfig: Sendable {
-    enum Mode: String, CaseIterable, Sendable {
-        case relative = "Relative"
-        case absolute = "Absolute"
-    }
-
-    var mode: Mode = .relative
-
-    // FWHM
-    var useFWHM: Bool = true
-    var fwhmMultiplier: Double = 1.5     // relative: reject if FWHM > multiplier × group median
-    var absoluteFWHM: Double = 3.5       // absolute: reject if FWHM (px) exceeds this
-
-    // Eccentricity — same threshold in both modes (inherently absolute)
-    var useEccentricity: Bool = true
-    var eccentricityThreshold: Double = 0.5
-
-    // Star count
-    var useStarCount: Bool = true
-    var starCountMultiplier: Double = 0.40  // relative: reject if stars < multiplier × group median
-    var absoluteStarCountFloor: Int = 20    // absolute: reject if star count falls below this
-
-    // SNR
-    var useSNR: Bool = true
-    var snrMultiplier: Double = 0.50        // relative: reject if SNR < multiplier × group median
-    var absoluteSNRFloor: Double = 20.0     // absolute: reject if SNR falls below this
-
-    // Sky background
-    var useSkyBackground: Bool = false
-    var skyBackgroundMultiplier: Double = 1.5   // relative: reject if sky BG > multiplier × group median
-    var absoluteSkyBackgroundCeiling: Double = 3000.0  // absolute: reject if sky BG (ADU) exceeds this
-
-    // PSF signal weight (higher = better)
-    var usePSF: Bool = false
-    var psfMultiplier: Double = 0.5           // relative: reject if PSF < multiplier × group median
-    var absolutePSFFloor: Double = 1.0        // absolute: reject if PSF < floor — calibrate before shipping
-
-    // Quality score (absolute mode only)
-    var useScore: Bool = false
-    var scoreFloor: Int = 40
-}
-
 // MARK: - AutoRejectSheet
 
 struct AutoRejectSheet: View {
@@ -193,13 +148,10 @@ private struct StarCountSection: View {
                     Slider(value: $config.starCountMultiplier, in: 0.1...0.7, step: 0.05)
                 } else {
                     LabeledContent("Select if stars <") {
-                        Text("\(config.absoluteStarCountFloor)")
+                        Text("\(config.absoluteStarCountFloor, format: .number.precision(.fractionLength(0)))")
                             .foregroundStyle(.secondary)
                     }
-                    Slider(value: Binding(
-                        get: { Double(config.absoluteStarCountFloor) },
-                        set: { config.absoluteStarCountFloor = Int($0) }
-                    ), in: 5...100, step: 5)
+                    Slider(value: $config.absoluteStarCountFloor, in: 5...100, step: 5)
                 }
             }
         }
@@ -289,13 +241,10 @@ private struct ScoreSection: View {
             Toggle("Enable score floor", isOn: $config.useScore)
             if config.useScore {
                 LabeledContent("Select if score <") {
-                    Text("\(config.scoreFloor)")
+                    Text("\(config.scoreFloor, format: .number.precision(.fractionLength(0)))")
                         .foregroundStyle(.secondary)
                 }
-                Slider(value: Binding(
-                    get: { Double(config.scoreFloor) },
-                    set: { config.scoreFloor = Int($0) }
-                ), in: 10...80, step: 5)
+                Slider(value: $config.scoreFloor, in: 10...80, step: 5)
             }
         }
     }

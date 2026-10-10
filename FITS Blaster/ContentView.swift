@@ -14,11 +14,26 @@ struct ContentView: View {
     @Environment(AppSettings.self) private var settings
 
     @State private var hostingWindow: NSWindow?
-    @State private var isDragTarget = false
     @State private var keyMonitor: Any?
 
     var body: some View {
-        contentWithFocus
+        ContentSplitLayout()
+            .modifier(ContentFocusedValues())
+            .frame(minWidth: minWindowWidth, minHeight: 400)
+            .environment(\.fontSizeMultiplier, settings.fontSizeMultiplier)
+            .preferredColorScheme(settings.preferredColorScheme)
+            .background(WindowAccessor { window in
+                hostingWindow = window
+                // Attach a unified NSToolbar so macOS shows the traffic-light hover
+                // zone at the top of the screen in full-screen mode. Without a real
+                // toolbar the hover area doesn't exist and the window controls vanish.
+                // .unified merges the (empty) toolbar into the title bar so there is
+                // no extra toolbar strip in the windowed layout.
+                guard let window, window.toolbar == nil else { return }
+                let toolbar = NSToolbar(identifier: "main")
+                window.toolbar = toolbar
+                window.toolbarStyle = .unified
+            })
             .onChange(of: settings.debayerColorImages) { _, _ in
                 guard !store.entries.isEmpty else { return }
                 store.recolorImages(settings: settings)
@@ -43,92 +58,6 @@ struct ContentView: View {
             }
             .onAppear { installKeyMonitor() }
             .onDisappear { removeKeyMonitor() }
-    }
-
-    private var contentWithFocus: some View {
-        contentWithSelectionFocus
-            .focusedSceneValue(\.selectAllShiftFV,           settings.selectAllShift)
-            .focusedSceneValue(\.deselectAllShiftFV,         settings.deselectAllShift)
-            .focusedSceneValue(\.invertSelectionShiftFV,     settings.invertSelectionShift)
-            .focusedSceneValue(\.selectAllRejectedShiftFV,   settings.selectAllRejectedShift)
-            .frame(minWidth: minWindowWidth, minHeight: 400)
-            .environment(\.fontSizeMultiplier, settings.fontSizeMultiplier)
-            .preferredColorScheme(settings.preferredColorScheme)
-            .background(WindowAccessor { window in
-                hostingWindow = window
-                // Attach a unified NSToolbar so macOS shows the traffic-light hover
-                // zone at the top of the screen in full-screen mode. Without a real
-                // toolbar the hover area doesn't exist and the window controls vanish.
-                // .unified merges the (empty) toolbar into the title bar so there is
-                // no extra toolbar strip in the windowed layout.
-                guard let window, window.toolbar == nil else { return }
-                let toolbar = NSToolbar(identifier: "main")
-                window.toolbar = toolbar
-                window.toolbarStyle = .unified
-            })
-    }
-
-    private var contentWithSelectionFocus: some View {
-        splitContentWithAppFocus
-            .focusedSceneValue(\.selectAllAction,         FocusedAction { store.selectAllVisible() })
-            .focusedSceneValue(\.deselectAllAction,       FocusedAction { store.deselectAll() })
-            .focusedSceneValue(\.invertSelectionAction,   FocusedAction { store.invertSelection() })
-            .focusedSceneValue(\.selectAllRejectedAction, FocusedAction { store.selectAllRejected() })
-            .focusedSceneValue(\.toggleFlagAction,        FocusedAction { store.toggleFlagSelected() })
-            .focusedSceneValue(\.deflagAllAction,         FocusedAction { store.deflagAll() })
-            .focusedSceneValue(\.flagKeyString,              settings.flagKey)
-            .focusedSceneValue(\.deflagAllKeyString,         settings.deflagAllKey)
-            .focusedSceneValue(\.selectAllKeyString,         settings.selectAllKey)
-            .focusedSceneValue(\.deselectAllKeyString,       settings.deselectAllKey)
-            .focusedSceneValue(\.invertSelectionKeyString,   settings.invertSelectionKey)
-            .focusedSceneValue(\.selectAllRejectedKeyString, settings.selectAllRejectedKey)
-    }
-
-    private var splitContentWithAppFocus: some View {
-        splitContent
-            .focusedSceneValue(\.simpleModeBinding, Binding(
-                get: { settings.isSimpleMode },
-                set: { settings.isSimpleMode = $0 }
-            ))
-            .focusedSceneValue(\.debayerColorBinding, Binding(
-                get: { settings.debayerColorImages },
-                set: { settings.debayerColorImages = $0 }
-            ))
-            .focusedSceneValue(\.toggleModeKeyString, settings.toggleModeKey)
-            .focusedSceneValue(\.debayerKeyString, settings.debayerKey)
-            .focusedSceneValue(\.openFolderAction, FocusedAction { store.showOpenFolderOptions = true })
-    }
-
-    private var splitContent: some View {
-        // The SwiftUI .inspector modifier creates a nested SplitViewChildController layer
-        // on top of HSplitView's own layer; on macOS 27 without the app sandbox this causes
-        // an infinite constraint-update loop (NSGenericException). Using a plain third column
-        // in the same HSplitView avoids the nested controller entirely.
-        HSplitView {
-            ThumbnailSidebar()
-                .frame(minWidth: 140, idealWidth: 200, maxWidth: 360)
-
-            VStack(spacing: 0) {
-                FITSToolbar(store: store)
-                Divider()
-                if settings.isSimpleMode {
-                    MainContent(store: store)
-                } else {
-                    ResizableChartLayout()
-                }
-            }
-            .frame(minWidth: settings.isSimpleMode ? 380 : 400)
-
-            if !settings.isSimpleMode && settings.showInspector {
-                InspectorView()
-                    .frame(minWidth: 220, idealWidth: 260, maxWidth: 320)
-            }
-        }
-        .overlay { if isDragTarget { DropTargetOverlay() } }
-        .onDrop(of: [.fileURL], isTargeted: $isDragTarget) { providers in
-            handleDrop(providers: providers)
-            return true
-        }
     }
 
     private var minWindowWidth: CGFloat {
@@ -315,27 +244,6 @@ struct ContentView: View {
         return dispatch(binding.action)
     }
 
-    private func handleDrop(providers: [NSItemProvider]) {
-        Task { @MainActor in
-            var urls: [URL] = []
-            await withTaskGroup(of: URL?.self) { group in
-                for provider in providers {
-                    group.addTask {
-                        await withCheckedContinuation { continuation in
-                            provider.loadObject(ofClass: NSURL.self) { object, _ in
-                                continuation.resume(returning: (object as? NSURL) as? URL)
-                            }
-                        }
-                    }
-                }
-                for await url in group {
-                    if let url { urls.append(url) }
-                }
-            }
-            guard !urls.isEmpty else { return }
-            store.openDroppedItems(urls, settings: settings)
-        }
-    }
 }
 
 // MARK: - Drop Target Overlay

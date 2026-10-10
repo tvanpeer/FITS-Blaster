@@ -69,7 +69,7 @@ enum CLIRunner {
         }
         if let v = options.stars {
             config.useStarCount = true
-            if options.mode == .absolute { config.absoluteStarCountFloor = Int(v) } else { config.starCountMultiplier = v }
+            if options.mode == .absolute { config.absoluteStarCountFloor = v } else { config.starCountMultiplier = v }
         }
         if let v = options.snr {
             config.useSNR = true
@@ -86,7 +86,7 @@ enum CLIRunner {
         if let v = options.score {
             if options.mode == .absolute {
                 config.useScore = true
-                config.scoreFloor = v
+                config.scoreFloor = Double(v)
             } else {
                 fputs("warning: --score is only supported in absolute mode; ignored\n", stderr)
             }

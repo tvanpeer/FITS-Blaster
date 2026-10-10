@@ -189,7 +189,7 @@ extension ImageStore {
                 if config.useFWHM, let fwhm = m.fwhm,
                    Double(fwhm) > config.absoluteFWHM { return true }
                 if config.useStarCount, let stars = m.starCount,
-                   stars < config.absoluteStarCountFloor { return true }
+                   Double(stars) < config.absoluteStarCountFloor { return true }
                 if config.useSNR, let snr = m.snr,
                    Double(snr) < config.absoluteSNRFloor { return true }
                 if config.useSkyBackground, let bg = m.skyBackground,
@@ -197,7 +197,7 @@ extension ImageStore {
                 if config.usePSF, let psf = m.psfSignalWeight,
                    Double(psf) < config.absolutePSFFloor { return true }
                 if config.useScore,
-                   m.qualityScore < config.scoreFloor { return true }
+                   Double(m.qualityScore) < config.scoreFloor { return true }
             }
             return false
         }

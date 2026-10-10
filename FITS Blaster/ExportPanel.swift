@@ -22,7 +22,7 @@ struct ExportSheet: View {
     @State private var format: ExportFormat = .plainText
     @State private var includeRejected: Bool = false
     @State private var pathStyle: PathStyle = .absolute
-    @State private var selectedHeaderKeys: [String] = []
+    @State private var selectedHeaderKeys: Set<String> = []
     @State private var availableKeys: [String] = []
     @State private var presentKeys: Set<String> = []
     @State private var showHeaderPicker: Bool = false
@@ -36,7 +36,7 @@ struct ExportSheet: View {
         format != settings.defaultExportFormat
             || includeRejected != settings.includeRejectedInExport
             || pathStyle != settings.exportPathStyle
-            || selectedHeaderKeys != settings.exportHeaderKeys
+            || selectedHeaderKeys != Set(settings.exportHeaderKeys)
     }
 
     var body: some View {
@@ -99,7 +99,7 @@ struct ExportSheet: View {
                     isPresented = false
                     store.export(format: format,
                                  includeRejected: includeRejected,
-                                 headerKeys: selectedHeaderKeys,
+                                 headerKeys: selectedHeaderKeys.sorted(),
                                  pathStyle: pathStyle)
                 }
                 .buttonStyle(.borderedProminent)
@@ -113,7 +113,7 @@ struct ExportSheet: View {
             format             = settings.defaultExportFormat
             includeRejected    = settings.includeRejectedInExport
             pathStyle          = settings.exportPathStyle
-            selectedHeaderKeys = settings.exportHeaderKeys
+            selectedHeaderKeys = Set(settings.exportHeaderKeys)
             refreshAvailableKeys()
         }
     }
@@ -140,7 +140,7 @@ struct ExportSheet: View {
 /// Mirrors the structure used in Settings → Export so the visual language is
 /// consistent across both surfaces.
 private struct ExportSheetHeaderList: View {
-    @Binding var selection: [String]
+    @Binding var selection: Set<String>
     let availableKeys: [String]
     let presentKeys: Set<String>
 
@@ -153,7 +153,7 @@ private struct ExportSheetHeaderList: View {
         ScrollView(.vertical) {
             LazyVGrid(columns: columns, alignment: .leading, spacing: 4) {
                 ForEach(availableKeys, id: \.self) { key in
-                    Toggle(isOn: binding(for: key)) {
+                    Toggle(isOn: $selection[member: key]) {
                         Text(key)
                             .scaledFont(size: 11, monospaced: true)
                             .foregroundStyle(presentKeys.contains(key) ? .primary : .secondary)
@@ -165,17 +165,13 @@ private struct ExportSheetHeaderList: View {
         }
         .frame(minHeight: 140, maxHeight: 220)
     }
+}
 
-    private func binding(for key: String) -> Binding<Bool> {
-        Binding(
-            get: { selection.contains(key) },
-            set: { isOn in
-                if isOn {
-                    if !selection.contains(key) { selection.append(key) }
-                } else {
-                    selection.removeAll { $0 == key }
-                }
-            }
+private extension Binding<Set<String>> {
+    subscript(member element: String) -> Binding<Bool> {
+        Binding<Bool>(
+            get: { wrappedValue.contains(element) },
+            set: { if $0 { wrappedValue.insert(element) } else { wrappedValue.remove(element) } }
         )
     }
 }
