@@ -40,6 +40,11 @@ struct AutoRejectConfig: Sendable {
     var skyBackgroundMultiplier: Double = 1.5   // relative: reject if sky BG > multiplier × group median
     var absoluteSkyBackgroundCeiling: Double = 3000.0  // absolute: reject if sky BG (ADU) exceeds this
 
+    // PSF signal weight (higher = better)
+    var usePSF: Bool = false
+    var psfMultiplier: Double = 0.5           // relative: reject if PSF < multiplier × group median
+    var absolutePSFFloor: Double = 1.0        // absolute: reject if PSF < floor — calibrate before shipping
+
     // Quality score (absolute mode only)
     var useScore: Bool = false
     var scoreFloor: Int = 40
@@ -68,6 +73,7 @@ struct AutoRejectSheet: View {
                 StarCountSection(config: $config)
                 SNRSection(config: $config)
                 SkyBackgroundSection(config: $config)
+                PSFSection(config: $config)
                 if config.mode == .absolute {
                     ScoreSection(config: $config)
                 }
@@ -244,6 +250,31 @@ private struct SkyBackgroundSection: View {
                             .foregroundStyle(.secondary)
                     }
                     Slider(value: $config.absoluteSkyBackgroundCeiling, in: 500...20000, step: 500)
+                }
+            }
+        }
+    }
+}
+
+private struct PSFSection: View {
+    @Binding var config: AutoRejectConfig
+
+    var body: some View {
+        Section("PSF Signal Weight") {
+            Toggle("Enable PSF signal weight threshold", isOn: $config.usePSF)
+            if config.usePSF {
+                if config.mode == .relative {
+                    LabeledContent("Select if PSF weight <") {
+                        Text("\(config.psfMultiplier, format: .percent.precision(.fractionLength(0))) of median")
+                            .foregroundStyle(.secondary)
+                    }
+                    Slider(value: $config.psfMultiplier, in: 0.1...0.9, step: 0.05)
+                } else {
+                    LabeledContent("Select if PSF weight <") {
+                        Text("\(config.absolutePSFFloor, format: .number.precision(.fractionLength(1)))")
+                            .foregroundStyle(.secondary)
+                    }
+                    Slider(value: $config.absolutePSFFloor, in: 0.1...10.0, step: 0.1)
                 }
             }
         }

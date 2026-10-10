@@ -182,6 +182,8 @@ extension ImageStore {
                    Double(snr) < Double(medSNR) * config.snrMultiplier { return true }
                 if config.useSkyBackground, let bg = m.skyBackground, let medBG = gs?.medianSkyBackground,
                    Double(bg) > Double(medBG) * config.skyBackgroundMultiplier { return true }
+                if config.usePSF, let psf = m.psfSignalWeight, let medPSF = gs?.medianPSFSignalWeight,
+                   Double(psf) < Double(medPSF) * config.psfMultiplier { return true }
 
             case .absolute:
                 if config.useFWHM, let fwhm = m.fwhm,
@@ -192,6 +194,8 @@ extension ImageStore {
                    Double(snr) < config.absoluteSNRFloor { return true }
                 if config.useSkyBackground, let bg = m.skyBackground,
                    Double(bg) > config.absoluteSkyBackgroundCeiling { return true }
+                if config.usePSF, let psf = m.psfSignalWeight,
+                   Double(psf) < config.absolutePSFFloor { return true }
                 if config.useScore,
                    m.qualityScore < config.scoreFloor { return true }
             }

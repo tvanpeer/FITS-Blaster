@@ -42,7 +42,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
 // MARK: - App
 
-@main
 struct FitsBlasterApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @State private var settings = AppSettings()

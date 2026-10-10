@@ -45,6 +45,25 @@ struct FlagVisibilityTests {
         return config
     }
 
+    private func makePSFStore() -> (ImageStore, highPSF: ImageEntry, lowPSF: ImageEntry) {
+        let store = ImageStore()
+
+        let high = ImageEntry(url: URL(fileURLWithPath: "/tmp/\(UUID().uuidString).fits"))
+        high.isProcessing = false
+        high.metrics = FrameMetrics(fwhm: nil, eccentricity: nil, snr: nil, starCount: nil,
+                                     qualityScore: 50, skyBackground: nil, psfSignalWeight: 8.0)
+
+        let low = ImageEntry(url: URL(fileURLWithPath: "/tmp/\(UUID().uuidString).fits"))
+        low.isProcessing = false
+        low.metrics = FrameMetrics(fwhm: nil, eccentricity: nil, snr: nil, starCount: nil,
+                                    qualityScore: 50, skyBackground: nil, psfSignalWeight: 2.0)
+
+        store.entries.append(high)
+        store.entries.append(low)
+        store.updateGroupStatistics()
+        return (store, high, low)
+    }
+
     // MARK: - applyAutoFlag
 
     @Test("applyAutoFlag adds matching entries to flaggedEntryIDs")
@@ -116,5 +135,34 @@ struct FlagVisibilityTests {
 
         #expect(store.visibilityFilteredEntries.isEmpty,
                 "No entries should be visible in .active after clearing flags")
+    }
+
+    // MARK: - PSF autoflag
+
+    @Test("applyAutoFlag with relative PSF threshold flags the low-PSF entry")
+    func psfRelativeAutoflag() {
+        // Median PSF = (8.0 + 2.0) / 2 = 5.0; multiplier 0.5 → floor = 2.5; low (2.0) < 2.5 → flagged
+        let (store, _, lowPSF) = makePSFStore()
+        var config = AutoRejectConfig()
+        config.mode = .relative
+        config.usePSF = true
+        config.psfMultiplier = 0.5
+        store.applyAutoFlag(config: config)
+
+        #expect(store.flaggedEntryIDs.contains(lowPSF.id), "Low-PSF entry should be flagged")
+        #expect(store.flaggedEntryIDs.count == 1, "Only the low-PSF entry should be flagged")
+    }
+
+    @Test("applyAutoFlag with absolute PSF threshold flags entries below the floor")
+    func psfAbsoluteAutoflag() {
+        let (store, _, lowPSF) = makePSFStore()
+        var config = AutoRejectConfig()
+        config.mode = .absolute
+        config.usePSF = true
+        config.absolutePSFFloor = 3.0   // low entry (2.0) is below floor; high entry (8.0) is not
+        store.applyAutoFlag(config: config)
+
+        #expect(store.flaggedEntryIDs.contains(lowPSF.id), "Low-PSF entry should be flagged")
+        #expect(store.flaggedEntryIDs.count == 1, "Only the low-PSF entry should be flagged")
     }
 }

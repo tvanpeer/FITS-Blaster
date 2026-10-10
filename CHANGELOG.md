@@ -4,6 +4,16 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-10 — CLI batch mode + PSF autoflag
+
+### Features
+- **CLI batch mode** — the app binary can now be invoked from a terminal to process a folder of FITS files headlessly and write a CSV export. Pass a folder path as the first argument; run with `--help` for the full flag reference. Progress goes to stderr; the CSV path goes to stdout (supports scripting). Requires removing the app sandbox entitlement in the direct-distribution build for arbitrary path access.
+- **PSF signal weight autoflag** — PSF signal weight is now a supported autoflag criterion in the Auto-Flag sheet, in both relative mode (reject if PSF < multiplier × group median) and absolute mode (reject if PSF < floor). Disabled by default.
+
+### Internal
+- `ImageStore.waitForProcessing() async` — suspends until any in-progress batch load completes; used by CLI mode.
+- `main.swift` — new entry point that dispatches to CLI or normal SwiftUI app based on arguments; `@main` removed from `FitsBlasterApp`.
+
 ## 2026-10-09 — Tests: removeSelected and sidebarNavigationEntries coverage
 
 ### Tests

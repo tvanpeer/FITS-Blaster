@@ -250,6 +250,11 @@ final class ImageStore {
     /// Internal (not private(set)) so the pipeline extension can update it.
     var processingTask: Task<Void, Never>?
 
+    /// Suspends the caller until any in-progress batch load completes. Used by CLI mode.
+    func waitForProcessing() async {
+        await processingTask?.value
+    }
+
     // MARK: - Batch progress counters
     // batchLoadedCount and batchMetricsCount are intentionally absent: updating them
     // per-image via MainActor.run creates back-pressure that serialises the pipeline.
