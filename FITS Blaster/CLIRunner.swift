@@ -6,9 +6,13 @@
 //  from a terminal with a folder path argument. Computes metrics, optionally
 //  auto-flags frames, and writes a CSV identical to the in-app export.
 //
-//  Sandbox note: the direct-distribution build must remove com.apple.security.app-sandbox
-//  (or add com.apple.security.files.all) from FITS Blaster.entitlements for arbitrary
-//  path access to work. CLI mode is excluded from App Store builds via #if !APPSTORE.
+//  File access notes:
+//  - The direct-distribution build has com.apple.security.app-sandbox removed from
+//    FITS Blaster.entitlements so arbitrary paths can be opened.
+//  - macOS TCC still protects iCloud Drive (~/Library/Mobile Documents/…). Grant FITS
+//    Blaster Full Disk Access in System Settings → Privacy & Security → Full Disk Access
+//    to allow CLI access to iCloud Drive folders.
+//  - CLI mode is excluded from App Store builds via #if !APPSTORE.
 //
 
 #if !APPSTORE
@@ -89,6 +93,7 @@ enum CLIRunner {
 
         // Scan
         fputs("Scanning \(folderURL.lastPathComponent)…\n", stderr)
+
         let collected = ImageStore.collectFITSURLs(
             in: folderURL,
             relativePath: "",
@@ -97,6 +102,18 @@ enum CLIRunner {
             includeRejected: options.includeRejected)
 
         guard !collected.isEmpty else {
+            // Check whether the directory itself is inaccessible — a common cause is macOS TCC
+            // blocking access to iCloud Drive (~/Library/Mobile Documents/…). Fix: grant
+            // FITS Blaster Full Disk Access in System Settings → Privacy & Security.
+            if (try? FileManager.default.contentsOfDirectory(
+                    at: folderURL, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles])) == nil {
+                fputs("""
+                    error: cannot read '\(folderStr)' — permission denied.
+                    If the folder is on iCloud Drive, grant FITS Blaster Full Disk Access in
+                    System Settings → Privacy & Security → Full Disk Access.
+                    """, stderr)
+                exit(1)
+            }
             printError("no FITS files found in '\(folderStr)'")
             exit(1)
         }
