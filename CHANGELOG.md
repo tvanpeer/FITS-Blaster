@@ -4,10 +4,23 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
-## 2026-10-10 — Fix: open folder options missing without app sandbox (revised)
+## 2026-10-10 — Fix: CLI filter logic and Open Folder options popover
 
 ### Bug fixes
-- **Subfolders/Rejected options missing from Open Folder dialog** — `NSOpenPanel` accessory views and `NSAlert` pre-dialogs both behave unreliably on macOS 27 without the app sandbox. Replaced with a native SwiftUI sheet (`OpenFolderOptionsView`) that presents the two toggles before the file picker opens. The sheet dismisses fully before `NSOpenPanel.runModal()` is called (via `onDismiss:`), avoiding any window-layering conflicts.
+- **CLI filter exported wrong frames** — `applyAutoFlag` flags the *bad* frames (those failing quality thresholds); the CLI was exporting those flagged IDs, producing the inverse of the intended result. Replaced `applyAutoFlag` + `flaggedEntryIDs` with `previewAutoReject` + complement: frames *not* in the bad set are now exported.
+- **CLI folder path detection** — a numeric flag value (e.g. `3.3` after `-f`) was incorrectly matched as the folder path when options appeared before the path. Fixed path detection to require the argument to start with `/` or `~`.
+- **CLI terminology** — renamed "autoflag" to "filter" in all user-visible help text and messages.
+- **CLI `-r`/`-R` flags merged** — removed the separate `--include-rejected-in-csv` (`-R`) flag; `-r`/`--include-rejected` now both scans the REJECTED folder and includes those frames in the CSV with `status=rejected`.
+- **CLI `--no-flag` removed** — the flag was redundant; omitting filter criteria already exports all frames.
+- **Open Folder options popover** — replaced the broken `NSOpenPanel` accessory view (non-interactive on macOS 27 without the app sandbox) with a SwiftUI `.popover` on the toolbar button. Options are now set in the popover, then a 300 ms async delay lets the popover dismiss before `NSOpenPanel.runModal()` takes over the main thread.
+- **Deprecation warning** — removed `toolbar.showsBaselineSeparator = false` (deprecated in macOS 15, no replacement needed).
+
+---
+
+## 2026-10-10 — Fix: open folder options missing without app sandbox
+
+### Bug fixes
+- **Subfolders/Rejected options missing from Open Folder dialog** — sandbox removal (required for CLI) broke the old `NSOpenPanel` accessory view; `NSButton` checkboxes allocate space but do not render on macOS 27 without the sandbox. Fixed by using `NSHostingView` with a small SwiftUI view (`OpenFolderAccessoryView`) as the accessory view — SwiftUI rendering is reliable regardless of sandbox state.
 
 ---
 

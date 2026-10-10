@@ -64,15 +64,44 @@ struct FITSToolbar: View {
     @State private var showAutoRejectSheet = false
     @State private var pendingSubfolders = false
     @State private var pendingIncludeRejected = false
-    @State private var openFolderQueued = false
 
     var body: some View {
         HStack {
             Button("Open Folder…") {
+                pendingSubfolders       = settings.includeSubfolders
+                pendingIncludeRejected  = settings.includeRejectedFolder
                 store.showOpenFolderOptions = true
             }
             .keyboardShortcut("o", modifiers: .command)
             .help("Open a folder of FITS files (⌘O)")
+            .popover(isPresented: Binding(
+                get: { store.showOpenFolderOptions },
+                set: { store.showOpenFolderOptions = $0 }
+            )) {
+                VStack(alignment: .leading, spacing: 10) {
+                    Toggle("Include files from subfolders", isOn: $pendingSubfolders)
+                    Toggle("Include REJECTED folder (mark images as rejected)",
+                           isOn: $pendingIncludeRejected)
+                    HStack {
+                        Spacer()
+                        Button("Open Folder…") {
+                            let sub = pendingSubfolders
+                            let rej = pendingIncludeRejected
+                            store.showOpenFolderOptions = false
+                            Task { @MainActor in
+                                // Let the popover dismiss before runModal() blocks.
+                                try? await Task.sleep(for: .milliseconds(300))
+                                store.openFolderPanel(includeSubfolders: sub,
+                                                      includeRejected: rej,
+                                                      settings: settings)
+                            }
+                        }
+                        .keyboardShortcut(.defaultAction)
+                    }
+                }
+                .padding()
+                .frame(minWidth: 300)
+            }
 
             // TODO: Open Files… is hidden until sandbox write-access for parent directories is resolved.
             // Button("Open Files…") { store.openFilesPanel(settings: settings) }
@@ -164,31 +193,6 @@ struct FITSToolbar: View {
         .sheet(isPresented: $showAutoRejectSheet) {
             AutoRejectSheet(isPresented: $showAutoRejectSheet)
                 .environment(store)
-        }
-        .sheet(
-            isPresented: Binding(
-                get: { store.showOpenFolderOptions },
-                set: { store.showOpenFolderOptions = $0 }
-            ),
-            onDismiss: {
-                guard openFolderQueued else { return }
-                openFolderQueued = false
-                store.openFolderPanel(
-                    includeSubfolders: pendingSubfolders,
-                    includeRejected: pendingIncludeRejected,
-                    settings: settings)
-            }
-        ) {
-            OpenFolderOptionsView(
-                defaultSubfolders: settings.includeSubfolders,
-                defaultIncludeRejected: settings.includeRejectedFolder,
-                excludedNames: settings.excludedSubfolderNames
-            ) { sub, rej in
-                pendingSubfolders = sub
-                pendingIncludeRejected = rej
-                openFolderQueued = true
-                store.showOpenFolderOptions = false
-            }
         }
     }
 }

@@ -4,7 +4,7 @@
 //
 //  Headless batch-processing entry point. Invoked when the binary is launched
 //  from a terminal with a folder path argument. Computes metrics, optionally
-//  auto-flags frames, and writes a CSV identical to the in-app export.
+//  filters frames by quality criteria, and writes a CSV identical to the in-app export.
 //
 //  File access notes:
 //  - The direct-distribution build has com.apple.security.app-sandbox removed from
@@ -26,13 +26,14 @@ enum CLIRunner {
     static func run() async {
         let args = Array(CommandLine.arguments.dropFirst())
 
-        if args.isEmpty || args.contains("--help") {
+        if args.isEmpty || args.contains("--help") || args.contains("-h") {
             printUsage()
             exit(args.isEmpty ? 1 : 0)
         }
 
-        // Folder path: first argument that doesn't start with --
-        guard let folderStr = args.first(where: { !$0.hasPrefix("--") }) else {
+        // Folder path: first argument that starts with / or ~ (absolute path).
+        // Values following flags (e.g. "3.3" after -f) are skipped correctly.
+        guard let folderStr = args.first(where: { $0.hasPrefix("/") || $0.hasPrefix("~") }) else {
             printError("no folder path provided")
             exit(1)
         }
@@ -133,19 +134,28 @@ enum CLIRunner {
         await store.waitForProcessing()
         fputs("Done.\n", stderr)
 
-        // Autoflag
-        let doFlag = !options.noFlag && config.anyEnabled
-        if doFlag {
-            store.applyAutoFlag(config: config)
-            let n = store.flaggedEntryIDs.count
-            fputs("Flagged \(n) frame\(n == 1 ? "" : "s").\n", stderr)
-        }
-
         // Resolve output URL
         let csvURL = options.outputURL ?? folderURL.appending(component: "frames.csv")
 
-        // Export
-        let frames = options.includeRejectedInCSV ? store.entries : store.entries.filter { !$0.isRejected }
+        // Filter: previewAutoReject returns the BAD frames (those failing the thresholds).
+        // We export the complement — the frames that are NOT flagged as bad.
+        let baseFrames = options.includeRejectedInCSV ? store.entries : store.entries.filter { !$0.isRejected }
+        let frames: [ImageEntry]
+        if config.anyEnabled {
+            let badIDs = Set(store.previewAutoReject(config: config).map { $0.id })
+            let good = baseFrames.filter { !badIDs.contains($0.id) }
+            let nBad = badIDs.count
+            fputs("Filtered out \(nBad) frame\(nBad == 1 ? "" : "s"); keeping \(good.count).\n", stderr)
+            if good.isEmpty {
+                fputs("warning: no frames passed the filter criteria; exporting all \(baseFrames.count) frame\(baseFrames.count == 1 ? "" : "s").\n", stderr)
+                frames = baseFrames
+            } else {
+                frames = good
+            }
+        } else {
+            frames = baseFrames
+        }
+
         let content = ImageStore.exportContent(
             frames: frames,
             format: .csv,
@@ -168,13 +178,13 @@ enum CLIRunner {
 
     private struct Options {
         var outputURL: URL?
-        var subfolders        = false
-        var includeRejected   = false
+        var subfolders      = false
+        var includeRejected = false
         var mode: AutoRejectConfig.Mode = .relative
-        var noFlag            = false
         var pathStyle: PathStyle = .relative
         var headerKeys: [String]?
-        var includeRejectedInCSV = false
+
+        var includeRejectedInCSV: Bool { includeRejected }
 
         var fwhm:         Double?
         var eccentricity: Double?
@@ -187,7 +197,7 @@ enum CLIRunner {
         init(_ args: [String]) {
             // First pass: resolve mode so metric values land in the right field
             for (i, arg) in args.enumerated() {
-                if arg == "--mode", let val = args[safe: i + 1] {
+                if (arg == "--mode" || arg == "-m"), let val = args[safe: i + 1] {
                     mode = (val == "abs" || val == "absolute") ? .absolute : .relative
                 }
             }
@@ -198,44 +208,40 @@ enum CLIRunner {
                 let arg = args[i]
                 let next: String? = args[safe: i + 1]
                 switch arg {
-                case "--output":
+                case "--output", "-o":
                     if let v = next {
                         outputURL = URL(filePath: (v as NSString).expandingTildeInPath)
                         i += 1
                     }
-                case "--subfolders":
+                case "--subfolders", "-S":
                     subfolders = true
-                case "--include-rejected":
+                case "--include-rejected", "-r":
                     includeRejected = true
-                case "--mode":
-                    i += 1  // already handled
-                case "--no-flag":
-                    noFlag = true
-                case "--path-style":
+                case "--mode", "-m":
+                    i += 1  // already handled in first pass
+                case "--path-style", "-P":
                     if let v = next {
                         pathStyle = (v == "abs" || v == "absolute") ? .absolute : .relative
                         i += 1
                     }
-                case "--headers":
+                case "--headers", "-H":
                     if let v = next {
                         headerKeys = v.split(separator: ",").map { String($0).trimmingCharacters(in: .whitespaces) }
                         i += 1
                     }
-                case "--include-rejected-in-csv":
-                    includeRejectedInCSV = true
-                case "--fwhm":
+                case "--fwhm", "-f":
                     fwhm = next.flatMap(Double.init); if fwhm != nil { i += 1 }
-                case "--eccentricity":
+                case "--eccentricity", "-e":
                     eccentricity = next.flatMap(Double.init); if eccentricity != nil { i += 1 }
-                case "--stars":
+                case "--stars", "-n":
                     stars = next.flatMap(Double.init); if stars != nil { i += 1 }
-                case "--snr":
+                case "--snr", "-s":
                     snr = next.flatMap(Double.init); if snr != nil { i += 1 }
-                case "--sky-bg":
+                case "--sky-bg", "-b":
                     skyBG = next.flatMap(Double.init); if skyBG != nil { i += 1 }
-                case "--psf":
+                case "--psf", "-p":
                     psf = next.flatMap(Double.init); if psf != nil { i += 1 }
-                case "--score":
+                case "--score", "-q":
                     score = next.flatMap(Int.init); if score != nil { i += 1 }
                 default:
                     break
@@ -262,25 +268,25 @@ enum CLIRunner {
         fputs("""
         Usage: FITS\\ Blaster.app/Contents/MacOS/FITS\\ Blaster <folder> [options]
 
-          --output <path>             CSV output file  [default: <folder>/frames.csv]
-          --subfolders                Include files from subfolders
-          --include-rejected          Include REJECTED folder; mark those files as rejected
+          -o, --output <path>         CSV output file  [default: <folder>/frames.csv]
+          -S, --subfolders            Include files from subfolders
+          -r, --include-rejected      Scan REJECTED folder; include those files in CSV with status=rejected
 
-          --mode rel|abs              Autoflag threshold mode  [default: relative]
-          --fwhm <n>                  FWHM: multiplier (rel) or pixel ceiling (abs)
-          --eccentricity <n>          Eccentricity ceiling  [same in both modes]
-          --stars <n>                 Star count: multiplier (rel) or floor (abs)
-          --snr <n>                   SNR: multiplier (rel) or floor (abs)
-          --sky-bg <n>                Sky BG: multiplier (rel) or ADU ceiling (abs)
-          --psf <n>                   PSF weight: multiplier (rel) or floor (abs)
-          --score <n>                 Quality score floor  [absolute mode only]
-          --no-flag                   Export without autoflagging
+          -m, --mode rel|abs          Filter threshold mode  [default: relative]
+          -f, --fwhm <n>              FWHM: multiplier (rel) or pixel ceiling (abs)
+          -e, --eccentricity <n>      Eccentricity ceiling  [same in both modes]
+          -n, --stars <n>             Star count: multiplier (rel) or floor (abs)
+          -s, --snr <n>               SNR: multiplier (rel) or floor (abs)
+          -b, --sky-bg <n>            Sky BG: multiplier (rel) or ADU ceiling (abs)
+          -p, --psf <n>               PSF weight: multiplier (rel) or floor (abs)
+          -q, --score <n>             Quality score floor  [absolute mode only]
 
-          --path-style rel|abs        Path format in CSV  [default: relative]
-          --headers KEY1,KEY2,...     FITS header columns to include
-          --include-rejected-in-csv   Include rejected entries in the CSV
+        When filter criteria are given, only the best frames are exported.
 
-          --help                      Show this help
+          -P, --path-style rel|abs    Path format in CSV  [default: relative]
+          -H, --headers KEY1,KEY2,…   FITS header columns to include
+
+          -h, --help                  Show this help
 
         Progress is written to stderr. The CSV path is written to stdout.
 

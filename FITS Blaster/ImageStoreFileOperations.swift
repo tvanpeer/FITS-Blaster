@@ -582,7 +582,6 @@ extension ImageStore {
         panel.prompt = "Open"
 
         guard panel.runModal() == .OK, let folderURL = panel.url else { return }
-
         let excludedSet = Set(settings.excludedSubfolderNames.map { $0.lowercased() })
 
         let didAccess = folderURL.startAccessingSecurityScopedResource()

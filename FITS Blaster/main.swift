@@ -15,7 +15,10 @@ import AppKit
 import SwiftUI
 
 private func isCLIArg(_ s: String) -> Bool {
-    s.hasPrefix("/") || s.hasPrefix("~") || s.hasPrefix("--")
+    // Folder paths start with / or ~; long flags with --; short flags are exactly -<letter>.
+    // Excludes macOS system args like -NSDocumentRevisionsDebugMode (multi-char after dash).
+    s.hasPrefix("/") || s.hasPrefix("~") || s.hasPrefix("--") ||
+    (s.count == 2 && s.hasPrefix("-") && s.last?.isLetter == true)
 }
 
 #if !APPSTORE

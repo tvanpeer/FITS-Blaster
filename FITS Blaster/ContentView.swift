@@ -63,7 +63,6 @@ struct ContentView: View {
                 // no extra toolbar strip in the windowed layout.
                 guard let window, window.toolbar == nil else { return }
                 let toolbar = NSToolbar(identifier: "main")
-                toolbar.showsBaselineSeparator = false
                 window.toolbar = toolbar
                 window.toolbarStyle = .unified
             })
