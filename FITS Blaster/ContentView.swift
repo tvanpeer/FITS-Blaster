@@ -97,10 +97,14 @@ struct ContentView: View {
             ))
             .focusedSceneValue(\.toggleModeKeyString, settings.toggleModeKey)
             .focusedSceneValue(\.debayerKeyString, settings.debayerKey)
-            .focusedSceneValue(\.openFolderAction, FocusedAction { store.openFolderPanel(settings: settings) })
+            .focusedSceneValue(\.openFolderAction, FocusedAction { store.showOpenFolderOptions = true })
     }
 
     private var splitContent: some View {
+        // The SwiftUI .inspector modifier creates a nested SplitViewChildController layer
+        // on top of HSplitView's own layer; on macOS 27 without the app sandbox this causes
+        // an infinite constraint-update loop (NSGenericException). Using a plain third column
+        // in the same HSplitView avoids the nested controller entirely.
         HSplitView {
             ThumbnailSidebar()
                 .frame(minWidth: 140, idealWidth: 200, maxWidth: 360)
@@ -115,19 +119,11 @@ struct ContentView: View {
                 }
             }
             .frame(minWidth: settings.isSimpleMode ? 380 : 400)
-        }
-        .inspector(isPresented: Binding(
-            get: { settings.showInspector && !settings.isSimpleMode },
-            set: { newValue in
-                // When simple mode hides the inspector, the binding fires set(false).
-                // Ignore it — showInspector should only change when the user explicitly
-                // dismisses the panel in geek mode, not as a side-effect of mode switches.
-                guard !settings.isSimpleMode else { return }
-                settings.showInspector = newValue
+
+            if !settings.isSimpleMode && settings.showInspector {
+                InspectorView()
+                    .frame(minWidth: 220, idealWidth: 260, maxWidth: 320)
             }
-        )) {
-            InspectorView()
-                .inspectorColumnWidth(min: 220, ideal: 260, max: 320)
         }
         .overlay { if isDragTarget { DropTargetOverlay() } }
         .onDrop(of: [.fileURL], isTargeted: $isDragTarget) { providers in
@@ -357,17 +353,35 @@ struct DropTargetOverlay: View {
 
 // MARK: - Window Accessor
 
+// Uses viewDidMoveToWindow (not Task) so the callback fires during view-hierarchy
+// attachment, before any layout pass. The Task-based approach was triggering
+// constraint-update reentrancy on macOS 27 when launched without the app sandbox.
 private struct WindowAccessor: NSViewRepresentable {
     let onWindow: (NSWindow?) -> Void
 
-    func makeNSView(context: Context) -> NSView {
-        let view = NSView()
-        Task { @MainActor in self.onWindow(view.window) }
-        return view
+    func makeCoordinator() -> Coordinator { Coordinator(onWindow: onWindow) }
+    func makeNSView(context: Context) -> AccessorView { AccessorView(coordinator: context.coordinator) }
+    func updateNSView(_ nsView: AccessorView, context: Context) { context.coordinator.onWindow = onWindow }
+
+    final class Coordinator {
+        var onWindow: (NSWindow?) -> Void
+        init(onWindow: @escaping (NSWindow?) -> Void) { self.onWindow = onWindow }
+    }
+}
+
+private final class AccessorView: NSView {
+    private let coordinator: WindowAccessor.Coordinator
+
+    init(coordinator: WindowAccessor.Coordinator) {
+        self.coordinator = coordinator
+        super.init(frame: .zero)
     }
 
-    func updateNSView(_ nsView: NSView, context: Context) {
-        Task { @MainActor in self.onWindow(nsView.window) }
+    required init?(coder: NSCoder) { fatalError("init(coder:) not supported") }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        coordinator.onWindow(window)
     }
 }
 

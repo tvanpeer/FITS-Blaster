@@ -573,25 +573,7 @@ extension ImageStore {
 
     // MARK: - File Panels
 
-    /// Shows/hides the shared notice label when either panel checkbox is toggled
-    /// to a state that differs from its stored default. Kept as a separate NSObject
-    /// subclass because NSButton holds only a weak reference to its target.
-    @MainActor private final class PanelAccessoryHelper: NSObject {
-        private let checkboxes: [(button: NSButton, defaultState: Bool)]
-        private weak var noticeLabel: NSTextField?
-
-        init(checkboxes: [(NSButton, Bool)], noticeLabel: NSTextField) {
-            self.checkboxes = checkboxes
-            self.noticeLabel = noticeLabel
-        }
-
-        @objc func checkboxChanged(_ sender: NSButton) {
-            let anyDiffers = checkboxes.contains { ($0.button.state == .on) != $0.defaultState }
-            noticeLabel?.isHidden = !anyDiffers
-        }
-    }
-
-    func openFolderPanel(settings: AppSettings) {
+    func openFolderPanel(includeSubfolders: Bool, includeRejected: Bool, settings: AppSettings) {
         let panel = NSOpenPanel()
         panel.canChooseDirectories = true
         panel.canChooseFiles = false
@@ -599,82 +581,8 @@ extension ImageStore {
         panel.message = "Select a folder containing FITS files"
         panel.prompt = "Open"
 
-        // Accessory view: plain AppKit — NSHostingView doesn't wire @Observable correctly
-        // when used outside a SwiftUI window hierarchy (NSOpenPanel accessory context).
-        let excludedNames = settings.excludedSubfolderNames
+        guard panel.runModal() == .OK, let folderURL = panel.url else { return }
 
-        // Subfolders checkbox
-        let subfolderCheckbox = NSButton(checkboxWithTitle: "Include files from subfolders",
-                                         target: nil, action: nil)
-        subfolderCheckbox.state = settings.includeSubfolders ? .on : .off
-
-        // REJECTED folder checkbox
-        let rejectedCheckbox = NSButton(
-            checkboxWithTitle: "Include REJECTED folder (mark images as rejected)",
-            target: nil, action: nil)
-        rejectedCheckbox.state = settings.includeRejectedFolder ? .on : .off
-
-        // Shared notice label — appears when either checkbox differs from its stored default.
-        let noticeLabel = NSTextField(labelWithString:
-            "Applies to this open only. To change the default, go to Settings → Files & Folders.")
-        noticeLabel.font = .systemFont(ofSize: 10)
-        noticeLabel.textColor = .systemOrange
-        noticeLabel.isHidden = true
-        noticeLabel.cell?.wraps = true
-        noticeLabel.maximumNumberOfLines = 2
-
-        let panelHelper = PanelAccessoryHelper(
-            checkboxes: [(subfolderCheckbox, settings.includeSubfolders),
-                         (rejectedCheckbox,  settings.includeRejectedFolder)],
-            noticeLabel: noticeLabel
-        )
-        subfolderCheckbox.target = panelHelper
-        subfolderCheckbox.action = #selector(PanelAccessoryHelper.checkboxChanged(_:))
-        rejectedCheckbox.target = panelHelper
-        rejectedCheckbox.action = #selector(PanelAccessoryHelper.checkboxChanged(_:))
-
-        // Layout (AppKit bottom-up). Reserve space for the notice label even when hidden.
-        let noticeHeight: CGFloat = 28
-        let excludedHeight: CGFloat = excludedNames.isEmpty ? 0 : 30
-        let containerHeight: CGFloat = 88 + excludedHeight
-        let noticeLabelY: CGFloat = excludedHeight + 4
-        let rejectedCheckboxY: CGFloat = noticeLabelY + noticeHeight + 4
-        let subfolderCheckboxY: CGFloat = rejectedCheckboxY + 20 + 8
-
-        let container = NSView()
-        container.frame = NSRect(x: 0, y: 0, width: 480, height: containerHeight)
-
-        subfolderCheckbox.frame = NSRect(x: 20, y: subfolderCheckboxY, width: 440, height: 20)
-        rejectedCheckbox.frame  = NSRect(x: 20, y: rejectedCheckboxY,  width: 440, height: 20)
-        noticeLabel.frame       = NSRect(x: 22, y: noticeLabelY,       width: 430, height: noticeHeight)
-
-        container.addSubview(subfolderCheckbox)
-        container.addSubview(rejectedCheckbox)
-        container.addSubview(noticeLabel)
-
-        if !excludedNames.isEmpty {
-            let hint = NSTextField(labelWithString:
-                "Skipping: \(excludedNames.joined(separator: ", "))  —  edit in Settings → Files & Folders")
-            hint.font = .systemFont(ofSize: 10)
-            hint.textColor = .secondaryLabelColor
-            hint.cell?.wraps = true
-            hint.cell?.isScrollable = false
-            hint.maximumNumberOfLines = 2
-            hint.frame = NSRect(x: 22, y: 4, width: 430, height: 26)
-            container.addSubview(hint)
-        }
-
-        panel.accessoryView = container
-        panel.isAccessoryViewDisclosed = true
-
-        // withExtendedLifetime keeps panelHelper alive for the duration of runModal()
-        // (NSButton holds only a weak reference to its target).
-        let result = withExtendedLifetime(panelHelper) { panel.runModal() }
-        guard result == .OK, let folderURL = panel.url else { return }
-
-        // Use checkbox values — intentionally NOT written back to settings.
-        let includeSubfolders = subfolderCheckbox.state == .on
-        let includeRejected   = rejectedCheckbox.state == .on
         let excludedSet = Set(settings.excludedSubfolderNames.map { $0.lowercased() })
 
         let didAccess = folderURL.startAccessingSecurityScopedResource()

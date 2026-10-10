@@ -62,11 +62,14 @@ struct FITSToolbar: View {
     @Environment(AppSettings.self) private var settings
     @State private var showExportSheet = false
     @State private var showAutoRejectSheet = false
+    @State private var pendingSubfolders = false
+    @State private var pendingIncludeRejected = false
+    @State private var openFolderQueued = false
 
     var body: some View {
         HStack {
             Button("Open Folder…") {
-                store.openFolderPanel(settings: settings)
+                store.showOpenFolderOptions = true
             }
             .keyboardShortcut("o", modifiers: .command)
             .help("Open a folder of FITS files (⌘O)")
@@ -162,6 +165,31 @@ struct FITSToolbar: View {
             AutoRejectSheet(isPresented: $showAutoRejectSheet)
                 .environment(store)
         }
+        .sheet(
+            isPresented: Binding(
+                get: { store.showOpenFolderOptions },
+                set: { store.showOpenFolderOptions = $0 }
+            ),
+            onDismiss: {
+                guard openFolderQueued else { return }
+                openFolderQueued = false
+                store.openFolderPanel(
+                    includeSubfolders: pendingSubfolders,
+                    includeRejected: pendingIncludeRejected,
+                    settings: settings)
+            }
+        ) {
+            OpenFolderOptionsView(
+                defaultSubfolders: settings.includeSubfolders,
+                defaultIncludeRejected: settings.includeRejectedFolder,
+                excludedNames: settings.excludedSubfolderNames
+            ) { sub, rej in
+                pendingSubfolders = sub
+                pendingIncludeRejected = rej
+                openFolderQueued = true
+                store.showOpenFolderOptions = false
+            }
+        }
     }
 }
 
@@ -205,6 +233,17 @@ struct MainContent: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
+        } else if !store.entries.isEmpty {
+            VStack {
+                Image(systemName: store.rejectionVisibility == .rejected ? "trash.slash" : "flag.slash")
+                    .font(.largeTitle)
+                    .imageScale(.large)
+                    .foregroundStyle(.tertiary)
+                Text(store.rejectionVisibility == .rejected ? "No rejected images" : "No flagged images")
+                    .font(.title3)
+                    .foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
             VStack {
                 Image(systemName: "star.circle")

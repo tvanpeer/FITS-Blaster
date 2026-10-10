@@ -4,6 +4,41 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-10 — Fix: open folder options missing without app sandbox (revised)
+
+### Bug fixes
+- **Subfolders/Rejected options missing from Open Folder dialog** — `NSOpenPanel` accessory views and `NSAlert` pre-dialogs both behave unreliably on macOS 27 without the app sandbox. Replaced with a native SwiftUI sheet (`OpenFolderOptionsView`) that presents the two toggles before the file picker opens. The sheet dismisses fully before `NSOpenPanel.runModal()` is called (via `onDismiss:`), avoiding any window-layering conflicts.
+
+---
+
+## 2026-10-10 — Fix: selection lost when switching visibility mode
+
+### Bug fixes
+- **Selection lost on visibility switch** — switching to "Rejected" (or "Flagged") when empty, then back to "All", would show "Ready to blast…" instead of restoring the previous image. Added `cursorPerVisibility` to mirror the existing `cursorPerFilterGroup` pattern: the selected entry is now saved per visibility mode and restored when switching back.
+
+---
+
+## 2026-10-10 — CLI: short flag aliases
+
+### Changes
+- **Short flag aliases** — all CLI options now have single-letter shortcuts: `-h` help, `-o` output, `-S` subfolders, `-r` include-rejected, `-m` mode, `-f` fwhm, `-e` eccentricity, `-n` stars, `-s` snr, `-b` sky-bg, `-p` psf, `-q` score, `-P` path-style, `-H` headers.
+
+---
+
+## 2026-10-10 — CLI: autoflag now filters output
+
+### Changes
+- **CLI autoflag as filter** — when autoflag criteria are provided, the CSV now contains only the flagged (best) frames instead of all frames. If the criteria match nothing a warning is printed and all non-rejected frames are exported as fallback. Use `--no-flag` to export all frames regardless of quality.
+
+---
+
+## 2026-10-10 — Fix: GUI crash on macOS 27 without app sandbox
+
+### Bug fixes
+- **GUI crash on launch** — replaced `.inspector(isPresented:)` with a plain third `HSplitView` column. The `.inspector` modifier creates a nested `SplitViewChildController` layer that causes an infinite constraint-update loop (`NSGenericException`) on macOS 27 when the app sandbox is disabled. Using a regular split-view column removes that layer. The inspector panel still shows/hides via `showInspector` as before.
+
+---
+
 ## 2026-10-10 — CLI batch mode + PSF autoflag
 
 ### Features

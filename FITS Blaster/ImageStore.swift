@@ -272,6 +272,7 @@ final class ImageStore {
     var restretchingMessage: String? = nil
 
     var errorMessage: String?
+    var showOpenFolderOptions: Bool = false
 
     // MARK: - Session-level display adjustments
 
@@ -351,6 +352,9 @@ final class ImageStore {
     /// Remembers the last-selected entry per filter group so switching back restores the cursor.
     private var cursorPerFilterGroup: [FilterGroup?: UUID] = [:]
 
+    /// Remembers the last-selected entry per rejection-visibility mode so switching back restores the cursor.
+    private var cursorPerVisibility: [RejectionVisibility: UUID] = [:]
+
     /// The filter group currently highlighted in the sidebar filter strip.
     /// `nil` means "show all groups". Cleared on reset.
     var sidebarFilterGroup: FilterGroup? = nil {
@@ -374,8 +378,15 @@ final class ImageStore {
     var rejectionVisibility: RejectionVisibility = .all {
         didSet {
             stopPlayback()
+            if let sel = selectedEntry { cursorPerVisibility[oldValue] = sel.id }
             updateVisibilityFilteredEntries()
-            ensureCursorVisible()
+            if let savedID = cursorPerVisibility[rejectionVisibility],
+               let entry = entries.first(where: { $0.id == savedID }),
+               isVisible(entry) {
+                selectedEntry = entry
+            } else {
+                ensureCursorVisible()
+            }
         }
     }
 
@@ -675,6 +686,7 @@ final class ImageStore {
         errorMessage = nil
         sidebarFilterGroup = nil
         cursorPerFilterGroup = [:]
+        cursorPerVisibility = [:]
         groupStatistics = [:]
         activeFilterGroups = []
         cachedSortedEntries = []
