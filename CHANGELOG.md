@@ -4,6 +4,21 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-13 — Testing: rendering tests on real data
+
+### Testing
+- **Rendering tests** — `RenderingTests` load real folders the way the app does and measure the sky background of every rendered frame; the typical frame of each folder must be neutral and at the 25% target. Run with `scripts/run-render-tests.sh` (sample set) or `--full` (M31, California, Gamma Cygni, Rosette, about 5 minutes); skipped in normal test runs. Results go to `tests/render-results/` (not committed).
+
+---
+
+## 2026-10-13 — Testing: VM smoke test and testing guide
+
+### Testing
+- **VM smoke test** — `scripts/vm-smoke.sh` installs a DMG, a local build or a GitHub release in a test VM over SSH and checks signing, notarisation, bundle contents, launch (no crash, exception or constraint loop) and command-line mode on the sample set. Results go to `tests/smoke-results/` (not committed).
+- **Testing guide** — `docs/internal/testing.md` describes every kind of test, including the manual checks the person running them must do, and how to manage the test VMs. The release procedure now includes a smoke test before tagging and after publishing.
+
+---
+
 ## 2026-10-13 — Fix: colour cast when frames in a folder differ
 
 ### Fixed

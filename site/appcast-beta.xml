@@ -6,6 +6,72 @@
         <description>Beta release notes for FITS Blaster</description>
         <language>en-us</language>
         <item>
+            <title>FITS Blaster 1.23-beta.10</title>
+            <pubDate>Tue, 13 Oct 2026 14:45:07 +0000</pubDate>
+            <sparkle:version>203</sparkle:version>
+            <sparkle:shortVersionString>1.23-beta.10</sparkle:shortVersionString>
+            <description><![CDATA[
+<h2>2026-10-13 — Command-line mode, PSF Signal Weight, better colour-camera metrics</h2>
+<h3>Added</h3>
+<ul>
+  <li><b>Command-line mode</b> — run the app&#x27;s executable with a folder path to measure every frame without opening a window and write a CSV of the results. Add quality thresholds to export only the frames that pass. Run it with `--help` for all options, or see the FAQ. Not available in the Mac App Store version.</li>
+  <li><b>PSF Signal Weight (PSF·S)</b> — a new metric for transparency and seeing: star peak brightness relative to sky noise. Shown in the inspector, session chart, sort menu, and exports, and available as an Auto-Flag criterion.</li>
+  <li><b>Zoom to fit</b> — a fit button next to the zoom percentage scales the image to fill the viewer.</li>
+  <li><b>Zoom anchor</b> — click the image to pin a point; zooming keeps it centred, and it stays in place as you step through frames.</li>
+  <li><b>Target Background</b> slider replaces the Brightness slider, matching PixInsight&#x27;s convention.</li>
+  <li><b>Sample data</b> — an M31 sample set to try FITS Blaster without your own images (see the FAQ).</li>
+</ul>
+<h3>Improved</h3>
+<ul>
+  <li><b>Colour (OSC) cameras</b> — FWHM and eccentricity are now measured on debayered, full-resolution star images. Rankings agree closely with PixInsight&#x27;s SubframeSelector.</li>
+  <li><b>Eccentricity</b> detects elongated stars at any angle, not just horizontal or vertical.</li>
+  <li><b>Finder thumbnails</b> — FITS thumbnails no longer fall back to the app icon in Finder&#x27;s icon view, and files in iCloud Drive that aren&#x27;t downloaded no longer stall other thumbnails.</li>
+  <li><b>Open Folder options</b> (subfolders, REJECTED folder) now appear in a popover on the Open Folder button and ⌘O.</li>
+</ul>
+<h3>Changed</h3>
+<ul>
+  <li>The quality score always uses every metric that could be measured; the per-metric on/off settings are gone.</li>
+  <li>The metric chips above the session chart are now optional (Settings → Display).</li>
+  <li>The version downloaded from the website is no longer sandboxed, so command-line mode can read any folder you give it.</li>
+</ul>
+<h3>Fixed</h3>
+<ul>
+  <li>Crash at launch on some macOS 27 versions.</li>
+  <li>The selected frame was lost when switching between All, Flagged, and Rejected and back.</li>
+  <li>The session chart&#x27;s cursor dot didn&#x27;t follow navigation, and single-frame folders drew outside the chart.</li>
+</ul>
+<p>---</p>
+<h2>2026-10-13 — Fix: crash on launch (macOS 27, App Store build 202)</h2>
+<h3>Bug fixes</h3>
+<ul>
+  <li><b>Crash on launch</b> — setting `window.toolbar` and `window.toolbarStyle = .unified` inside `viewDidMoveToWindow` caused AppKit constraint-update reentrancy during SwiftUI&#x27;s initial layout pass on macOS 27. AppKit&#x27;s `_postWindowNeedsUpdateConstraints` detected the re-entry and threw `NSGenericException`, converted by `NSApplication` to a fatal `SIGTRAP`. Fixed by moving toolbar configuration to `.windowToolbarStyle(.unified)` on the `WindowGroup` scene, which applies the style before any layout pass runs.</li>
+  <li><b>Verified</b> — App Review&#x27;s crash (build 199) reproduced in a VM on macOS 27.2 26B5086k: &quot;more Update Constraints in Window passes than there are views in the window&quot;. The fixed build launches cleanly on the same clean VM; full-screen traffic lights still work.</li>
+</ul>
+<h3>Build</h3>
+<ul>
+  <li>App Store build number bumped from 199 to 202 (past the 201 beta builds) for resubmission.</li>
+</ul>
+<p>---</p>
+<h2>2026-10-12 — Refactor: one type per file, fix Binding anti-patterns, Canvas over GeometryReader</h2>
+<h3>Code quality</h3>
+<ul>
+  <li><b>One type per file</b> — extracted 23 types from large files into their own Swift source files.</li>
+  <li><b>`@Bindable` over `Binding(get:set:)`</b> — replaced manual binding construction with `@Bindable` where the source is an `@Observable` instance stored as `let`.</li>
+  <li><b>`Canvas` over `GeometryReader`</b> — `RejectionOverlay` and `ViewportBox` now use `Canvas { context, size in }` which provides the container size directly.</li>
+  <li><b>`Int` → `Double` in `AutoRejectConfig`</b> — `absoluteStarCountFloor` and `scoreFloor` are now `Double`, allowing direct `Slider` binding.</li>
+  <li><b>`Set&lt;String&gt;` for toggle binding</b> — `ExportPanel.selectedHeaderKeys` changed from `[String]` to `Set&lt;String&gt;` with a subscript extension, enabling direct `Toggle` binding.</li>
+  <li><b>`ContentFocusedValues` ViewModifier</b> — extracted all 20+ `focusedSceneValue` modifiers into a `ViewModifier` to avoid Swift type-checker timeout.</li>
+</ul>
+<p>---</p>
+<p>**[Full changelog](https://astrophoto-app.com/changelog.html)**</p>
+            ]]></description>
+            <enclosure
+                url="https://github.com/tvanpeer/FITS-Blaster/releases/download/v1.23-beta.10/FITS-Blaster-1.23-beta.10.dmg"
+                length="8562921"
+                type="application/octet-stream"
+                sparkle:edSignature="unvgx6WShPPCrbX6xeMIu9jaJYdhvYSI1SgMkqeepg81aqKQxjL7uDAl9sWo8gPCDzzsgzFDmK3dW1YVakOEBA==" />
+        </item>
+        <item>
             <title>FITS Blaster 1.23-beta.9</title>
             <pubDate>Fri, 02 Oct 2026 18:45:50 +0000</pubDate>
             <sparkle:version>201</sparkle:version>

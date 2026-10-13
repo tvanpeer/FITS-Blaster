@@ -17,5 +17,8 @@ bin/
 *.dmg
 build/
 
+# VM smoke-test results (scripts/vm-smoke.sh)
+tests/smoke-results/
+
 # Rendering test results (scripts/run-render-tests.sh)
 tests/render-results/
