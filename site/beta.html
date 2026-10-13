@@ -287,7 +287,7 @@
     <h1>FITS Blaster</h1>
     <div class="beta-badge">Beta</div>
     <p>Test the latest features before they ship. Beta builds may contain bugs.</p>
-    <a class="download-btn" href="https://github.com/tvanpeer/FITS-Blaster/releases/download/v1.23-beta.8/FITS-Blaster-1.23-beta.8.dmg">Download Beta 1.23-beta.8</a>
+    <a class="download-btn" href="https://github.com/tvanpeer/FITS-Blaster/releases/download/v1.23-beta.9/FITS-Blaster-1.23-beta.9.dmg">Download Beta 1.23-beta.9</a>
     <p class="download-sub">macOS 15.7 or later &nbsp;&middot;&nbsp; Free</p>
 </header>
 
@@ -302,23 +302,16 @@
 <section class="content">
     <h2>Latest beta</h2>
     <!-- beta-entry-start -->
-    <!-- v1.23-beta.8 -->
+    <!-- v1.23-beta.9 -->
     <div class="entry">
         <div class="entry-header">
-            <div class="entry-title">Consistent stretch and sky background chart — v1.23-beta.8</div>
+            <div class="entry-title">STF auto-stretch (PixInsight-style) — v1.23-beta.9</div>
             <div class="entry-date">2026-10-02</div>
         </div>
         <div class="section">
             <span class="section-label label-improved">Improved</span>
             <ul>
-                <li>Greyscale (mono) images in the same folder and filter group are now rendered with a consistent shared stretch, eliminating the brightness flickering when scrolling quickly through a session.</li>
-                <li>Sky background value is now shown in the inline metrics row above the chart alongside FWHM, Ecc, SNR, and Stars.</li>
-            </ul>
-        </div>
-        <div class="section">
-            <span class="section-label label-added">Added</span>
-            <ul>
-                <li><strong>Sky BG</strong> chart metric: plot the sky background ADU level across the session, with per-filter-group median lines.</li>
+                <li>Replaced gamma 2.2 stretch with a PixInsight-style Screen Transfer Function (STF). The new algorithm computes the image's median and MAD (Median Absolute Deviation) to set an intelligent black point, then applies a Midtone Transfer Function (MTF) that places the sky background at ~25% grey. The result: darker background, more contrast in faint nebulosity, no blown-out highlights. Applies to all paths — GPU (Metal), CPU fallback, colour (Bayer), QuickLook, and thumbnails.</li>
             </ul>
         </div>
     </div>

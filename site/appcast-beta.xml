@@ -6,6 +6,45 @@
         <description>Beta release notes for FITS Blaster</description>
         <language>en-us</language>
         <item>
+            <title>FITS Blaster 1.23-beta.9</title>
+            <pubDate>Fri, 02 Oct 2026 18:45:50 +0000</pubDate>
+            <sparkle:version>201</sparkle:version>
+            <sparkle:shortVersionString>1.23-beta.9</sparkle:shortVersionString>
+            <description><![CDATA[
+<h2>2026-10-02 — STF auto-stretch (PixInsight-style)</h2>
+<h3>Improved</h3>
+<ul>
+  <li>Replaced gamma 2.2 stretch with a PixInsight-style Screen Transfer Function (STF). The new algorithm computes the image&#x27;s median and MAD (Median Absolute Deviation) to set an intelligent black point, then applies a Midtone Transfer Function (MTF) that places the sky background at ~25% grey. The result: darker background, more contrast in faint nebulosity, no blown-out highlights. Applies to all paths — GPU (Metal), CPU fallback, colour (Bayer), QuickLook, and thumbnails.</li>
+</ul>
+<p>---</p>
+<h2>2026-10-02 — Fix full-screen mode/inspector layout issues</h2>
+<h3>Fixed</h3>
+<ul>
+  <li>Switching between Geek and Simple mode in full screen no longer leaves a black dead column where the inspector panel used to be. The inspector now uses SwiftUI&#x27;s `.inspector` modifier, which handles full screen correctly instead of relying on window resizing.</li>
+  <li>The image now auto-fits to the newly available space when switching modes or showing/hiding the inspector.</li>
+  <li>The inspector panel now correctly reappears when switching back to Geek mode after having been in Simple mode.</li>
+</ul>
+<p>---</p>
+<h2>2026-10-02 — Sky BG sort and auto-flag, stable beta app name</h2>
+<h3>Added</h3>
+<ul>
+  <li>Sky BG sort option in the thumbnail sort menu.</li>
+  <li>Sky background threshold in the Auto-Flag sheet: flag frames where sky brightness exceeds a multiple of the group median (relative mode) or a fixed ADU ceiling (absolute mode).</li>
+</ul>
+<h3>Fixed</h3>
+<ul>
+  <li>Beta builds are now distributed as `FITS Blaster Beta.app` instead of a versioned name (e.g. `FITS Blaster 1.23-beta.6.app`). The versioned name prevented Sparkle from renaming the bundle on update, leaving users with a stale app name after every in-place upgrade.</li>
+</ul>
+<p>---</p>
+<p>**[Full changelog](https://astrophoto-app.com/changelog.html)**</p>
+            ]]></description>
+            <enclosure
+                url="https://github.com/tvanpeer/FITS-Blaster/releases/download/v1.23-beta.9/FITS-Blaster-1.23-beta.9.dmg"
+                length="8487730"
+                type="application/octet-stream"
+                sparkle:edSignature="zergzW7bwIRIY06vWUhpc0hfO18cRVCAtKAr+vYwc6esjYuP6pkzU/koKWejejHn+jk+eaWscXP2+cgKTrupBA==" />
+        </item>
+        <item>
             <title>FITS Blaster 1.23-beta.8</title>
             <pubDate>Fri, 02 Oct 2026 09:54:06 +0000</pubDate>
             <sparkle:version>200</sparkle:version>
