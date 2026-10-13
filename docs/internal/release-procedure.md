@@ -17,6 +17,8 @@ test.
 - Run the unit tests (⌘U). All must pass.
 - Run the rendering tests: `scripts/run-render-tests.sh` (add `--full` when
   the release touches loading, the stretch or colour), and look at the PNGs.
+- Run the metric baselines: `scripts/metric-baselines.py`. Any failure blocks
+  the release until it is explained (see testing.md).
 - Build Release and run the VM smoke test on a clean VM:
   `scripts/vm-smoke.sh <vm> "<path>/FITS Blaster.app" --dev-build`,
   then do the manual checks in the VM window.

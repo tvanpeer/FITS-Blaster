@@ -20,7 +20,7 @@ a human looking at the app.
 | PixInsight comparison | Our metrics vs PixInsight SubframeSelector | `scripts/compare.py` | Exists |
 | **VM smoke test** | The real DMG on other macOS versions: install, signing, launch, CLI | `scripts/vm-smoke.sh` | **New** |
 | **Rendering tests on real data** | Colour and brightness of rendered frames | `scripts/run-render-tests.sh` | **New** |
-| Metric baselines | Metrics don't change between versions unless we mean them to | Script + CLI | Planned |
+| **Metric baselines** | Metrics don't change between versions unless we mean them to | `scripts/metric-baselines.py` | **New** |
 | CLI `--render` (beta builds only) | Rendering of the shipped binary, without the GUI | CLI | Planned |
 
 ---
@@ -257,18 +257,81 @@ For each folder the run prints every frame's background (typical frame marked
 
 ---
 
-## 5. Planned
+## 5. Metric baselines (`scripts/metric-baselines.py`)
 
-### Metric baselines
+Checks that FWHM, eccentricity, SNR, star count, PSF signal weight and score
+stay the same from version to version, unless we change them on purpose. It
+runs the command-line mode — the same code the app uses for its metrics — on
+the test datasets and compares every frame with the CSVs in `tests/baselines/`.
 
-Stored CSVs (`tests/baselines/`) of the CLI's output for the sample set and
-the other datasets. A script reruns the CLI and reports any metric outside a
-tolerance, and any change in which frames the filter keeps. When a metric
-changes on purpose, the baseline is regenerated and committed with that
-change — so every metric change is a visible decision.
+**Run:**
 
-👤 Regenerating a baseline is a human decision: check the new numbers make
-sense (and against PixInsight) before committing them.
+```
+scripts/metric-baselines.py            # builds the current checkout (Release), all datasets, about 30 s + build
+scripts/metric-baselines.py --quick    # sample set only
+scripts/metric-baselines.py --app "/Applications/FITS Blaster Beta.app"     # an installed or downloaded build
+scripts/metric-baselines.py --smoke-results tests/smoke-results/<run>      # CSVs from a VM smoke test (sample set)
+```
+
+Datasets: the sample set (unpacked from the published zip), the M31 night,
+California, Gamma Cygni 03-04, Rosette R, G and B. Each run's CLI output is
+kept in `tests/baseline-results/<time>/` (not committed).
+
+### What it checks
+
+Per frame, the new value must be within this distance of the baseline:
+
+| Metric | Allowed | Why |
+|---|---|---|
+| FWHM | ± 0.01 px | one step in the last digit the CSV writes (a value on a rounding edge can flip) |
+| Eccentricity | ± 0.001 | same |
+| SNR | ± 0.1 | same |
+| Stars | ± 0.5%, at least 3 | margin for small differences between machines |
+| PSF·S | ± 0.5% | same |
+| Score | ± 1 | whole numbers, relative to the folder |
+
+And with the standard filter (`-f 1.5 -e 0.5 -p 0.5`, as in the VM smoke test)
+**exactly the same frames** must be kept. A frame that flips is shown with its
+values next to the folder medians, so you can see how close to the limit it was.
+Frames missing from or added to a folder also fail.
+
+### Background: results are now reproducible
+
+When this was built (2026-10-13), identical runs on the same Mac gave slightly
+different numbers: star counts ±2 everywhere, and on Gamma Cygni SNR up to
+2.8% and PSF·S up to 1.8%. The cause was the star detection: the GPU returns
+candidates in a random order, and stars with exactly the same peak value
+(common in 16-bit data, especially saturated stars) kept that random order, so
+different stars were picked and measured. Fixed in 1.23.1 by breaking ties on
+position and combining parallel measurements in a fixed order. Since then,
+repeated runs — on this Mac and in the 27.2 beta 3 VM — give byte-identical
+results. `MetricsDeterminismTests` guard this.
+
+Builds before the fix (beta 10, App Store build 202) still vary, so they can
+fail on Gamma Cygni against these baselines. That is expected.
+
+### 👤 YOU
+
+- **When to run:** before every release, and after any change to star
+  detection, metrics, the score, the auto-flag filter or FITS reading.
+- **If it fails, don't update the baselines to make it pass.** First decide:
+  - *A bug?* Fix the code.
+  - *An intended change?* Check that the size and direction make sense —
+    the failure list shows old → new for every frame. Then run the
+    PixInsight comparison on M31 (`scripts/compare.py "/Volumes/FITS Blaster/Test Data/M31/LIGHT"`
+    after a CLI run there) and check the rank correlation didn't get worse.
+- **Updating:** `scripts/metric-baselines.py --update` prints how every metric
+  changed per dataset and writes the new baselines plus
+  `tests/baselines/baselines.json` (which build, commit and macOS made them).
+  Look at `git diff tests/baselines`, then commit with the reason in the message.
+- **A change in which frames the filter keeps** is a change users see in
+  Auto-Flag. Treat it as a behaviour change, not noise.
+- **Keep the test data unchanged** — adding or removing frames changes every
+  relative metric and the score.
+
+---
+
+## 6. Planned
 
 ### CLI `--render` (beta builds only)
 

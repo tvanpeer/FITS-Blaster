@@ -4,6 +4,13 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-13 — Testing: metric baselines
+
+### Testing
+- **Metric baselines** — `scripts/metric-baselines.py` runs command-line mode on the test datasets and compares every frame's FWHM, eccentricity, SNR, star count, PSF signal weight and score, and the frames kept by the standard filter, with stored baselines in `tests/baselines/`. `--update` writes new baselines after review. See `docs/internal/testing.md`.
+
+---
+
 ## 2026-10-13 — Fix: metrics varied between runs on the same files
 
 ### Fixed
