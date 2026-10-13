@@ -4,6 +4,29 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-13 — Fix: crash on launch (macOS 27, App Store build 202)
+
+### Bug fixes
+- **Crash on launch** — setting `window.toolbar` and `window.toolbarStyle = .unified` inside `viewDidMoveToWindow` caused AppKit constraint-update reentrancy during SwiftUI's initial layout pass on macOS 27. AppKit's `_postWindowNeedsUpdateConstraints` detected the re-entry and threw `NSGenericException`, converted by `NSApplication` to a fatal `SIGTRAP`. Fixed by moving toolbar configuration to `.windowToolbarStyle(.unified)` on the `WindowGroup` scene, which applies the style before any layout pass runs.
+- **Verified** — App Review's crash (build 199) reproduced in a VM on macOS 27.2 26B5086k: "more Update Constraints in Window passes than there are views in the window". The fixed build launches cleanly on the same clean VM; full-screen traffic lights still work.
+
+### Build
+- App Store build number bumped from 199 to 202 (past the 201 beta builds) for resubmission.
+
+---
+
+## 2026-10-12 — Refactor: one type per file, fix Binding anti-patterns, Canvas over GeometryReader
+
+### Code quality
+- **One type per file** — extracted 23 types from large files into their own Swift source files.
+- **`@Bindable` over `Binding(get:set:)`** — replaced manual binding construction with `@Bindable` where the source is an `@Observable` instance stored as `let`.
+- **`Canvas` over `GeometryReader`** — `RejectionOverlay` and `ViewportBox` now use `Canvas { context, size in }` which provides the container size directly.
+- **`Int` → `Double` in `AutoRejectConfig`** — `absoluteStarCountFloor` and `scoreFloor` are now `Double`, allowing direct `Slider` binding.
+- **`Set<String>` for toggle binding** — `ExportPanel.selectedHeaderKeys` changed from `[String]` to `Set<String>` with a subscript extension, enabling direct `Toggle` binding.
+- **`ContentFocusedValues` ViewModifier** — extracted all 20+ `focusedSceneValue` modifiers into a `ViewModifier` to avoid Swift type-checker timeout.
+
+---
+
 ## 2026-10-10 — Feature: zoom to fit button
 
 ### New features

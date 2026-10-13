@@ -24,15 +24,6 @@ struct ContentView: View {
             .preferredColorScheme(settings.preferredColorScheme)
             .background(WindowAccessor { window in
                 hostingWindow = window
-                // Attach a unified NSToolbar so macOS shows the traffic-light hover
-                // zone at the top of the screen in full-screen mode. Without a real
-                // toolbar the hover area doesn't exist and the window controls vanish.
-                // .unified merges the (empty) toolbar into the title bar so there is
-                // no extra toolbar strip in the windowed layout.
-                guard let window, window.toolbar == nil else { return }
-                let toolbar = NSToolbar(identifier: "main")
-                window.toolbar = toolbar
-                window.toolbarStyle = .unified
             })
             .onChange(of: settings.debayerColorImages) { _, _ in
                 guard !store.entries.isEmpty else { return }
@@ -260,9 +251,6 @@ struct DropTargetOverlay: View {
 
 // MARK: - Window Accessor
 
-// Uses viewDidMoveToWindow (not Task) so the callback fires during view-hierarchy
-// attachment, before any layout pass. The Task-based approach was triggering
-// constraint-update reentrancy on macOS 27 when launched without the app sandbox.
 private struct WindowAccessor: NSViewRepresentable {
     let onWindow: (NSWindow?) -> Void
 

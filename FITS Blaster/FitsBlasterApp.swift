@@ -71,6 +71,7 @@ struct FitsBlasterApp: App {
                 }
         }
         .defaultSize(width: 900, height: 700)
+        .windowToolbarStyle(.unified)
         .environment(settings)
         .environment(store)
         .environment(\.dynamicTypeSize, settings.dynamicTypeSize)
