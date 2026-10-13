@@ -323,7 +323,7 @@
     <div class="interface-grid">
         <div class="interface-item">
             <div class="interface-item-title">Zoom</div>
-            <p>Scales the image from 0.25× to 4×. Click the icon or the percentage label to reset to 1:1. Pinch on the trackpad also zooms. The zoom level persists across restarts.</p>
+            <p>Scales the image from 0.25× to 4×. Click the icon or the percentage label to jump to 1:1, or the fit button (↖↘) next to it to fit the whole image in the viewer. Pinch on the trackpad also zooms. The zoom level persists across restarts.</p>
         </div>
         <div class="interface-item">
             <div class="interface-item-title">Target Background</div>
@@ -348,7 +348,8 @@
             <div class="step-body">
                 <div class="step-title">Open your folder</div>
                 <p>Press <kbd>⌘O</kbd> or drag a folder onto the window. FITS Blaster starts loading and measuring quality metrics immediately — you can begin reviewing before the full set has finished loading.</p>
-                <p>If your session spans multiple subfolders (e.g. one per filter or night), check <strong>Include files from subfolders</strong> in the open panel. Each subfolder appears as a separate section in the sidebar.</p>
+                <p>If your session spans multiple subfolders (e.g. one per filter or night), turn on <strong>Include files from subfolders</strong> in the popover that appears when you click <strong>Open Folder…</strong> or press <kbd>⌘O</kbd>. Each subfolder appears as a separate section in the sidebar.</p>
+                <p>No images at hand? Download the <a href="samples/FITS-Blaster-Sample-M31.zip">M31 sample set</a> (255 MB, eight colour frames) to follow along.</p>
             </div>
         </div>
 
@@ -357,7 +358,7 @@
             <div class="step-body">
                 <div class="step-title">Read the session chart</div>
                 <p>Glance at the dot chart at the bottom. Each dot is one frame, coloured by filter group. Look for:</p>
-                <p><strong>Clusters of low dots</strong> — a run of frames where the metric (FWHM, SNR, Score…) dips clearly below the dashed median line. This usually means clouds, wind, a focus drift, or a guiding glitch. Use the metric buttons above the chart to switch between FWHM, Ecc, SNR, Stars, Score, and PSF·S (PSF Signal Weight — a transparency metric independent of seeing).</p>
+                <p><strong>Runs of bad frames</strong> — a stretch of frames where the metric is clearly worse than the dashed median line (higher FWHM, Ecc, or Sky BG; lower SNR, Stars, PSF·S, or Score). This usually means clouds, wind, a focus drift, or a guiding glitch. Use the metric buttons above the chart to switch between FWHM, Ecc, SNR, Stars, Sky BG, PSF·S (PSF Signal Weight, which drops with both haze and poor seeing), and Score. The button at the end of the row switches between dots and bars.</p>
                 <p><strong>Isolated outliers</strong> — single bad frames scattered through an otherwise good session.</p>
                 <p>Click any dot to jump to that frame in the viewer. The dot turns white to mark your position.</p>
             </div>
@@ -392,7 +393,8 @@
             <div class="step-body">
                 <div class="step-title">Hand off to your stacking tool</div>
                 <p>Point PixInsight, Siril, AstroPixelProcessor, or any other stacking tool at the same folder. Rejected frames are in <code>REJECTED/</code> and will not appear in a normal folder scan.</p>
-                <p>Changed your mind? Reopen the folder in FITS Blaster, switch to the <strong>Rejected</strong> view, select the frames, and press <kbd>U</kbd> (or <kbd>X</kbd> in toggle mode) to move them back.</p>
+                <p>Changed your mind? Reopen the folder with <strong>Include REJECTED folder</strong> turned on in the Open Folder popover, switch to the <strong>Rejected</strong> view, select the frames, and press <kbd>U</kbd> (or <kbd>X</kbd> in toggle mode) to move them back.</p>
+                <p>Want a record of the session? Click <strong>Export…</strong> to save a CSV, TSV, or text report with every frame's metrics and any FITS header values you choose (<a href="faq.html">see the FAQ</a>).</p>
             </div>
         </div>
     </div>
@@ -420,7 +422,7 @@
     <!-- ── Keys at a glance ── -->
     <h2>Keys at a Glance</h2>
 
-    <p>Every shortcut is configurable in <strong>Settings → Keyboard</strong>. These are the defaults.</p>
+    <p>Every shortcut is configurable in <strong>Settings → Interface</strong>. These are the defaults.</p>
 
     <h3>Navigation</h3>
     <table class="key-summary">
@@ -454,6 +456,8 @@
         <tr><td><kbd>G</kbd></td><td>Toggle Simple / Geek mode</td></tr>
         <tr><td><kbd>C</kbd></td><td>Toggle colour / greyscale (OSC cameras)</td></tr>
         <tr><td><kbd>R</kbd></td><td>Remove the current frame from the list (does not touch the file)</td></tr>
+        <tr><td><kbd>P</kbd></td><td>Play / pause — auto-advance through the frames</td></tr>
+        <tr><td><kbd>V</kbd></td><td>Flip the image 180° for display (does not touch the file)</td></tr>
         <tr><td><kbd>⌘O</kbd></td><td>Open a folder</td></tr>
     </table>
 
@@ -467,11 +471,11 @@
     </div>
 
     <div class="tip">
-        <strong>Use Auto-Flag for a first pass.</strong> Click <strong>Auto-Flag</strong> in the toolbar, set thresholds (e.g. FWHM &gt; 7 px, Score &lt; 40), and preview how many frames match. Apply it, then switch to the Flagged view to eyeball each one before committing to rejection.
+        <strong>Use Auto-Flag for a first pass.</strong> Click <strong>Auto-Flag</strong> in the toolbar, set thresholds (relative to each filter group's median by default, or fixed values such as FWHM &gt; 7 px or Score &lt; 40 in Absolute mode), and preview how many frames match. To catch haze or thin cloud, turn on the Sky BG and PSF Signal Weight criteria. Apply it, then switch to the Flagged view to eyeball each one before committing to rejection.
     </div>
 
     <div class="tip">
-        <strong>Single key reject/undo.</strong> In Settings → Keyboard, turn on <strong>Single key reject/undo (toggle)</strong> and assign it to the spacebar. You can then reject and undo with one thumb while navigating with the other hand. Many users prefer this to the two-key default.
+        <strong>Single key reject/undo.</strong> In Settings → Interface, turn on <strong>Single key reject/undo (toggle)</strong> and assign it to the spacebar. You can then reject and undo with one thumb while navigating with the other hand. Many users prefer this to the two-key default.
     </div>
 
     <div class="tip">

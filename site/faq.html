@@ -180,6 +180,20 @@
             color: #a0a0d0;
         }
 
+        .answer pre {
+            background: #1a1a2e;
+            border-radius: 6px;
+            padding: 10px 12px;
+            margin: 10px 0;
+            overflow-x: auto;
+        }
+
+        .answer pre code {
+            background: none;
+            padding: 0;
+            white-space: pre;
+        }
+
         table {
             width: 100%;
             border-collapse: collapse;
@@ -274,7 +288,7 @@
 <div class="container">
 
     <h1 id="top">Frequently Asked Questions</h1>
-    <p class="meta">FITS Blaster &nbsp;·&nbsp; Last updated: April 2026</p>
+    <p class="meta">FITS Blaster &nbsp;·&nbsp; Last updated: October 2026</p>
 
     <nav class="toc">
         <p>Jump to section</p>
@@ -295,7 +309,7 @@
     <details>
         <summary>What macOS version is required?</summary>
         <div class="answer">
-            <p>macOS 15.0 (Sequoia) or later.</p>
+            <p>macOS 15.6 (Sequoia) or later.</p>
         </div>
     </details>
 
@@ -320,6 +334,14 @@
         </div>
     </details>
 
+    <details id="sample-data">
+        <summary>Can I try FITS Blaster without my own images?</summary>
+        <div class="answer">
+            <p>Yes. Download the <a href="samples/FITS-Blaster-Sample-M31.zip">M31 sample set</a> (255 MB zip): eight raw 120 s light frames of the Andromeda Galaxy from one night, taken with a one-shot colour camera (ATR2600C, RGGB Bayer pattern) on a William Optics Zenithstar 73.</p>
+            <p>Unzip it, click <strong>Open Folder…</strong> in the toolbar, click <strong>Open Folder…</strong> again in the options popover, and select the <code>FITS-Blaster-Sample-M31</code> folder. The included <code>README.txt</code> lists how PixInsight's SubframeSelector rates each frame, so you can compare its ranking with FITS Blaster's. Two frames were taken through thin cloud.</p>
+        </div>
+    </details>
+
     <a href="#top" class="top-link">↑ Back to top</a>
 
     <!-- ── Loading Images ── -->
@@ -328,10 +350,9 @@
     <details>
         <summary>How do I open images?</summary>
         <div class="answer">
-            <p>There are four ways to load images into FITS Blaster:</p>
+            <p>There are three ways to load images into FITS Blaster:</p>
             <ol>
-                <li><strong>Menu / keyboard shortcut</strong> — use <strong>File → Open Folder… (⌘O)</strong> to open an entire folder.</li>
-                <li><strong>Open Folder button</strong> — click it in the toolbar at any time.</li>
+                <li><strong>Open Folder… button or ⌘O</strong> — a small popover appears with two options: <strong>Include files from subfolders</strong> and <strong>Include REJECTED folder</strong> (loads previously rejected frames, marked as rejected). Click <strong>Open Folder…</strong> in the popover, then choose the folder. The options start from your defaults in Settings → Files &amp; Folders; changes in the popover apply to this folder only.</li>
                 <li><strong>Drag &amp; drop onto the window</strong> — drag a folder or any number of FITS files from Finder and drop them onto the FITS Blaster window.</li>
                 <li><strong>Drag &amp; drop onto the app icon</strong> — drag files or a folder onto the FITS Blaster icon in the Dock or in Finder to open them directly, even if the app is not running yet.</li>
             </ol>
@@ -342,6 +363,14 @@
         <summary>What FITS formats are supported?</summary>
         <div class="answer">
             <p>FITS files with integer pixel data: BITPIX 8 (8-bit), BITPIX 16 (16-bit), and BITPIX 32 (32-bit). Floating-point FITS (BITPIX −32 or −64) are not supported and will be skipped with an error message. The supported extensions are <code>.fits</code>, <code>.fit</code>, and <code>.fts</code>.</p>
+        </div>
+    </details>
+
+    <details>
+        <summary>Can I preview FITS files in Finder?</summary>
+        <div class="answer">
+            <p>Yes. FITS Blaster installs Quick Look extensions, so Finder shows thumbnails for FITS files, and pressing the spacebar on a file shows a stretched preview. This also works for files the app itself doesn't load: floating-point FITS (BITPIX −32 and −64) and 3-channel colour FITS such as stacked integrations, including files over 1 GB.</p>
+            <p>FITS files in iCloud Drive only get a thumbnail once they are downloaded to your Mac. To keep thumbnails for an iCloud folder, choose <strong>Keep Downloaded</strong> on it in Finder.</p>
         </div>
     </details>
 
@@ -362,7 +391,7 @@
     <details>
         <summary>Can I open images from subfolders?</summary>
         <div class="answer">
-            <p>Yes. When opening a folder, check "Include files from subfolders" in the open panel. FITS Blaster will scan recursively and display each subfolder as a separate section in the sidebar. By default, calibration folders (FLAT, DARK, BIAS, CALIB) are skipped automatically; you can customise the exclusion list in Settings → Files &amp; Folders.</p>
+            <p>Yes. Click <strong>Open Folder…</strong> (or press ⌘O) and turn on <strong>Include files from subfolders</strong> in the popover. FITS Blaster will scan recursively and display each subfolder as a separate section in the sidebar. By default, calibration folders (FLAT, DARK, BIAS, CALIB) are skipped automatically; you can customise the exclusion list in Settings → Files &amp; Folders.</p>
         </div>
     </details>
 
@@ -409,10 +438,11 @@
         <div class="answer">
             <p>Three ways:</p>
             <ul>
-                <li><strong>Zoom slider</strong> — the slider in the display controls bar below the image (range 0.25×–4×). Click the zoom icon or the percentage label to reset to 1:1.</li>
+                <li><strong>Zoom slider</strong> — the slider in the display controls bar below the image (range 0.25×–4×). Click the zoom icon or the percentage label to jump to 1:1 (100 %).</li>
+                <li><strong>Zoom to fit</strong> — the fit button (↖↘ arrows) next to the zoom percentage scales the image to fill the viewer without scrolling.</li>
                 <li><strong>Trackpad pinch</strong> — pinch to zoom in or out directly on the image.</li>
             </ul>
-            <p>Both keep the current centre of the viewport fixed as you zoom, so you don't lose your place.</p>
+            <p>The slider and pinch keep the current centre of the viewport fixed as you zoom, so you don't lose your place.</p>
         </div>
     </details>
 
@@ -559,6 +589,8 @@
                 <li><strong>Click</strong> a dot to jump to that frame (the dot turns white to mark your position)</li>
                 <li><strong>Drag</strong> across a range of dots to add those frames to the Flagged view for closer inspection</li>
                 <li><strong>Filter by folder or filter group</strong> using the pill buttons above the chart, to focus on one subset at a time</li>
+                <li><strong>Choose the metric</strong> to plot with the buttons above the chart: FWHM, Ecc, SNR, Stars, Sky BG, PSF·S, or Score</li>
+                <li><strong>Switch between dots and bars</strong> with the small button at the end of that row; your choice is remembered</li>
             </ul>
             <p>The chart makes it easy to spot patterns — a dip in a single filter's dots usually points to a filter-specific problem, while a decline across all colours suggests clouds, wind, or a tracking issue.</p>
         </div>
@@ -612,7 +644,7 @@
     <details>
         <summary>How do I reject a frame?</summary>
         <div class="answer">
-            <p>Select a frame in the sidebar and press the reject key (default: <strong>X</strong>). You can customise this and all other key bindings in Settings → Keyboard.</p>
+            <p>Select a frame in the sidebar and press the reject key (default: <strong>X</strong>). You can customise this and all other key bindings in Settings → Interface.</p>
         </div>
     </details>
 
@@ -666,7 +698,7 @@
     <details>
         <summary>How do I undo a rejection?</summary>
         <div class="answer">
-            <p>It depends on the <strong>Single key reject/undo (toggle)</strong> setting in Settings → Keyboard:</p>
+            <p>It depends on the <strong>Single key reject/undo (toggle)</strong> setting in Settings → Interface:</p>
             <ul>
                 <li><strong>Toggle on (recommended):</strong> The same key both rejects and un-rejects. Press it once to reject a frame, press it again to undo. This is the simplest workflow — many users assign the spacebar.</li>
                 <li><strong>Toggle off:</strong> Reject and undo are separate key bindings, each configurable independently.</li>
@@ -678,7 +710,7 @@
     <details>
         <summary>How do I sort the sidebar?</summary>
         <div class="answer">
-            <p>Use the sort dropdown in the sidebar toolbar to choose between <strong>filename</strong> (the default, reflecting capture order) or any quality metric: <strong>FWHM</strong>, <strong>eccentricity</strong>, <strong>SNR</strong>, <strong>star count</strong>, or <strong>quality score</strong>. The up/down arrow button next to it reverses the sort direction. Sorting by quality score with the worst frames at the bottom makes it quick to select and reject the tail of the list as a group.</p>
+            <p>Use the sort dropdown in the sidebar toolbar to choose between <strong>filename</strong> (the default, reflecting capture order) or any quality metric: <strong>FWHM</strong>, <strong>Eccentricity</strong>, <strong>SNR</strong>, <strong>Stars</strong>, <strong>Sky BG</strong>, <strong>PSF Signal</strong>, or <strong>Score</strong>. <strong>Rejected</strong> sorts rejected frames to one end. The up/down arrow button next to it reverses the sort direction. Sorting by quality score with the worst frames at the bottom makes it quick to select and reject the tail of the list as a group.</p>
         </div>
     </details>
 
@@ -686,14 +718,20 @@
         <summary>What is Simple mode vs Geek mode?</summary>
         <div class="answer">
             <p><strong>Simple mode</strong> hides all numeric metrics and shows only the visual quality badge. It is useful for a quick visual pass or for users who prefer not to interpret numbers.</p>
-            <p><strong>Geek mode</strong> shows FWHM, eccentricity, SNR, and star count alongside each frame, and enables the session chart. Toggle between modes with the configured key (default: <strong>G</strong>) or the toolbar button, which shows the current mode name (<strong>Simple</strong> or <strong>Geek</strong>).</p>
+            <p><strong>Geek mode</strong> computes the quality metrics, shows them in the inspector panel on the right, and enables the session chart. For a compact row of metric values above the chart, turn on <strong>Show metric chips above session chart</strong> in Settings → Display. Toggle between modes with the configured key (default: <strong>G</strong>) or the toolbar button, which shows the current mode name (<strong>Simple</strong> or <strong>Geek</strong>).</p>
         </div>
     </details>
 
     <details>
         <summary>What is Auto-Flag?</summary>
         <div class="answer">
-            <p>Auto-Flag lets you set quality thresholds (e.g. "flag all frames with FWHM &gt; 7 px") and preview how many frames match before applying. The matching frames are added to the <strong>Flagged</strong> view so you can inspect them individually and decide which ones to actually reject. Access it from the toolbar.</p>
+            <p>Auto-Flag lets you set quality thresholds and preview how many frames match before applying. The matching frames are added to the <strong>Flagged</strong> view so you can inspect them individually and decide which ones to actually reject. Access it from the toolbar.</p>
+            <p>Thresholds work in one of two modes:</p>
+            <ul>
+                <li><strong>Relative</strong> (default) — compared with the median of the frame's filter group, e.g. flag frames whose FWHM is more than 1.5× the group median. This adapts automatically to each night's seeing.</li>
+                <li><strong>Absolute</strong> — fixed values, e.g. flag frames with FWHM above 3.5 px.</li>
+            </ul>
+            <p>Available criteria: FWHM, eccentricity, star count, SNR, sky background, PSF Signal Weight, and (absolute mode only) quality score. Sky background and PSF Signal Weight are off by default; they are the most useful criteria for catching haze, thin cloud, and moonlight, which barely change star shape.</p>
         </div>
     </details>
 
@@ -701,7 +739,21 @@
         <summary>What do I do after culling?</summary>
         <div class="answer">
             <p>Point your stacking tool (PixInsight, Siril, AstroPixelProcessor, etc.) at the same folder you opened in FITS Blaster. Rejected frames have been moved to a <code>REJECTED/</code> subfolder and will not appear in a normal folder scan. No additional steps are needed — your stacking tool will see only the frames you kept.</p>
-            <p>If you change your mind, reopen the folder in FITS Blaster, select the rejected frames, and undo the rejection before you start stacking.</p>
+            <p>If you change your mind, reopen the folder in FITS Blaster with <strong>Include REJECTED folder</strong> turned on in the Open Folder popover, select the rejected frames, and undo the rejection before you start stacking.</p>
+        </div>
+    </details>
+
+    <details>
+        <summary>Can I export a list of frames and their metrics?</summary>
+        <div class="answer">
+            <p>Yes. Click <strong>Export…</strong> in the toolbar to save the loaded frames as a file. The export sheet lets you choose:</p>
+            <ul>
+                <li><strong>Format</strong> — CSV, tab-separated (TSV), or plain text. CSV and TSV are for spreadsheets and scripts; the plain-text report is padded into aligned columns for reading in a text editor.</li>
+                <li><strong>File paths</strong> — absolute paths, paths relative to the folder all frames share, or filenames only.</li>
+                <li><strong>Include rejected frames</strong> — adds rejected frames with a <code>status</code> column (<code>kept</code> / <code>rejected</code>).</li>
+                <li><strong>FITS header columns</strong> — any header keys you want as extra columns, such as DATE-OBS, EXPTIME, FILTER, FOCUSPOS, or HUMIDITY. Keys that don't appear in any loaded file are dimmed.</li>
+            </ul>
+            <p>In Geek mode the export includes FWHM, eccentricity, SNR, star count, PSF Signal Weight, and score for each frame. Numbers always use a decimal point, whatever your region settings, so the files open correctly in any spreadsheet. Set your defaults in Settings → Export; changes in the export sheet apply to that export only.</p>
         </div>
     </details>
 
@@ -768,6 +820,24 @@
         </div>
     </details>
 
+    <details id="cli">
+        <summary>Can I run FITS Blaster from the command line?</summary>
+        <div class="answer">
+            <p>Yes, in the version downloaded from this website (not the Mac App Store version). Run the app's executable with a folder path, and FITS Blaster measures every frame without opening a window and writes a CSV file with the results:</p>
+            <pre><code>"/Applications/FITS Blaster.app/Contents/MacOS/FITS Blaster" ~/Astro/M31/LIGHT</code></pre>
+            <p>The folder path must start with <code>/</code> or <code>~</code>. By default the CSV is written to <code>frames.csv</code> inside that folder. Progress goes to the terminal, and the path of the CSV is printed when it's done, so you can use it in scripts. Your FITS files are never moved or changed.</p>
+            <p>Add filter criteria to export only the good frames. As in Auto-Flag, thresholds are relative to the filter group's median by default:</p>
+            <pre><code>"/Applications/FITS Blaster.app/Contents/MacOS/FITS Blaster" ~/Astro/M31/LIGHT -f 1.5 -e 0.5 -p 0.5 -o ~/Desktop/m31-keepers.csv</code></pre>
+            <p>This keeps frames with FWHM at most 1.5× the median, eccentricity at most 0.5, and PSF Signal Weight at least half the median. The most useful options:</p>
+            <ul>
+                <li><code>-o</code> output file &nbsp;·&nbsp; <code>-S</code> include subfolders &nbsp;·&nbsp; <code>-r</code> include the REJECTED folder (marked <code>status=rejected</code>)</li>
+                <li><code>-m rel|abs</code> threshold mode &nbsp;·&nbsp; <code>-f</code> FWHM &nbsp;·&nbsp; <code>-e</code> eccentricity &nbsp;·&nbsp; <code>-n</code> stars &nbsp;·&nbsp; <code>-s</code> SNR &nbsp;·&nbsp; <code>-b</code> sky background &nbsp;·&nbsp; <code>-p</code> PSF Signal Weight &nbsp;·&nbsp; <code>-q</code> score (absolute mode)</li>
+                <li><code>-P rel|abs</code> path style &nbsp;·&nbsp; <code>-H DATE-OBS,FILTER,…</code> FITS header columns</li>
+            </ul>
+            <p>Run it with <code>--help</code> for the full list. For the beta, use <code>FITS Blaster Beta.app</code> in the path. If you get “permission denied” for a folder in iCloud Drive, give FITS Blaster Full Disk Access in System Settings → Privacy &amp; Security → Full Disk Access.</p>
+        </div>
+    </details>
+
     <a href="#top" class="top-link">↑ Back to top</a>
 
     <!-- ── Support & Donations ── -->
@@ -816,14 +886,18 @@
     <details>
         <summary>What data does FITS Blaster collect?</summary>
         <div class="answer">
-            <p>None. FITS Blaster does not collect analytics, telemetry, or usage data of any kind. No network requests are ever made.</p>
+            <p>None. FITS Blaster does not collect analytics, telemetry, or usage data of any kind. The only network request is the daily update check in the version downloaded from this website, which fetches the list of available versions and sends nothing about you or your images. The Mac App Store version makes no network requests at all; the App Store handles its updates.</p>
         </div>
     </details>
 
     <details>
         <summary>Does FITS Blaster require access to my entire disk?</summary>
         <div class="answer">
-            <p>No. FITS Blaster is sandboxed and can only access folders you explicitly open via the open panel or drag &amp; drop. It stores a security-scoped bookmark so it can reopen the same folder without asking again in future sessions.</p>
+            <p>No. FITS Blaster only reads the folders you open, and the only change it ever makes on disk is moving rejected frames into, and back out of, a <code>REJECTED/</code> subfolder.</p>
+            <ul>
+                <li><strong>Mac App Store version</strong> — sandboxed by macOS: it can only access folders you choose in the open panel or drag onto the window.</li>
+                <li><strong>Version from this website</strong> — not sandboxed, because the command-line mode needs to read any folder path you give it. It still only reads the folders you open. macOS privacy protection still applies: for folders in iCloud Drive you may need to give FITS Blaster Full Disk Access in System Settings → Privacy &amp; Security.</li>
+            </ul>
         </div>
     </details>
 

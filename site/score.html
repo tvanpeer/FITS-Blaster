@@ -405,11 +405,13 @@ D           =  √(C² + S₂²)
 
     <p>Star count uses a <strong>log scale</strong> so that a frame with 50 stars is not penalised as harshly as a frame with 0 stars.</p>
 
-    <p>The weighted average of active sub-scores is scaled to 0–100:</p>
+    <p>The weighted average of the available sub-scores is scaled to 0–100 and rounded down:</p>
 
-    <pre>score = round( (Σ wᵢ · sᵢ) / (Σ wᵢ) × 100 )</pre>
+    <pre>score = ⌊ (Σ wᵢ · sᵢ) / (Σ wᵢ) × 100 ⌋</pre>
 
-    <p>If no metrics are enabled, the score is 0.</p>
+    <p>If a metric could not be measured for a frame, it is left out and the remaining weights are rescaled. If none could be measured (for example, no stars were detected), the score is 0.</p>
+
+    <p>Sky background and PSF Signal Weight are not part of the score. Because the score uses fixed thresholds and is driven mostly by star shape, haze or thin cloud may lower it only slightly. To catch those frames, use the Sky BG or PSF Signal Weight criteria in Auto-Flag, or sort or chart by those metrics.</p>
 
     <!-- ── Badge colours ── -->
     <h2 id="badges">Badge Colours</h2>

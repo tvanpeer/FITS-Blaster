@@ -161,7 +161,7 @@
 <div class="container">
 
     <h1>Privacy Policy</h1>
-    <p class="meta">App: FITS Blaster &nbsp;·&nbsp; Developer: Tom van Peer &nbsp;·&nbsp; Last updated: March 2026</p>
+    <p class="meta">App: FITS Blaster &nbsp;·&nbsp; Developer: Tom van Peer &nbsp;·&nbsp; Last updated: October 2026</p>
 
     <div class="summary">
         FITS Blaster does not collect, transmit, or share any personal data. Everything stays on your Mac.
@@ -170,7 +170,7 @@
     <h2>What data the app accesses</h2>
 
     <p><strong style="color:#c8c8e0;">Your image files</strong><br>
-    The app reads FITS image files from folders you explicitly open. It never modifies, copies, or transmits your files. File access is governed by macOS's sandbox — the app can only reach files and folders you have granted it access to.</p>
+    The app reads FITS image files from folders you explicitly open. It never modifies, copies, or transmits your files; the only change it makes on disk is moving frames you reject into a <code>REJECTED</code> subfolder, and back if you undo. The Mac App Store version is sandboxed by macOS and can only reach the folders you choose. The version downloaded from astrophoto-app.com is not sandboxed, so that its command-line mode can read folder paths you type, but it likewise only reads the folders you open.</p>
 
     <p><strong style="color:#c8c8e0;">Your preferences</strong><br>
     Settings such as key bindings, display options, and window layout are stored locally in your Mac's standard user preferences (macOS UserDefaults). This data never leaves your device.</p>
@@ -187,13 +187,14 @@
         <li>No crash reports sent to any server</li>
         <li>No advertising identifiers</li>
         <li>No data shared with third parties</li>
-        <li>No network connections of any kind</li>
+        <li>No network connections, except the update check in the version downloaded from astrophoto-app.com (see below)</li>
     </ul>
 
     <hr>
 
     <h2>Third-party services</h2>
-    <p>The app uses no third-party SDKs, frameworks, or services. It relies exclusively on Apple's own frameworks (SwiftUI, Metal, Accelerate, Foundation).</p>
+    <p>The Mac App Store version uses no third-party SDKs, frameworks, or services. It relies exclusively on Apple's own frameworks (SwiftUI, Metal, Accelerate, Foundation).</p>
+    <p>The version downloaded from astrophoto-app.com also includes <a href="https://sparkle-project.org">Sparkle</a>, an open-source update framework. Once a day it downloads the list of available versions from astrophoto-app.com; updates themselves are downloaded from GitHub. Like any web request, these requests reveal your IP address to the servers involved. The request identifies only the app and its version. No personal data, system information, or information about your images is sent.</p>
 
     <hr>
 
