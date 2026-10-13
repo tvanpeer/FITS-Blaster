@@ -4,6 +4,34 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-13 — Command-line mode, PSF Signal Weight, better colour-camera metrics
+
+### Added
+- **Command-line mode** — run the app's executable with a folder path to measure every frame without opening a window and write a CSV of the results. Add quality thresholds to export only the frames that pass. Run it with `--help` for all options, or see the FAQ. Not available in the Mac App Store version.
+- **PSF Signal Weight (PSF·S)** — a new metric for transparency and seeing: star peak brightness relative to sky noise. Shown in the inspector, session chart, sort menu, and exports, and available as an Auto-Flag criterion.
+- **Zoom to fit** — a fit button next to the zoom percentage scales the image to fill the viewer.
+- **Zoom anchor** — click the image to pin a point; zooming keeps it centred, and it stays in place as you step through frames.
+- **Target Background** slider replaces the Brightness slider, matching PixInsight's convention.
+- **Sample data** — an M31 sample set to try FITS Blaster without your own images (see the FAQ).
+
+### Improved
+- **Colour (OSC) cameras** — FWHM and eccentricity are now measured on debayered, full-resolution star images. Rankings agree closely with PixInsight's SubframeSelector.
+- **Eccentricity** detects elongated stars at any angle, not just horizontal or vertical.
+- **Finder thumbnails** — FITS thumbnails no longer fall back to the app icon in Finder's icon view, and files in iCloud Drive that aren't downloaded no longer stall other thumbnails.
+- **Open Folder options** (subfolders, REJECTED folder) now appear in a popover on the Open Folder button and ⌘O.
+
+### Changed
+- The quality score always uses every metric that could be measured; the per-metric on/off settings are gone.
+- The metric chips above the session chart are now optional (Settings → Display).
+- The version downloaded from the website is no longer sandboxed, so command-line mode can read any folder you give it.
+
+### Fixed
+- Crash at launch on some macOS 27 versions.
+- The selected frame was lost when switching between All, Flagged, and Rejected and back.
+- The session chart's cursor dot didn't follow navigation, and single-frame folders drew outside the chart.
+
+---
+
 ## 2026-10-13 — Fix: crash on launch (macOS 27, App Store build 202)
 
 ### Bug fixes
