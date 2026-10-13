@@ -18,17 +18,22 @@ import Accelerate
 struct GreyClips: Sendable {
     let low: Float
     let high: Float
-    let midtone: Float  // MTF midtone parameter derived from STF statistics
+    let midtone: Float     // MTF midtone parameter derived from STF statistics
+    let background: Float  // Sky background (sample median) the midtone was derived from
 
     var isValid: Bool { high > low }
 
+    /// Per-group shared clips. Low, high and background are medians across the group;
+    /// the midtone is recomputed from them rather than taken as a median of its own,
+    /// because each image's midtone only fits that image's own low/high pair.
     static func median(of clips: [GreyClips]) -> GreyClips {
-        guard !clips.isEmpty else { return GreyClips(low: 0, high: 1, midtone: 0.25) }
-        let mid      = clips.count / 2
-        let lows     = clips.map(\.low).sorted()
-        let highs    = clips.map(\.high).sorted()
-        let midtones = clips.map(\.midtone).sorted()
-        return GreyClips(low: lows[mid], high: highs[mid], midtone: midtones[mid])
+        guard !clips.isEmpty else { return GreyClips(low: 0, high: 1, midtone: 0.25, background: 0.1) }
+        let mid         = clips.count / 2
+        let low         = clips.map(\.low).sorted()[mid]
+        let high        = clips.map(\.high).sorted()[mid]
+        let background  = clips.map(\.background).sorted()[mid]
+        let midtone     = ImageStretcher.mtfMidtone(shadowClip: low, highClip: high, background: background)
+        return GreyClips(low: low, high: high, midtone: midtone, background: background)
     }
 }
 
@@ -44,24 +49,34 @@ struct BayerClips: Sendable {
     let midG: Float  // MTF midtone for G channel
     let loB, hiB: Float
     let midB: Float  // MTF midtone for B channel
+    /// Per-channel sky background (sample median) each midtone was derived from.
+    let bgR, bgG, bgB: Float
 
     var isValid: Bool { hiR > loR && hiG > loG && hiB > loB }
 
-    /// Compute per-channel medians from a collection of per-image clips.
+    /// Per-folder shared clips. Low, high and background are per-channel medians;
+    /// each midtone is recomputed from them rather than taken as a median of its own,
+    /// because an image's midtone only fits that image's own low/high pair. Mixing
+    /// them (e.g. one frame's high with another frame's midtone) causes colour casts.
     static func median(of clips: [BayerClips]) -> BayerClips {
         guard !clips.isEmpty else {
             return BayerClips(loR: 0, hiR: 1, midR: 0.25,
                               loG: 0, hiG: 1, midG: 0.25,
-                              loB: 0, hiB: 1, midB: 0.25)
+                              loB: 0, hiB: 1, midB: 0.25,
+                              bgR: 0.1, bgG: 0.1, bgB: 0.1)
         }
         let mid = clips.count / 2
         func med(_ kp: KeyPath<BayerClips, Float>) -> Float {
             clips.map { $0[keyPath: kp] }.sorted()[mid]
         }
+        let loR = med(\.loR), hiR = med(\.hiR), bgR = med(\.bgR)
+        let loG = med(\.loG), hiG = med(\.hiG), bgG = med(\.bgG)
+        let loB = med(\.loB), hiB = med(\.hiB), bgB = med(\.bgB)
         return BayerClips(
-            loR: med(\.loR), hiR: med(\.hiR), midR: med(\.midR),
-            loG: med(\.loG), hiG: med(\.hiG), midG: med(\.midG),
-            loB: med(\.loB), hiB: med(\.hiB), midB: med(\.midB)
+            loR: loR, hiR: hiR, midR: ImageStretcher.mtfMidtone(shadowClip: loR, highClip: hiR, background: bgR),
+            loG: loG, hiG: hiG, midG: ImageStretcher.mtfMidtone(shadowClip: loG, highClip: hiG, background: bgG),
+            loB: loB, hiB: hiB, midB: ImageStretcher.mtfMidtone(shadowClip: loB, highClip: hiB, background: bgB),
+            bgR: bgR, bgG: bgG, bgB: bgB
         )
     }
 }
@@ -469,8 +484,7 @@ struct ImageStretcher {
     /// medians and call `createImage(inputBuffer:clips:)` for the normalisation pass.
     static func computeGreyClips(_ buffer: MTLBuffer, pixelCount: Int) -> GreyClips {
         let ptr = buffer.contents().assumingMemoryBound(to: Float.self)
-        let (shadowClip, highClip, midtone) = computeSTFClips(ptr, count: pixelCount)
-        return GreyClips(low: shadowClip, high: highClip, midtone: midtone)
+        return computeSTFStatistics(ptr, count: pixelCount)
     }
 
     /// GPU-accelerated Bayer demosaic + stretch using pre-computed clip bounds.
@@ -749,8 +763,8 @@ struct ImageStretcher {
             }
         }
 
-        func stf(_ s: inout [Float]) -> (lo: Float, hi: Float, mid: Float) {
-            guard s.count > 1 else { return (0, 1, 0.25) }
+        func stf(_ s: inout [Float]) -> (lo: Float, hi: Float, mid: Float, bg: Float) {
+            guard s.count > 1 else { return (0, 1, 0.25, 0.1) }
             vDSP.sort(&s, sortOrder: .ascending)
             let n  = s.count
             let hi = s[min(n - 1, Int(Float(n - 1) * 0.9999))]
@@ -759,19 +773,27 @@ struct ImageStretcher {
             vDSP.sort(&madArr, sortOrder: .ascending)
             let mad = madArr[madArr.count / 2]
             let lo  = max(0, median - 2.8 * mad)
-            let range = hi - lo
-            guard range > 0 else { return (lo, hi, 0.25) }
-            let x   = max(1e-4, min(0.9999, (median - lo) / range))
-            let mid = max(0.01, min(0.99, 3 * x / (2 * x + 1)))
-            return (lo, hi > lo ? hi : lo + 1, mid)
+            guard hi > lo else { return (lo, hi, 0.25, median) }
+            return (lo, hi, mtfMidtone(shadowClip: lo, highClip: hi, background: median), median)
         }
 
-        let (loR, hiR, midR) = stf(&rSamples)
-        let (loG, hiG, midG) = stf(&gSamples)
-        let (loB, hiB, midB) = stf(&bSamples)
+        let (loR, hiR, midR, bgR) = stf(&rSamples)
+        let (loG, hiG, midG, bgG) = stf(&gSamples)
+        let (loB, hiB, midB, bgB) = stf(&bSamples)
         return BayerClips(loR: loR, hiR: hiR, midR: midR,
                           loG: loG, hiG: hiG, midG: midG,
-                          loB: loB, hiB: hiB, midB: midB)
+                          loB: loB, hiB: hiB, midB: midB,
+                          bgR: bgR, bgG: bgG, bgB: bgB)
+    }
+
+    /// MTF midtone that maps `background` to 25% grey after clipping to
+    /// [`shadowClip`, `highClip`]: m = 3x / (2x + 1), where x is the normalised background.
+    /// Returns 0.25 when the clip range is empty.
+    static func mtfMidtone(shadowClip: Float, highClip: Float, background: Float) -> Float {
+        let range = highClip - shadowClip
+        guard range > 0 else { return 0.25 }
+        let x = max(1e-4, min(0.9999, (background - shadowClip) / range))
+        return max(0.01, min(0.99, 3 * x / (2 * x + 1)))
     }
 
     /// Compute STF (Screen Transfer Function) shadow clip, highlight clip, and MTF midtone.
@@ -781,7 +803,15 @@ struct ImageStretcher {
     /// normalized median after shadow clipping.
     static func computeSTFClips(_ ptr: UnsafePointer<Float>, count: Int)
         -> (shadowClip: Float, highClip: Float, midtone: Float) {
-        guard count > 0 else { return (0, 1, 0.25) }
+        let clips = computeSTFStatistics(ptr, count: count)
+        return (clips.low, clips.high, clips.midtone)
+    }
+
+    /// Same as `computeSTFClips`, but also keeps the sky background (sample median) so
+    /// per-group medians can recompute a midtone that matches the shared clip range.
+    static func computeSTFStatistics(_ ptr: UnsafePointer<Float>, count: Int) -> GreyClips {
+        let fallback = GreyClips(low: 0, high: 1, midtone: 0.25, background: 0.1)
+        guard count > 0 else { return fallback }
         let sampleStride = max(1, count / percentileSampleCount)
         var sample = [Float]()
         sample.reserveCapacity(min(count, percentileSampleCount))
@@ -791,7 +821,7 @@ struct ImageStretcher {
             if v > 0 { sample.append(v) }
             i += sampleStride
         }
-        guard sample.count > 10 else { return (0, 1, 0.25) }
+        guard sample.count > 10 else { return fallback }
         vDSP.sort(&sample, sortOrder: .ascending)
         let n        = sample.count
         let highClip = sample[min(n - 1, Int(Float(n - 1) * 0.9999))]
@@ -800,11 +830,8 @@ struct ImageStretcher {
         vDSP.sort(&madArr, sortOrder: .ascending)
         let mad        = madArr[madArr.count / 2]
         let shadowClip = max(0, median - 2.8 * mad)
-        let range      = highClip - shadowClip
-        guard range > 0 else { return (shadowClip, highClip, 0.25) }
-        let x       = max(1e-4, min(0.9999, (median - shadowClip) / range))
-        let midtone = max(0.01, min(0.99, 3 * x / (2 * x + 1)))
-        return (shadowClip, highClip, midtone)
+        let midtone    = mtfMidtone(shadowClip: shadowClip, highClip: highClip, background: median)
+        return GreyClips(low: shadowClip, high: highClip, midtone: midtone, background: median)
     }
 
     /// Estimate from a raw pointer — kept for MetricsCalculator histogram usage.

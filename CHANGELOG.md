@@ -4,6 +4,16 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-13 — Fix: colour cast when frames in a folder differ
+
+### Fixed
+- **Colour cast in the colour view** — with Colour on, a folder could be shown with a strong colour cast; the 8-frame M31 sample set looked magenta. The shared per-folder stretch combined medians of each clip value separately, so one frame's highlight clip was paired with another frame's midtone. The midtone is now recomputed from the folder's median shadow clip, highlight clip and sky background, which keeps the background neutral. The same correction applies to the shared greyscale stretch of mono frames.
+
+### Tests
+- `ClipNormalisationTests` — shared clips for one frame, the sample-set green values, the midtone helper and STF statistics.
+
+---
+
 ## 2026-10-13 — Command-line mode, PSF Signal Weight, better colour-camera metrics
 
 ### Added
