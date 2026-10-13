@@ -134,7 +134,7 @@ extension MetricsCalculator {
             }
         }
 
-        candidates.sort { $0.peak > $1.peak }
+        candidates.sort(by: StarCandidate.brighterFirst)
         return candidates
     }
 
@@ -227,7 +227,7 @@ extension MetricsCalculator {
             candidates.append(StarCandidate(x: x, y: y, peak: floatPtr[y * width + x]))
         }
 
-        candidates.sort { $0.peak > $1.peak }
+        candidates.sort(by: StarCandidate.brighterFirst)
         return GPUDetectionResult(candidates: candidates, totalFound: totalFound)
     }
 }

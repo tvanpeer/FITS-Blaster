@@ -4,6 +4,16 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-13 — Fix: metrics varied between runs on the same files
+
+### Fixed
+- **Reproducible metrics** — opening the same folder twice could give slightly different numbers: star counts varied by one or two, and on some data (such as a bright star field) SNR and PSF signal weight by a few percent and eccentricity in the third decimal. Stars with exactly the same peak brightness were ordered at random, so different stars were measured each time. Ties are now broken by position and parallel measurements are combined in a fixed order; the same files always give the same metrics. Values on affected frames change once, by no more than they already varied.
+
+### Tests
+- `MetricsDeterminismTests` — candidate order and star selection with equal peaks, and repeated GPU measurement of an image with 625 equally bright stars.
+
+---
+
 ## 2026-10-13 — Testing: rendering tests on real data
 
 ### Testing
