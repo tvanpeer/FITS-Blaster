@@ -16,3 +16,6 @@ tests/benchmarks/*.json
 bin/
 *.dmg
 build/
+
+# Rendering test results (scripts/run-render-tests.sh)
+tests/render-results/
