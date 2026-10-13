@@ -4,6 +4,14 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-13 — Testing: VM smoke test and testing guide
+
+### Testing
+- **VM smoke test** — `scripts/vm-smoke.sh` installs a DMG, a local build or a GitHub release in a test VM over SSH and checks signing, notarisation, bundle contents, launch (no crash, exception or constraint loop) and command-line mode on the sample set. Results go to `tests/smoke-results/` (not committed).
+- **Testing guide** — `docs/internal/testing.md` describes every kind of test, including the manual checks the person running them must do, and how to manage the test VMs. The release procedure now includes a smoke test before tagging and after publishing.
+
+---
+
 ## 2026-10-13 — Command-line mode, PSF Signal Weight, better colour-camera metrics
 
 ### Added
