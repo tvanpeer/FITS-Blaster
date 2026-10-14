@@ -407,23 +407,36 @@ on this Mac).
 
 User `fitstester`, key `~/.ssh/fitsvm_ed25519`, host entries in `~/.ssh/config`.
 
-**Restore a VM** (shut it down in VirtualBuddy first — never while it runs):
+**Restore a VM** (shut it down in VirtualBuddy first — never while it runs).
+In VirtualBuddy (preferred, no restart needed):
+
+1. Delete the working VM (e.g. `27.2B3`).
+2. **Duplicate** the clean copy (`27.2B3-clean`) — don't start it.
+3. Rename the duplicate to the working name (`27.2B3`).
+
+Checked 2026-10-14: Duplicate makes an APFS clone (instant, almost no extra
+space) — the disk image shares every block with the clean copy and the machine
+identifier is the same. Only VirtualBuddy's own ID for the VM (`uuid` in
+`.vbdata/Metadata.plist`) is new.
+
+From Terminal (also works, but then quit and reopen VirtualBuddy):
 
 ```
 cd "/Volumes/FITS Blaster/VMs"
 rm -rf 27.2B3.vbvm && cp -cRp 27.2B3-clean.vbvm 27.2B3.vbvm
 ```
 
-`cp -c` makes an APFS clone: instant, and it takes almost no extra space.
-Keep VMs on this volume; copying one to another disk loses the sharing.
+`cp -c` also makes an APFS clone, but it keeps the clean copy's VirtualBuddy
+ID, so VirtualBuddy then sees two VMs with the same ID — possibly why a VM
+restored this way hung with a spinning wheel on 2026-10-13 until VirtualBuddy
+was restarted (not verified). Keep VMs on this volume; copying one to another
+disk loses the sharing.
 
 👤 **YOU:**
 - **Never start a `-clean` VM.** It appears in VirtualBuddy's list next to the
   working VM; starting it (even without logging in) changes it, and every
   later restore inherits those changes.
-- **Quit and reopen VirtualBuddy after a restore.** On 2026-10-13 a restored
-  VM hung with a spinning wheel and never started until VirtualBuddy was
-  restarted (another restore earlier that day started without a restart).
+- **After a Terminal restore, quit and reopen VirtualBuddy.**
 
 **Add a VM for a new macOS version:**
 1. Create it in VirtualBuddy (name like `27.3B1`).

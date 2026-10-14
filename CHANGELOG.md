@@ -4,6 +4,13 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-14 — Docs: restoring test VMs with VirtualBuddy
+
+### Testing
+- `docs/internal/testing.md` — test VMs are now restored with VirtualBuddy's Duplicate (checked to make an APFS clone, with a new VirtualBuddy ID), which needs no VirtualBuddy restart; the Terminal `cp -c` restore remains as an alternative.
+
+---
+
 ## 2026-10-14 — Testing: CLI render check in the VM smoke test
 
 ### Testing
