@@ -4,6 +4,15 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-14 — Testing: CLI render check in the VM smoke test
+
+### Testing
+- **CLI `--render` (beta builds only)** — a test-only command-line option that writes every frame as the app renders it (colour frames with Colour on, mono in greyscale) as PNGs, plus each frame's background R, G, B to `backgrounds.csv`; `--render-typical` writes only each folder's typical frame. It is compiled in only with the `BETA` condition, which the release workflow now sets for beta tags and `scripts/build-beta.sh` sets for local builds; stable and App Store builds don't contain it, and it is not listed in `--help`.
+- **VM smoke test** — for beta builds it now renders the sample set, checks the typical frame's background with the same limits as the rendering tests, checks the metrics are unchanged by `--render`, and copies the PNGs back for a visual check. Stable builds report SKIP.
+- The pixel measurement used by the rendering tests moved into the app (`RenderedPixels.swift`) so both use the same code.
+
+---
+
 ## 2026-10-13 — Testing: metric baselines
 
 ### Testing

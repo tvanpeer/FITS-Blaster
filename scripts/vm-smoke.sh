@@ -3,7 +3,8 @@
 #
 # Copies the DMG and the M31 sample set into the VM, installs the app, checks
 # signing and notarisation, launches it and checks it stays up without crashes
-# or layout exceptions, and runs command-line mode on the sample set.
+# or layout exceptions, and runs command-line mode on the sample set. Beta builds
+# also render the sample set (CLI --render); the PNGs come back in out/render/.
 # See docs/internal/testing.md — including what you must do before and after.
 #
 # Usage:
@@ -20,7 +21,7 @@
 # Examples:
 #   scripts/vm-smoke.sh fitsvm-b3 --tag v1.23-beta.10
 #   scripts/vm-smoke.sh fitsvm ~/Downloads/FITS-Blaster-1.23.1-beta.1.dmg --quit
-#   scripts/vm-smoke.sh fitsvm build/Release/"FITS Blaster.app" --dev-build
+#   scripts/vm-smoke.sh fitsvm "$(scripts/build-beta.sh)" --dev-build
 #
 # Results go to tests/smoke-results/<time>-<host>-<dmg>/ (not committed).
 # Exit status: 0 when every check passed, 1 otherwise.

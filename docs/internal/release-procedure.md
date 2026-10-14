@@ -19,9 +19,12 @@ test.
   the release touches loading, the stretch or colour), and look at the PNGs.
 - Run the metric baselines: `scripts/metric-baselines.py`. Any failure blocks
   the release until it is explained (see testing.md).
-- Build Release and run the VM smoke test on a clean VM:
-  `scripts/vm-smoke.sh <vm> "<path>/FITS Blaster.app" --dev-build`,
-  then do the manual checks in the VM window.
+- Build a beta Release and run the VM smoke test on a clean VM:
+  `scripts/vm-smoke.sh <vm> "$(scripts/build-beta.sh)" --dev-build`,
+  then do the manual checks in the VM window and look at the rendered PNGs in
+  `tests/smoke-results/<run>/out/render/`. (Use the beta build for stable
+  releases too: the app is the same apart from the test-only `--render`
+  option, which the smoke test needs.)
 
 ## Publish
 

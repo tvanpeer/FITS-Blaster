@@ -15,13 +15,13 @@ a human looking at the app.
 
 | Layer | What it checks | How to run | Status |
 |---|---|---|---|
-| Unit and integration tests | Metrics, scoring, FITS reading, stretch clips, GPU vs CPU — on synthetic data | Xcode ⌘U | Exists (216 tests) |
+| Unit and integration tests | Metrics, scoring, FITS reading, stretch clips, GPU vs CPU — on synthetic data | Xcode ⌘U | Exists (223 tests) |
 | Benchmarks | Load and measure speed on real data | `scripts/run-benchmark.sh` | Exists |
 | PixInsight comparison | Our metrics vs PixInsight SubframeSelector | `scripts/compare.py` | Exists |
 | **VM smoke test** | The real DMG on other macOS versions: install, signing, launch, CLI | `scripts/vm-smoke.sh` | **New** |
 | **Rendering tests on real data** | Colour and brightness of rendered frames | `scripts/run-render-tests.sh` | **New** |
 | **Metric baselines** | Metrics don't change between versions unless we mean them to | `scripts/metric-baselines.py` | **New** |
-| CLI `--render` (beta builds only) | Rendering of the shipped binary, without the GUI | CLI | Planned |
+| **CLI `--render`** (beta builds only) | Rendering of the shipped binary in the VMs, without the GUI | Part of `scripts/vm-smoke.sh` | **New** |
 
 ---
 
@@ -72,12 +72,18 @@ clean VM, not on this Mac.
 | CLI `--help` | Prints usage and exits 0 |
 | CLI, no filter | Exits 0 and writes one CSV row per sample frame |
 | CLI, filtered | `-f 1.5 -e 0.5 -p 0.5` exits 0 and keeps at least one frame |
+| Render (beta builds) | `--render` writes a PNG and a background for every frame; **SKIP** for stable builds, which don't have it |
+| Render: metrics | The metrics CSV with `--render` is identical to the one without |
+| Render: colour | Every colour frame got a colour render |
+| Render: typical frame | Background R, G, B within 4 of each other and each within 63 ± 6 — the same limits as the [rendering tests](#4-rendering-tests-on-real-data-scriptsrun-render-testssh) |
 
 ### What it cannot check
 
-- **Anything you see.** It cannot take screenshots in the VM (macOS blocks
-  screen capture over SSH). Colours, layout, missing controls, a blank window —
-  all invisible to the script.
+- **Anything you see in the app.** It cannot take screenshots in the VM (macOS
+  blocks screen capture over SSH). Layout, missing controls, a blank window —
+  all invisible to the script. For beta builds it does bring back the rendered
+  frames as PNGs (see [section 6](#6-cli---render-beta-builds-only)), but
+  someone has to look at them.
 - **Interaction.** It doesn't open folders in the GUI, click, flag, reject or
   export.
 - **Metric values.** It checks the CSV has the right shape, not that the
@@ -94,10 +100,12 @@ clean VM, not on this Mac.
 3. **Leave the VM window alone** while the script runs; clicking in it can
    affect the launch check.
 4. **Pick what to test:**
-   - *Before tagging* (recommended for every release): a local Release build
-     — `scripts/vm-smoke.sh <vm> "<path>/FITS Blaster.app" --dev-build`.
-     Remember that a pushed beta tag goes live to beta users immediately, so
-     this is the only test that happens before users get the build.
+   - *Before tagging* (recommended for every release): a local beta build —
+     `scripts/vm-smoke.sh <vm> "$(scripts/build-beta.sh)" --dev-build`.
+     `build-beta.sh` builds Release with the `BETA` flag, so the render check
+     runs too. Remember that a pushed beta tag goes live to beta users
+     immediately, so this is the only test that happens before users get the
+     build.
    - *After the release workflow*: the published DMG —
      `scripts/vm-smoke.sh <vm> --tag <tag>`. This also checks notarisation.
 
@@ -110,8 +118,9 @@ scripts/vm-smoke.sh fitsvm-b3 --tag v1.23-beta.10
 Each check prints `PASS`, `WARN`, `FAIL` or `SKIP`. The last lines give the
 result and where the sample set was unpacked in the VM. Results are saved in
 `tests/smoke-results/<time>-<vm>-<build>/` on this Mac (not committed):
-`smoke.log` plus `out/` with the CSVs, the CLI's stderr, the filtered app log
-and any crash reports.
+`smoke.log` plus `out/` with the CSVs, the CLI's stderr, the filtered app log,
+any crash reports and — for beta builds — `render/` with the rendered PNGs and
+`backgrounds.csv`.
 
 ### 👤 YOU: after running
 
@@ -125,7 +134,8 @@ The app is left open in the VM (unless you passed `--quit`). In the VM window:
 3. **Colour:** switch Colour on. The sky background should look roughly
    neutral grey — **not** magenta, green or strongly tinted. Frames 0041 and
    0042 are brighter (cloud); 0024–0028 can look slightly blue. Compare with
-   the same folder on this Mac if in doubt.
+   the same folder on this Mac if in doubt. For beta builds, also open the
+   PNGs in `out/render/` on this Mac (see [section 6](#6-cli---render-beta-builds-only)).
 4. **Step through frames** with the arrow keys; flag one, reject one, undo.
 5. **Quick Look:** in Finder, select a `.fits` file and press Space; check the
    icon view shows thumbnails.
@@ -331,18 +341,57 @@ fail on Gamma Cygni against these baselines. That is expected.
 
 ---
 
-## 6. Planned
+## 6. CLI `--render` (beta builds only)
 
-### CLI `--render` (beta builds only)
+A test-only option of the command-line mode that writes what the app shows:
 
-A hidden CLI option for beta builds that writes the colour and greyscale
-previews as PNGs plus each frame's background RGB to a CSV. It lets the VM
-smoke test check rendering of the shipped binary without the GUI. Decided
-2026-10-13: beta builds only, not in stable or App Store builds. Beta and
-stable builds currently differ only in the tag the release workflow builds
-from, so how to restrict it is still to be designed.
+```
+"FITS Blaster.app/Contents/MacOS/FITS Blaster" <folder> --render <dir> [--render-typical]
+```
 
-👤 The PNGs still need a human look; the CSV numbers only catch strong casts.
+- `<dir>/<folder>/<frame>.png` — each frame's display image (at most 1024 px,
+  about 1.5 MB). Colour frames are rendered as the app shows them with Colour
+  on; mono frames in greyscale.
+- `<dir>/backgrounds.csv` — every frame's background R, G, B (0–255), its view
+  (`colour`, `mono`, or `grey` for a colour frame that didn't get a colour
+  render — a bug) and which frame is the folder's typical one.
+- `--render-typical` — write only each folder's typical frame as a PNG (the CSV
+  still lists every frame). For large folders: a full night is hundreds of MB.
+- The metrics CSV is written as usual and is identical with or without
+  `--render`.
+
+It measures with the same code as the rendering tests (`RenderedPixels.swift`).
+It writes data only; the VM smoke test judges it (see section 2). Run by hand
+on this Mac, it is a quick way to see how a folder renders without opening the
+app.
+
+### Beta builds only
+
+Decided 2026-10-13: the option exists only in beta builds, not in stable or App
+Store builds, and is not listed in `--help`. The code is compiled in only when
+the `BETA` compilation condition is set (or in Debug builds):
+
+- the release workflow sets `BETA` for tags containing `beta`;
+- `scripts/build-beta.sh` sets it for local builds;
+- a stable build doesn't contain the code. It ignores `--render` like any
+  unknown option and writes no PNGs; the smoke test reports **SKIP**.
+
+Cost: none in stable builds, and none in beta builds unless `--render` is
+given. With it, the CLI does the extra colour pass the app does with Colour on,
+plus the PNGs: on this Mac the M31 night (39 frames) took about 8 s instead of
+about 2.5 s.
+
+### 👤 YOU
+
+- **Look at the PNGs** from every VM run of a beta build
+  (`tests/smoke-results/<run>/out/render/`). The check only catches a tinted
+  or wrongly levelled *typical* frame; a tint in one frame, a wrong-looking
+  target, banding or artefacts need your eyes. Compare with this Mac
+  (`scripts/run-render-tests.sh` or `--render` by hand) if in doubt.
+- **A SKIP on a beta build is a failure** — it means the build lacks `BETA`
+  (wrong build script or a workflow change).
+- **Keep the limits in step:** they are in `RenderingTests.swift` and
+  `scripts/vm-smoke-remote.sh`; change both together, with a reason.
 
 ---
 
