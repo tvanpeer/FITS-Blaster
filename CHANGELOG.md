@@ -4,6 +4,20 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-15 — Testing: Tart VMs and support levels
+
+### Testing
+- **Test VMs moved to Tart** — the VM smoke test can now run unattended: `scripts/vm-smoke.sh --tart <base>` clones a base VM, starts it without a window, runs the checks, compares the metrics with the baselines and deletes the clone. `--keep` leaves the clone running with a window for the manual checks; `scripts/tart-cleanup.sh` removes test clones.
+- **Support levels** — macOS 27 and the current 27 beta are fully tested (automatic and manual checks); the latest 15 and 26 releases are tested automatically. `scripts/vm-test-all.sh` runs the automatic level on every base VM, two at a time.
+- **`scripts/tart-create-base.sh`** — creates a base VM from a macOS installer: fully scripted for macOS 27 releases (Apple's guest provisioning; beta installers need three clicks on the licence screens), guided with `--manual` for 15 and 26.
+- First runs on macOS 15.8.1, 26.6.2, 27.0.1 and 27.2 beta 3: all checks pass, and the sample set renders and measures byte-identically on all four.
+- `docs/public/Testing.md` — a one-page overview of the tests, when they run and which macOS versions they cover, for the website.
+
+### Docs
+- Minimum macOS stated as 15.6 everywhere (README said 15.7, the FAQ source 15.0), matching the build setting and the website.
+
+---
+
 ## 2026-10-14 — Docs: restoring test VMs with VirtualBuddy
 
 ### Testing

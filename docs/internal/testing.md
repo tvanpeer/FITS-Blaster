@@ -18,7 +18,7 @@ a human looking at the app.
 | Unit and integration tests | Metrics, scoring, FITS reading, stretch clips, GPU vs CPU — on synthetic data | Xcode ⌘U | Exists (223 tests) |
 | Benchmarks | Load and measure speed on real data | `scripts/run-benchmark.sh` | Exists |
 | PixInsight comparison | Our metrics vs PixInsight SubframeSelector | `scripts/compare.py` | Exists |
-| **VM smoke test** | The real DMG on other macOS versions: install, signing, launch, CLI | `scripts/vm-smoke.sh` | **New** |
+| **VM smoke test** | The real DMG on macOS 15, 26, 27 and the 27 beta: install, signing, launch, CLI, rendering, metrics | `scripts/vm-test-all.sh`, `scripts/vm-smoke.sh` | **New** |
 | **Rendering tests on real data** | Colour and brightness of rendered frames | `scripts/run-render-tests.sh` | **New** |
 | **Metric baselines** | Metrics don't change between versions unless we mean them to | `scripts/metric-baselines.py` | **New** |
 | **CLI `--render`** (beta builds only) | Rendering of the shipped binary in the VMs, without the GUI | Part of `scripts/vm-smoke.sh` | **New** |
@@ -76,6 +76,7 @@ clean VM, not on this Mac.
 | Render: metrics | The metrics CSV with `--render` is identical to the one without |
 | Render: colour | Every colour frame got a colour render |
 | Render: typical frame | Background R, G, B within 4 of each other and each within 63 ± 6 — the same limits as the [rendering tests](#4-rendering-tests-on-real-data-scriptsrun-render-testssh) |
+| Metric baselines (with `--tart`) | The sample set's metrics and filter result match `tests/baselines/` (section 5) — also on macOS 15 and 26 |
 
 ### What it cannot check
 
@@ -90,41 +91,77 @@ clean VM, not on this Mac.
   numbers are right (that comes with metric baselines).
 - **Updates.** It doesn't test Sparkle update checks.
 
-### 👤 YOU: before running
+### Support levels
 
-1. **Start from a clean VM.** Shut the VM down in VirtualBuddy, then restore it
-   from its clean copy (see [VMs](#vms)). A VM that ran earlier builds keeps
-   their settings and caches, which can hide problems a new user would hit.
-2. **Boot the VM and log in as `fitstester`** in the VM window. Wait until the
-   desktop is fully up.
-3. **Leave the VM window alone** while the script runs; clicking in it can
-   affect the launch check.
-4. **Pick what to test:**
-   - *Before tagging* (recommended for every release): a local beta build —
-     `scripts/vm-smoke.sh <vm> "$(scripts/build-beta.sh)" --dev-build`.
-     `build-beta.sh` builds Release with the `BETA` flag, so the render check
-     runs too. Remember that a pushed beta tag goes live to beta users
-     immediately, so this is the only test that happens before users get the
-     build.
-   - *After the release workflow*: the published DMG —
-     `scripts/vm-smoke.sh <vm> --tag <tag>`. This also checks notarisation.
+Which macOS versions get which tests (decided 2026-10-14). Each level has a
+Tart base VM (see [VMs](#vms)); every test runs on a fresh clone of it.
+
+| Level | macOS | Base VM | Tests |
+|---|---|---|---|
+| **Fully tested** | Newest 27 release (27.0.1 on 2026-10-15) | `fb-27` | Automatic smoke test, metric baselines, render check **and** 👤 the manual checks below |
+| **Fully tested** | Current 27 beta (27.2 beta 3) | `fb-27-beta` | Same |
+| **Automatically tested** | Latest 26 release | `fb-26` | Automatic smoke test, metric baselines, render check — no person needed |
+| **Automatically tested** | Latest 15 release | `fb-15` | Same |
+| Supported, not tested | Everything else from 15.6 (the app's minimum) | — | — |
+
+The base VMs run the *latest* release of each major; the app's minimum stays
+macOS 15.6. Base VMs that don't exist yet are skipped (on 2026-10-15: `fb-15`,
+`fb-26` and `fb-27-beta` exist; `fb-27` waits for the VM disk).
 
 ### Running
 
+All base VMs, automatic level (two VMs at a time, about 3 minutes per pair):
+
 ```
-scripts/vm-smoke.sh fitsvm-b3 --tag v1.23-beta.10
+scripts/vm-test-all.sh "$(scripts/build-beta.sh)" --dev-build     # before tagging
+scripts/vm-test-all.sh --tag v1.23.1-beta.1                        # the published DMG
 ```
 
-Each check prints `PASS`, `WARN`, `FAIL` or `SKIP`. The last lines give the
-result and where the sample set was unpacked in the VM. Results are saved in
+One base VM: `scripts/vm-smoke.sh --tart fb-26 <app|dmg|--tag tag> [--dev-build]`.
+The script clones the base VM, starts the clone without a window, waits for
+the desktop, runs the checks, compares the metrics with the
+[baselines](#5-metric-baselines-scriptsmetric-baselinespy) and deletes the
+clone. Nothing to restore, nobody needed at the VM.
+
+For the manual checks (fully tested level), one VM at a time:
+
+```
+scripts/vm-smoke.sh --tart fb-27-beta "$(scripts/build-beta.sh)" --dev-build --keep
+```
+
+`--keep` starts the clone with a window and leaves it running with the app
+open. When you're done: `scripts/tart-cleanup.sh` (deletes all test clones,
+never a base VM).
+
+Each check prints `PASS`, `WARN`, `FAIL` or `SKIP`. Results are saved in
 `tests/smoke-results/<time>-<vm>-<build>/` on this Mac (not committed):
 `smoke.log` plus `out/` with the CSVs, the CLI's stderr, the filtered app log,
 any crash reports and — for beta builds — `render/` with the rendered PNGs and
-`backgrounds.csv`.
+`backgrounds.csv`. `vm-test-all.sh` also keeps each VM's console output in
+`tests/smoke-results/<time>-all/`.
+
+The script still works with a VM that is already running and reachable over
+SSH (`scripts/vm-smoke.sh fitsvm …`), e.g. the VirtualBuddy 27.2 beta 1 VM.
+
+### 👤 YOU: before running
+
+1. **Pick what to test:**
+   - *Before tagging* (every release): a local beta build —
+     `"$(scripts/build-beta.sh)" --dev-build`. `build-beta.sh` builds Release
+     with the `BETA` flag, so the render check runs too. A pushed beta tag
+     goes live to beta users immediately, so this is the only test that
+     happens before users get the build.
+   - *After the release workflow*: the published DMG — `--tag <tag>`. This
+     also checks notarisation.
+2. **No other VMs running.** macOS runs at most two VMs at a time, VirtualBuddy
+   included; `vm-test-all.sh` uses both places.
+3. **Leave `--keep` windows alone** until the script has finished; clicking in
+   them can affect the launch check.
 
 ### 👤 YOU: after running
 
-The app is left open in the VM (unless you passed `--quit`). In the VM window:
+For the fully tested level, run with `--keep`: the app is left open in the
+clone's window. In that window:
 
 1. **Window:** the main window is there, toolbar and sidebar look normal,
    full-screen and the traffic lights work.
@@ -146,14 +183,13 @@ The app is left open in the VM (unless you passed `--quit`). In the VM window:
    it is understood. Write down what you found (a line in the session notes
    or the release commit is enough).
 
-Then shut the VM down and restore it from the clean copy, so the next run
-starts clean.
+Then delete the clone: `scripts/tart-cleanup.sh`.
 
 ### Which VMs
 
-Run on **every VM** for releases that touch launch, windows, rendering or the
-CLI; at least on the newest macOS beta VM for small fixes. Also run on this
-Mac's own macOS by installing the DMG normally.
+Every release: `vm-test-all.sh` (all base VMs, automatic level) and the manual
+checks with `--keep` on `fb-27` and `fb-27-beta`. Also install the DMG normally
+on this Mac.
 
 ---
 
@@ -397,58 +433,148 @@ about 2.5 s.
 
 ## VMs
 
-VirtualBuddy VMs live in `/Volumes/FITS Blaster/VMs` (the VirtualBuddy library
-on this Mac).
+The test VMs are [Tart](https://tart.run) VMs (Cirrus Labs; free on personal
+computers). Tart replaced VirtualBuddy on 2026-10-15 because it can be driven
+from scripts: clone, start, stop and delete.
 
-| VM | macOS | SSH | Clean copy |
+### Base VMs
+
+| Base VM | macOS | Level | Created with |
 |---|---|---|---|
-| `27.2B1.vbvm` | 27.2 beta 1 (26B5086k) — the build App Review used for build 199 | `ssh fitsvm` (192.168.64.2) | `27.2B1-clean.vbvm` |
-| `27.2B3.vbvm` | 27.2 beta 3 (26B5101f) | `ssh fitsvm-b3` (192.168.64.3) | `27.2B3-clean.vbvm` |
+| `fb-27-beta` | 27.2 beta 3 (26B5101f) | Fully tested | `tart-create-base.sh` (2026-10-15), 50 GB disk |
+| `fb-27` | 27.0.1 (26A434) | Fully tested | Built and tested 2026-10-15 (no clicks needed), then deleted for space; rebuild on the VM disk |
+| `fb-26` | **26.6.2** (25G83) — not yet 26.7.1, see below | Automatically tested | `--manual` (2026-10-15), 50 GB disk |
+| `fb-15` | 15.8.1 (24H32) | Automatically tested | `--manual` from 15.6.1, updated to 15.8.1 (2026-10-15), 50 GB disk |
 
-User `fitstester`, key `~/.ssh/fitsvm_ed25519`, host entries in `~/.ssh/config`.
+**To do when the VM disk arrives (about 2026-10-22):** rebuild `fb-26` (and
+`fb-27`) with the script's 80 GB disk and update `fb-26` to the latest 26. The
+26.7.1 update refused to install on the 50 GB disk: "Not enough free disk
+space: a total of 21.55 GB is required". Enlarging a VM disk afterwards is
+impractical (the recovery partition sits behind the system container, and
+deleting it breaks `softwareupdate`), so new base VMs get 80 GB from the start.
+It is sparse: on this Mac a VM only takes what macOS writes (about 30 GB).
 
-**Restore a VM** (shut it down in VirtualBuddy first — never while it runs).
-In VirtualBuddy (preferred, no restart needed):
+Every base VM: user `fitstester` (password in the Keychain, item `fb-test-vm`),
+automatic login, FileVault off, Remote Login on, **all automatic updates off**
+(so a VM only changes when we update it), screen lock, sleep and screensaver
+off, `sudo shutdown` allowed without a password, SSH key
+`~/.ssh/fitsvm_ed25519`.
 
-1. Delete the working VM (e.g. `27.2B3`).
-2. **Duplicate** the clean copy (`27.2B3-clean`) — don't start it.
-3. Rename the duplicate to the working name (`27.2B3`).
+Why no screen lock: if the display sleeps and locks, macOS remembers it, and
+after the next automatic login the screen is locked again (found on `fb-15`,
+2026-10-15). The tests pass behind a locked screen, but the manual checks
+would need the password. Everything else as on a normal
+user's Mac: SIP and Gatekeeper on, no extra software.
 
-Checked 2026-10-14: Duplicate makes an APFS clone (instant, almost no extra
-space) — the disk image shares every block with the clean copy and the machine
-identifier is the same. Only VirtualBuddy's own ID for the VM (`uuid` in
-`.vbdata/Metadata.plist`) is new.
+A base VM is **never started for tests**: every test runs on a clone
+(`<base>-smoke-<time>`), made instantly with APFS copy-on-write and deleted
+afterwards.
 
-From Terminal (also works, but then quit and reopen VirtualBuddy):
+**Where:** `TART_HOME=/Volumes/FITS Blaster/Tart` (set by the scripts; set it
+yourself when you run `tart` by hand, e.g. `export TART_HOME="/Volumes/FITS Blaster/Tart"`).
+Installers (IPSW) in `/Volumes/FITS Blaster/Tart/ipsw`. A macOS VM takes about
+30 GB; clones almost nothing until they change.
+
+**Tart itself:** version 2.41.0 in `~/Applications/tart.app`, with `tart` linked
+in `~/.local/bin`. Installed from the
+[GitHub release](https://github.com/cirruslabs/tart/releases) (checksum and
+notarisation checked): the Cirrus Labs Homebrew formula was broken with
+Homebrew 7 on 2026-10-14.
+
+### Create a base VM
+
+macOS 27 and later (scripted; with a beta installer three clicks):
 
 ```
-cd "/Volumes/FITS Blaster/VMs"
-rm -rf 27.2B3.vbvm && cp -cRp 27.2B3-clean.vbvm 27.2B3.vbvm
+scripts/tart-create-base.sh fb-27 <ipsw-file-or-url>
 ```
 
-`cp -c` also makes an APFS clone, but it keeps the clean copy's VirtualBuddy
-ID, so VirtualBuddy then sees two VMs with the same ID — possibly why a VM
-restored this way hung with a spinning wheel on 2026-10-13 until VirtualBuddy
-was restarted (not verified). Keep VMs on this volume; copying one to another
-disk loses the sharing.
+Apple's guest provisioning creates the user and turns on automatic login and
+Remote Login; the script then installs the SSH key, sets the rest, checks it
+and shuts the VM down. Takes about 7 minutes from a release installer (27.0.1:
+desktop 30 s after the first boot), about 12 from a beta installer.
+
+macOS 15 and 26 (no provisioning before 27):
+
+```
+scripts/tart-create-base.sh fb-26 <ipsw-file-or-url> --manual
+```
+
+Apple only publishes VM installers up to the last release before the next
+major: **15.6.1** and **26.6.2**. List: `curl -s 'https://api.ipsw.me/v4/device/VirtualMac2,1?type=ipsw'`.
+Later 15.x and 26.x come through Software Update in the VM.
 
 👤 **YOU:**
-- **Never start a `-clean` VM.** It appears in VirtualBuddy's list next to the
-  working VM; starting it (even without logging in) changes it, and every
-  later restore inherits those changes.
-- **After a Terminal restore, quit and reopen VirtualBuddy.**
+- **macOS 27+ beta installers:** watch the VM window. About 4 minutes in,
+  the licence agreement appears: **Agree** (twice), then **Get Started**.
+  Nothing else; the script continues by itself. Release installers (checked
+  with 27.0.1) need no clicks at all.
+- **`--manual`:** go through Setup Assistant as the script prints (account
+  `fitstester` with the Keychain password, no Apple ID, FileVault off; then
+  automatic login, Remote Login and all automatic updates off in System
+  Settings).
+- **15 and 26 only:** after the script has finished, update the VM to the
+  latest release (see *Update a base VM*).
+- **`--manual`: set automatic login before turning on Remote Login**, or the
+  script sees the desktop too early and stops with "Not as expected:
+  auto-login" (it leaves the VM running; finish the settings and ask Claude to
+  rerun the check and shut it down).
+- **Never use *Stop* in the Tart window, or `tart stop`, on a base VM.** It
+  pulls the plug (no proper shutdown). It's fine for test clones.
 
-**Add a VM for a new macOS version:**
-1. Create it in VirtualBuddy (name like `27.3B1`).
-2. In the VM: create user `fitstester`, log in, turn on Remote Login
-   (System Settings → General → Sharing), note the IP address.
-3. On this Mac: add a `Host` entry to `~/.ssh/config` (copy an existing one,
-   change name and IP), then install the key once with
-   `ssh-copy-id -i ~/.ssh/fitsvm_ed25519.pub <host>` (asks for the password).
-4. Shut the VM down and make the clean copy:
-   `cp -cRp <name>.vbvm <name>-clean.vbvm`.
-5. Add it to the table above.
+### Update a base VM
 
-VM settings (CPU, memory, shared folders) are stored in
-`<name>.vbvm/.vbdata/Config.plist`. The clean copy has its own; change both or
-the next restore undoes the change.
+For a new beta, build a new base VM from its installer and delete the old one
+(`tart delete fb-27-beta`). For 26 and 15 (done this way for 15.8.1 on
+2026-10-15): start the base VM (`tart run fb-15`), list the updates over SSH
+with `softwareupdate --list`, and install **only the macOS update for that
+major** (not the offered upgrade to 27, not Safari):
+
+```
+sudo softwareupdate --install 'macOS Sequoia 15.8.1-24H32' --restart --agree-to-license --user fitstester --stdinpass
+```
+
+(`sudo` and `--stdinpass` each read the password on stdin; pipe it in twice from
+the Keychain.) The VM downloads in the background (the window shows nothing),
+restarts and installs. Then check the version, and shut down properly with
+`sudo shutdown -h now` over SSH. Update the table above.
+
+Known oddity: after an update, `softwareupdate --schedule` reports "Automatic
+checking for updates is turned on" even when the setting is off, and on 15.8.1
+the check setting itself could not be switched off from the command line. It
+only *checks*; downloading and installing stay off. Switch it off in System
+Settings next time the VM is open, if it matters.
+
+### Clean up
+
+`scripts/tart-cleanup.sh` stops and deletes all test clones. `tart list` shows
+all VMs; `tart delete <name>` removes one.
+
+### Facts the scripts rely on
+
+Checked 2026-10-14/15 (Tart 2.41.0, macOS 27.0 host):
+- `tart stop` and *Stop* are a hard power-off. *Request Stop* (or `kill -USR2`
+  to `tart run`) asks macOS to shut down: it shows "Are you sure you want to
+  shut down your computer now?" and only shuts down after a click.
+- macOS runs **at most two VMs at a time** (any tool); a third fails with "The
+  number of VMs exceeds the system limit".
+- A clone gets a new network address; scripts ask `tart ip`.
+- Started without a window, a clone still logs in automatically and the app
+  can be launched (desktop session with Finder and Dock).
+- The SSH login works before the first-boot setup has finished; shutting down
+  then brings Setup Assistant back. The scripts wait for the desktop.
+- On first boot, Setup Assistant needs a window: without one it waits on the
+  licence screen where nobody can see it.
+- Renders and metrics of the sample set are byte-identical on macOS 15.8.1,
+  26.6.2, 27.0.1 and 27.2 beta 3 (2026-10-15).
+- `vm-test-all.sh` on three base VMs takes about 7 minutes.
+
+### VirtualBuddy: the 27.2 beta 1 VM (temporary)
+
+`/Volumes/FITS Blaster/VMs/27.2B1.vbvm` (+ `27.2B1-clean.vbvm`) runs macOS
+27.2 beta 1 (26B5086k), the build App Review used for build 199 and the only
+one on which its crash reproduced. Its installer is gone, so it stays until App
+Store build 202 is approved; then it, VirtualBuddy and the `fitsvm` SSH entry
+are removed. SSH: `ssh fitsvm` (192.168.64.2). Restore: in VirtualBuddy, delete
+`27.2B1`, **Duplicate** `27.2B1-clean`, rename the copy to `27.2B1`; never
+start the `-clean` VM.

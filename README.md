@@ -23,7 +23,7 @@ A fast, native macOS app for culling FITS astronomical image files. Open a folde
 - Simple mode (⌘⇧M) hides metrics for a fast visual cull
 - No third-party dependencies — Metal, Accelerate, SwiftUI, Swift Charts only
 - Sandboxed, read-only (rejection moves files to a `REJECTED/` subfolder)
-- Supports BITPIX 8, 16, 32; requires macOS 15.7+
+- Supports BITPIX 8, 16, 32; requires macOS 15.6+
 
 ## Build
 
