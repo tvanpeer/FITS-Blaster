@@ -4,6 +4,20 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-17 — Docs: code audit, performance audit and master plan
+
+### Docs
+- `docs/internal/CODE_AUDIT.md` — a full code audit (76 numbered findings with file and line). Key findings:
+  - the Quick Look extensions require macOS 26.2, so Finder previews and thumbnails don't work on macOS 15.6–26.1 (reproduced on the macOS 15 test VM);
+  - malformed FITS sizes crash the app and the Quick Look extensions (reproduced);
+  - frames with no detected stars can't be auto-flagged;
+  - shortcuts act on the main window while typing in Settings.
+- `docs/internal/PERFORMANCE_AUDIT.md` — a SwiftUI performance review from the code (no measurements yet). The main suspects are cursor movement re-rendering the sidebar, every thumbnail and the whole chart, and the chart rebuilding once per frame during loading.
+- `docs/internal/architecture-plan.md` — the master plan: 15 steps that cover the architecture review (the app's structure fits; `ImageStore` gets split), the concurrency fixes and every finding of both audits, each in exactly one step, with the open questions. `docs/internal/concurrency-fixes-plan.md` holds the detailed design for its steps 6 and 7.
+- No code changes; the fixes start after the App Store release of 1.23.
+
+---
+
 ## 2026-10-15 — Testing: Tart VMs and support levels
 
 ### Testing
