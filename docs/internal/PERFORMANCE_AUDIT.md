@@ -1,6 +1,6 @@
 # FITS Blaster SwiftUI Performance Audit
 
-Generated 2026-10-17 on branch `colour-fix` (head `9780ac9`), with the `swiftui-performance-audit` skill. **Code review first**; findings 1–3 and 5 were then measured with Instruments traces on 2026-10-18 (see Measurements). Findings 4 and 6 are still code-backed suspicions. This is the baseline before the [master plan](architecture-plan.md); each finding says which plan step handles it. Overlaps with [CODE_AUDIT.md](CODE_AUDIT.md) are noted, not repeated.
+Generated 2026-10-17 on branch `colour-fix` (head `9780ac9`), with the `swiftui-performance-audit` skill. **Code review first**; all six findings were then measured with Instruments traces on 2026-10-18 (see Measurements). The biggest measured problem is one this review didn't predict: memory at large display sizes (16.3 GB at 4096 for 476 colour frames, audit §7.1). This is the baseline before the [master plan](architecture-plan.md); each finding says which plan step handles it. Overlaps with [CODE_AUDIT.md](CODE_AUDIT.md) are noted, not repeated.
 
 Paths are relative to `FITS Blaster/`.
 
@@ -125,12 +125,64 @@ Same build, Mac and settings. Both runs are in `/Volumes/FITS Blaster/Traces/03-
 
 The microhang at the start of each load (trace 1 had a 333 ms hitch at the same point) has no app function behind it: the main thread is creating SwiftUI views (`PlaceholderContentView._makeView`, text) when the new session first appears.
 
-### Verdict per finding (traces 1–3)
+### Trace 4: 476 colour frames, display size 1024 and 4096
+
+Same build and Mac, in a window (not full screen). Data: `M81 IMX571`, `California Nebula IMX571` and `Gamma Cygni Nebula IMX571`, **476 colour frames** (all 6224 × 4168), debayer on, opened one after the other. Instruments restarts the app for every recording, so each run loads the folders again. All three runs are in `/Volumes/FITS Blaster/Traces/04-load-and-cursor.trace`. Memory was read with `footprint` and `vmmap` while the app was running.
+- **Run A:** display size 1024 (the tester's normal setting). Load only, then the memory reading.
+- **Run B:** display size 4096. Load, then ↓ pressed once a second, 10 times (not held).
+- **Run C:** display size 4096. Load, the memory reading, then panning the zoomed image for about 10 s (zoom 0.9, which at 4096 shows less than a quarter of the image). Notification Center slid in a few times during right pans; the measurement uses a steady 4.5 s stretch.
+
+The tester's impression of run C: "smooth enough", but they noted that's what they said about the cursor list too.
+
+**Memory (row 5)**
+
+| | Display size 1024 | Display size 4096 |
+| --- | --- | --- |
+| Physical footprint after loading | 2.6 GB | **16.3 GB** |
+| Peak during loading | 4.2 GB | **17.7 GB** |
+| Metal buffers (`IOAccelerator`): display images and thumbnails | 1.7 GB (1,149 regions) | **15.3 GB** (1,171 regions), 15.0 GB of it compressed or swapped out |
+| Large `malloc` blocks | 0.8 GB in 19 blocks, which `vmmap` lists as empty (freed, not yet returned) | 0.8 GB in 16 blocks, same |
+| Free memory, system-wide | 51% | 36% |
+
+At 4096 the app holds about as much memory as the Mac has (16 GB) and keeps running only because macOS compresses and swaps out almost all of it. This is audit §7.1 (up to three display-size images per colour frame, kept for every frame). §7.1 estimates "hundreds of MB at 8192"; the measurement is far higher. Not measured: 8192, a Mac with 8 GB, and what holds the large freed `malloc` blocks.
+
+**Frame switching at 4096 (row 4)**
+
+Ten single ↓ presses, 1–1.3 s apart. Per press:
+- **Main thread: 118–159 ms of work** (median ≈ 155 ms), spread over the first ≈ 250 ms after the key press. Almost all of it is SwiftUI updating and laying out the window (`NSHostingView.layout`). App code inside it:
+  - the chart's per-point closure ≈ 11 ms, of which `filterGroup` ≈ 7 ms (finding 2);
+  - text layout ≈ 7 ms;
+  - the sidebar's animated scroll, spread over ≈ 250 ms (finding 5).
+- **Drawing the 4096 image costs under 0.1 ms on the main thread.**
+- **On a background thread, SwiftUI converts every new image: ≈ 40 ms per switch** (`_SwiftUIProxyImage prepare` → `CA::Render::copy_image` → `CGContextDrawImage`, with a colour-space conversion through `vImageConvert_AnyToAny`). The display image isn't in a format Core Animation can use directly, so each one is copied and converted before it can be shown.
+- Hitches: 5 in total over 10 presses (longest 67 ms), so switching looks smooth.
+
+**Panning the zoomed image at 4096 (row 3)**
+
+In 4.5 s of steady panning:
+- `ImageViewer.body`, `ThumbnailCell.body` (the cursor cell) and `ViewportBox.body` each ran **230 times, once per scroll frame** (≈ 51 per second). This confirms finding 4.
+- The cost is small: `ThumbnailCell.body` ≈ 0.15 ms per frame, `ImageViewer.body` and `ViewportBox.body` together ≈ 0.02 ms, the `viewportFraction` write ≈ 0.13 ms.
+- Main thread busy 36%, mostly AppKit and SwiftUI scrolling (`NSHostingView.layout` ≈ 2.8 ms per frame). 2 hitches (33 ms in total).
+- The cursor cell's tooltip text (`FrameMetrics.tooltipString`) is rebuilt on every frame, ≈ 0.05 ms.
+
+**Loading, per folder**
+
+| Folder | Display size 1024 (run A) | 4096 (run B) | 4096 (run C) |
+| --- | --- | --- | --- |
+| M81, 355 frames | 37.9 s; 398 hitches = 9.7 s | 51.9 s; 446 hitches = 10.7 s | 49.6 s; 247 hitches = 7.7 s |
+| California, 87 frames | 10.8 s | 16.9 s | 16.8 s |
+| Gamma Cygni, 34 frames | 4.7 s | 7.8 s | 6.8 s |
+
+Loading at 4096 takes about 30–65% longer than at 1024. Each run also has 3–5 hangs or microhangs (0.25–0.70 s); they are not broken down yet.
+
+### Verdict per finding (traces 1–4)
 - **1 — confirmed, but the chart is the cost, not the sidebar.** The chart re-runs on every move and is the biggest single cost (≈ 16 ms of mark collection plus ≈ 4–5 ms of `filterGroup` per move, in all three runs). The sidebar body and cells do re-run on every move, but cost under 1 ms together.
 - **2 — header part confirmed, sidebar part not measurable.** `filterGroup` re-parsing costs ≈ 4–5 ms per move, paid in the chart. The sidebar's grouping costs ≈ 0.1 ms per move with 24 folders and with 8 folders × 3 filters, so storing the sidebar groupings (step 9) is cleanup, not a speed fix.
 - **3 — confirmed.** 146–164 chart rebuilds per load (355–464 frames), ≈ 2.5–3 s of SwiftUI chart work per load.
 - **5 — confirmed, minor** (≈ 1.5 ms per move).
-- **4, 6 — not measured yet** (rows 3 and 4).
+- **4 — confirmed, minor** (trace 4): the cursor cell, `ImageViewer` and `ViewportBox` re-run on every scroll frame, but cost under 0.5 ms per frame together.
+- **6 — not on the main thread** (trace 4): drawing a 4096 image costs under 0.1 ms there. Instead SwiftUI copies and colour-converts every new display image on a background thread, ≈ 40 ms per switch. It adds latency and a temporary full-size copy, but no hitches. The fix in finding 6 (create the image in a format the display can use directly) still applies; step 9, as planned.
+- **New: memory at large display sizes** (trace 4): 16.3 GB at 4096 for 476 colour frames, against 2.6 GB at 1024. Audit §7.1, step 9.
 - **New: text layout** of ≈ 275–350 items per move (≈ 5.5–6 ms); source to be found. It is larger with more folder sections.
 - **New: microhang at load start**, ≈ 0.3 s, from SwiftUI view creation. Not in the plan; worth one look in step 9.
 
@@ -142,9 +194,9 @@ To fill in from Release-build traces (SwiftUI template + Time Profiler), before 
 | --- | --- | --- | --- | --- | --- |
 | Hold ↓ for 5 s, ~500 frames, Geek mode, chart visible, 3 folders × 3 filters | hitches; `ThumbnailSidebar.body` / `ChartBody.body` update counts | Rosette 464 frames, 8 × 3: 61 hitches = 3.90 s of 5.8 s; main thread 90% busy; per move `ChartBody` 1×, `ThumbnailSidebar` 1× (0.1 ms), chart ≈ 16 ms + `filterGroup` 3.8 ms. M81 355 frames, 3 × 1: 49 hitches = 3.05 s of 5.4 s | | | findings 1, 2, 5; traces 1 and 3 |
 | Load the large test folder with the chart visible | hitches; `SessionChartView` updates; wall time | M81 355 colour frames: 37 s; 394 hitches = 11.4 s (max 333 ms); `SessionChartView.body` 165×. Rosette 464 mono frames (8 × 3): 15.4 s; 140 hitches = 4.9 s (max 283 ms); 152× | | | finding 3; traces 1 and 3 |
-| Scroll the zoomed main image for 5 s | `ThumbnailCell` updates; hitches | | | | finding 4 |
-| Switch frames at display size 4096 | main-thread time per switch | | | | finding 6 |
-| Memory after loading ~500 colour frames | peak / resident memory | | | | audit §7.1 |
+| Scroll the zoomed main image for 5 s | `ThumbnailCell` updates; hitches | 476 colour frames, display size 4096, zoom 0.9: `ThumbnailCell.body` 1× per scroll frame (≈ 51/s, 0.15 ms each); main thread 36% busy; 2 hitches in 4.5 s | | | finding 4; trace 4 run C |
+| Switch frames at display size 4096 | main-thread time per switch | 476 colour frames: main thread ≈ 155 ms per switch (image drawing < 0.1 ms; chart ≈ 11 ms); ≈ 40 ms image conversion on a background thread; 5 hitches in 10 switches | | | finding 6; trace 4 run B |
+| Memory after loading ~500 colour frames | peak / resident memory | 476 colour frames: footprint 2.6 GB (peak 4.2 GB) at display size 1024; 16.3 GB (peak 17.7 GB) at 4096 | | | audit §7.1; trace 4 runs A and C |
 
 ## Next step
 
@@ -154,4 +206,4 @@ To fill in from Release-build traces (SwiftUI template + Time Profiler), before 
 3. Stop, then export the trace, or take screenshots of the SwiftUI lanes (Update Groups, Long View Body Updates, Hitches) and the Time Profiler call tree.
 4. Add one line saying what you did.
 
-Rows 1 and 2 were recorded on 2026-10-18 (traces 1–3). Still to do: rows 3–5.
+All five rows were recorded on 2026-10-18 (traces 1–4). Record them again after steps 5 and 9.

@@ -4,6 +4,18 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-18 — Docs: memory, frame switching and scrolling measurements
+
+### Docs
+- `docs/internal/PERFORMANCE_AUDIT.md` — Instruments measurements of the last three interactions, on 476 colour frames:
+  - Memory: 2.6 GB at display size 1024, but 16.3 GB at 4096, about as much as the Mac has.
+  - Switching frames at 4096: about 155 ms of main-thread work per switch, almost all SwiftUI updates. Drawing the big image costs almost nothing there, but SwiftUI converts every new image on a background thread (about 40 ms).
+  - Panning the zoomed image: the cursor thumbnail redraws on every scroll frame, as predicted, but costs under 0.5 ms per frame.
+  - Loading at 4096 takes about 30–65% longer than at 1024.
+- `docs/internal/CODE_AUDIT.md` — §7.1 gets the measured memory use.
+
+---
+
 ## 2026-10-18 — Docs: Metal review
 
 ### Docs

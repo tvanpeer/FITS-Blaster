@@ -360,6 +360,7 @@ Findings cite `path:line`, relative to the repo root. No code was changed. "Plan
 - **Location:** `FITS Blaster/ImageEntry.swift:18-19, 51-54`; `FITS Blaster/ImageStorePipeline.swift:432-435, 769-772, 801-804`
 - **What:** Every entry keeps `displayImage`; colour (Bayer) entries also keep cached grey and colour versions, all backed by non-purgeable MTLBuffers. Display size can go up to 8192.
 - **Why:** Memory grows linearly with session size: a few MB per frame at the default 1024, hundreds of MB at 8192.
+- **Measured (2026-10-18):** 476 colour frames used 2.6 GB at display size 1024 and **16.3 GB at 4096** (peak 17.7 GB) on a 16 GB Mac, almost all of it in Metal buffers that macOS had compressed or swapped out (PERFORMANCE_AUDIT.md, trace 4).
 - **Action:** Keep display images only for the selected frame and its neighbours (LRU); keep thumbnails for the rest; re-render on demand.
 - **Severity:** Medium
 
