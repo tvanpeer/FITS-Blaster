@@ -4,6 +4,17 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-18 — Docs: Metal review
+
+### Docs
+- `docs/internal/METAL_REVIEW.md` — review of the three Metal kernels and the code that drives them. A run with Metal API and shader validation (223 unit tests, 1,068 real frames through the CLI) found no errors. Findings:
+  - The CPU stretch, which Quick Look always uses, is a different algorithm from the GPU kernel, so Finder previews don't match the app (M1, M2).
+  - Saturated stars are never detected, because their flat tops have no single brightest pixel. PixInsight and Siril both count them once by default (M3).
+  - Three smaller points: fast math, the CPU detection crop and new buffers for every frame (M4–M6).
+- `CLAUDE.md` — the rule that the CPU fallback matches the GPU now says it applies once steps 8 and 13 settle it; today it doesn't (M1).
+
+---
+
 ## 2026-10-18 — Docs: performance measurements
 
 ### Docs

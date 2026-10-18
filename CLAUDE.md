@@ -40,7 +40,7 @@ Most rules come from the 2026-10-17 reviews: `docs/internal/CODE_AUDIT.md` (§N.
   - No pointer escapes from `withUnsafe…` closures.
   - No new warnings with `SWIFT_STRICT_CONCURRENCY=complete`. The four known ones are listed in `CODE_AUDIT.md` §3.3 and fixed in master-plan step 7.
 - **Compute header-derived facts once** (filter name, filter group, Bayer pattern) when the headers arrive, and store them on the entry. Don't re-parse headers on every access (§7.5).
-- **Metal:** the CPU fallback must give the same result as the GPU path. A command-buffer error falls back to the CPU instead of returning garbage.
+- **Metal:** the CPU fallback should give the same result as the GPU path (see `docs/internal/METAL_REVIEW.md` M1) once steps 8 and 13 settle it. A command-buffer error falls back to the CPU instead of returning garbage.
 
 
 ## SwiftUI performance
