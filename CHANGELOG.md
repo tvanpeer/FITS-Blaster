@@ -4,6 +4,13 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-18 — Docs: minimum macOS in the readiness checklist
+
+### Docs
+- `docs/internal/readiness.md` — minimum macOS updated from 15.0 to 15.6.
+
+---
+
 ## 2026-10-17 — Docs: code audit, performance audit and master plan
 
 ### Docs

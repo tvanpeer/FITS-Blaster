@@ -84,7 +84,7 @@
 
 - [ ] Audit entitlements: confirm `com.apple.security.files.user-selected.read-write` is correct; remove any unused entitlements
 
-- [ ] Verify the app runs correctly on the **minimum supported OS** (macOS 15.0 — or decide whether to raise/lower this)
+- [ ] Verify the app runs correctly on the **minimum supported OS** (macOS 15.6; the test VMs run the latest 15.x, see `testing.md`)
 
 - [ ] Confirm the app is a **universal binary** (Apple Silicon + Intel) — check with `lipo -info` on the built binary
 
@@ -181,7 +181,7 @@
 | Final app name | Must not infringe trademarks; must clear App Store search |
 | Free vs paid feature split | Drives entire StoreKit implementation |
 | IAP type: one-time vs subscription | One-time is simpler and better received for pro tools |
-| Minimum macOS version | Currently targeting 15.0 — confirm or adjust |
+| Minimum macOS version | 15.6 (decided 2026-10-15) |
 | Support domain / website | Needed before submitting to App Store |
 
 ---
