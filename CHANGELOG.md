@@ -4,6 +4,16 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-18 — Fix: load statistics after opening more folders
+
+### Fixed
+- **Wrong load speed after opening another folder.** The info bar divided the whole session's images and megapixels by the time of the last load only. Opening a 34-frame folder after 442 others showed about 2,600 MP/s and 100 fps instead of about 190 MP/s and 7 fps. Each load, reprocess, size change and metrics recalculation now reports only the frames it processed.
+
+### Tests
+- `BatchStatsTests` — a second load reports only its own image count and megapixels.
+
+---
+
 ## 2026-10-18 — Docs: memory, frame switching and scrolling measurements
 
 ### Docs
