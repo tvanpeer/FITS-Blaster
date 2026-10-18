@@ -4,6 +4,13 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-18 — Docs: project guide for Claude
+
+### Docs
+- `CLAUDE.md` — project rules for Claude Code, taken from the code and performance audits: FITS files are untrusted input, every target sets the 15.6 minimum explicitly, renders and metrics stay byte-identical, concurrency and SwiftUI performance rules, and VM tests check what users see.
+
+---
+
 ## 2026-10-18 — Docs: minimum macOS in the readiness checklist
 
 ### Docs
