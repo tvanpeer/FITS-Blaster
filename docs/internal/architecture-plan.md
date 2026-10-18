@@ -44,11 +44,11 @@ For a single-window Mac app by one developer, with no server, this is the right 
 | 2 | Small bug fixes | bug fixes | §5.5, §5.6, §5.8, §5.9, §5.15, §4.7, §8.3, §8.4, §8.7, §8.8 |
 | 3 | Dead and vestigial code | cleanup | §9.1–§9.3, §9.10, §9.13 |
 | 4 | Dialogs out of the model; open and export | architecture | §4.2, §4.3, §5.7, §5.13, §6.2, §7.4 |
-| 5 | `ViewerState` | architecture | §8.1, §8.6 |
+| 5 | `ViewerState` and header facts | architecture | §7.5a, §8.1, §8.6 |
 | 6 | `LoadPipeline` with the concurrency fixes | architecture | §3.1, §3.2, §3.4–§3.6, §3.9, §7.6, §9.9 |
 | 7 | Swift 6 readiness | concurrency | §3.3, §3.10, §3.11, §4.1 |
 | 8 | Engine core: Metal, statistics, measurement | engine | §3.7, §3.8, §5.17, §7.3, §7.8, §7.9, §9.4–§9.6 |
-| 9 | Load performance and memory | performance | §7.1, §7.2, §7.5, §7.7, §8.5 |
+| 9 | Load performance and memory | performance | §7.1, §7.2, §7.5b, §7.7, §8.5 |
 | 10 | View logic into tested helpers; accessibility | UI | §8.2, §8.9 |
 | 11 | Reject and undo file operations | bug fixes | §5.14, §9.8 |
 | 12 | CLI | bug fixes | §5.10, §5.11, §5.12 |
@@ -150,7 +150,7 @@ Each is a few lines. One commit, or two if it reads better.
 
 ---
 
-## Step 5 — `ViewerState`
+## Step 5 — `ViewerState` and header facts
 
 **Changes**
 - New `ViewerState.swift` (`@Observable @MainActor`). It takes `displayStretch`, the viewport and zoom-anchor state, the two triggers, and playback from `ImageStore`. `startPlayback(store:settings:)` takes the store as a parameter, so it holds no reference to it.
@@ -161,8 +161,12 @@ Each is a few lines. One commit, or two if it reads better.
 - **Selection fan-out beyond the cells** (performance audit P1): the sidebar's scroll-to-cursor moves into a small view or `ViewerState` value, so the list body no longer depends on `selectedEntry`. The chart's cursor becomes a separate overlay mark, so a cursor move doesn't rebuild every point.
 - **Scroll writes** (P4): `viewportFraction` is written only on a visible change; `viewportCenter` becomes `@ObservationIgnored` (read only in an `onChange` handler).
 - **Scroll animation** (P5): no animated scroll for key-repeat cursor moves, or scroll only when the cursor leaves the visible area.
+- **Header facts stored once** (§7.5a, and the header-cleaning and `BayerPattern.parse` parts of §9.11; the header part of P2). Moved here from step 9 on 2026-10-18, because the trace showed it is a main cost of a cursor move: the chart reads `entry.filterGroup` for every point, which re-parses the header (about 5 ms per move with 355 frames).
+  - `filterName`, `filterGroup` and `bayerPattern` are stored on `ImageEntry` when headers arrive.
+  - Header values are cleaned at parse time.
+  - Step 6 moves the code that sets the headers and must keep this.
 
-**Tests**: playback and viewport tests move to `ViewerStateTests`; `reset()` restores the defaults.
+**Tests**: playback and viewport tests move to `ViewerStateTests`; `reset()` restores the defaults; the stored `filterGroup` and `bayerPattern` equal what the old computed properties returned, for every test-data frame. Re-record trace 1 of the performance audit (hold ↓) and compare.
 
 **Risk**: medium (many views). 👤 Checks: zoom, scroll, the viewport box in the thumbnail, zoom anchor, fit to window, contrast, playback, Reset, cursor movement speed in a large session.
 
@@ -235,7 +239,7 @@ Then a scratch build with `SWIFT_STRICT_CONCURRENCY=complete` shows 0 warnings. 
 ## Step 9 — Load performance and memory
 
 **Changes**
-- **Header facts stored once** (§7.5, and the header-cleaning and `BayerPattern.parse` parts of §9.11): `filterName`, `filterGroup` and `bayerPattern` are stored on `ImageEntry` when headers arrive, and header values are cleaned at parse time. One `median` helper and one grouping helper replace the copies in `ImageStore` and `SessionChartView` (visibility/grouping/median part of §9.11). Sidebar and chart arrays are computed once per change, not per render (§8.5; performance audit P2). This includes `visibilityGroupedSortedEntries`, which becomes a stored property like `visibilityFilteredEntries`.
+- **Arrays computed once** (§7.5b, the rest of performance audit P2; the header facts are already stored in step 5). One `median` helper and one grouping helper replace the copies in `ImageStore` and `SessionChartView` (visibility/grouping/median part of §9.11). Sidebar and chart arrays are computed once per change, not per render (§8.5; performance audit P2). This includes `visibilityGroupedSortedEntries`, which becomes a stored property like `visibilityFilteredEntries`.
 - **Chart during a load** (performance audit P3): the chart reads its points from a store value refreshed at most every ~250 ms during a batch and once at the end, instead of observing every frame's metrics.
 - **Display-image drawing** (performance audit P6): only if a trace shows main-thread format conversion when switching frames, create display images in the display's native format.
 - **Fewer reads per load** (§7.2): render the normalised grey and colour images without re-reading every file. Two ways, decided with measurements (question 7):
@@ -405,7 +409,7 @@ Every audit finding, exactly once. "a/b" marks a finding split between two steps
 | 3.7 | 8 | 5.7 | 4 | 7.2 | 9 | 8.7 | 2 |
 | 3.8 | 8 | 5.8 | 2 | 7.3 | 8 | 8.8 | 2 |
 | 3.9 | 6 | 5.9 | 2 | 7.4 | 4 | 8.9 | 10 |
-| 3.10 | 7 | 5.10 | 12 | 7.5 | 9 | 9.1 | 3 |
+| 3.10 | 7 | 5.10 | 12 | 7.5 | 5 (a: header facts) / 9 (b: sidebar and chart arrays) | 9.1 | 3 |
 | 3.11 | 7 | 5.11 | 12 | 7.6 | 6 | 9.2 | 3 |
 | 4.1 | 7 | 5.12 | 12 | 7.7 | 9 | 9.3 | 3 |
 | 4.2 | 4 | 5.13 | 4 | 7.8 | 8 | 9.4 | 8 |
@@ -420,11 +424,11 @@ Every audit finding, exactly once. "a/b" marks a finding split between two steps
 | | | | | | | 9.14 | 6 (concurrency caps) / 8 (engine tunables) / 15 (rest) |
 | | | | | | | 9.15 | 10 (Auto-Reject sections) / 15 (naming, files) |
 
-**§9.11 by part:** test fixtures → 1; FITS extension list, export columns, CSV quoting, default export keys, header-key picker → 4; header cleaning, `BayerPattern.parse`, visibility/grouping/median → 9; Quick Look read-and-stretch → 8; key mapping → 10; CLI options → 12; release scripts → 14; main-window lookup, text-size steps, badge thresholds → 15.
+**§9.11 by part:** test fixtures → 1; FITS extension list, export columns, CSV quoting, default export keys, header-key picker → 4; header cleaning, `BayerPattern.parse` → 5; visibility/grouping/median → 9; Quick Look read-and-stretch → 8; key mapping → 10; CLI options → 12; release scripts → 14; main-window lookup, text-size steps, badge thresholds → 15.
 
-**[PERFORMANCE_AUDIT.md](PERFORMANCE_AUDIT.md)** (findings 1–6, called P1–P6 here): P1 → 5 (the cell part is §8.1, also in step 5); P2 → 9 (same work as §7.5 / §8.5, not separate); P3 → 9; P4 → 5; P5 → 5; P6 → 9, only if a trace confirms it. Its metrics table is the before/after measurement for steps 5 and 9.
+**[PERFORMANCE_AUDIT.md](PERFORMANCE_AUDIT.md)** (findings 1–6, called P1–P6 here): P1 → 5 (the cell part is §8.1, also in step 5); P2 → 5 (header re-parsing, §7.5a) / 9 (grouping, §7.5b / §8.5); P3 → 9; P4 → 5; P5 → 5; P6 → 9, only if a trace confirms it. Its metrics table is the before/after measurement for steps 5 and 9.
 
-**Audit §10 (cross-cutting):** 1 untrusted input → step 1; 2 one owner for batch work → step 6; 3 header facts once → step 9; 4 shared engine core → step 8; 5 VM checks of what users see → step 1.
+**Audit §10 (cross-cutting):** 1 untrusted input → step 1; 2 one owner for batch work → step 6; 3 header facts once → step 5; 4 shared engine core → step 8; 5 VM checks of what users see → step 1.
 
 **Conflicts resolved in this version:**
 - **TestFITS helper:** the test-fixture helper is created in step 1 (needed for the malformed-input tests); step 6 uses it instead of creating it.
@@ -435,3 +439,4 @@ Every audit finding, exactly once. "a/b" marks a finding split between two steps
 - **§7.2 vs §7.3:** keeping full buffers to avoid re-reads would raise memory; the plan prefers the display-size proxy, decided by measurement.
 - **§5.8 vs step 6:** step 2 fixes the matching rule; step 6 moves the snapshot inside the batch and keeps the rule.
 - **§6.4 timing:** after App Store approval, not during review.
+- **Header facts (§7.5a) moved from step 9 to step 5** (2026-10-18, after trace 1). Step 6 moves the header-setting code and keeps the stored values; step 9 keeps the array work (§7.5b).

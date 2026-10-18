@@ -1,6 +1,6 @@
 # FITS Blaster SwiftUI Performance Audit
 
-Generated 2026-10-17 on branch `colour-fix` (head `9780ac9`), with the `swiftui-performance-audit` skill. **Code review only**: no Instruments traces yet, so every finding below is a code-backed suspicion, not a measurement. This is the baseline before the [master plan](architecture-plan.md); each finding says which plan step handles it. Overlaps with [CODE_AUDIT.md](CODE_AUDIT.md) are noted, not repeated.
+Generated 2026-10-17 on branch `colour-fix` (head `9780ac9`), with the `swiftui-performance-audit` skill. **Code review first**; findings 1–3 and 5 were then measured with Instruments traces on 2026-10-18 (see Measurements). Findings 4 and 6 are still code-backed suspicions. This is the baseline before the [master plan](architecture-plan.md); each finding says which plan step handles it. Overlaps with [CODE_AUDIT.md](CODE_AUDIT.md) are noted, not repeated.
 
 Paths are relative to `FITS Blaster/`.
 
@@ -35,7 +35,7 @@ All three read `store.selectedEntry`, so all three update together. Second: **du
    - Evidence: `SidebarViews.swift:72-96, 118`; `ImageStore.swift:293-303, 326-341`; `ImageEntry.swift:35-41`; `FilterGroup.swift:77-110`.
    - Fix: store the visible groupings once per change (like `visibilityFilteredEntries` already is); store `filterGroup` on the entry when headers arrive. Same as audit §7.5 / §8.5.
    - Validation: "Long View Body Updates" for `ThumbnailSidebar.body` in a 3-folder, 3-filter session.
-   - Plan: step 9.
+   - Plan: step 5 for the stored `filterGroup` (moved from step 9 on 2026-10-18 after trace 1), step 9 for the stored groupings.
 
 3. **The chart is rebuilt once per finished frame during a load**
    - Symptom: UI hitches during loading while the chart is visible, growing with session size (to be measured).
@@ -45,7 +45,7 @@ All three read `store.selectedEntry`, so all three update together. Second: **du
      - compute `chartEntries` and `chartPoints` once per body (local `let`) or in the store;
      - feed the chart from a store value that is refreshed at most every ~250 ms during a batch and once at the end, the way the progress bar polls instead of observing (`MainContent.swift:147-153`).
    - Validation: hitch count and SwiftUI update count for `SessionChartView` during a load of the large test folder.
-   - Plan: step 9 (the chart arrays are audit §7.5; the throttled feed is new).
+   - Plan: step 9 (the chart arrays are audit §7.5b; the throttled feed is new).
 
 4. **Every scroll frame of the main image writes two observed store properties**
    - Symptom: minor; the cursor's thumbnail redraws on every scroll frame.
@@ -80,14 +80,68 @@ All three read `store.selectedEntry`, so all three update together. Second: **du
 - No `AnyView`.
 - Formatters use `format:` styles, not stored formatter objects.
 
+## Measurements (2026-10-18)
+
+### Trace 1: M81, 355 colour frames
+
+Release build from Xcode 27.0, MacBook Air M1 (16 GB), macOS 27.0.1. SwiftUI template (SwiftUI, Hitches, Time Profiler). Data set: `Test Data/M81 IMX571`, 3 folders × 1 filter, **355 colour frames**, Geek mode, chart visible. The trace (`/Volumes/FITS Blaster/Traces/01-load-and-cursor.trace.trace`, not in git) holds both rows 1 and 2: the load (43.5–80.5 s), then ↓ held for about 5 s (110.5–115.5 s, 52 cursor moves). The tester's impression: "it felt ok"; after the later runs: "fast but not smooth". No hangs were detected.
+
+**Holding ↓ (52 moves)**
+- 49 hitches totalling 3.05 s of the 5.4 s, mostly 50–67 ms each: about 12–15 frames per second instead of 60.
+- Main thread busy about 92% (≈ 925 ms per second); SwiftUI update work ≈ 40 ms per move.
+- Per move: `ChartBody.body` 1×, `ThumbnailSidebar.body` 1×, `ThumbnailCell.body` ≈ 8× (the visible cells), `ImageViewer.body` 2×, inspector and toolbar 1× each.
+- Main-thread time by cause (inclusive, of 4.1 s):
+  - **The chart's per-point closure** (`SessionChartView.swift:264-289`), 10%. Of that, **`entry.filterGroup` takes 6.3%** (≈ 5 ms per move): `filterGroup` → `FilterGroup.normalise` → `filterName` → `FITSReader.cleanHeaderString` re-parses the header for each of the 355 points on every move (`SessionChartView.swift:271`, `ImageEntry.swift:35-41`).
+  - Swift Charts' own mark collection and drawing (`CollectContent`, `CanvasDisplayList`, `AGChartDisplay`), ≈ 16 ms per move in the SwiftUI lane.
+  - Text layout (`StyledTextLayoutComputer`, ≈ 280 text items per move, ≈ 6 ms per move). The source isn't pinned down yet; the inspector's header list (`ForEachChild<(String, String)>`, ≈ 58 rows per move) is a candidate.
+  - The sidebar is cheap: `ThumbnailSidebar.body` ≈ 0.09 ms, `ThumbnailCell.body` ≈ 0.05 ms per call; the animated scroll (`UpdatedHostingScrollView`) ≈ 1.5 ms per move.
+
+**Loading 355 frames**
+- Wall time ≈ 37 s (worker threads busy 43.5–80.5 s).
+- 394 hitches totalling 11.4 s, longest 333 ms. Main thread busy ≈ 24 s of the 37 s.
+- **`SessionChartView.body` 165× and Swift Charts' `CollectContent` 164×**: the chart is rebuilt about once per two finished frames, ≈ 3 s of SwiftUI chart work, plus `chartPoints` / `chartEntries` ≈ 0.5 s and `filterGroup` ≈ 0.7 s inside the per-point closure. Text layout another 1.7 s.
+- The progress bars update ≈ 360× and are cheap.
+
+### Traces 2 and 3: Rosette, 464 mono frames, several folders and filters
+
+Same build, Mac and settings. Both runs are in `/Volumes/FITS Blaster/Traces/03-load-and-cursor.trace` (runs 2 and 3; the file also holds trace 1 as run 1, and `02-load-and-cursor.trace` holds runs 1–2). Data: `Test Data/NGC 2244-Rosette_Nebula large`, 8 copies of the 58-frame Rosette R/G/B set (identical files).
+- **Run 2, 24 folders × 1 filter:** the set as downloaded; every R, G and B subfolder is its own sidebar section, so no filter sub-headers.
+- **Run 3, 8 folders × 3 filters:** `… large (mixed)`, the same files as APFS clones with each folder's R, G and B frames together, so Geek mode shows filter sub-headers. Confirmed from the trace (`FolderFilterSubHeader` updates only in run 3).
+
+| | Run 2 (24 × 1) | Run 3 (8 × 3) |
+| --- | --- | --- |
+| Hold ↓: moves | 66 in 6.0 s | 64 in 5.8 s |
+| Hitches while holding ↓ | 64 = 4.15 s, longest 83 ms | 61 = 3.90 s, longest 83 ms |
+| Main thread busy while holding ↓ | 92% | 90% |
+| Per move: chart mark collection (`CollectContent`) | 16.3 ms | 16.1 ms |
+| Per move: `filterGroup` in the chart | 3.8 ms | 3.8 ms |
+| Per move: text layout | 5.9 ms (≈ 350 items) | 5.5 ms (≈ 275 items) |
+| Per move: `ThumbnailSidebar.body` | 0.10 ms | 0.10 ms |
+| Per move: `ThumbnailCell.body` | ≈ 12 cells, 0.6 ms | ≈ 11 cells, 0.6 ms |
+| Load: wall time | 15.0 s | 15.4 s |
+| Load: hitches | 145 = 5.2 s, longest 267 ms | 140 = 4.9 s, longest 283 ms |
+| Load: chart rebuilds (`SessionChartView.body`) | 146 | 152 |
+| Load: microhang at the start | 263 ms | 292 ms |
+
+The microhang at the start of each load (trace 1 had a 333 ms hitch at the same point) has no app function behind it: the main thread is creating SwiftUI views (`PlaceholderContentView._makeView`, text) when the new session first appears.
+
+### Verdict per finding (traces 1–3)
+- **1 — confirmed, but the chart is the cost, not the sidebar.** The chart re-runs on every move and is the biggest single cost (≈ 16 ms of mark collection plus ≈ 4–5 ms of `filterGroup` per move, in all three runs). The sidebar body and cells do re-run on every move, but cost under 1 ms together.
+- **2 — header part confirmed, sidebar part not measurable.** `filterGroup` re-parsing costs ≈ 4–5 ms per move, paid in the chart. The sidebar's grouping costs ≈ 0.1 ms per move with 24 folders and with 8 folders × 3 filters, so storing the sidebar groupings (step 9) is cleanup, not a speed fix.
+- **3 — confirmed.** 146–164 chart rebuilds per load (355–464 frames), ≈ 2.5–3 s of SwiftUI chart work per load.
+- **5 — confirmed, minor** (≈ 1.5 ms per move).
+- **4, 6 — not measured yet** (rows 3 and 4).
+- **New: text layout** of ≈ 275–350 items per move (≈ 5.5–6 ms); source to be found. It is larger with more folder sections.
+- **New: microhang at load start**, ≈ 0.3 s, from SwiftUI view creation. Not in the plan; worth one look in step 9.
+
 ## Metrics
 
-None yet. To fill in from Release-build traces (SwiftUI template + Time Profiler), before step 5 and again after steps 5 and 9:
+To fill in from Release-build traces (SwiftUI template + Time Profiler), before step 5 and again after steps 5 and 9:
 
 | Interaction | Metric | Before | After step 5 | After step 9 | Notes |
 | --- | --- | --- | --- | --- | --- |
-| Hold ↓ for 5 s, ~500 frames, Geek mode, chart visible, 3 folders × 3 filters | hitches; `ThumbnailSidebar.body` / `ChartBody.body` update counts | | | | findings 1, 2, 5 |
-| Load the large test folder with the chart visible | hitches; `SessionChartView` updates; wall time | | | | finding 3 |
+| Hold ↓ for 5 s, ~500 frames, Geek mode, chart visible, 3 folders × 3 filters | hitches; `ThumbnailSidebar.body` / `ChartBody.body` update counts | Rosette 464 frames, 8 × 3: 61 hitches = 3.90 s of 5.8 s; main thread 90% busy; per move `ChartBody` 1×, `ThumbnailSidebar` 1× (0.1 ms), chart ≈ 16 ms + `filterGroup` 3.8 ms. M81 355 frames, 3 × 1: 49 hitches = 3.05 s of 5.4 s | | | findings 1, 2, 5; traces 1 and 3 |
+| Load the large test folder with the chart visible | hitches; `SessionChartView` updates; wall time | M81 355 colour frames: 37 s; 394 hitches = 11.4 s (max 333 ms); `SessionChartView.body` 165×. Rosette 464 mono frames (8 × 3): 15.4 s; 140 hitches = 4.9 s (max 283 ms); 152× | | | finding 3; traces 1 and 3 |
 | Scroll the zoomed main image for 5 s | `ThumbnailCell` updates; hitches | | | | finding 4 |
 | Switch frames at display size 4096 | main-thread time per switch | | | | finding 6 |
 | Memory after loading ~500 colour frames | peak / resident memory | | | | audit §7.1 |
@@ -100,4 +154,4 @@ None yet. To fill in from Release-build traces (SwiftUI template + Time Profiler
 3. Stop, then export the trace, or take screenshots of the SwiftUI lanes (Update Groups, Long View Body Updates, Hitches) and the Time Profiler call tree.
 4. Add one line saying what you did.
 
-Rows 1 and 2 matter most. With those I can confirm or drop findings 1–3 and set the targets for steps 5 and 9.
+Rows 1 and 2 were recorded on 2026-10-18 (traces 1–3). Still to do: rows 3–5.

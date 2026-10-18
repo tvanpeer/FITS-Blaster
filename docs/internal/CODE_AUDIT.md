@@ -389,6 +389,7 @@ Findings cite `path:line`, relative to the repo root. No code was changed. "Plan
 - **What:** `filterGroup` (header lookup, quote stripping, ~30 string checks) and `isBayer` (header parse) are computed properties used in filters, groupings, statistics and view bodies; chart arrays are rebuilt several times per render.
 - **Why:** Repeated O(n) string work per render and per metrics update during a batch.
 - **Action:** Store `filterName`, `filterGroup` and `bayerPattern` once when headers are set; compute chart and sidebar arrays once per body.
+- **Measured (2026-10-18):** the chart's `filterGroup` reads cost about 5 ms per cursor move with 355 frames (PERFORMANCE_AUDIT.md, Measurements). The header part (a) is now in plan step 5, the arrays (b) in step 9.
 - **Severity:** Medium
 
 ### 7.6 Bookmark resolved per entry on the main thread; start result ignored

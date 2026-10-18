@@ -4,6 +4,17 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-18 — Docs: performance measurements
+
+### Docs
+- `docs/internal/PERFORMANCE_AUDIT.md` — first Instruments measurements (Release build, MacBook Air M1), on 355 colour frames (M81) and on 464 mono frames in two folder layouts (Rosette, 24 folders × 1 filter and 8 folders × 3 filters):
+  - Holding ↓ gives about 15 screen updates per second instead of 60. The session chart is the main cost: about 16 ms per cursor move, plus about 4 ms because it re-reads each frame's filter from the FITS header. Text layout adds about 6 ms; the sidebar costs only 0.1 ms.
+  - During loading the chart is rebuilt about 150 times; each load starts with a pause of about 0.3 s.
+- `docs/internal/architecture-plan.md` — storing the header facts (filter, filter group, Bayer pattern) once per frame moves from step 9 to step 5, next to the chart fix; the array work stays in step 9.
+- `docs/internal/CODE_AUDIT.md` — §7.5 gets the measured cost and the new step split.
+
+---
+
 ## 2026-10-18 — Docs: project guide for Claude
 
 ### Docs
