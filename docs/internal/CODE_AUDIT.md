@@ -629,7 +629,7 @@ Findings cite `path:line`, relative to the repo root. No code was changed. "Plan
 - Tests: quick scan only, no coverage review.
 - Website (`site/`) and most of `scripts/`, apart from dead or duplicated scripts.
 - Localisation (the app is English-only).
-- No Instruments profiling; §7 lists likely hot spots, not measured ones.
+- No Instruments profiling during the audit; §7 listed likely hot spots. Measured afterwards (2026-10-18, PERFORMANCE_AUDIT.md): §7.1 and §7.5. The other §7 findings are not measured yet.
 
 ---
 

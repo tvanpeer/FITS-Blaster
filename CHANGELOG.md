@@ -4,6 +4,13 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-18 — Docs: measured findings in the code audit
+
+### Docs
+- `docs/internal/CODE_AUDIT.md` — §11 no longer says nothing in §7 was measured: §7.1 and §7.5 were measured on 2026-10-18; the rest of §7 is still unmeasured.
+
+---
+
 ## 2026-10-18 — Fix: load statistics after opening more folders
 
 ### Fixed
