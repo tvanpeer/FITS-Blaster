@@ -287,7 +287,7 @@
     <h1>FITS Blaster</h1>
     <div class="beta-badge">Beta</div>
     <p>Test the latest features before they ship. Beta builds may contain bugs.</p>
-    <a class="download-btn" href="https://github.com/tvanpeer/FITS-Blaster/releases/download/v1.23-beta.10/FITS-Blaster-1.23-beta.10.dmg">Download Beta 1.23-beta.10</a>
+    <a class="download-btn" href="https://github.com/tvanpeer/FITS-Blaster/releases/download/v1.23.1-beta.1/FITS-Blaster-1.23.1-beta.1.dmg">Download Beta 1.23.1-beta.1</a>
     <p class="download-sub">macOS 15.6 or later &nbsp;&middot;&nbsp; Free</p>
 </header>
 
@@ -302,46 +302,18 @@
 <section class="content">
     <h2>Latest beta</h2>
     <!-- beta-entry-start -->
-    <!-- v1.23-beta.10 -->
+    <!-- v1.23.1-beta.1 -->
     <div class="entry">
         <div class="entry-header">
-            <div class="entry-title">Command-line mode, PSF Signal Weight, better colour-camera metrics — v1.23-beta.10</div>
-            <div class="entry-date">2026-10-13</div>
-        </div>
-        <div class="section">
-            <span class="section-label label-added">Added</span>
-            <ul>
-                <li><strong>Command-line mode</strong> — run the app's executable with a folder path to measure every frame without opening a window and write a CSV of the results. Add quality thresholds to export only the frames that pass. Run it with <code>--help</code> for all options, or see the FAQ. Not available in the Mac App Store version.</li>
-                <li><strong>PSF Signal Weight (PSF·S)</strong> — a new metric for transparency and seeing: star peak brightness relative to sky noise. Shown in the inspector, session chart, sort menu, and exports, and available as an Auto-Flag criterion.</li>
-                <li><strong>Zoom to fit</strong> — a fit button next to the zoom percentage scales the image to fill the viewer.</li>
-                <li><strong>Zoom anchor</strong> — click the image to pin a point; zooming keeps it centred, and it stays in place as you step through frames.</li>
-                <li><strong>Target Background</strong> slider replaces the Brightness slider, matching PixInsight's convention.</li>
-                <li><strong>Sample data</strong> — an M31 sample set to try FITS Blaster without your own images (see the FAQ).</li>
-            </ul>
-        </div>
-        <div class="section">
-            <span class="section-label label-improved">Improved</span>
-            <ul>
-                <li><strong>Colour (OSC) cameras</strong> — FWHM and eccentricity are now measured on debayered, full-resolution star images. Rankings agree closely with PixInsight's SubframeSelector.</li>
-                <li><strong>Eccentricity</strong> detects elongated stars at any angle, not just horizontal or vertical.</li>
-                <li><strong>Finder thumbnails</strong> — FITS thumbnails no longer fall back to the app icon in Finder's icon view, and files in iCloud Drive that aren't downloaded no longer stall other thumbnails.</li>
-                <li><strong>Open Folder options</strong> (subfolders, REJECTED folder) now appear in a popover on the Open Folder button and ⌘O.</li>
-            </ul>
-        </div>
-        <div class="section">
-            <span class="section-label label-changed">Changed</span>
-            <ul>
-                <li>The quality score always uses every metric that could be measured; the per-metric on/off settings are gone.</li>
-                <li>The metric chips above the session chart are now optional (Settings → Display).</li>
-                <li>The version downloaded from the website is no longer sandboxed, so command-line mode can read any folder you give it.</li>
-            </ul>
+            <div class="entry-title">Neutral colours, reproducible metrics, correct load speed — v1.23.1-beta.1</div>
+            <div class="entry-date">2026-10-20</div>
         </div>
         <div class="section">
             <span class="section-label label-fixed">Fixed</span>
             <ul>
-                <li>Crash at launch on some macOS 27 versions.</li>
-                <li>The selected frame was lost when switching between All, Flagged, and Rejected and back.</li>
-                <li>The session chart's cursor dot didn't follow navigation, and single-frame folders drew outside the chart.</li>
+                <li><strong>Colour cast in the colour view</strong> — with Colour on, a folder could be shown with a strong colour cast; the M31 sample set looked magenta. The shared stretch for a folder now keeps the sky background neutral. Mono frames that share a stretch get the same correction.</li>
+                <li><strong>Metrics varied between runs</strong> — opening the same folder twice could give slightly different star counts, and on some data slightly different SNR, PSF Signal Weight and eccentricity. The same files now always give the same metrics. Values on affected frames change once, by no more than they already varied.</li>
+                <li><strong>Wrong load speed after opening another folder</strong> — the info bar counted every image in the session, not just the ones from the last load, so it could show thousands of MP/s. It now reports only the frames that were just loaded.</li>
             </ul>
         </div>
     </div>
