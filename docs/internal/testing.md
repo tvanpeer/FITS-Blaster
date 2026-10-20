@@ -107,8 +107,8 @@ Tart base VM (see [VMs](#vms)); every test runs on a fresh clone of it.
 | Supported, not tested | Everything else from 15.6 (the app's minimum) | — | — |
 
 The base VMs run the *latest* release of each major; the app's minimum stays
-macOS 15.6. Base VMs that don't exist yet are skipped (on 2026-10-15: `fb-15`,
-`fb-26` and `fb-27-beta` exist; `fb-27` waits for the VM disk).
+macOS 15.6. Base VMs that don't exist yet are skipped (since 2026-10-20 all four
+exist: `fb-15`, `fb-26`, `fb-27` and `fb-27-beta`).
 
 ### Running
 
@@ -444,12 +444,12 @@ from scripts: clone, start, stop and delete.
 | Base VM | macOS | Level | Created with |
 |---|---|---|---|
 | `fb-27-beta` | 27.2 beta 3 (26B5101f) | Fully tested | `tart-create-base.sh` (2026-10-15), 50 GB disk |
-| `fb-27` | 27.0.1 (26A434) | Fully tested | Built and tested 2026-10-15 (no clicks needed), then deleted for space; rebuild on the VM disk |
+| `fb-27` | 27.0.1 (26A434) | Fully tested | `tart-create-base.sh` (2026-10-20, no clicks needed, 8 minutes), 80 GB disk; first built 2026-10-15 and deleted for space |
 | `fb-26` | **26.6.2** (25G83) — not yet 26.7.1, see below | Automatically tested | `--manual` (2026-10-15), 50 GB disk |
 | `fb-15` | 15.8.1 (24H32) | Automatically tested | `--manual` from 15.6.1, updated to 15.8.1 (2026-10-15), 50 GB disk |
 
-**To do when the VM disk arrives (about 2026-10-22):** rebuild `fb-26` (and
-`fb-27`) with the script's 80 GB disk and update `fb-26` to the latest 26. The
+**To do when the VM disk arrives (about 2026-10-22):** rebuild `fb-26` with the
+script's 80 GB disk and update `fb-26` to the latest 26. The
 26.7.1 update refused to install on the 50 GB disk: "Not enough free disk
 space: a total of 21.55 GB is required". Enlarging a VM disk afterwards is
 impractical (the recovery partition sits behind the system container, and

@@ -4,6 +4,14 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-20 — Testing: App Store screenshots, fb-27 VM
+
+### Testing
+- **App Store screenshots** — `scripts/appstore-screenshots.sh` makes Mac App Store screenshots at an exact 16:10 size: window mode sets the FITS Blaster window to 1440 × 900 points and captures that area (2880 × 1800 on Retina, popovers and sheets included); `--fullscreen` captures the whole main screen and scales it to 2880 × 1800. A countdown after Enter leaves time to open a popover. `scripts/appstore-flatten.swift` removes the alpha channel (colour profile unchanged), which App Store Connect can refuse.
+- **fb-27 VM** — base VM for the newest macOS 27 release (27.0.1, 80 GB disk) created with `tart-create-base.sh`; the beta 2 smoke test passes on it. `vm-test-all.sh` now tests all four VMs (fb-15, fb-26, fb-27, fb-27-beta). `docs/internal/testing.md` updated.
+
+---
+
 ## 2026-10-20 — Site: Mac App Store badge on the homepage
 
 ### Site
