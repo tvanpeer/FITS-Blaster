@@ -4,6 +4,49 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-20 — Command-line mode, new quality metrics, better colour-camera measurements
+
+### Added
+- **Command-line mode** — run the app's executable with a folder path to measure every frame without opening a window and write a CSV of the results. Add quality thresholds to export only the frames that pass. Run it with `--help` for all options, or see the FAQ. Not available in the Mac App Store version.
+- **PSF Signal Weight (PSF·S)** — a new metric for transparency and seeing: star peak brightness relative to sky noise. Shown in the inspector, session chart, sort menu, and exports, and available as an Auto-Flag criterion.
+- **Sky background** — the sky level of every frame, in the inspector, the session chart, and the sort menu. Auto-Flag can flag frames whose sky is too bright.
+- **Export options** — choose FITS header columns (object, exposure, filter, temperature, focus position and more), export as TSV, include rejected frames with a status column, add the quality score, and pick absolute, relative, or filename-only paths. The plain text export is now an aligned, readable report.
+- **Play mode** — press P to step through the frames automatically at an adjustable speed.
+- **Flip 180°** — press V to rotate the current image, or the selection, for display. The FITS files aren't changed.
+- **Session chart** can show bars instead of dots.
+- **Zoom** — a fit button scales the image to the viewer, the zoom percentage jumps to 1:1, and clicking the image pins a point that stays centred while you zoom and step through frames.
+- **Target Background** slider replaces the Brightness slider, matching PixInsight's convention.
+- **Quick Look** previews and thumbnails for floating-point and RGB FITS files, such as stacked integrations.
+- **Beta updates** — Settings → Interface → Software Updates can switch on beta releases. Not in the Mac App Store version.
+- **Sample data** — an M31 sample set to try FITS Blaster without your own images (see the FAQ).
+
+### Improved
+- **Stretch** — a PixInsight-style screen transfer function: darker background, more contrast in faint nebulosity, no blown-out highlights. Mono frames in the same folder and filter share one stretch, so brightness no longer flickers while you step through them.
+- **Colour (OSC) cameras** — FWHM and eccentricity are now measured on debayered, full-resolution star images. Rankings agree closely with PixInsight's SubframeSelector.
+- **Eccentricity** detects elongated stars at any angle, not just horizontal or vertical.
+- **Finder thumbnails** — FITS thumbnails no longer fall back to the app icon in Finder's icon view, and files in iCloud Drive that aren't downloaded no longer stall other thumbnails.
+- **Navigation** — each filter group and each view (All, Flagged, Rejected) remembers its selected frame.
+- **Sidebar** — filter pills wrap onto more rows, and the sidebar can be made wider.
+- **Open Folder options** (subfolders, REJECTED folder) now appear in a popover on the Open Folder button and ⌘O.
+- **VoiceOver** labels for the inspector, chart and filter controls.
+
+### Changed
+- The quality score always uses every metric that could be measured; the per-metric on/off settings are gone.
+- The metric chips above the session chart are now optional (Settings → Display).
+- The version downloaded from the website is no longer sandboxed, so command-line mode can read any folder you give it.
+
+### Fixed
+- Crash at launch on some macOS 27 versions.
+- Filter codes H, O and S showed as "Unfiltered"; they now map to Hα, OIII and SII, and IR to Luminance.
+- CSV numbers could lose their decimals with a comma-decimal region setting (Dutch, German, French).
+- Dropping a folder on the app icon in the Dock didn't open it.
+- In full screen, the window controls didn't appear at the top of the screen, and switching between Geek and Simple mode left an empty column.
+- Filter buttons didn't work in sessions with more than one folder.
+- The selected frame was lost when switching views or unflagging in the Flagged view.
+- The session chart's cursor dot didn't follow navigation, and single-frame folders drew outside the chart.
+
+---
+
 ## 2026-10-13 — Testing: VM smoke test and testing guide
 
 ### Testing
