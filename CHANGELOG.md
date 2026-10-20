@@ -4,6 +4,13 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-20 — Site: version in the homepage's structured data
+
+### Fixed
+- The homepage's structured data for search engines (JSON-LD) still gave 1.22.1 as the version and download after the 1.23 release. `scripts/update-site.py` now updates `softwareVersion` and `downloadUrl` along with the download button, and `site/index.html` is corrected to 1.23.
+
+---
+
 ## 2026-10-20 — Command-line mode, new quality metrics, better colour-camera measurements
 
 ### Added

@@ -172,6 +172,18 @@ def update_index_html(path, version):
         content,
     )
 
+    # JSON-LD structured data (read by search engines)
+    content = re.sub(
+        r'"downloadUrl": "https://github\.com/tvanpeer/FITS-Blaster/releases/download/v[^/]+/FITS-Blaster-[^"]+\.dmg"',
+        f'"downloadUrl": "https://github.com/tvanpeer/FITS-Blaster/releases/download/v{version}/FITS-Blaster-{version}.dmg"',
+        content,
+    )
+    content = re.sub(
+        r'"softwareVersion": "[^"]+"',
+        f'"softwareVersion": "{version}"',
+        content,
+    )
+
     with open(path, 'w', encoding='utf-8') as f:
         f.write(content)
 
