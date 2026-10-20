@@ -1,7 +1,7 @@
 # Architecture and Fixes — Master Plan
 
 **Date**: 2026-10-17  
-**Status**: Planned. Waiting for the decisions under "Open questions". Start after App Store build 202 is approved (see "When").  
+**Status**: Ready to start. App Store build 202 was approved, and v1.23 and 1.23.1-beta.1 were released on 2026-10-20. All open questions were answered on 2026-10-20 (see "Decisions").  
 **This is the only plan to follow.** It contains (plus the 6 findings of [PERFORMANCE_AUDIT.md](PERFORMANCE_AUDIT.md), mapped at the end):
 - the architecture review of 2026-10-17 (decisions: combine with the concurrency plan, do all steps, no RAW / freemium boundaries);
 - [concurrency-fixes-plan.md](concurrency-fixes-plan.md), which keeps the detailed design and tests for steps 6 and 7 here;
@@ -57,7 +57,7 @@ For a single-window Mac app by one developer, with no server, this is the right 
 | 15 | Feature folders, naming, constants | organisation | §9.12 (folders), §9.14, §9.15 |
 
 **Why this order:**
-- **1–3** are small and independent and fix what users hit now. Step 1 could ship before the rest (question 1).
+- **1–3** are small and independent and fix what users hit now. Step 1 ships before the rest, as 1.23.1-beta.2 (decision 1).
 - **3 comes before the moves (4–6)** so dead code isn't moved, tested and then deleted.
 - **6 before 7**, as in the concurrency plan.
 - **8 and 9 after 6**, because the pipeline then has one owner to optimise.
@@ -140,7 +140,7 @@ Each is a few lines. One commit, or two if it reads better.
   - `export(...)` becomes `export(to url: URL, …) throws`. Write errors reach the user through `errorMessage` (§5.7; a failed export becomes visible, a small behaviour change).
 - New `FileDialogs.swift`: choose folder, confirm "open again", choose export destination. These use the asynchronous panel APIs (`begin` / sheet-modal), and the 300 ms `Task.sleep` before the open panel goes away (§4.2).
 - One FITS `UTType` and one extension list (`fits`, `fit`, `fts`), used by the panels, drops and scans (§4.3 and the extension-list part of §9.11).
-- **Export cleanup** (export parts of §9.11, and §6.2): build the rows once and render them as delimited or padded text. One CSV quoting helper is shared with `CLIRenderer`; it also quotes `\r`, and text cells starting with `=`, `+`, `-` or `@` get a leading `'` (metric number columns don't). The default export keys become one `static let`, and there is one header-key catalogue and picker for `ExportPanel` and `ExportSettingsTab`, with one column-ordering rule (question 9).
+- **Export cleanup** (export parts of §9.11, and §6.2): build the rows once and render them as delimited or padded text. One CSV quoting helper is shared with `CLIRenderer`; it also quotes `\r`, and text cells starting with `=`, `+`, `-` or `@` get a leading `'` (metric number columns don't). The default export keys become one `static let`, and there is one header-key catalogue and picker for `ExportPanel` and `ExportSettingsTab`, with one column-ordering rule (decision 9: the order chosen in Settings).
 - Path APIs in the code rewritten here use URLs (the `ImageStoreFileOperations` part of §4.4).
 - Callers: `FITSToolbar.swift` (Open Folder) and `ExportPanel.swift` (Export) call `FileDialogs` first, then the store.
 
@@ -209,7 +209,7 @@ The concurrency plan steps 3–4, unchanged:
 - the four warnings (§3.3), including the drop handler, which moves to `dropDestination` if that keeps sandboxed folder access (§4.1, concurrency question 4);
 - the pointer escape (§3.10).
 
-Then a scratch build with `SWIFT_STRICT_CONCURRENCY=complete` shows 0 warnings. **Swift 6 language mode** (§3.11) is a separate commit in this step, only if question 3 is yes.
+Then a scratch build with `SWIFT_STRICT_CONCURRENCY=complete` shows 0 warnings. **Swift 6 language mode** (§3.11) is a separate commit at the end of this step (decision 3: yes).
 
 ---
 
@@ -220,7 +220,7 @@ Then a scratch build with `SWIFT_STRICT_CONCURRENCY=complete` shows 0 warnings. 
   - §9.5;
   - §7.9 (one device; buffers used on their own `device`);
   - §5.17: completion checks `commandBuffer.status`, and on error falls back to the CPU path; detection's threadgroup is clamped. **Touches Metal setup, not the kernels.**
-- **One stretch-statistics function** (§9.6). The grey/colour differences stay as explicit parameters, so renders stay byte-identical. Making grey and colour behave the same is a behaviour change and would go to step 13 (question 10).
+- **One stretch-statistics function** (§9.6). The grey/colour differences stay as explicit parameters, so renders stay byte-identical. Making grey and colour behave the same is a behaviour change and would go to step 13 (decision 10: not planned).
 - **One shape-measurement implementation** (§9.4), reading pixels through a small sampler, with named constants for the FWHM range and the Moffat parameters. Possible after step 3 removed the dead copy.
 - **Star counting in 4 chunked tasks** instead of thousands of tiny ones (§3.8). Metrics stay identical (ordered aggregation, as now).
 - **Reads** (§3.7, §7.3): read straight into the destination buffer with an in-place byte-swap, without the whole file as `Data`. Keep blocking reads below the thread-pool width.
@@ -242,7 +242,7 @@ Then a scratch build with `SWIFT_STRICT_CONCURRENCY=complete` shows 0 warnings. 
 - **Arrays computed once** (§7.5b, the rest of performance audit P2; the header facts are already stored in step 5). One `median` helper and one grouping helper replace the copies in `ImageStore` and `SessionChartView` (visibility/grouping/median part of §9.11). Sidebar and chart arrays are computed once per change, not per render (§8.5; performance audit P2). This includes `visibilityGroupedSortedEntries`, which becomes a stored property like `visibilityFilteredEntries`.
 - **Chart during a load** (performance audit P3): the chart reads its points from a store value refreshed at most every ~250 ms during a batch and once at the end, instead of observing every frame's metrics.
 - **Display-image drawing** (performance audit P6): only if a trace shows main-thread format conversion when switching frames, create display images in the display's native format.
-- **Fewer reads per load** (§7.2): render the normalised grey and colour images without re-reading every file. Two ways, decided with measurements (question 7):
+- **Fewer reads per load** (§7.2): render the normalised grey and colour images without re-reading every file. Two ways, decided with measurements (decision 7: (a), confirmed by measuring):
   - (a) keep a display-size float proxy per frame from Phase A;
   - (b) keep each folder's full buffers until its clips are known.
   (b) conflicts with the memory goal of §7.3, so (a) is the expected choice. Renders must stay byte-identical, or the difference goes to step 13.
@@ -293,7 +293,7 @@ Then a scratch build with `SWIFT_STRICT_CONCURRENCY=complete` shows 0 warnings. 
 **Changes**
 - One-pass argument parsing. Flag values are consumed; the remaining argument is the folder, relative or absolute (§5.10). `main.swift` uses the same rule to decide CLI mode.
 - Unknown flags and bad values give a usage error. Files that fail to load are listed on stderr. Exit codes are documented in `--help` (§5.12).
-- "No frame passes the filter" behaviour as decided (§5.11, question 6).
+- "No frame passes the filter" (§5.11, decision 6): a CSV with only the header row and its own exit code, documented in `--help`.
 - CLI option duplication (CLI part of §9.11 and of §4.4): `AutoRejectConfig.allDisabled` and a public `anyEnabled`, one mode parser, and a shared path-expansion helper using URLs instead of `expandingTildeInPath`.
 
 **Tests**: a CLI argument-parsing test file; extend `vm-smoke-remote.sh` with `-o` before the folder, a relative folder and an unknown flag.
@@ -304,11 +304,11 @@ Then a scratch build with `SWIFT_STRICT_CONCURRENCY=complete` shows 0 warnings. 
 
 ## Step 13 — Behaviour changes (need decisions)
 
-None of these starts without an answer to its question.
+All decided on 2026-10-20 (see "Decisions").
 
-- **Frames with no stars** (§5.4, question 4): return metrics with star count 0 and score 0, so Auto-Flag and the CLI filters can reject them. Do this together with the "score ignores cloudy frames" investigation (memory note; same root cause area). Changes CSV output and the metric baselines: regenerate them in the same commit and say so in the CHANGELOG.
-- **Small groups** (§5.16, question 5): true median for even counts; relative checks skipped or marked for groups under 3 frames.
-- **Colour spaces** (§4.5, question 8): named sRGB / grey spaces instead of device spaces. Changes rendered pixels: update the render-test targets and check `TARGET_LEVEL` / offsets in the smoke test.
+- **Frames with no stars** (§5.4, decision 4: yes): return metrics with star count 0 and score 0, so Auto-Flag and the CLI filters can reject them. Do this together with the "score ignores cloudy frames" investigation (memory note; same root cause area). Changes CSV output and the metric baselines: regenerate them in the same commit and say so in the CHANGELOG.
+- **Small groups** (§5.16, decision 5): true median for even counts; relative checks skipped for groups under 3 frames.
+- **Colour spaces** (§4.5, decision 8: yes): named sRGB / grey spaces instead of device spaces. Changes rendered pixels: update the render-test targets and check `TARGET_LEVEL` / offsets in the smoke test.
 - If step 8 or 9 chose to unify grey and colour statistics or accept render differences, those changes land here too.
 
 **Tests**: updated baselines and render targets, reviewed by eye before committing.
@@ -363,34 +363,32 @@ FITS Blaster/
 
 ## When
 
-1. App Store build 202 approved → tag v1.23 (204) → merge `colour-fix` into `main` → release 1.23.1-beta.1 (205).
+1. App Store build 202 approved → tag v1.23 (204) → merge `colour-fix` into `main` → release 1.23.1-beta.1 (205). Done 2026-10-20.
 2. Then this plan on a new branch `architecture` from `main`.
-3. Step 1 may go earlier (question 1).
+3. Step 1 goes first and ships on its own as 1.23.1-beta.2 (decision 1).
 
 ---
 
-## Open questions
+## Decisions
 
-Earlier questions, still open:
-1. **Step 1 timing:** ship the Quick Look fix and the FITS hardening in 1.23.1 (before the rest of the plan), or with the rest?
-2. **Second folder during a load** (concurrency question 1): queue it (the plan), refuse it, or cancel the running load?
-3. **Swift 6 mode** (concurrency question 3; §3.11): switch in step 7?
+Answered by Tom on 2026-10-20 (the earlier open questions, same numbers):
+1. **Step 1 timing:** early. Step 1 ships on its own as **1.23.1-beta.2**, before the rest of the plan.
+2. **Second folder during a load:** queue it (as planned in step 6).
+3. **Swift 6 mode:** yes, as a separate commit at the end of step 7.
+4. **§5.4** frames with no stars: yes, star count 0 and score 0, so they can be rejected (step 13, with the "score ignores cloudy frames" investigation).
+5. **§5.16** small groups: true median for even counts, and relative checks skipped for groups under 3 frames (absolute checks still apply) (step 13).
+6. **§5.11** CLI when no frame passes: write a CSV with only the header row and exit with its own exit code, documented in `--help` (step 12).
+7. **§7.2** fewer reads: (a), a display-size proxy per frame; confirmed with a measurement at the start of step 9.
+8. **§4.5** colour spaces: switch to named sRGB / grey spaces (step 13, render targets updated and checked by eye).
+9. **§9.11** export column order: the order chosen in Settings → Export, also in the Export sheet (step 4).
+10. **§9.6** grey and colour statistics: keep their current differences as explicit parameters; no render change (step 8). Making them the same is not planned.
 
-From the audit:
-4. **§5.4** frames with no stars count as 0 stars / score 0 (and are rejectable): yes?
-5. **§5.16** small groups: true median, and skip relative checks below 3 frames?
-6. **§5.11** CLI when no frame passes: write an empty CSV with its own exit code, or keep "export all" and document it?
-7. **§7.2** fewer reads: display-size proxy (a), decided after measuring?
-8. **§4.5** colour spaces: change, knowing the renders and targets change?
-9. **§9.11** export column order: alphabetical (sheet) or the order chosen in Settings?
-10. **§9.6** grey and colour statistics: keep their current differences (no render change), or make them the same (step 13)?
-
-Also from the concurrency plan:
-- Cancel also stopping a colour re-render (its question 2): assumed yes.
+Still assumed from the concurrency plan (not asked again):
+- Cancel also stops a colour re-render (its question 2).
 - The drop handler (its question 4): try `dropDestination` first, keep `onDrop` as fallback.
 - `reprocessAll` and `openFilesPanel`: removed in step 3.
 
-**Release split:** one beta after all steps, or a beta after each group: 1–3, 4–7, 8–9, 10–12, 13–15?
+**Release split:** a beta after each group. Step 1 as 1.23.1-beta.2, then a beta after steps 2–3, 4–7, 8–9, 10–12 and 13–15.
 
 ---
 

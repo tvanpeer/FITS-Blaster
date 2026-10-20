@@ -4,6 +4,13 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-20 — Docs: master plan decisions
+
+### Docs
+- `docs/internal/architecture-plan.md` — all open questions answered: step 1 ships early as 1.23.1-beta.2; a second folder is queued; Swift 6 mode in step 7; frames without stars get 0 stars and score 0; true median and no relative checks below 3 frames; the CLI writes a header-only CSV with its own exit code when no frame passes; a display-size proxy for fewer reads; sRGB / grey colour spaces; export columns in the Settings order; grey and colour statistics keep their differences; a beta after each group of steps. The plan is ready to start.
+
+---
+
 ## 2026-10-20 — Testing: VirtualBuddy VM removed
 
 ### Testing
