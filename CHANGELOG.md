@@ -4,6 +4,15 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-20 — Quick Look on macOS 15 and 26, safer with damaged files
+
+### Fixed
+- **Finder thumbnails and previews on macOS 15.6 to 26.1** — FITS files showed no thumbnail or Space-bar preview on these versions; the Quick Look extensions only worked from macOS 26.2. They now work on every macOS version FITS Blaster supports.
+- **Damaged or unusual FITS files** — a file with impossible image sizes, invalid scaling values, a missing end of header or cut-off data could crash FITS Blaster, or Quick Look in Finder. Such files are now skipped with an "Invalid FITS format" message. Images larger than 65,536 pixels per side are not supported.
+- Very small images (under 3 × 3 pixels) no longer crash the star measurement on Macs without Metal.
+
+---
+
 ## 2026-10-20 — Fix: Quick Look on macOS 15, no crash on malformed FITS files
 
 ### Fixed
