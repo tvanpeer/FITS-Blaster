@@ -15,13 +15,13 @@ a human looking at the app.
 
 | Layer | What it checks | How to run | Status |
 |---|---|---|---|
-| Unit and integration tests | Metrics, scoring, FITS reading, stretch clips, GPU vs CPU — on synthetic data | Xcode ⌘U | Exists (216 tests) |
+| Unit and integration tests | Metrics, scoring, FITS reading, stretch clips, GPU vs CPU — on synthetic data | Xcode ⌘U | Exists (223 tests) |
 | Benchmarks | Load and measure speed on real data | `scripts/run-benchmark.sh` | Exists |
 | PixInsight comparison | Our metrics vs PixInsight SubframeSelector | `scripts/compare.py` | Exists |
-| **VM smoke test** | The real DMG on other macOS versions: install, signing, launch, CLI | `scripts/vm-smoke.sh` | **New** |
-| Rendering tests on real data | Colour and brightness of rendered frames | Xcode, with test data | Planned |
-| Metric baselines | Metrics don't change between versions unless we mean them to | Script + CLI | Planned |
-| CLI `--render` (beta builds only) | Rendering of the shipped binary, without the GUI | CLI | Planned |
+| **VM smoke test** | The real DMG on macOS 15, 26, 27 and the 27 beta: install, signing, launch, CLI, rendering, metrics | `scripts/vm-test-all.sh`, `scripts/vm-smoke.sh` | **New** |
+| **Rendering tests on real data** | Colour and brightness of rendered frames | `scripts/run-render-tests.sh` | **New** |
+| **Metric baselines** | Metrics don't change between versions unless we mean them to | `scripts/metric-baselines.py` | **New** |
+| **CLI `--render`** (beta builds only) | Rendering of the shipped binary in the VMs, without the GUI | Part of `scripts/vm-smoke.sh` | **New** |
 
 ---
 
@@ -72,50 +72,96 @@ clean VM, not on this Mac.
 | CLI `--help` | Prints usage and exits 0 |
 | CLI, no filter | Exits 0 and writes one CSV row per sample frame |
 | CLI, filtered | `-f 1.5 -e 0.5 -p 0.5` exits 0 and keeps at least one frame |
+| Render (beta builds) | `--render` writes a PNG and a background for every frame; **SKIP** for stable builds, which don't have it |
+| Render: metrics | The metrics CSV with `--render` is identical to the one without |
+| Render: colour | Every colour frame got a colour render |
+| Render: typical frame | Background R, G, B within 4 of each other and each within 63 ± 6 — the same limits as the [rendering tests](#4-rendering-tests-on-real-data-scriptsrun-render-testssh) |
+| Metric baselines (with `--tart`) | The sample set's metrics and filter result match `tests/baselines/` (section 5) — also on macOS 15 and 26 |
 
 ### What it cannot check
 
-- **Anything you see.** It cannot take screenshots in the VM (macOS blocks
-  screen capture over SSH). Colours, layout, missing controls, a blank window —
-  all invisible to the script.
+- **Anything you see in the app.** It cannot take screenshots in the VM (macOS
+  blocks screen capture over SSH). Layout, missing controls, a blank window —
+  all invisible to the script. For beta builds it does bring back the rendered
+  frames as PNGs (see [section 6](#6-cli---render-beta-builds-only)), but
+  someone has to look at them.
 - **Interaction.** It doesn't open folders in the GUI, click, flag, reject or
   export.
 - **Metric values.** It checks the CSV has the right shape, not that the
   numbers are right (that comes with metric baselines).
 - **Updates.** It doesn't test Sparkle update checks.
 
-### 👤 YOU: before running
+### Support levels
 
-1. **Start from a clean VM.** Shut the VM down in VirtualBuddy, then restore it
-   from its clean copy (see [VMs](#vms)). A VM that ran earlier builds keeps
-   their settings and caches, which can hide problems a new user would hit.
-2. **Boot the VM and log in as `fitstester`** in the VM window. Wait until the
-   desktop is fully up.
-3. **Leave the VM window alone** while the script runs; clicking in it can
-   affect the launch check.
-4. **Pick what to test:**
-   - *Before tagging* (recommended for every release): a local Release build
-     — `scripts/vm-smoke.sh <vm> "<path>/FITS Blaster.app" --dev-build`.
-     Remember that a pushed beta tag goes live to beta users immediately, so
-     this is the only test that happens before users get the build.
-   - *After the release workflow*: the published DMG —
-     `scripts/vm-smoke.sh <vm> --tag <tag>`. This also checks notarisation.
+Which macOS versions get which tests (decided 2026-10-14). Each level has a
+Tart base VM (see [VMs](#vms)); every test runs on a fresh clone of it.
+
+| Level | macOS | Base VM | Tests |
+|---|---|---|---|
+| **Fully tested** | Newest 27 release (27.0.1 on 2026-10-15) | `fb-27` | Automatic smoke test, metric baselines, render check **and** 👤 the manual checks below |
+| **Fully tested** | Current 27 beta (27.2 beta 3) | `fb-27-beta` | Same |
+| **Automatically tested** | Latest 26 release | `fb-26` | Automatic smoke test, metric baselines, render check — no person needed |
+| **Automatically tested** | Latest 15 release | `fb-15` | Same |
+| Supported, not tested | Everything else from 15.6 (the app's minimum) | — | — |
+
+The base VMs run the *latest* release of each major; the app's minimum stays
+macOS 15.6. Base VMs that don't exist yet are skipped (on 2026-10-15: `fb-15`,
+`fb-26` and `fb-27-beta` exist; `fb-27` waits for the VM disk).
 
 ### Running
 
+All base VMs, automatic level (two VMs at a time, about 3 minutes per pair):
+
 ```
-scripts/vm-smoke.sh fitsvm-b3 --tag v1.23-beta.10
+scripts/vm-test-all.sh "$(scripts/build-beta.sh)" --dev-build     # before tagging
+scripts/vm-test-all.sh --tag v1.23.1-beta.1                        # the published DMG
 ```
 
-Each check prints `PASS`, `WARN`, `FAIL` or `SKIP`. The last lines give the
-result and where the sample set was unpacked in the VM. Results are saved in
+One base VM: `scripts/vm-smoke.sh --tart fb-26 <app|dmg|--tag tag> [--dev-build]`.
+The script clones the base VM, starts the clone without a window, waits for
+the desktop, runs the checks, compares the metrics with the
+[baselines](#5-metric-baselines-scriptsmetric-baselinespy) and deletes the
+clone. Nothing to restore, nobody needed at the VM.
+
+For the manual checks (fully tested level), one VM at a time:
+
+```
+scripts/vm-smoke.sh --tart fb-27-beta "$(scripts/build-beta.sh)" --dev-build --keep
+```
+
+`--keep` starts the clone with a window and leaves it running with the app
+open. When you're done: `scripts/tart-cleanup.sh` (deletes all test clones,
+never a base VM).
+
+Each check prints `PASS`, `WARN`, `FAIL` or `SKIP`. Results are saved in
 `tests/smoke-results/<time>-<vm>-<build>/` on this Mac (not committed):
-`smoke.log` plus `out/` with the CSVs, the CLI's stderr, the filtered app log
-and any crash reports.
+`smoke.log` plus `out/` with the CSVs, the CLI's stderr, the filtered app log,
+any crash reports and — for beta builds — `render/` with the rendered PNGs and
+`backgrounds.csv`. `vm-test-all.sh` also keeps each VM's console output in
+`tests/smoke-results/<time>-all/`.
+
+The script still works with a VM that is already running and reachable over
+SSH (`scripts/vm-smoke.sh fitsvm …`), e.g. the VirtualBuddy 27.2 beta 1 VM.
+
+### 👤 YOU: before running
+
+1. **Pick what to test:**
+   - *Before tagging* (every release): a local beta build —
+     `"$(scripts/build-beta.sh)" --dev-build`. `build-beta.sh` builds Release
+     with the `BETA` flag, so the render check runs too. A pushed beta tag
+     goes live to beta users immediately, so this is the only test that
+     happens before users get the build.
+   - *After the release workflow*: the published DMG — `--tag <tag>`. This
+     also checks notarisation.
+2. **No other VMs running.** macOS runs at most two VMs at a time, VirtualBuddy
+   included; `vm-test-all.sh` uses both places.
+3. **Leave `--keep` windows alone** until the script has finished; clicking in
+   them can affect the launch check.
 
 ### 👤 YOU: after running
 
-The app is left open in the VM (unless you passed `--quit`). In the VM window:
+For the fully tested level, run with `--keep`: the app is left open in the
+clone's window. In that window:
 
 1. **Window:** the main window is there, toolbar and sidebar look normal,
    full-screen and the traffic lights work.
@@ -125,7 +171,8 @@ The app is left open in the VM (unless you passed `--quit`). In the VM window:
 3. **Colour:** switch Colour on. The sky background should look roughly
    neutral grey — **not** magenta, green or strongly tinted. Frames 0041 and
    0042 are brighter (cloud); 0024–0028 can look slightly blue. Compare with
-   the same folder on this Mac if in doubt.
+   the same folder on this Mac if in doubt. For beta builds, also open the
+   PNGs in `out/render/` on this Mac (see [section 6](#6-cli---render-beta-builds-only)).
 4. **Step through frames** with the arrow keys; flag one, reject one, undo.
 5. **Quick Look:** in Finder, select a `.fits` file and press Space; check the
    icon view shows thumbnails.
@@ -136,14 +183,13 @@ The app is left open in the VM (unless you passed `--quit`). In the VM window:
    it is understood. Write down what you found (a line in the session notes
    or the release commit is enough).
 
-Then shut the VM down and restore it from the clean copy, so the next run
-starts clean.
+Then delete the clone: `scripts/tart-cleanup.sh`.
 
 ### Which VMs
 
-Run on **every VM** for releases that touch launch, windows, rendering or the
-CLI; at least on the newest macOS beta VM for small fixes. Also run on this
-Mac's own macOS by installing the DMG normally.
+Every release: `vm-test-all.sh` (all base VMs, automatic level) and the manual
+checks with `--keep` on `fb-27` and `fb-27-beta`. Also install the DMG normally
+on this Mac.
 
 ---
 
@@ -171,87 +217,364 @@ correlation per metric).
 
 ---
 
-## 4. Planned
+## 4. Rendering tests on real data (`scripts/run-render-tests.sh`)
 
-### Rendering tests on real data
+Checks what the app actually shows for real frames. Added after the colour-cast
+bug (the M31 sample set rendered magenta with Colour on), which no test caught.
 
-Tests in the Xcode test target that load real frames with the app's own
-reader, compute stretch levels the way the app does, render on the GPU and read
-the pixels back. They check that the typical frame's sky background is neutral
-(about 63/63/63 out of 255 at the default target) and that no frame has a
-strong cast. Enabled with an environment variable pointing at the test data;
-skipped otherwise, so normal test runs stay fast. The sample set (8 frames)
-runs by default when the data is present; the large folders on request.
+**Run:**
 
-This replaces the one-off scripts used to find the colour-cast bug, and closes
-their gaps (they used a copy of the code, their own FITS loader and a CPU copy
-of the shader).
+```
+scripts/run-render-tests.sh           # sample set only, about 30 s including the build
+scripts/run-render-tests.sh --full    # also the large folders, about 5 minutes
+```
 
-### Metric baselines
+The tests (`RenderingTests` in the test target) are skipped in normal ⌘U runs;
+the script switches them on by pointing `FB_TEST_DATA` at
+`/Volumes/FITS Blaster/Test Data` (`--data` for another location).
 
-Stored CSVs (`tests/baselines/`) of the CLI's output for the sample set and
-the other datasets. A script reruns the CLI and reports any metric outside a
-tolerance, and any change in which frames the filter keeps. When a metric
-changes on purpose, the baseline is regenerated and committed with that
-change — so every metric change is a visible decision.
+### How they work
 
-👤 Regenerating a baseline is a human decision: check the new numbers make
-sense (and against PixInsight) before committing them.
+Each folder is loaded exactly as the app loads it (the same code the CLI
+uses), with Colour on for colour cameras. For every frame the test reads the
+image the viewer would show (1024 px), and measures the **sky background** of
+each channel: the median pixel value, which stars and nebulae are too sparse
+to move. 63 out of 255 is the 25% grey the stretch aims for.
 
-### CLI `--render` (beta builds only)
+The **typical frame** is the one with the median background in its folder.
 
-A hidden CLI option for beta builds that writes the colour and greyscale
-previews as PNGs plus each frame's background RGB to a CSV. It lets the VM
-smoke test check rendering of the shipped binary without the GUI. Decided
-2026-10-13: beta builds only, not in stable or App Store builds. Beta and
-stable builds currently differ only in the tag the release workflow builds
-from, so how to restrict it is still to be designed.
+| Folders | Must hold for the typical frame |
+|---|---|
+| Sample set (published zip, unpacked each run) | R, G and B within **4** levels of each other, each within **63 ± 6** |
+| M31 night, California, Gamma Cygni 03-04 (`--full`) | Same |
+| Rosette R, G, B — mono (`--full`) | Background within **63 ± 6** |
 
-👤 The PNGs still need a human look; the CSV numbers only catch strong casts.
+**Why these limits** (measured 2026-10-13, typical frame R/G/B):
+
+| Folder | Before the colour fix | After the fix |
+|---|---|---|
+| Sample set | 58/29/61 | 62/61/63 |
+| M31 night | 62/59/61 | 62/61/61 |
+| California | 58/63/60 | 62/64/64 |
+| Gamma Cygni | 60/65/62 | 63/64/64 |
+| Rosette (mono) | 63 | 63 |
+
+After the fix the channels differ by at most 2 and stay within 2 of 63. Before
+it they differed by up to 32 (the magenta you saw). The limits leave a little
+room for harmless changes and still fail on the casts we had: the old code
+fails on the sample set, California and Gamma Cygni.
+
+Every other frame is **only reported**, not tested: real frames differ
+(clouds, twilight, a brightening sky), and a limit there would be arbitrary.
+
+### Output
+
+For each folder the run prints every frame's background (typical frame marked
+`[*]`), and saves to `tests/render-results/<time>/<folder>/` (not committed):
+
+- `typical-<frame>.png` — the typical frame exactly as rendered
+- `backgrounds.csv` — every frame's R, G, B background
+
+### What they cannot check
+
+- **Quick Look previews** — they use their own rendering code, in the
+  extensions.
+- **The Target BG and Stretch sliders** — applied on screen after rendering.
+- **The display** — how macOS converts the colours for your screen.
+- **Whether the colours are *right*** — only that the background is neutral
+  and at the target level. A wrongly coloured nebula on a neutral background
+  passes.
+
+### 👤 YOU
+
+- **When to run:** the sample set before every release; `--full` whenever the
+  change touches loading, the stretch, colour or debayering.
+- **Look at the PNGs.** Open the typical frames in `tests/render-results/`
+  and check they look right — neutral sky, no tint, stars and the target
+  visible. The numbers only catch a tinted background.
+- **Read the per-frame table.** Frames far from the rest should have a reason
+  you recognise (cloud, twilight, moon). Frames that look odd without a reason
+  need a closer look.
+- **If a test fails,** find out whether it's a bug or an intended change.
+  Change the limits only with a written reason in the commit, and update the
+  table above.
+- **The test data must stay as it is.** Adding or removing frames in these
+  folders changes the medians; if you have to, rerun and update the table.
+
+---
+
+## 5. Metric baselines (`scripts/metric-baselines.py`)
+
+Checks that FWHM, eccentricity, SNR, star count, PSF signal weight and score
+stay the same from version to version, unless we change them on purpose. It
+runs the command-line mode — the same code the app uses for its metrics — on
+the test datasets and compares every frame with the CSVs in `tests/baselines/`.
+
+**Run:**
+
+```
+scripts/metric-baselines.py            # builds the current checkout (Release), all datasets, about 30 s + build
+scripts/metric-baselines.py --quick    # sample set only
+scripts/metric-baselines.py --app "/Applications/FITS Blaster Beta.app"     # an installed or downloaded build
+scripts/metric-baselines.py --smoke-results tests/smoke-results/<run>      # CSVs from a VM smoke test (sample set)
+```
+
+Datasets: the sample set (unpacked from the published zip), the M31 night,
+California, Gamma Cygni 03-04, Rosette R, G and B. Each run's CLI output is
+kept in `tests/baseline-results/<time>/` (not committed).
+
+### What it checks
+
+Per frame, the new value must be within this distance of the baseline:
+
+| Metric | Allowed | Why |
+|---|---|---|
+| FWHM | ± 0.01 px | one step in the last digit the CSV writes (a value on a rounding edge can flip) |
+| Eccentricity | ± 0.001 | same |
+| SNR | ± 0.1 | same |
+| Stars | ± 0.5%, at least 3 | margin for small differences between machines |
+| PSF·S | ± 0.5% | same |
+| Score | ± 1 | whole numbers, relative to the folder |
+
+And with the standard filter (`-f 1.5 -e 0.5 -p 0.5`, as in the VM smoke test)
+**exactly the same frames** must be kept. A frame that flips is shown with its
+values next to the folder medians, so you can see how close to the limit it was.
+Frames missing from or added to a folder also fail.
+
+### Background: results are now reproducible
+
+When this was built (2026-10-13), identical runs on the same Mac gave slightly
+different numbers: star counts ±2 everywhere, and on Gamma Cygni SNR up to
+2.8% and PSF·S up to 1.8%. The cause was the star detection: the GPU returns
+candidates in a random order, and stars with exactly the same peak value
+(common in 16-bit data, especially saturated stars) kept that random order, so
+different stars were picked and measured. Fixed in 1.23.1 by breaking ties on
+position and combining parallel measurements in a fixed order. Since then,
+repeated runs — on this Mac and in the 27.2 beta 3 VM — give byte-identical
+results. `MetricsDeterminismTests` guard this.
+
+Builds before the fix (beta 10, App Store build 202) still vary, so they can
+fail on Gamma Cygni against these baselines. That is expected.
+
+### 👤 YOU
+
+- **When to run:** before every release, and after any change to star
+  detection, metrics, the score, the auto-flag filter or FITS reading.
+- **If it fails, don't update the baselines to make it pass.** First decide:
+  - *A bug?* Fix the code.
+  - *An intended change?* Check that the size and direction make sense —
+    the failure list shows old → new for every frame. Then run the
+    PixInsight comparison on M31 (`scripts/compare.py "/Volumes/FITS Blaster/Test Data/M31/LIGHT"`
+    after a CLI run there) and check the rank correlation didn't get worse.
+- **Updating:** `scripts/metric-baselines.py --update` prints how every metric
+  changed per dataset and writes the new baselines plus
+  `tests/baselines/baselines.json` (which build, commit and macOS made them).
+  Look at `git diff tests/baselines`, then commit with the reason in the message.
+- **A change in which frames the filter keeps** is a change users see in
+  Auto-Flag. Treat it as a behaviour change, not noise.
+- **Keep the test data unchanged** — adding or removing frames changes every
+  relative metric and the score.
+
+---
+
+## 6. CLI `--render` (beta builds only)
+
+A test-only option of the command-line mode that writes what the app shows:
+
+```
+"FITS Blaster.app/Contents/MacOS/FITS Blaster" <folder> --render <dir> [--render-typical]
+```
+
+- `<dir>/<folder>/<frame>.png` — each frame's display image (at most 1024 px,
+  about 1.5 MB). Colour frames are rendered as the app shows them with Colour
+  on; mono frames in greyscale.
+- `<dir>/backgrounds.csv` — every frame's background R, G, B (0–255), its view
+  (`colour`, `mono`, or `grey` for a colour frame that didn't get a colour
+  render — a bug) and which frame is the folder's typical one.
+- `--render-typical` — write only each folder's typical frame as a PNG (the CSV
+  still lists every frame). For large folders: a full night is hundreds of MB.
+- The metrics CSV is written as usual and is identical with or without
+  `--render`.
+
+It measures with the same code as the rendering tests (`RenderedPixels.swift`).
+It writes data only; the VM smoke test judges it (see section 2). Run by hand
+on this Mac, it is a quick way to see how a folder renders without opening the
+app.
+
+### Beta builds only
+
+Decided 2026-10-13: the option exists only in beta builds, not in stable or App
+Store builds, and is not listed in `--help`. The code is compiled in only when
+the `BETA` compilation condition is set (or in Debug builds):
+
+- the release workflow sets `BETA` for tags containing `beta`;
+- `scripts/build-beta.sh` sets it for local builds;
+- a stable build doesn't contain the code. It ignores `--render` like any
+  unknown option and writes no PNGs; the smoke test reports **SKIP**.
+
+Cost: none in stable builds, and none in beta builds unless `--render` is
+given. With it, the CLI does the extra colour pass the app does with Colour on,
+plus the PNGs: on this Mac the M31 night (39 frames) took about 8 s instead of
+about 2.5 s.
+
+### 👤 YOU
+
+- **Look at the PNGs** from every VM run of a beta build
+  (`tests/smoke-results/<run>/out/render/`). The check only catches a tinted
+  or wrongly levelled *typical* frame; a tint in one frame, a wrong-looking
+  target, banding or artefacts need your eyes. Compare with this Mac
+  (`scripts/run-render-tests.sh` or `--render` by hand) if in doubt.
+- **A SKIP on a beta build is a failure** — it means the build lacks `BETA`
+  (wrong build script or a workflow change).
+- **Keep the limits in step:** they are in `RenderingTests.swift` and
+  `scripts/vm-smoke-remote.sh`; change both together, with a reason.
 
 ---
 
 ## VMs
 
-VirtualBuddy VMs live in `/Volumes/FITS Blaster/VMs` (the VirtualBuddy library
-on this Mac).
+The test VMs are [Tart](https://tart.run) VMs (Cirrus Labs; free on personal
+computers). Tart replaced VirtualBuddy on 2026-10-15 because it can be driven
+from scripts: clone, start, stop and delete.
 
-| VM | macOS | SSH | Clean copy |
+### Base VMs
+
+| Base VM | macOS | Level | Created with |
 |---|---|---|---|
-| `27.2B1.vbvm` | 27.2 beta 1 (26B5086k) — the build App Review used for build 199 | `ssh fitsvm` (192.168.64.2) | `27.2B1-clean.vbvm` |
-| `27.2B3.vbvm` | 27.2 beta 3 (26B5101f) | `ssh fitsvm-b3` (192.168.64.3) | `27.2B3-clean.vbvm` |
+| `fb-27-beta` | 27.2 beta 3 (26B5101f) | Fully tested | `tart-create-base.sh` (2026-10-15), 50 GB disk |
+| `fb-27` | 27.0.1 (26A434) | Fully tested | Built and tested 2026-10-15 (no clicks needed), then deleted for space; rebuild on the VM disk |
+| `fb-26` | **26.6.2** (25G83) — not yet 26.7.1, see below | Automatically tested | `--manual` (2026-10-15), 50 GB disk |
+| `fb-15` | 15.8.1 (24H32) | Automatically tested | `--manual` from 15.6.1, updated to 15.8.1 (2026-10-15), 50 GB disk |
 
-User `fitstester`, key `~/.ssh/fitsvm_ed25519`, host entries in `~/.ssh/config`.
+**To do when the VM disk arrives (about 2026-10-22):** rebuild `fb-26` (and
+`fb-27`) with the script's 80 GB disk and update `fb-26` to the latest 26. The
+26.7.1 update refused to install on the 50 GB disk: "Not enough free disk
+space: a total of 21.55 GB is required". Enlarging a VM disk afterwards is
+impractical (the recovery partition sits behind the system container, and
+deleting it breaks `softwareupdate`), so new base VMs get 80 GB from the start.
+It is sparse: on this Mac a VM only takes what macOS writes (about 30 GB).
 
-**Restore a VM** (shut it down in VirtualBuddy first — never while it runs):
+Every base VM: user `fitstester` (password in the Keychain, item `fb-test-vm`),
+automatic login, FileVault off, Remote Login on, **all automatic updates off**
+(so a VM only changes when we update it), screen lock, sleep and screensaver
+off, `sudo shutdown` allowed without a password, SSH key
+`~/.ssh/fitsvm_ed25519`.
+
+Why no screen lock: if the display sleeps and locks, macOS remembers it, and
+after the next automatic login the screen is locked again (found on `fb-15`,
+2026-10-15). The tests pass behind a locked screen, but the manual checks
+would need the password. Everything else as on a normal
+user's Mac: SIP and Gatekeeper on, no extra software.
+
+A base VM is **never started for tests**: every test runs on a clone
+(`<base>-smoke-<time>`), made instantly with APFS copy-on-write and deleted
+afterwards.
+
+**Where:** `TART_HOME=/Volumes/FITS Blaster/Tart` (set by the scripts; set it
+yourself when you run `tart` by hand, e.g. `export TART_HOME="/Volumes/FITS Blaster/Tart"`).
+Installers (IPSW) in `/Volumes/FITS Blaster/Tart/ipsw`. A macOS VM takes about
+30 GB; clones almost nothing until they change.
+
+**Tart itself:** version 2.41.0 in `~/Applications/tart.app`, with `tart` linked
+in `~/.local/bin`. Installed from the
+[GitHub release](https://github.com/cirruslabs/tart/releases) (checksum and
+notarisation checked): the Cirrus Labs Homebrew formula was broken with
+Homebrew 7 on 2026-10-14.
+
+### Create a base VM
+
+macOS 27 and later (scripted; with a beta installer three clicks):
 
 ```
-cd "/Volumes/FITS Blaster/VMs"
-rm -rf 27.2B3.vbvm && cp -cRp 27.2B3-clean.vbvm 27.2B3.vbvm
+scripts/tart-create-base.sh fb-27 <ipsw-file-or-url>
 ```
 
-`cp -c` makes an APFS clone: instant, and it takes almost no extra space.
-Keep VMs on this volume; copying one to another disk loses the sharing.
+Apple's guest provisioning creates the user and turns on automatic login and
+Remote Login; the script then installs the SSH key, sets the rest, checks it
+and shuts the VM down. Takes about 7 minutes from a release installer (27.0.1:
+desktop 30 s after the first boot), about 12 from a beta installer.
+
+macOS 15 and 26 (no provisioning before 27):
+
+```
+scripts/tart-create-base.sh fb-26 <ipsw-file-or-url> --manual
+```
+
+Apple only publishes VM installers up to the last release before the next
+major: **15.6.1** and **26.6.2**. List: `curl -s 'https://api.ipsw.me/v4/device/VirtualMac2,1?type=ipsw'`.
+Later 15.x and 26.x come through Software Update in the VM.
 
 👤 **YOU:**
-- **Never start a `-clean` VM.** It appears in VirtualBuddy's list next to the
-  working VM; starting it (even without logging in) changes it, and every
-  later restore inherits those changes.
-- **Quit and reopen VirtualBuddy after a restore.** On 2026-10-13 a restored
-  VM hung with a spinning wheel and never started until VirtualBuddy was
-  restarted (another restore earlier that day started without a restart).
+- **macOS 27+ beta installers:** watch the VM window. About 4 minutes in,
+  the licence agreement appears: **Agree** (twice), then **Get Started**.
+  Nothing else; the script continues by itself. Release installers (checked
+  with 27.0.1) need no clicks at all.
+- **`--manual`:** go through Setup Assistant as the script prints (account
+  `fitstester` with the Keychain password, no Apple ID, FileVault off; then
+  automatic login, Remote Login and all automatic updates off in System
+  Settings).
+- **15 and 26 only:** after the script has finished, update the VM to the
+  latest release (see *Update a base VM*).
+- **`--manual`: set automatic login before turning on Remote Login**, or the
+  script sees the desktop too early and stops with "Not as expected:
+  auto-login" (it leaves the VM running; finish the settings and ask Claude to
+  rerun the check and shut it down).
+- **Never use *Stop* in the Tart window, or `tart stop`, on a base VM.** It
+  pulls the plug (no proper shutdown). It's fine for test clones.
 
-**Add a VM for a new macOS version:**
-1. Create it in VirtualBuddy (name like `27.3B1`).
-2. In the VM: create user `fitstester`, log in, turn on Remote Login
-   (System Settings → General → Sharing), note the IP address.
-3. On this Mac: add a `Host` entry to `~/.ssh/config` (copy an existing one,
-   change name and IP), then install the key once with
-   `ssh-copy-id -i ~/.ssh/fitsvm_ed25519.pub <host>` (asks for the password).
-4. Shut the VM down and make the clean copy:
-   `cp -cRp <name>.vbvm <name>-clean.vbvm`.
-5. Add it to the table above.
+### Update a base VM
 
-VM settings (CPU, memory, shared folders) are stored in
-`<name>.vbvm/.vbdata/Config.plist`. The clean copy has its own; change both or
-the next restore undoes the change.
+For a new beta, build a new base VM from its installer and delete the old one
+(`tart delete fb-27-beta`). For 26 and 15 (done this way for 15.8.1 on
+2026-10-15): start the base VM (`tart run fb-15`), list the updates over SSH
+with `softwareupdate --list`, and install **only the macOS update for that
+major** (not the offered upgrade to 27, not Safari):
+
+```
+sudo softwareupdate --install 'macOS Sequoia 15.8.1-24H32' --restart --agree-to-license --user fitstester --stdinpass
+```
+
+(`sudo` and `--stdinpass` each read the password on stdin; pipe it in twice from
+the Keychain.) The VM downloads in the background (the window shows nothing),
+restarts and installs. Then check the version, and shut down properly with
+`sudo shutdown -h now` over SSH. Update the table above.
+
+Known oddity: after an update, `softwareupdate --schedule` reports "Automatic
+checking for updates is turned on" even when the setting is off, and on 15.8.1
+the check setting itself could not be switched off from the command line. It
+only *checks*; downloading and installing stay off. Switch it off in System
+Settings next time the VM is open, if it matters.
+
+### Clean up
+
+`scripts/tart-cleanup.sh` stops and deletes all test clones. `tart list` shows
+all VMs; `tart delete <name>` removes one.
+
+### Facts the scripts rely on
+
+Checked 2026-10-14/15 (Tart 2.41.0, macOS 27.0 host):
+- `tart stop` and *Stop* are a hard power-off. *Request Stop* (or `kill -USR2`
+  to `tart run`) asks macOS to shut down: it shows "Are you sure you want to
+  shut down your computer now?" and only shuts down after a click.
+- macOS runs **at most two VMs at a time** (any tool); a third fails with "The
+  number of VMs exceeds the system limit".
+- A clone gets a new network address; scripts ask `tart ip`.
+- Started without a window, a clone still logs in automatically and the app
+  can be launched (desktop session with Finder and Dock).
+- The SSH login works before the first-boot setup has finished; shutting down
+  then brings Setup Assistant back. The scripts wait for the desktop.
+- On first boot, Setup Assistant needs a window: without one it waits on the
+  licence screen where nobody can see it.
+- Renders and metrics of the sample set are byte-identical on macOS 15.8.1,
+  26.6.2, 27.0.1 and 27.2 beta 3 (2026-10-15).
+- `vm-test-all.sh` on three base VMs takes about 7 minutes.
+
+### VirtualBuddy: the 27.2 beta 1 VM (temporary)
+
+`/Volumes/FITS Blaster/VMs/27.2B1.vbvm` (+ `27.2B1-clean.vbvm`) runs macOS
+27.2 beta 1 (26B5086k), the build App Review used for build 199 and the only
+one on which its crash reproduced. Its installer is gone, so it stays until App
+Store build 202 is approved; then it, VirtualBuddy and the `fitsvm` SSH entry
+are removed. SSH: `ssh fitsvm` (192.168.64.2). Restore: in VirtualBuddy, delete
+`27.2B1`, **Duplicate** `27.2B1-clean`, rename the copy to `27.2B1`; never
+start the `-clean` VM.

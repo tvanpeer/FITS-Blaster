@@ -19,3 +19,12 @@ build/
 
 # VM smoke-test results (scripts/vm-smoke.sh)
 tests/smoke-results/
+
+# Rendering test results (scripts/run-render-tests.sh)
+tests/render-results/
+
+# Metric baseline run output (scripts/metric-baselines.py)
+tests/baseline-results/
+
+# Coverage data written by instrumented builds
+*.profraw

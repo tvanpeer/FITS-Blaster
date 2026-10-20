@@ -86,7 +86,7 @@ private struct InfoBar: View {
             } else if store.restretchingMessage != nil {
                 BatchProgressBar(store: store, showLoadedMetrics: false)
             } else if let elapsed = store.batchElapsed {
-                let n   = store.entries.count
+                let n   = store.batchImageCount ?? 0
                 let fps = elapsed > 0 ? Double(n) / elapsed : 0
                 let mpx = store.batchMegapixels ?? 0
                 let mps = elapsed > 0 && mpx > 0 ? mpx / elapsed : 0

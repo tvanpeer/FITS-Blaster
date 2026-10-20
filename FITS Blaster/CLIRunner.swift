@@ -33,7 +33,13 @@ enum CLIRunner {
 
         // Folder path: first argument that starts with / or ~ (absolute path).
         // Values following flags (e.g. "3.3" after -f) are skipped correctly.
-        guard let folderStr = args.first(where: { $0.hasPrefix("/") || $0.hasPrefix("~") }) else {
+        let folderCandidates = args.indices.filter { i in
+            #if BETA || DEBUG
+            if i > 0, args[i - 1] == "--render" { return false }   // the --render directory
+            #endif
+            return true
+        }.map { args[$0] }
+        guard let folderStr = folderCandidates.first(where: { $0.hasPrefix("/") || $0.hasPrefix("~") }) else {
             printError("no folder path provided")
             exit(1)
         }
@@ -130,9 +136,28 @@ enum CLIRunner {
 
         // Load + compute metrics (full pipeline; display images are unused and discarded on exit)
         let store = ImageStore()
-        store.openFiles(collected, rejectedURLs: rejectedURLs, rootFolderName: folderURL.lastPathComponent)
+        #if BETA || DEBUG
+        // --render needs the colour renders the app makes with Colour on.
+        let debayer = options.renderURL != nil
+        #else
+        let debayer = false
+        #endif
+        store.openFiles(collected, rejectedURLs: rejectedURLs, rootFolderName: folderURL.lastPathComponent,
+                        debayerColorImages: debayer)
         await store.waitForProcessing()
         fputs("Done.\n", stderr)
+
+        #if BETA || DEBUG
+        if let renderURL = options.renderURL {
+            do {
+                let count = try CLIRenderer.write(store.entries, to: renderURL, typicalOnly: options.renderTypicalOnly)
+                fputs("Rendered \(count) PNG\(count == 1 ? "" : "s") → \(renderURL.path(percentEncoded: false))\n", stderr)
+            } catch {
+                fputs("error: could not write renders to '\(renderURL.path(percentEncoded: false))': \(error.localizedDescription)\n", stderr)
+                exit(2)
+            }
+        }
+        #endif
 
         // Resolve output URL
         let csvURL = options.outputURL ?? folderURL.appending(component: "frames.csv")
@@ -194,6 +219,13 @@ enum CLIRunner {
         var psf:          Double?
         var score:        Int?
 
+        #if BETA || DEBUG
+        /// --render <dir>: write PNGs and backgrounds.csv (see CLIRenderer). Not in --help.
+        var renderURL: URL?
+        /// --render-typical: write only each folder's typical frame as a PNG.
+        var renderTypicalOnly = false
+        #endif
+
         init(_ args: [String]) {
             // First pass: resolve mode so metric values land in the right field
             for (i, arg) in args.enumerated() {
@@ -243,6 +275,15 @@ enum CLIRunner {
                     psf = next.flatMap(Double.init); if psf != nil { i += 1 }
                 case "--score", "-q":
                     score = next.flatMap(Int.init); if score != nil { i += 1 }
+                #if BETA || DEBUG
+                case "--render":
+                    if let v = next {
+                        renderURL = URL(filePath: (v as NSString).expandingTildeInPath)
+                        i += 1
+                    }
+                case "--render-typical":
+                    renderTypicalOnly = true
+                #endif
                 default:
                     break
                 }

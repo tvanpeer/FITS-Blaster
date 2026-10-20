@@ -5,7 +5,7 @@
 ## Getting Started
 
 ### What macOS version is required?
-macOS 15.0 (Sequoia) or later.
+macOS 15.6 (Sequoia) or later.
 
 ### Does FITS Blaster run on Intel Macs?
 It will run, but performance will be significantly lower. FITS Blaster uses Apple's Metal GPU framework for stretching, star detection, and metrics computation. Metal works best on Apple silicon (M1 and later). Intel Macs with integrated graphics lack the GPU memory bandwidth to keep up with large image sets; loading times will be several times slower.

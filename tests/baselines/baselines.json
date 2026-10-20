@@ -1,0 +1,44 @@
+{
+  "california": {
+    "app": "FITS Blaster.app 1.23-beta.10 (203)",
+    "commit": "0f5c953 (with uncommitted changes)",
+    "macOS": "27.0",
+    "updated": "2026-10-13T22:06:59"
+  },
+  "gamma-cygni-0304": {
+    "app": "FITS Blaster.app 1.23-beta.10 (203)",
+    "commit": "0f5c953 (with uncommitted changes)",
+    "macOS": "27.0",
+    "updated": "2026-10-13T22:06:59"
+  },
+  "m31-night": {
+    "app": "FITS Blaster.app 1.23-beta.10 (203)",
+    "commit": "0f5c953 (with uncommitted changes)",
+    "macOS": "27.0",
+    "updated": "2026-10-13T22:06:59"
+  },
+  "rosette-b": {
+    "app": "FITS Blaster.app 1.23-beta.10 (203)",
+    "commit": "0f5c953 (with uncommitted changes)",
+    "macOS": "27.0",
+    "updated": "2026-10-13T22:06:59"
+  },
+  "rosette-g": {
+    "app": "FITS Blaster.app 1.23-beta.10 (203)",
+    "commit": "0f5c953 (with uncommitted changes)",
+    "macOS": "27.0",
+    "updated": "2026-10-13T22:06:59"
+  },
+  "rosette-r": {
+    "app": "FITS Blaster.app 1.23-beta.10 (203)",
+    "commit": "0f5c953 (with uncommitted changes)",
+    "macOS": "27.0",
+    "updated": "2026-10-13T22:06:59"
+  },
+  "sample-m31": {
+    "app": "FITS Blaster.app 1.23-beta.10 (203)",
+    "commit": "0f5c953 (with uncommitted changes)",
+    "macOS": "27.0",
+    "updated": "2026-10-13T22:06:59"
+  }
+}

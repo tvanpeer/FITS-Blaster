@@ -15,9 +15,19 @@ A pushed beta tag goes live to beta users straight away, so test first. See
 test.
 
 - Run the unit tests (⌘U). All must pass.
-- Build Release and run the VM smoke test on a clean VM:
-  `scripts/vm-smoke.sh <vm> "<path>/FITS Blaster.app" --dev-build`,
-  then do the manual checks in the VM window.
+- Run the rendering tests: `scripts/run-render-tests.sh` (add `--full` when
+  the release touches loading, the stretch or colour), and look at the PNGs.
+- Run the metric baselines: `scripts/metric-baselines.py`. Any failure blocks
+  the release until it is explained (see testing.md).
+- Build a beta Release and run the VM smoke tests on all base VMs:
+  `scripts/vm-test-all.sh "$(scripts/build-beta.sh)" --dev-build`.
+  Then the manual checks on the fully tested VMs, one at a time:
+  `scripts/vm-smoke.sh --tart fb-27 "$(scripts/build-beta.sh)" --dev-build --keep`
+  (and `fb-27-beta`), look at the rendered PNGs in
+  `tests/smoke-results/<run>/out/render/`, and finish with
+  `scripts/tart-cleanup.sh`. (Use the beta build for stable releases too: the
+  app is the same apart from the test-only `--render` option, which the smoke
+  test needs.)
 
 ## Publish
 
@@ -46,8 +56,8 @@ test.
 The workflow also deploys the updated site to astrophoto-app.com automatically — no manual upload needed.
 
 6. **Smoke-test the published DMG** (this also checks notarisation):
-   `scripts/vm-smoke.sh <vm> --tag <tag>`, on a clean VM, plus the manual
-   checks in [testing.md](testing.md).
+   `scripts/vm-test-all.sh --tag <tag>`, plus the manual checks in
+   [testing.md](testing.md) with `--keep`.
 
 ## Version naming
 

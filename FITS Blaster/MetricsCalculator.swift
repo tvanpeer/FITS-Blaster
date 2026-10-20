@@ -89,7 +89,23 @@ struct MetricsCalculator {
         let x: Int
         let y: Int
         let peak: Float
+
+        /// Sort order for candidates: brightest peak first; equal peaks by row, then column.
+        ///
+        /// The tie-break makes the order deterministic. 16-bit data has many equal peaks
+        /// (saturated stars above all), and the GPU returns candidates in a random order,
+        /// so sorting on the peak alone let that order decide which stars were kept and
+        /// measured — and the metrics varied between runs on the same file.
+        static func brighterFirst(_ a: StarCandidate, _ b: StarCandidate) -> Bool {
+            if a.peak != b.peak { return a.peak > b.peak }
+            if a.y != b.y { return a.y < b.y }
+            return a.x < b.x
+        }
     }
+
+    /// One shape measurement from a parallel task: the candidate's position in the
+    /// sorted list, and (fwhm, eccentricity, snr, peak) — nil when the fit was rejected.
+    typealias IndexedShape = (index: Int, shape: (Float, Float, Float, Float)?)
 
     /// Return type for GPU detection: stored candidates plus the true atomic total.
     struct GPUDetectionResult {
@@ -286,67 +302,65 @@ struct MetricsCalculator {
         var topVerified = 0
         var psfFluxSum:  Float = 0
 
-        await withTaskGroup(of: (Float, Float, Float, Float)?.self) { group in
+        // Results arrive in task-completion order; they are aggregated afterwards in
+        // candidate order so the float sum (and everything else) is the same on every run.
+        var measured: [IndexedShape] = []
+        await withTaskGroup(of: IndexedShape.self) { group in
             let innerConcurrency = 4
             var active = 0
-            for candidate in starData.shapeCandidates {
+            for (index, candidate) in starData.shapeCandidates.enumerated() {
                 if active >= innerConcurrency {
-                    if let r = await group.next(), let (fwhm, ecc, snr, peakVal) = r {
-                        topVerified += 1
-                        if needMeasure {
-                            if config.computeFWHM         { fwhmValues.append(fwhm) }
-                            if config.computeEccentricity { eccValues.append(ecc) }
-                            if config.computeSNR          { snrValues.append(snr) }
-                        }
-                        psfFluxSum += peakVal
-                    }
+                    if let r = await group.next() { measured.append(r) }
                     active -= 1
                 }
                 let c       = candidate
                 let pattern = starData.bayerPattern
                 group.addTask {
-                    if let pattern {
-                        // Two-pass debayer: Rec. 709 for FWHM (matches PI's OIII-dominated
-                        // weighting), adaptive for eccentricity (correct axis-ratio for
-                        // narrowband images where Ha and OIII differ in brightness).
-                        let rec709Lum = Self.debayerCropToLuminance(
-                            crop: c.crop, cropHalf: c.cropHalf,
-                            originX: c.x - c.cropHalf, originY: c.y - c.cropHalf,
-                            pattern: pattern, weights: .rec709)
-                        let (fwhm, eccRec709, snr, peakVal) = Self.measureShapeFromCrop(
-                            crop: rec709Lum, cropHalf: c.cropHalf,
-                            background: background, sigma: sigma)
-                        guard fwhm >= 0.5, fwhm <= 20 else { return nil }
-                        let adaptiveLum = Self.debayerCropToLuminance(
-                            crop: c.crop, cropHalf: c.cropHalf,
-                            originX: c.x - c.cropHalf, originY: c.y - c.cropHalf,
-                            pattern: pattern, weights: .adaptive)
-                        let (_, eccAdaptive, _, _) = Self.measureShapeFromCrop(
-                            crop: adaptiveLum, cropHalf: c.cropHalf,
-                            background: background, sigma: sigma)
-                        let ecc = eccAdaptive > 0 ? eccAdaptive : eccRec709
-                        return (fwhm, ecc, snr, peakVal)
-                    } else {
-                        let (fwhm, ecc, snr, peakVal) = Self.measureShapeFromCrop(
-                            crop: c.crop, cropHalf: c.cropHalf,
-                            background: background, sigma: sigma)
-                        guard fwhm >= 0.5, fwhm <= 20 else { return nil }
-                        return (fwhm, ecc, snr, peakVal)
-                    }
+                    let shape: (Float, Float, Float, Float)? = {
+                        if let pattern {
+                            // Two-pass debayer: Rec. 709 for FWHM (matches PI's OIII-dominated
+                            // weighting), adaptive for eccentricity (correct axis-ratio for
+                            // narrowband images where Ha and OIII differ in brightness).
+                            let rec709Lum = Self.debayerCropToLuminance(
+                                crop: c.crop, cropHalf: c.cropHalf,
+                                originX: c.x - c.cropHalf, originY: c.y - c.cropHalf,
+                                pattern: pattern, weights: .rec709)
+                            let (fwhm, eccRec709, snr, peakVal) = Self.measureShapeFromCrop(
+                                crop: rec709Lum, cropHalf: c.cropHalf,
+                                background: background, sigma: sigma)
+                            guard fwhm >= 0.5, fwhm <= 20 else { return nil }
+                            let adaptiveLum = Self.debayerCropToLuminance(
+                                crop: c.crop, cropHalf: c.cropHalf,
+                                originX: c.x - c.cropHalf, originY: c.y - c.cropHalf,
+                                pattern: pattern, weights: .adaptive)
+                            let (_, eccAdaptive, _, _) = Self.measureShapeFromCrop(
+                                crop: adaptiveLum, cropHalf: c.cropHalf,
+                                background: background, sigma: sigma)
+                            let ecc = eccAdaptive > 0 ? eccAdaptive : eccRec709
+                            return (fwhm, ecc, snr, peakVal)
+                        } else {
+                            let (fwhm, ecc, snr, peakVal) = Self.measureShapeFromCrop(
+                                crop: c.crop, cropHalf: c.cropHalf,
+                                background: background, sigma: sigma)
+                            guard fwhm >= 0.5, fwhm <= 20 else { return nil }
+                            return (fwhm, ecc, snr, peakVal)
+                        }
+                    }()
+                    return (index, shape)
                 }
                 active += 1
             }
-            for await r in group {
-                if let (fwhm, ecc, snr, peakVal) = r {
-                    topVerified += 1
-                    if needMeasure {
-                        if config.computeFWHM         { fwhmValues.append(fwhm) }
-                        if config.computeEccentricity { eccValues.append(ecc) }
-                        if config.computeSNR          { snrValues.append(snr) }
-                    }
-                    psfFluxSum += peakVal
-                }
+            for await r in group { measured.append(r) }
+        }
+        for (_, shape) in measured.sorted(by: { $0.index < $1.index }) {
+            guard let (fwhm, ecc, snr, peakVal) = shape else { continue }
+            topVerified += 1
+            if needMeasure {
+                if config.computeFWHM         { fwhmValues.append(fwhm) }
+                if config.computeEccentricity { eccValues.append(ecc) }
+                if config.computeSNR          { snrValues.append(snr) }
             }
+            psfFluxSum += peakVal
         }
 
         var verifiedCount = topVerified
@@ -445,65 +459,63 @@ struct MetricsCalculator {
         // PSF Signal Weight accumulator: Σ(peakVal) across verified stars.
         var psfFluxSum:  Float = 0
 
-        await withTaskGroup(of: (Float, Float, Float, Float)?.self) { group in
+        // Results arrive in task-completion order; they are aggregated afterwards in
+        // candidate order so the float sum (and everything else) is the same on every run.
+        var measured: [IndexedShape] = []
+        await withTaskGroup(of: IndexedShape.self) { group in
             let innerConcurrency = 4
             var active = 0
-            for candidate in allCandidates.prefix(Constants.topCandidatesForShape) {
+            for (index, candidate) in allCandidates.prefix(Constants.topCandidatesForShape).enumerated() {
                 if active >= innerConcurrency {
-                    if let r = await group.next(), let (fwhm, ecc, snr, peakVal) = r {
-                        topVerified += 1
-                        if needMeasure {
-                            if config.computeFWHM         { fwhmValues.append(fwhm) }
-                            if config.computeEccentricity { eccValues.append(ecc) }
-                            if config.computeSNR          { snrValues.append(snr) }
-                        }
-                        psfFluxSum += peakVal
-                    }
+                    if let r = await group.next() { measured.append(r) }
                     active -= 1
                 }
                 let c = candidate
                 group.addTask {
-                    if let pattern = bayerPattern {
-                        let rawCrop = Self.extractCrop(from: pixels, width: width, height: height,
-                                                       cx: c.x, cy: c.y, cropHalf: Self.cropHalf)
-                        let rec709Lum = Self.debayerCropToLuminance(
-                            crop: rawCrop, cropHalf: Self.cropHalf,
-                            originX: c.x - Self.cropHalf, originY: c.y - Self.cropHalf,
-                            pattern: pattern, weights: .rec709)
-                        let (fwhm, eccRec709, snr, peakVal) = Self.measureShapeFromCrop(
-                            crop: rec709Lum, cropHalf: Self.cropHalf,
-                            background: background, sigma: sigma)
-                        guard fwhm >= 0.5, fwhm <= 20 else { return nil }
-                        let adaptiveLum = Self.debayerCropToLuminance(
-                            crop: rawCrop, cropHalf: Self.cropHalf,
-                            originX: c.x - Self.cropHalf, originY: c.y - Self.cropHalf,
-                            pattern: pattern, weights: .adaptive)
-                        let (_, eccAdaptive, _, _) = Self.measureShapeFromCrop(
-                            crop: adaptiveLum, cropHalf: Self.cropHalf,
-                            background: background, sigma: sigma)
-                        let ecc = eccAdaptive > 0 ? eccAdaptive : eccRec709
-                        return (fwhm, ecc, snr, peakVal)
-                    } else {
-                        let (fwhm, ecc, snr, peakVal) = Self.measureShape(
-                            pixels: pixels, width: width, height: height,
-                            cx: c.x, cy: c.y, background: background, sigma: sigma)
-                        guard fwhm >= 0.5, fwhm <= 20 else { return nil }
-                        return (fwhm, ecc, snr, peakVal)
-                    }
+                    let shape: (Float, Float, Float, Float)? = {
+                        if let pattern = bayerPattern {
+                            let rawCrop = Self.extractCrop(from: pixels, width: width, height: height,
+                                                           cx: c.x, cy: c.y, cropHalf: Self.cropHalf)
+                            let rec709Lum = Self.debayerCropToLuminance(
+                                crop: rawCrop, cropHalf: Self.cropHalf,
+                                originX: c.x - Self.cropHalf, originY: c.y - Self.cropHalf,
+                                pattern: pattern, weights: .rec709)
+                            let (fwhm, eccRec709, snr, peakVal) = Self.measureShapeFromCrop(
+                                crop: rec709Lum, cropHalf: Self.cropHalf,
+                                background: background, sigma: sigma)
+                            guard fwhm >= 0.5, fwhm <= 20 else { return nil }
+                            let adaptiveLum = Self.debayerCropToLuminance(
+                                crop: rawCrop, cropHalf: Self.cropHalf,
+                                originX: c.x - Self.cropHalf, originY: c.y - Self.cropHalf,
+                                pattern: pattern, weights: .adaptive)
+                            let (_, eccAdaptive, _, _) = Self.measureShapeFromCrop(
+                                crop: adaptiveLum, cropHalf: Self.cropHalf,
+                                background: background, sigma: sigma)
+                            let ecc = eccAdaptive > 0 ? eccAdaptive : eccRec709
+                            return (fwhm, ecc, snr, peakVal)
+                        } else {
+                            let (fwhm, ecc, snr, peakVal) = Self.measureShape(
+                                pixels: pixels, width: width, height: height,
+                                cx: c.x, cy: c.y, background: background, sigma: sigma)
+                            guard fwhm >= 0.5, fwhm <= 20 else { return nil }
+                            return (fwhm, ecc, snr, peakVal)
+                        }
+                    }()
+                    return (index, shape)
                 }
                 active += 1
             }
-            for await r in group {
-                if let (fwhm, ecc, snr, peakVal) = r {
-                    topVerified += 1
-                    if needMeasure {
-                        if config.computeFWHM         { fwhmValues.append(fwhm) }
-                        if config.computeEccentricity { eccValues.append(ecc) }
-                        if config.computeSNR          { snrValues.append(snr) }
-                    }
-                    psfFluxSum += peakVal
-                }
+            for await r in group { measured.append(r) }
+        }
+        for (_, shape) in measured.sorted(by: { $0.index < $1.index }) {
+            guard let (fwhm, ecc, snr, peakVal) = shape else { continue }
+            topVerified += 1
+            if needMeasure {
+                if config.computeFWHM         { fwhmValues.append(fwhm) }
+                if config.computeEccentricity { eccValues.append(ecc) }
+                if config.computeSNR          { snrValues.append(snr) }
             }
+            psfFluxSum += peakVal
         }
 
         // ── Phase 2: star count via direct measurement of top candidates ─────────

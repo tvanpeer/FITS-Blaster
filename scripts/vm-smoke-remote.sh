@@ -202,6 +202,68 @@ else
     fail "filtered run: exit $STATUS (see filtered.stderr)"
 fi
 
+# ── Rendering (beta builds only) ─────────────────────────────────────────────
+# The CLI --render option exists only in beta builds (BETA compilation condition);
+# stable builds ignore it like any unknown option and write no backgrounds.csv.
+# Limits are the same as in RenderingTests.swift — change both together.
+section "Rendering (CLI --render, beta builds only)"
+TARGET_LEVEL=63
+MAX_SPREAD=4
+MAX_OFFSET=6
+RENDER="$WORK/out/render"
+"$EXE" "$SAMPLE_DIR" --render "$RENDER" -o "$WORK/out/render.csv" >/dev/null 2>"$WORK/out/render.stderr"
+STATUS=$?
+if [ ! -f "$RENDER/backgrounds.csv" ]; then
+    if [ $STATUS -eq 0 ]; then
+        skip "--render is not in this build (only beta builds have it)"
+    else
+        fail "render run: exit $STATUS (see render.stderr)"
+    fi
+else
+    BG="$RENDER/backgrounds.csv"
+    # Fields are counted from the end: folder and frame names may contain commas.
+    ROWS="$(data_rows "$BG")"
+    PNGS="$(find "$RENDER" -name '*.png' | wc -l | tr -d ' ')"
+    if [ "$ROWS" = "$FRAME_COUNT" ] && [ "$PNGS" = "$FRAME_COUNT" ]; then
+        pass "render run: exit $STATUS, $ROWS frames measured, $PNGS PNGs"
+    else
+        fail "render run: $ROWS frames measured and $PNGS PNGs for $FRAME_COUNT frames"
+    fi
+    if cmp -s "$WORK/out/all.csv" "$WORK/out/render.csv"; then
+        pass "metrics CSV with --render is identical to the unfiltered run"
+    else
+        fail "metrics CSV with --render differs from the unfiltered run (compare all.csv and render.csv)"
+    fi
+    GREY="$(awk -F, 'NR > 1 && $(NF-4) == "grey"' "$BG" | wc -l | tr -d ' ')"
+    if [ "$GREY" = "0" ]; then
+        pass "every colour frame has a colour render"
+    else
+        fail "$GREY colour frame(s) without a colour render (view 'grey' in backgrounds.csv)"
+    fi
+    TYPICAL="$(awk -F, 'NR > 1 && $NF == "yes" { print $(NF-3), $(NF-2), $(NF-1) }' "$BG" | head -1)"
+    if [ -z "$TYPICAL" ]; then
+        fail "no typical frame in backgrounds.csv"
+    else
+        set -- $TYPICAL
+        R=$1; G=$2; B=$3
+        VERDICT="$(awk -v r="$R" -v g="$G" -v b="$B" -v t="$TARGET_LEVEL" -v s="$MAX_SPREAD" -v o="$MAX_OFFSET" 'BEGIN {
+            max = r; if (g > max) max = g; if (b > max) max = b
+            min = r; if (g < min) min = g; if (b < min) min = b
+            msg = ""
+            if (max - min > s) msg = msg sprintf("channels differ by %d (allowed %d); ", max - min, s)
+            if (max > t + o || min < t - o) msg = msg sprintf("level outside %d ± %d; ", t, o)
+            sub(/; $/, "", msg)
+            print msg
+        }')"
+        if [ -z "$VERDICT" ]; then
+            pass "typical frame background R/G/B $R/$G/$B (target $TARGET_LEVEL ± $MAX_OFFSET, spread ≤ $MAX_SPREAD)"
+        else
+            fail "typical frame background R/G/B $R/$G/$B: $VERDICT"
+        fi
+    fi
+    echo "      PNGs for the visual check are copied to this Mac (out/render/)"
+fi
+
 # ── Finish ───────────────────────────────────────────────────────────────────
 section "Result"
 if [ "$QUIT_AFTER" = "1" ]; then

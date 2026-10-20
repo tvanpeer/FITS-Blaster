@@ -44,6 +44,7 @@ extension ImageStore {
 
         batchElapsed = nil
         batchMegapixels = nil
+        batchImageCount = nil
         isBatchProcessing = true
         let startTime = CFAbsoluteTimeGetCurrent()
 
@@ -105,7 +106,8 @@ extension ImageStore {
             }
             guard !Task.isCancelled else { return }
             batchElapsed = CFAbsoluteTimeGetCurrent() - startTime
-            batchMegapixels = entries.reduce(0.0) {
+            batchImageCount = newEntries.count
+            batchMegapixels = newEntries.reduce(0.0) {
                 guard let w = $1.headers["NAXIS1"].flatMap(Int.init),
                       let h = $1.headers["NAXIS2"].flatMap(Int.init) else { return $0 }
                 return $0 + Double(w * h) / 1_000_000
@@ -157,6 +159,7 @@ extension ImageStore {
 
         batchElapsed = nil
         batchMegapixels = nil
+        batchImageCount = nil
         isBatchProcessing = true
         let startTime = CFAbsoluteTimeGetCurrent()
 
@@ -175,7 +178,8 @@ extension ImageStore {
             for dirURL in accessedDirs { dirURL.stopAccessingSecurityScopedResource() }
             guard !Task.isCancelled else { return }
             batchElapsed = CFAbsoluteTimeGetCurrent() - startTime
-            batchMegapixels = entries.reduce(0.0) {
+            batchImageCount = entriesToProcess.count
+            batchMegapixels = entriesToProcess.reduce(0.0) {
                 guard let w = $1.headers["NAXIS1"].flatMap(Int.init),
                       let h = $1.headers["NAXIS2"].flatMap(Int.init) else { return $0 }
                 return $0 + Double(w * h) / 1_000_000
@@ -205,6 +209,7 @@ extension ImageStore {
 
         batchElapsed = nil
         batchMegapixels = nil
+        batchImageCount = nil
         isBatchProcessing = true
         let startTime = CFAbsoluteTimeGetCurrent()
 
@@ -233,7 +238,8 @@ extension ImageStore {
             for dirURL in accessedDirs { dirURL.stopAccessingSecurityScopedResource() }
             guard !Task.isCancelled else { return }
             batchElapsed = CFAbsoluteTimeGetCurrent() - startTime
-            batchMegapixels = entries.reduce(0.0) {
+            batchImageCount = entriesToProcess.count
+            batchMegapixels = entriesToProcess.reduce(0.0) {
                 guard let w = $1.headers["NAXIS1"].flatMap(Int.init),
                       let h = $1.headers["NAXIS2"].flatMap(Int.init) else { return $0 }
                 return $0 + Double(w * h) / 1_000_000
@@ -320,7 +326,8 @@ extension ImageStore {
             guard !Task.isCancelled else { return }
             updateGroupStatistics()
             batchElapsed = CFAbsoluteTimeGetCurrent() - startTime
-            batchMegapixels = entries.reduce(0.0) {
+            batchImageCount = needsRecompute.count
+            batchMegapixels = needsRecompute.reduce(0.0) {
                 guard let w = $1.headers["NAXIS1"].flatMap(Int.init),
                       let h = $1.headers["NAXIS2"].flatMap(Int.init) else { return $0 }
                 return $0 + Double(w * h) / 1_000_000

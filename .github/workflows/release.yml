@@ -44,29 +44,6 @@ jobs:
       - name: List schemes
         run: xcodebuild -list -project "FITS Blaster.xcodeproj"
 
-      - name: Build archive
-        run: |
-          set -o pipefail
-          xcodebuild archive \
-            -project "FITS Blaster.xcodeproj" \
-            -scheme "FITS Blaster" \
-            -configuration Release \
-            -archivePath "$RUNNER_TEMP/FITS Blaster.xcarchive" \
-            DEVELOPMENT_TEAM="${{ secrets.DEVELOPMENT_TEAM }}" \
-            CODE_SIGN_STYLE=Manual \
-            CODE_SIGN_IDENTITY="${{ secrets.CODE_SIGN_IDENTITY }}" \
-            ARCHS="arm64 x86_64" \
-            ONLY_ACTIVE_ARCH=NO \
-            2>&1 | tee /tmp/xcodebuild.log
-          exit ${PIPESTATUS[0]}
-
-      - name: Export app
-        run: |
-          xcodebuild -exportArchive \
-            -archivePath "$RUNNER_TEMP/FITS Blaster.xcarchive" \
-            -exportOptionsPlist ExportOptions.plist \
-            -exportPath "$RUNNER_TEMP/export"
-
       - name: Detect release channel
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
@@ -78,6 +55,36 @@ jobs:
             echo "IS_BETA=false" >> "$GITHUB_ENV"
             echo "Channel: STABLE"
           fi
+
+      - name: Build archive
+        run: |
+          set -o pipefail
+          # Beta builds get the BETA condition, which compiles in the test-only CLI
+          # --render option (CLIRenderer.swift). Stable builds don't contain it.
+          EXTRA_SETTINGS=()
+          if [ "$IS_BETA" = "true" ]; then
+            EXTRA_SETTINGS+=('SWIFT_ACTIVE_COMPILATION_CONDITIONS=$(inherited) BETA')
+          fi
+          xcodebuild archive \
+            -project "FITS Blaster.xcodeproj" \
+            -scheme "FITS Blaster" \
+            -configuration Release \
+            -archivePath "$RUNNER_TEMP/FITS Blaster.xcarchive" \
+            DEVELOPMENT_TEAM="${{ secrets.DEVELOPMENT_TEAM }}" \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="${{ secrets.CODE_SIGN_IDENTITY }}" \
+            ARCHS="arm64 x86_64" \
+            ONLY_ACTIVE_ARCH=NO \
+            "${EXTRA_SETTINGS[@]}" \
+            2>&1 | tee /tmp/xcodebuild.log
+          exit ${PIPESTATUS[0]}
+
+      - name: Export app
+        run: |
+          xcodebuild -exportArchive \
+            -archivePath "$RUNNER_TEMP/FITS Blaster.xcarchive" \
+            -exportOptionsPlist ExportOptions.plist \
+            -exportPath "$RUNNER_TEMP/export"
 
       - name: Rename app for beta
         if: env.IS_BETA == 'true'

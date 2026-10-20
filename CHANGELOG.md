@@ -54,11 +54,154 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-18 — Docs: measured findings in the code audit
+
+### Docs
+- `docs/internal/CODE_AUDIT.md` — §11 no longer says nothing in §7 was measured: §7.1 and §7.5 were measured on 2026-10-18; the rest of §7 is still unmeasured.
+
+---
+
+## 2026-10-18 — Fix: load statistics after opening more folders
+
+### Fixed
+- **Wrong load speed after opening another folder.** The info bar divided the whole session's images and megapixels by the time of the last load only. Opening a 34-frame folder after 442 others showed about 2,600 MP/s and 100 fps instead of about 190 MP/s and 7 fps. Each load, reprocess, size change and metrics recalculation now reports only the frames it processed.
+
+### Tests
+- `BatchStatsTests` — a second load reports only its own image count and megapixels.
+
+---
+
+## 2026-10-18 — Docs: memory, frame switching and scrolling measurements
+
+### Docs
+- `docs/internal/PERFORMANCE_AUDIT.md` — Instruments measurements of the last three interactions, on 476 colour frames:
+  - Memory: 2.6 GB at display size 1024, but 16.3 GB at 4096, about as much as the Mac has.
+  - Switching frames at 4096: about 155 ms of main-thread work per switch, almost all SwiftUI updates. Drawing the big image costs almost nothing there, but SwiftUI converts every new image on a background thread (about 40 ms).
+  - Panning the zoomed image: the cursor thumbnail redraws on every scroll frame, as predicted, but costs under 0.5 ms per frame.
+  - Loading at 4096 takes about 30–65% longer than at 1024.
+- `docs/internal/CODE_AUDIT.md` — §7.1 gets the measured memory use.
+
+---
+
+## 2026-10-18 — Docs: Metal review
+
+### Docs
+- `docs/internal/METAL_REVIEW.md` — review of the three Metal kernels and the code that drives them. A run with Metal API and shader validation (223 unit tests, 1,068 real frames through the CLI) found no errors. Findings:
+  - The CPU stretch, which Quick Look always uses, is a different algorithm from the GPU kernel, so Finder previews don't match the app (M1, M2).
+  - Saturated stars are never detected, because their flat tops have no single brightest pixel. PixInsight and Siril both count them once by default (M3).
+  - Three smaller points: fast math, the CPU detection crop and new buffers for every frame (M4–M6).
+- `CLAUDE.md` — the rule that the CPU fallback matches the GPU now says it applies once steps 8 and 13 settle it; today it doesn't (M1).
+
+---
+
+## 2026-10-18 — Docs: performance measurements
+
+### Docs
+- `docs/internal/PERFORMANCE_AUDIT.md` — first Instruments measurements (Release build, MacBook Air M1), on 355 colour frames (M81) and on 464 mono frames in two folder layouts (Rosette, 24 folders × 1 filter and 8 folders × 3 filters):
+  - Holding ↓ gives about 15 screen updates per second instead of 60. The session chart is the main cost: about 16 ms per cursor move, plus about 4 ms because it re-reads each frame's filter from the FITS header. Text layout adds about 6 ms; the sidebar costs only 0.1 ms.
+  - During loading the chart is rebuilt about 150 times; each load starts with a pause of about 0.3 s.
+- `docs/internal/architecture-plan.md` — storing the header facts (filter, filter group, Bayer pattern) once per frame moves from step 9 to step 5, next to the chart fix; the array work stays in step 9.
+- `docs/internal/CODE_AUDIT.md` — §7.5 gets the measured cost and the new step split.
+
+---
+
+## 2026-10-18 — Docs: project guide for Claude
+
+### Docs
+- `CLAUDE.md` — project rules for Claude Code, taken from the code and performance audits: FITS files are untrusted input, every target sets the 15.6 minimum explicitly, renders and metrics stay byte-identical, concurrency and SwiftUI performance rules, and VM tests check what users see.
+
+---
+
+## 2026-10-18 — Docs: minimum macOS in the readiness checklist
+
+### Docs
+- `docs/internal/readiness.md` — minimum macOS updated from 15.0 to 15.6.
+
+---
+
+## 2026-10-17 — Docs: code audit, performance audit and master plan
+
+### Docs
+- `docs/internal/CODE_AUDIT.md` — a full code audit (76 numbered findings with file and line). Key findings:
+  - the Quick Look extensions require macOS 26.2, so Finder previews and thumbnails don't work on macOS 15.6–26.1 (reproduced on the macOS 15 test VM);
+  - malformed FITS sizes crash the app and the Quick Look extensions (reproduced);
+  - frames with no detected stars can't be auto-flagged;
+  - shortcuts act on the main window while typing in Settings.
+- `docs/internal/PERFORMANCE_AUDIT.md` — a SwiftUI performance review from the code (no measurements yet). The main suspects are cursor movement re-rendering the sidebar, every thumbnail and the whole chart, and the chart rebuilding once per frame during loading.
+- `docs/internal/architecture-plan.md` — the master plan: 15 steps that cover the architecture review (the app's structure fits; `ImageStore` gets split), the concurrency fixes and every finding of both audits, each in exactly one step, with the open questions. `docs/internal/concurrency-fixes-plan.md` holds the detailed design for its steps 6 and 7.
+- No code changes; the fixes start after the App Store release of 1.23.
+
+---
+
+## 2026-10-15 — Testing: Tart VMs and support levels
+
+### Testing
+- **Test VMs moved to Tart** — the VM smoke test can now run unattended: `scripts/vm-smoke.sh --tart <base>` clones a base VM, starts it without a window, runs the checks, compares the metrics with the baselines and deletes the clone. `--keep` leaves the clone running with a window for the manual checks; `scripts/tart-cleanup.sh` removes test clones.
+- **Support levels** — macOS 27 and the current 27 beta are fully tested (automatic and manual checks); the latest 15 and 26 releases are tested automatically. `scripts/vm-test-all.sh` runs the automatic level on every base VM, two at a time.
+- **`scripts/tart-create-base.sh`** — creates a base VM from a macOS installer: fully scripted for macOS 27 releases (Apple's guest provisioning; beta installers need three clicks on the licence screens), guided with `--manual` for 15 and 26.
+- First runs on macOS 15.8.1, 26.6.2, 27.0.1 and 27.2 beta 3: all checks pass, and the sample set renders and measures byte-identically on all four.
+- `docs/public/Testing.md` — a one-page overview of the tests, when they run and which macOS versions they cover, for the website.
+
+### Docs
+- Minimum macOS stated as 15.6 everywhere (README said 15.7, the FAQ source 15.0), matching the build setting and the website.
+
+---
+
+## 2026-10-14 — Docs: restoring test VMs with VirtualBuddy
+
+### Testing
+- `docs/internal/testing.md` — test VMs are now restored with VirtualBuddy's Duplicate (checked to make an APFS clone, with a new VirtualBuddy ID), which needs no VirtualBuddy restart; the Terminal `cp -c` restore remains as an alternative.
+
+---
+
+## 2026-10-14 — Testing: CLI render check in the VM smoke test
+
+### Testing
+- **CLI `--render` (beta builds only)** — a test-only command-line option that writes every frame as the app renders it (colour frames with Colour on, mono in greyscale) as PNGs, plus each frame's background R, G, B to `backgrounds.csv`; `--render-typical` writes only each folder's typical frame. It is compiled in only with the `BETA` condition, which the release workflow now sets for beta tags and `scripts/build-beta.sh` sets for local builds; stable and App Store builds don't contain it, and it is not listed in `--help`.
+- **VM smoke test** — for beta builds it now renders the sample set, checks the typical frame's background with the same limits as the rendering tests, checks the metrics are unchanged by `--render`, and copies the PNGs back for a visual check. Stable builds report SKIP.
+- The pixel measurement used by the rendering tests moved into the app (`RenderedPixels.swift`) so both use the same code.
+
+---
+
+## 2026-10-13 — Testing: metric baselines
+
+### Testing
+- **Metric baselines** — `scripts/metric-baselines.py` runs command-line mode on the test datasets and compares every frame's FWHM, eccentricity, SNR, star count, PSF signal weight and score, and the frames kept by the standard filter, with stored baselines in `tests/baselines/`. `--update` writes new baselines after review. See `docs/internal/testing.md`.
+
+---
+
+## 2026-10-13 — Fix: metrics varied between runs on the same files
+
+### Fixed
+- **Reproducible metrics** — opening the same folder twice could give slightly different numbers: star counts varied by one or two, and on some data (such as a bright star field) SNR and PSF signal weight by a few percent and eccentricity in the third decimal. Stars with exactly the same peak brightness were ordered at random, so different stars were measured each time. Ties are now broken by position and parallel measurements are combined in a fixed order; the same files always give the same metrics. Values on affected frames change once, by no more than they already varied.
+
+### Tests
+- `MetricsDeterminismTests` — candidate order and star selection with equal peaks, and repeated GPU measurement of an image with 625 equally bright stars.
+
+---
+
+## 2026-10-13 — Testing: rendering tests on real data
+
+### Testing
+- **Rendering tests** — `RenderingTests` load real folders the way the app does and measure the sky background of every rendered frame; the typical frame of each folder must be neutral and at the 25% target. Run with `scripts/run-render-tests.sh` (sample set) or `--full` (M31, California, Gamma Cygni, Rosette, about 5 minutes); skipped in normal test runs. Results go to `tests/render-results/` (not committed).
+
+---
+
 ## 2026-10-13 — Testing: VM smoke test and testing guide
 
 ### Testing
 - **VM smoke test** — `scripts/vm-smoke.sh` installs a DMG, a local build or a GitHub release in a test VM over SSH and checks signing, notarisation, bundle contents, launch (no crash, exception or constraint loop) and command-line mode on the sample set. Results go to `tests/smoke-results/` (not committed).
 - **Testing guide** — `docs/internal/testing.md` describes every kind of test, including the manual checks the person running them must do, and how to manage the test VMs. The release procedure now includes a smoke test before tagging and after publishing.
+
+---
+
+## 2026-10-13 — Fix: colour cast when frames in a folder differ
+
+### Fixed
+- **Colour cast in the colour view** — with Colour on, a folder could be shown with a strong colour cast; the 8-frame M31 sample set looked magenta. The shared per-folder stretch combined medians of each clip value separately, so one frame's highlight clip was paired with another frame's midtone. The midtone is now recomputed from the folder's median shadow clip, highlight clip and sky background, which keeps the background neutral. The same correction applies to the shared greyscale stretch of mono frames.
+
+### Tests
+- `ClipNormalisationTests` — shared clips for one frame, the sample-set green values, the midtone helper and STF statistics.
 
 ---
 
