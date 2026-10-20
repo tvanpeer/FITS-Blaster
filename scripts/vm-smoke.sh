@@ -14,7 +14,7 @@
 #
 # <vm> is either --tart <base> (a Tart base VM such as fb-27-beta: the test runs on a
 # fresh clone, started without a window and deleted afterwards) or an SSH host name of
-# a VM that is already running (e.g. the VirtualBuddy fitsvm).
+# a VM that is already running (any host in ~/.ssh/config).
 #
 # Options:
 #   --keep           (with --tart) start the clone with a window and leave it running for
@@ -27,8 +27,8 @@
 # Examples:
 #   scripts/vm-smoke.sh --tart fb-26 --tag v1.23.1-beta.1
 #   scripts/vm-smoke.sh --tart fb-27-beta "$(scripts/build-beta.sh)" --dev-build --keep
-#   scripts/vm-smoke.sh fitsvm ~/Downloads/FITS-Blaster-1.23.1-beta.1.dmg --quit
-#   scripts/vm-smoke.sh fitsvm "$(scripts/build-beta.sh)" --dev-build
+#   scripts/vm-smoke.sh <ssh-host> ~/Downloads/FITS-Blaster-1.23.1-beta.1.dmg --quit
+#   scripts/vm-smoke.sh <ssh-host> "$(scripts/build-beta.sh)" --dev-build
 #
 # Results go to tests/smoke-results/<time>-<host>-<dmg>/ (not committed). With --tart the
 # metrics are also compared with the stored baselines (scripts/metric-baselines.py).

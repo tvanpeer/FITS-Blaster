@@ -141,7 +141,7 @@ any crash reports and — for beta builds — `render/` with the rendered PNGs a
 `tests/smoke-results/<time>-all/`.
 
 The script still works with a VM that is already running and reachable over
-SSH (`scripts/vm-smoke.sh fitsvm …`), e.g. the VirtualBuddy 27.2 beta 1 VM.
+SSH (`scripts/vm-smoke.sh <ssh-host> …`), for example a VM started by hand.
 
 ### 👤 YOU: before running
 
@@ -153,8 +153,8 @@ SSH (`scripts/vm-smoke.sh fitsvm …`), e.g. the VirtualBuddy 27.2 beta 1 VM.
      happens before users get the build.
    - *After the release workflow*: the published DMG — `--tag <tag>`. This
      also checks notarisation.
-2. **No other VMs running.** macOS runs at most two VMs at a time, VirtualBuddy
-   included; `vm-test-all.sh` uses both places.
+2. **No other VMs running.** macOS runs at most two VMs at a time, VMs from
+   other apps included; `vm-test-all.sh` uses both places.
 3. **Leave `--keep` windows alone** until the script has finished; clicking in
    them can affect the launch check.
 
@@ -569,12 +569,9 @@ Checked 2026-10-14/15 (Tart 2.41.0, macOS 27.0 host):
   26.6.2, 27.0.1 and 27.2 beta 3 (2026-10-15).
 - `vm-test-all.sh` on three base VMs takes about 7 minutes.
 
-### VirtualBuddy: the 27.2 beta 1 VM (temporary)
+### VirtualBuddy: removed
 
-`/Volumes/FITS Blaster/VMs/27.2B1.vbvm` (+ `27.2B1-clean.vbvm`) runs macOS
-27.2 beta 1 (26B5086k), the build App Review used for build 199 and the only
-one on which its crash reproduced. Its installer is gone, so it stays until App
-Store build 202 is approved; then it, VirtualBuddy and the `fitsvm` SSH entry
-are removed. SSH: `ssh fitsvm` (192.168.64.2). Restore: in VirtualBuddy, delete
-`27.2B1`, **Duplicate** `27.2B1-clean`, rename the copy to `27.2B1`; never
-start the `-clean` VM.
+The VirtualBuddy VM with macOS 27.2 beta 1 (26B5086k), the build on which App
+Review's build 199 crash reproduced, was kept until App Store build 202 was
+approved. It was removed on 2026-10-20, with VirtualBuddy's settings and the
+`fitsvm` SSH entry. The key `~/.ssh/fitsvm_ed25519` stays: the Tart VMs use it.

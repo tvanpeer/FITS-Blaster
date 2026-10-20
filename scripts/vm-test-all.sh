@@ -10,7 +10,7 @@
 #   automatically tested   fb-15, fb-26          — this script only
 #   fully tested           fb-27, fb-27-beta     — this script, then 👤 manual checks
 # Base VMs that don't exist yet are reported as SKIP. Runs two VMs at a time (the most
-# macOS allows); a VirtualBuddy VM that is running takes one of the two places.
+# macOS allows); a VM from another app that is running takes one of the two places.
 #
 # Results: tests/smoke-results/<time>-<base>-<build>/ per VM; the console log of each
 # run in tests/smoke-results/<time>-all/.
@@ -41,7 +41,7 @@ done
 RUNNING_VMS="$(pgrep -f com.apple.Virtualization.VirtualMachine | wc -l | tr -d ' ')"
 SLOTS=$(( 2 - RUNNING_VMS ))
 if (( SLOTS < 1 )); then
-    echo "$RUNNING_VMS VMs are already running (VirtualBuddy or Tart); shut one down first." >&2
+    echo "$RUNNING_VMS VMs are already running (Tart or another VM app); shut one down first." >&2
     exit 1
 fi
 echo "Testing ${BASES[*]}, $SLOTS at a time."

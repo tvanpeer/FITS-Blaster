@@ -10,7 +10,7 @@
 # - `tart stop` is a hard power-off (VZVirtualMachine.stop). Fine for clones; base VMs
 #   are shut down with `sudo shutdown` over SSH (allowed without a password by
 #   /etc/sudoers.d/fitstester-shutdown in the VM).
-# - At most 2 macOS VMs can run at the same time (system limit, VirtualBuddy included).
+# - At most 2 macOS VMs can run at the same time (system limit, VMs from other apps included).
 # - Clones get a new MAC address, so a new IP: always ask `tart ip`.
 # - The SSH account works before first-boot setup has finished; wait for the desktop.
 

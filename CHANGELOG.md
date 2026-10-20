@@ -4,6 +4,13 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-20 — Testing: VirtualBuddy VM removed
+
+### Testing
+- The VirtualBuddy VM with macOS 27.2 beta 1, kept to reproduce App Review's build 199 crash, was removed after App Store build 202 was approved. `docs/internal/testing.md` and the comments in `scripts/vm-smoke.sh`, `vm-test-all.sh` and `tart-lib.sh` no longer refer to it; testing uses the Tart VMs only.
+
+---
+
 ## 2026-10-20 — Testing: 16:10 window for manual VM checks
 
 ### Testing
