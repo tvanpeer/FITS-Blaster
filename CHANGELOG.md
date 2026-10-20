@@ -4,6 +4,13 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-20 — Testing: 16:10 window for manual VM checks
+
+### Testing
+- `scripts/vm-smoke.sh --keep` now starts the clone's display at 1440×900 as well as turning on display refit. With refit alone the window opened at the old 4:3 size, with black bars at the sides and hard-to-read controls until it was resized by hand.
+
+---
+
 ## 2026-10-20 — Neutral colours, reproducible metrics, correct load speed
 
 ### Fixed

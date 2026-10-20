@@ -106,8 +106,9 @@ if [[ -n "$TART_BASE" ]]; then
     trap cleanup_clone EXIT
     tart clone "$TART_BASE" "$HOST"
     if [[ $KEEP == 1 ]]; then
-        # The clone's display follows its window, so a larger window gives a readable desktop.
-        tart set "$HOST" --display-refit
+        # Start at 1440×900 (16:10, fits a 1680×1050 screen) and let the clone's display
+        # follow its window, so the desktop stays readable when the window is resized.
+        tart set "$HOST" --display 1440x900 --display-refit
         tart run "$HOST" > "$TART_WORK/run.log" 2>&1 &
     else
         tart run "$HOST" --no-graphics > "$TART_WORK/run.log" 2>&1 &
