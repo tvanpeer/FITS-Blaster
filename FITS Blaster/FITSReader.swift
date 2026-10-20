@@ -88,19 +88,25 @@ struct FITSReader {
         guard let block = try? handle.read(upToCount: 2880), block.count >= 80 else { return nil }
         for i in stride(from: 0, to: block.count, by: 80) {
             let end = min(i + 80, block.count)
-            guard let card = String(data: block[i..<end], encoding: .ascii) else { continue }
-            let keyword = String(card.prefix(8)).trimmingCharacters(in: .whitespaces)
-            guard keyword == "BITPIX" else { continue }
-            guard card.count > 10, card.dropFirst(8).prefix(2) == "= " else { return nil }
-            let valueField = card.dropFirst(10)
-            let raw = (valueField.split(separator: "/").first ?? valueField[...])
-                .trimmingCharacters(in: .whitespaces)
-            return Int(raw)
+            guard let cardString = String(data: block[i..<end], encoding: .ascii) else { continue }
+            let card = parseCard(cardString)
+            guard card.keyword == "BITPIX" else { continue }
+            return card.value.flatMap { Int($0) }
         }
         return nil
     }
 
     // MARK: - Header Parsing (shared between both read paths)
+
+    /// Splits one 80-character header card into its keyword and, for `KEY = value / comment`
+    /// cards, the value without the comment. Cards without `= ` in columns 9–10 have no value.
+    private static func parseCard(_ card: String) -> (keyword: String, value: String?) {
+        let keyword = String(card.prefix(8)).trimmingCharacters(in: .whitespaces)
+        guard card.count > 10, card.dropFirst(8).prefix(2) == "= " else { return (keyword, nil) }
+        let valueComment = card.dropFirst(10)
+        let value = valueComment.firstIndex(of: "/").map { valueComment[..<$0] } ?? valueComment
+        return (keyword, value.trimmingCharacters(in: .whitespaces))
+    }
 
     /// Removes FITS string quoting and trailing whitespace from a header value.
     static func cleanHeaderString(_ s: String) -> String {
@@ -141,23 +147,15 @@ struct FITSReader {
                 let cardData = block[cardStart..<cardEnd]
                 guard let cardString = String(data: cardData, encoding: .ascii) else { continue }
 
-                let keyword = String(cardString.prefix(8)).trimmingCharacters(in: .whitespaces)
+                let card = parseCard(cardString)
 
-                if keyword == "END" {
+                if card.keyword == "END" {
                     foundEnd = true
                     break
                 }
 
-                if cardString.count > 10 && cardString.dropFirst(8).prefix(2) == "= " {
-                    let valueComment = String(cardString.dropFirst(10))
-                    let value: String
-                    if let slashIndex = valueComment.firstIndex(of: "/") {
-                        value = String(valueComment[valueComment.startIndex..<slashIndex])
-                            .trimmingCharacters(in: .whitespaces)
-                    } else {
-                        value = valueComment.trimmingCharacters(in: .whitespaces)
-                    }
-                    headerCards.append((keyword, value))
+                if let value = card.value {
+                    headerCards.append((card.keyword, value))
                 }
             }
 
@@ -246,6 +244,50 @@ struct FITSReader {
                           bzero: bzero, bscale: bscale, dataOffset: offset, headers: headers)
     }
 
+    // MARK: - Pixel helpers (shared between the read paths)
+
+    /// Swaps 16-bit values from big-endian in place. FITS Standard §4.4.1 mandates
+    /// big-endian (MSB-first) pixel storage; Apple Silicon is little-endian.
+    private static func byteSwap16(_ values: UnsafeMutablePointer<UInt16>, count: Int) {
+        var buffer = vImage_Buffer(data: values, height: 1,
+                                   width: vImagePixelCount(count), rowBytes: count * 2)
+        vImageByteSwap_Planar16U(&buffer, &buffer, vImage_Flags(kvImageNoFlags))
+    }
+
+    /// Swaps 32-bit values from big-endian in place. The ARGB permute [3,2,1,0] reverses
+    /// the four bytes of each 32-bit word in one vectorised pass — cheaper than a scalar
+    /// loop and avoids vImageByteSwap_Planar32 (unavailable for signed int).
+    private static func byteSwap32(_ values: UnsafeMutablePointer<UInt32>, count: Int) {
+        var buffer = vImage_Buffer(data: values, height: 1,
+                                   width: vImagePixelCount(count), rowBytes: count * 4)
+        var permuteMap: [UInt8] = [3, 2, 1, 0]
+        vImagePermuteChannels_ARGB8888(&buffer, &buffer, &permuteMap, vImage_Flags(kvImageNoFlags))
+    }
+
+    /// Applies BSCALE/BZERO in place and returns the min and max of the result.
+    /// Integer FITS files almost always have BSCALE=1, so the cheaper vsadd (add only)
+    /// is used in that case rather than vsmsa (multiply+add). Min/max are computed
+    /// while the buffer is still warm in cache, saving two passes in the histogram later.
+    private static func applyScaleAndRange(_ values: UnsafeMutablePointer<Float>, count: Int,
+                                           bscale: Double, bzero: Double) -> (min: Float, max: Float) {
+        let bscaleF = Float(bscale)
+        let bzeroF  = Float(bzero)
+        let n = vDSP_Length(count)
+        if bscaleF != 1.0 {
+            var mult = bscaleF
+            var add  = bzeroF
+            vDSP_vsmsa(values, 1, &mult, &add, values, 1, n)
+        } else if bzeroF != 0.0 {
+            var add = bzeroF
+            vDSP_vsadd(values, 1, &add, values, 1, n)
+        }
+        var minValue: Float = 0
+        var maxValue: Float = 0
+        vDSP_minv(values, 1, &minValue, n)
+        vDSP_maxv(values, 1, &maxValue, n)
+        return (minValue, maxValue)
+    }
+
     // MARK: - Read into Metal Buffer (zero-copy GPU path)
 
     /// Parse a FITS file and write the float pixel data directly into a Metal shared buffer.
@@ -280,16 +322,11 @@ struct FITSReader {
                 )
 
             case 16:
-                // FITS Standard §4.4.1 mandates big-endian (MSB-first) pixel storage.
-                // Apple Silicon is little-endian, so every multi-byte pixel format requires
-                // a byte-swap before numeric conversion.
                 // memcpy + vectorized byte-swap + convert Int16→Float
                 let temp16 = UnsafeMutablePointer<UInt16>.allocate(capacity: pixelCount)
                 defer { temp16.deallocate() }
                 memcpy(temp16, base, pixelCount * 2)
-                var swapBuf = vImage_Buffer(data: temp16, height: vImagePixelCount(header.height),
-                                            width: vImagePixelCount(header.width), rowBytes: header.width * 2)
-                vImageByteSwap_Planar16U(&swapBuf, &swapBuf, vImage_Flags(kvImageNoFlags))
+                byteSwap16(temp16, count: pixelCount)
                 let int16Ptr = UnsafeMutableRawPointer(temp16).assumingMemoryBound(to: Int16.self)
                 var destBuf16 = UnsafeMutableBufferPointer(start: destPtr, count: pixelCount)
                 vDSP.convertElements(
@@ -298,17 +335,11 @@ struct FITSReader {
                 )
 
             case 32:
-                // Big-endian to little-endian: the ARGB permute [3,2,1,0] reverses the
-                // four bytes of each 32-bit word in one vectorised pass — cheaper than a
-                // scalar loop and avoids vImageByteSwap_Planar32 (unavailable for signed int).
-                // Bulk memcpy + vectorized byte-swap via ARGB permute [3,2,1,0], then convert Int32→Float
+                // Bulk memcpy + vectorized byte-swap, then convert Int32→Float
                 let temp32 = UnsafeMutablePointer<UInt32>.allocate(capacity: pixelCount)
                 defer { temp32.deallocate() }
                 memcpy(temp32, base, pixelCount * 4)
-                var swapBuf32 = vImage_Buffer(data: temp32, height: vImagePixelCount(header.height),
-                                              width: vImagePixelCount(header.width), rowBytes: header.width * 4)
-                var permuteMap32: [UInt8] = [3, 2, 1, 0]
-                vImagePermuteChannels_ARGB8888(&swapBuf32, &swapBuf32, &permuteMap32, vImage_Flags(kvImageNoFlags))
+                byteSwap32(temp32, count: pixelCount)
                 let intPtr = UnsafeMutableRawPointer(temp32).assumingMemoryBound(to: Int32.self)
                 var destBuf32 = UnsafeMutableBufferPointer(start: destPtr, count: pixelCount)
                 vDSP.convertElements(
@@ -321,27 +352,8 @@ struct FITSReader {
             }
         }
 
-        // Apply BSCALE/BZERO. Integer FITS files almost always have BSCALE=1, so
-        // we use the cheaper vsadd (add only) in that case rather than vsmsa (multiply+add).
-        let bscaleF = Float(header.bscale)
-        let bzeroF  = Float(header.bzero)
-        let n = vDSP_Length(pixelCount)
-        if bscaleF != 1.0 {
-            var mult = bscaleF
-            var add  = bzeroF
-            vDSP_vsmsa(destPtr, 1, &mult, &add, destPtr, 1, n)
-        } else if bzeroF != 0.0 {
-            var add = bzeroF
-            vDSP_vsadd(destPtr, 1, &add, destPtr, 1, n)
-        }
-
-        // Compute min/max immediately after BZERO while the float buffer is
-        // maximally warm in cache. Storing these in metadata eliminates two
-        // separate full-buffer passes later in the histogram computation.
-        var minValue: Float = 0
-        var maxValue: Float = 0
-        vDSP_minv(destPtr, 1, &minValue, n)
-        vDSP_maxv(destPtr, 1, &maxValue, n)
+        let range = applyScaleAndRange(destPtr, count: pixelCount,
+                                       bscale: header.bscale, bzero: header.bzero)
 
         let metadata = FITSMetadata(
             width: header.width,
@@ -349,8 +361,8 @@ struct FITSReader {
             bitpix: header.bitpix,
             bzero: header.bzero,
             bscale: header.bscale,
-            minValue: minValue,
-            maxValue: maxValue,
+            minValue: range.min,
+            maxValue: range.max,
             headers: header.headers,
             bayerPattern: BayerPattern.parse(from: header.headers)
         )
@@ -431,32 +443,15 @@ struct FITSReader {
             }
         }
 
-        // Apply BSCALE/BZERO
-        let bscaleF = Float(header.bscale)
-        let bzeroF  = Float(header.bzero)
-        let n = vDSP_Length(pixelValues.count)
-        if bscaleF != 1.0 {
-            var mult = bscaleF; var add = bzeroF
-            pixelValues.withUnsafeMutableBufferPointer { buf in
-                vDSP_vsmsa(buf.baseAddress!, 1, &mult, &add, buf.baseAddress!, 1, n)
-            }
-        } else if bzeroF != 0.0 {
-            var add = bzeroF
-            pixelValues.withUnsafeMutableBufferPointer { buf in
-                vDSP_vsadd(buf.baseAddress!, 1, &add, buf.baseAddress!, 1, n)
-            }
-        }
-
-        var minValue: Float = 0, maxValue: Float = 0
-        pixelValues.withUnsafeBufferPointer { buf in
-            vDSP_minv(buf.baseAddress!, 1, &minValue, n)
-            vDSP_maxv(buf.baseAddress!, 1, &maxValue, n)
+        let range = pixelValues.withUnsafeMutableBufferPointer { buf in
+            applyScaleAndRange(buf.baseAddress!, count: buf.count,
+                               bscale: header.bscale, bzero: header.bzero)
         }
 
         return FITSImage(
             width: dstW, height: dstH, bitpix: header.bitpix, channels: header.channels,
             bzero: header.bzero, bscale: header.bscale,
-            pixelValues: pixelValues, minValue: minValue, maxValue: maxValue,
+            pixelValues: pixelValues, minValue: range.min, maxValue: range.max,
             headers: header.headers,
             bayerPattern: BayerPattern.parse(from: header.headers))
     }
@@ -494,10 +489,7 @@ struct FITSReader {
                     let base = rawPtr.baseAddress!.advanced(by: header.dataOffset)
                     memcpy(temp, base, totalValues * 2)
                 }
-                // vImage vectorized 16-bit byte swap (treat as 1D row for multi-channel)
-                var srcBuf = vImage_Buffer(data: temp, height: 1,
-                                           width: vImagePixelCount(totalValues), rowBytes: totalValues * 2)
-                vImageByteSwap_Planar16U(&srcBuf, &srcBuf, vImage_Flags(kvImageNoFlags))
+                byteSwap16(temp, count: totalValues)
                 let int16Ptr = UnsafeMutableRawPointer(temp).assumingMemoryBound(to: Int16.self)
                 vDSP.convertElements(of: UnsafeBufferPointer(start: int16Ptr, count: totalValues),
                                      to: &floatBuf)
@@ -505,16 +497,12 @@ struct FITSReader {
             }
 
         case 32:
-            // Big-endian to little-endian via ARGB permute [3,2,1,0].
             pixelValues = data.withUnsafeBytes { rawPtr -> [Float] in
                 let base = rawPtr.baseAddress!.advanced(by: header.dataOffset)
                 let temp = UnsafeMutablePointer<UInt32>.allocate(capacity: totalValues)
                 defer { temp.deallocate() }
                 memcpy(temp, base, totalValues * 4)
-                var swapBuf = vImage_Buffer(data: temp, height: 1,
-                                            width: vImagePixelCount(totalValues), rowBytes: totalValues * 4)
-                var permuteMap: [UInt8] = [3, 2, 1, 0]
-                vImagePermuteChannels_ARGB8888(&swapBuf, &swapBuf, &permuteMap, vImage_Flags(kvImageNoFlags))
+                byteSwap32(temp, count: totalValues)
                 let intPtr = UnsafeMutableRawPointer(temp).assumingMemoryBound(to: Int32.self)
                 var result = [Float](repeating: 0, count: totalValues)
                 vDSP.convertElements(of: UnsafeBufferPointer(start: intPtr, count: totalValues), to: &result)
@@ -528,10 +516,7 @@ struct FITSReader {
                 let temp = UnsafeMutablePointer<UInt32>.allocate(capacity: totalValues)
                 defer { temp.deallocate() }
                 memcpy(temp, base, totalValues * 4)
-                var swapBuf = vImage_Buffer(data: temp, height: 1,
-                                            width: vImagePixelCount(totalValues), rowBytes: totalValues * 4)
-                var permuteMap: [UInt8] = [3, 2, 1, 0]
-                vImagePermuteChannels_ARGB8888(&swapBuf, &swapBuf, &permuteMap, vImage_Flags(kvImageNoFlags))
+                byteSwap32(temp, count: totalValues)
                 let floatPtr = UnsafeMutableRawPointer(temp).assumingMemoryBound(to: Float.self)
                 return Array(UnsafeBufferPointer(start: floatPtr, count: totalValues))
             }
@@ -570,30 +555,10 @@ struct FITSReader {
             pixelValues = interleaved
         }
 
-        // Apply BSCALE/BZERO. Integer FITS files almost always have BSCALE=1, so
-        // we use the cheaper vsadd (add only) in that case rather than vsmsa (multiply+add).
-        let bscaleF = Float(header.bscale)
-        let bzeroF  = Float(header.bzero)
-        if bscaleF != 1.0 || bzeroF != 0.0 {
-            pixelValues.withUnsafeMutableBufferPointer { buf in
-                let n = vDSP_Length(totalValues)
-                if bscaleF != 1.0 {
-                    var mult = bscaleF
-                    var add  = bzeroF
-                    vDSP_vsmsa(buf.baseAddress!, 1, &mult, &add, buf.baseAddress!, 1, n)
-                } else {
-                    var add = bzeroF
-                    vDSP_vsadd(buf.baseAddress!, 1, &add, buf.baseAddress!, 1, n)
-                }
-            }
-        }
-
-        // Compute min/max across all values (all channels).
-        var minValue: Float = 0
-        var maxValue: Float = 0
-        pixelValues.withUnsafeBufferPointer { buf in
-            vDSP_minv(buf.baseAddress!, 1, &minValue, vDSP_Length(totalValues))
-            vDSP_maxv(buf.baseAddress!, 1, &maxValue, vDSP_Length(totalValues))
+        // Min/max across all values (all channels).
+        let range = pixelValues.withUnsafeMutableBufferPointer { buf in
+            applyScaleAndRange(buf.baseAddress!, count: totalValues,
+                               bscale: header.bscale, bzero: header.bzero)
         }
 
         return FITSImage(
@@ -604,8 +569,8 @@ struct FITSReader {
             bzero: header.bzero,
             bscale: header.bscale,
             pixelValues: pixelValues,
-            minValue: minValue,
-            maxValue: maxValue,
+            minValue: range.min,
+            maxValue: range.max,
             headers: header.headers,
             bayerPattern: BayerPattern.parse(from: header.headers)
         )

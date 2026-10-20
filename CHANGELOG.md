@@ -4,6 +4,16 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-20 — Refactor: shared FITS parsing helpers
+
+### Code quality
+- **One card parser** — `peekBitpix` and the header parser in `FITSReader.swift` share one function that splits a header card into keyword and value.
+- **One byte-swap per word size** — the 16-bit and 32-bit big-endian swaps are helpers, used by the Metal-buffer and the array read paths.
+- **One scale-and-range step** — applying BSCALE/BZERO and finding the min and max was written three times; the three read paths now call one helper.
+- No behaviour change: unit tests, render tests and metric baselines pass, and the metrics CSVs are byte-identical to the run before the change (apart from one star on one M31 frame, which also varies between runs of the unchanged code).
+
+---
+
 ## 2026-10-20 — Docs: master plan decisions
 
 ### Docs
