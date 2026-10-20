@@ -4,10 +4,12 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
-## 2026-10-20 — Site: version in the homepage's structured data
+## 2026-10-20 — Neutral colours, reproducible metrics, correct load speed
 
 ### Fixed
-- The homepage's structured data for search engines (JSON-LD) still gave 1.22.1 as the version and download after the 1.23 release. `scripts/update-site.py` now updates `softwareVersion` and `downloadUrl` along with the download button, and `site/index.html` is corrected to 1.23.
+- **Colour cast in the colour view** — with Colour on, a folder could be shown with a strong colour cast; the M31 sample set looked magenta. The shared stretch for a folder now keeps the sky background neutral. Mono frames that share a stretch get the same correction.
+- **Metrics varied between runs** — opening the same folder twice could give slightly different star counts, and on some data slightly different SNR, PSF Signal Weight and eccentricity. The same files now always give the same metrics. Values on affected frames change once, by no more than they already varied.
+- **Wrong load speed after opening another folder** — the info bar counted every image in the session, not just the ones from the last load, so it could show thousands of MP/s. It now reports only the frames that were just loaded.
 
 ---
 
@@ -51,6 +53,13 @@ All notable changes to FITS Blaster are recorded here.
 - Filter buttons didn't work in sessions with more than one folder.
 - The selected frame was lost when switching views or unflagging in the Flagged view.
 - The session chart's cursor dot didn't follow navigation, and single-frame folders drew outside the chart.
+
+---
+
+## 2026-10-20 — Testing: readable window for manual VM checks
+
+### Testing
+- `scripts/vm-smoke.sh --keep` turns on Tart's display refit for the clone, so its desktop follows the window size instead of a fixed 1024×768 display shown scaled down.
 
 ---
 

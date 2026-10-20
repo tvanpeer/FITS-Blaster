@@ -106,6 +106,8 @@ if [[ -n "$TART_BASE" ]]; then
     trap cleanup_clone EXIT
     tart clone "$TART_BASE" "$HOST"
     if [[ $KEEP == 1 ]]; then
+        # The clone's display follows its window, so a larger window gives a readable desktop.
+        tart set "$HOST" --display-refit
         tart run "$HOST" > "$TART_WORK/run.log" 2>&1 &
     else
         tart run "$HOST" --no-graphics > "$TART_WORK/run.log" 2>&1 &
