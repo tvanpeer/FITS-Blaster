@@ -156,6 +156,17 @@ struct ContentView: View {
             // assumeIsolated requires a Sendable return type; NSEvent is not Sendable.
             // Return Bool (true = pass event through, false = consume) and decide outside.
             let passThrough: Bool = MainActor.assumeIsolated {
+                // System shortcuts first, so a configured plain key doesn't swallow them.
+                switch SystemKeyShortcut.match(event) {
+                case .toggleFullScreen:
+                    // Same route as View → Enter Full Screen: the key window via the responder chain.
+                    return !NSApp.sendAction(#selector(NSWindow.toggleFullScreen(_:)), to: nil, from: nil)
+                case .passToSystem:
+                    return true
+                case nil:
+                    break
+                }
+
                 // Don't steal from text inputs.
                 guard !(NSApp.keyWindow?.firstResponder is NSText) else { return true }
 

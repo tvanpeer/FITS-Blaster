@@ -4,6 +4,17 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-20 — Fix: full screen with ⌃⌘F and fn-F
+
+### Fixed
+- **fn-F flagged a frame instead of entering full screen** — FITS Blaster's own key handling treated fn/🌐 + a letter as the plain letter, so fn-F (Enter Full Screen) flagged the selection, and other 🌐 shortcuts such as 🌐E (Emoji & Symbols) could trigger FITS Blaster keys. Letters pressed with fn now go to macOS; arrow, Home and End keys work as before.
+- **⌃⌘F did nothing** — on macOS 27, SwiftUI windows don't respond to ⌃⌘F, although AppKit apps such as Safari do (measured with an empty SwiftUI app). FITS Blaster now toggles full screen on ⌃⌘F itself, the same way as View → Enter Full Screen.
+
+### Testing
+- `SystemKeyShortcutTests` — ⌃⌘F toggles full screen; fn + a letter goes to macOS; fn + arrow keys, plain keys and other F combinations stay with FITS Blaster.
+
+---
+
 ## 2026-10-20 — Site: Mac App Store badge on the homepage
 
 ### Site
