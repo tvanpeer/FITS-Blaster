@@ -1,0 +1,29 @@
+name: Deploy site
+
+# Uploads site/ from main without a release, for site-only changes.
+# Start it from the Actions tab (Deploy site → Run workflow). Releases still
+# deploy the site themselves in release.yml.
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: site-deploy
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Deploy site to hosting
+        env:
+          DA_HOST: h58.mijn.host
+          DA_USER: ${{ secrets.DA_USER }}
+          DA_KEY: ${{ secrets.DA_KEY }}
+          DA_DOMAIN: astrophoto-app.com
+        run: python3 scripts/deploy-site.py

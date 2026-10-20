@@ -32,7 +32,8 @@
         "softwareVersion": "1.23",
         "author": { "@type": "Person", "name": "Tom van Peer" },
         "screenshot": "https://astrophoto-app.com/screenshot-main.png",
-        "image": "https://astrophoto-app.com/app-icon.png"
+        "image": "https://astrophoto-app.com/app-icon.png",
+        "sameAs": "https://apps.apple.com/app/fits-blaster/id6760611896"
     }
     </script>
     <style>
@@ -87,6 +88,23 @@
             font-size: 0.85rem;
             color: #505068;
             margin-bottom: 24px;
+        }
+
+        /* Apple's badge artwork, unmodified; at least 40 px high with clear space around it. */
+        .app-store-badge {
+            display: inline-block;
+            margin-bottom: 12px;
+        }
+        .app-store-badge img {
+            display: block;
+            height: 54px;
+            width: auto;
+        }
+
+        .app-store-note {
+            font-size: 0.85rem;
+            color: #505068;
+            margin-bottom: 32px;
         }
 
         .badge {
@@ -332,6 +350,8 @@
     <p>Fast, focused FITS image culling for astrophotographers on Mac.</p>
     <a class="download-btn" href="https://github.com/tvanpeer/FITS-Blaster/releases/download/v1.23/FITS-Blaster-1.23.dmg">Download FITS Blaster 1.23</a>
     <p class="download-sub">macOS 15.6 or later &nbsp;·&nbsp; Free</p>
+    <a class="app-store-badge" href="https://apps.apple.com/app/fits-blaster/id6760611896?mt=12"><img src="mac-app-store-badge.svg" alt="Download on the Mac App Store"></a>
+    <p class="app-store-note">Same app; the App Store version has no command-line mode or beta updates.</p>
     <a class="badge" href="https://ko-fi.com/tomvp" target="_blank" rel="noopener">☕ If you enjoy FITS Blaster, buy me a coffee on Ko-fi</a>
 </header>
 

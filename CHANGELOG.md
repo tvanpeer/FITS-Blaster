@@ -4,6 +4,14 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-20 — Site: Mac App Store badge on the homepage
+
+### Site
+- **Mac App Store badge** — the homepage shows Apple's "Download on the Mac App Store" badge under the download button, with a line that the App Store version has no command-line mode or beta updates. The badge is Apple's artwork, unmodified (`site/mac-app-store-badge.svg`). The structured data links the App Store page (`sameAs`).
+- **Deploy site workflow** — `.github/workflows/site.yml` uploads `site/` from main when started by hand (Actions → Deploy site → Run workflow), so site-only changes don't need a release. Releases still deploy the site themselves.
+
+---
+
 ## 2026-10-20 — Quick Look on macOS 15 and 26, safer with damaged files
 
 ### Fixed
