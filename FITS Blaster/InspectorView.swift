@@ -86,7 +86,7 @@ private struct InspectorMetricsSection: View {
                     }
                     if let v = metrics.skyBackground {
                         MetricRow(label: "Sky BG",
-                                  value: "\(Int(v.rounded())) ADU")
+                                  value: "\(Metric.wholeNumberText(Double(v))) ADU")
                     }
                     if let v = metrics.psfSignalWeight {
                         MetricRow(label: "PSF Signal",

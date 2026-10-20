@@ -175,13 +175,20 @@ enum Metric: String, CaseIterable, Identifiable, Sendable, Hashable {
     }
 
     /// Full chip value string including unit suffix where applicable.
+    /// Whole-number text for a metric value. `Int(_:)` traps on NaN, ±Inf and values
+    /// outside `Int`'s range; those show as "–" instead.
+    static func wholeNumberText(_ v: Double,
+                                rounding rule: FloatingPointRoundingRule = .toNearestOrAwayFromZero) -> String {
+        Int(exactly: v.rounded(rule)).map(String.init) ?? "–"
+    }
+
     func chipValue(from v: Double) -> String {
         switch self {
         case .fwhm:            return "\(v.formatted(.number.precision(.fractionLength(1)))) px"
         case .eccentricity:    return v.formatted(.number.precision(.fractionLength(2)))
         case .snr:             return v.formatted(.number.precision(.fractionLength(0)))
         case .starCount:       return v.formatted(.number.precision(.fractionLength(0)))
-        case .skyBackground:   return "\(Int(v.rounded())) ADU"
+        case .skyBackground:   return "\(Metric.wholeNumberText(v)) ADU"
         case .psfSignalWeight: return v.formatted(.number.precision(.fractionLength(0)))
         case .qualityScore:    return v.formatted(.number.precision(.fractionLength(0)))
         }
@@ -190,8 +197,8 @@ enum Metric: String, CaseIterable, Identifiable, Sendable, Hashable {
     /// Compact "label value" fragment suitable for joining into a tooltip string.
     func tooltipPart(from v: Double) -> String {
         switch self {
-        case .starCount:    return "\(Int(v)) stars"
-        case .skyBackground: return "\(shortLabel) \(Int(v.rounded())) ADU"
+        case .starCount:    return "\(Metric.wholeNumberText(v, rounding: .towardZero)) stars"
+        case .skyBackground: return "\(shortLabel) \(Metric.wholeNumberText(v)) ADU"
         case .fwhm:         return "\(shortLabel) \(v.formatted(.number.precision(.fractionLength(1))))px"
         default:            return "\(shortLabel) \(formattedValue(v))"
         }

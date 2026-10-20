@@ -76,6 +76,8 @@ clean VM, not on this Mac.
 | Render: metrics | The metrics CSV with `--render` is identical to the one without |
 | Render: colour | Every colour frame got a colour render |
 | Render: typical frame | Background R, G, B within 4 of each other and each within 63 ± 6 — the same limits as the [rendering tests](#4-rendering-tests-on-real-data-scriptsrun-render-testssh) |
+| Quick Look registered | After the app was opened, `pluginkit -m -i` finds both extensions (preview and thumbnail). Being in the bundle isn't enough: with a too-high minimum macOS they are ignored (CODE_AUDIT §5.1) |
+| Quick Look thumbnail | `qlmanage -x -t` (through the Quick Look server, like Finder) makes a thumbnail of the first sample frame; the PNG comes back in `out/quicklook/` |
 | Metric baselines (with `--tart`) | The sample set's metrics and filter result match `tests/baselines/` (section 5) — also on macOS 15 and 26 |
 
 ### What it cannot check

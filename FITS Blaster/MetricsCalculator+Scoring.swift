@@ -19,16 +19,22 @@ extension MetricsCalculator {
     static func computeHistogram(ptr: UnsafePointer<Float>, count: Int,
                                  minVal: Float, maxVal: Float) -> [Int] {
         let binCount = 256
-        guard count > 0, maxVal > minVal else { return [Int](repeating: 0, count: binCount) }
+        guard count > 0, minVal.isFinite, maxVal.isFinite, maxVal > minVal else {
+            return [Int](repeating: 0, count: binCount)
+        }
 
         let scale = Float(binCount - 1) / (maxVal - minVal)
+        guard scale.isFinite else { return [Int](repeating: 0, count: binCount) }
         var histogram = [Int](repeating: 0, count: binCount)
 
         let stride = max(1, count / 60_000)
         var i = 0
         while i < count {
-            let bin = Int((ptr[i] - minVal) * scale)
-            histogram[min(bin, binCount - 1)] += 1
+            // Int(_:) traps on NaN and ±Inf; such pixels are left out of the histogram.
+            let position = (ptr[i] - minVal) * scale
+            if position.isFinite {
+                histogram[min(max(Int(position), 0), binCount - 1)] += 1
+            }
             i += stride
         }
         return histogram

@@ -99,7 +99,8 @@ extension MetricsCalculator {
     static func findLocalMaxima(pixels: UnsafeBufferPointer<Float>, width: Int, height: Int,
                                 cropX: Int, cropY: Int, cropW: Int, cropH: Int,
                                 threshold: Float) -> [StarCandidate] {
-        guard let base = pixels.baseAddress else { return [] }
+        // A local maximum needs a neighbour on every side, so crops under 3 × 3 have none.
+        guard let base = pixels.baseAddress, cropW >= 3, cropH >= 3 else { return [] }
         var candidates: [StarCandidate] = []
         candidates.reserveCapacity(200)
 

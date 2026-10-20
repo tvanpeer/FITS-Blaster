@@ -26,28 +26,11 @@ struct BatchStatsTests {
     }
 
     private func fitsData() -> Data {
-        let cards = [
-            card("SIMPLE", "T"), card("BITPIX", "16"), card("NAXIS", "2"),
-            card("NAXIS1", String(Self.width)), card("NAXIS2", String(Self.height)),
-            card("BZERO", "32768.0"),
-            "END".padding(toLength: 80, withPad: " ", startingAt: 0)
-        ]
-        var data = Data(cards.joined().utf8)
-        while data.count % 2880 != 0 { data.append(0x20) }
-        for i in 0..<(Self.width * Self.height) {
-            let value = UInt16(1000 + (i * 37) % 20000)
-            let stored = UInt16(bitPattern: Int16(bitPattern: value &- 32768))
-            data.append(UInt8(stored >> 8))
-            data.append(UInt8(stored & 0xFF))
+        let stored = (0..<(Self.width * Self.height)).map { i in
+            Int16(bitPattern: UInt16(1000 + (i * 37) % 20000) &- 32768)
         }
-        while data.count % 2880 != 0 { data.append(0x00) }
-        return data
-    }
-
-    private func card(_ key: String, _ value: String) -> String {
-        let keyword = key.padding(toLength: 8, withPad: " ", startingAt: 0)
-        let padded = String(repeating: " ", count: max(0, 20 - value.count)) + value
-        return (keyword + "= " + padded).padding(toLength: 80, withPad: " ", startingAt: 0)
+        let cards = TestFITS.imageCards(bitpix: 16, width: Self.width, height: Self.height, bzero: 32768)
+        return TestFITS.fileData(cards: cards, pixels: TestFITS.bigEndian(stored))
     }
 
     @Test("A second batch reports only its own images and megapixels")

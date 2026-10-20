@@ -81,51 +81,11 @@ struct IntegrationTests {
     }
 
     private func writeFITS(pixels: [Float], width: Int, height: Int) throws -> URL {
-        let url = FileManager.default.temporaryDirectory
-            .appending(component: "\(UUID().uuidString).fits")
-
-        let cards: [String] = [
-            card("SIMPLE", bool: true), card("BITPIX", int: 16),
-            card("NAXIS", int: 2), card("NAXIS1", int: width),
-            card("NAXIS2", int: height), card("BZERO", float: 32768), endCard()
-        ]
-        var headerData = Data(cards.joined().utf8)
-        while headerData.count % 2880 != 0 { headerData.append(0x20) }
-
-        var pixelData = Data(count: width * height * 2)
-        for i in 0..<pixels.count {
-            let clamped = max(0, min(65535, pixels[i]))
-            let stored = Int16(bitPattern: UInt16(clamped) &- 32768)
-            pixelData[i * 2]     = UInt8(bitPattern: Int8(truncatingIfNeeded: stored >> 8))
-            pixelData[i * 2 + 1] = UInt8(truncatingIfNeeded: stored)
-        }
-        while pixelData.count % 2880 != 0 { pixelData.append(0x00) }
-
-        var fileData = headerData
-        fileData.append(pixelData)
-        try fileData.write(to: url)
-        return url
-    }
-
-    private func card(_ key: String, bool value: Bool) -> String {
-        let v = String(repeating: " ", count: 19) + (value ? "T" : "F")
-        return fitsCard(key, value: v)
-    }
-    private func card(_ key: String, int value: Int) -> String {
-        let s = String(value)
-        return fitsCard(key, value: String(repeating: " ", count: max(0, 20 - s.count)) + s)
-    }
-    private func card(_ key: String, float value: Double) -> String {
-        let s = value == value.rounded() && abs(value) < 1e15
-            ? String(format: "%.1f", value) : String(format: "%E", value)
-        return fitsCard(key, value: String(repeating: " ", count: max(0, 20 - s.count)) + s)
-    }
-    private func fitsCard(_ key: String, value: String) -> String {
-        let keyword = key.padding(toLength: 8, withPad: " ", startingAt: 0)
-        return (keyword + "= " + value).padding(toLength: 80, withPad: " ", startingAt: 0)
-    }
-    private func endCard() -> String {
-        "END".padding(toLength: 80, withPad: " ", startingAt: 0)
+        let stored = pixels.map { Int16(bitPattern: UInt16(max(0, min(65535, $0))) &- 32768) }
+        var pixelData = TestFITS.bigEndian(stored)
+        pixelData.append(Data(count: width * height * 2 - pixelData.count))
+        let cards = TestFITS.imageCards(bitpix: 16, width: width, height: height, bzero: 32768)
+        return try TestFITS.write(TestFITS.fileData(cards: cards, pixels: pixelData))
     }
 
     // MARK: - Single star: FWHM accuracy

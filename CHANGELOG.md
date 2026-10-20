@@ -4,6 +4,22 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-20 — Fix: Quick Look on macOS 15, no crash on malformed FITS files
+
+### Fixed
+- **Quick Look on macOS 15.6–26.1** — Finder showed no FITS thumbnails or previews on these versions, because both Quick Look extensions were built with macOS 26.2 as their minimum (inherited from the project). They now have 15.6, like the app (CODE_AUDIT §5.1).
+- **Malformed FITS files** — negative, zero or huge image sizes, sizes whose product overflows, NAXIS outside 2–999, non-finite BSCALE or BZERO (also after conversion to Float), and truncated data now give an "Invalid FITS format" error instead of crashing the app or Quick Look. Images are limited to 65,536 pixels per side (§5.2, §5.3).
+- **Header without END** — the parser gives up after 100 header blocks instead of reading the whole file card by card (§5.19).
+- **Tiny images** — the CPU star detection returns no stars for images under 3 × 3 pixels instead of crashing (§5.18).
+- The histogram and the sky background and star count texts no longer trap on NaN or infinite values (§5.3).
+
+### Testing
+- `FITSMalformedInputTests` — 12 kinds of malformed header, each on all three read paths (array, Metal buffer, Quick Look preview), must throw; an image at the size limit and END in the last allowed header block are still read; a 2 × 2 image on the CPU detection path.
+- `TestFITS.swift` — one synthetic FITS writer for the tests, replacing the copies in `FITSReaderTests`, `IntegrationTests`, `GPUTests` and `BatchStatsTests`.
+- **VM smoke test** — `vm-smoke-remote.sh` now checks that `pluginkit` lists both Quick Look extensions after the app was opened, and that `qlmanage -x -t` (through the Quick Look server, like Finder) makes a thumbnail of a sample frame (the PNG comes back in `out/quicklook/`).
+
+---
+
 ## 2026-10-20 — Refactor: shared FITS parsing helpers
 
 ### Code quality

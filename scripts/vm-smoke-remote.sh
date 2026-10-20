@@ -3,7 +3,8 @@
 #
 # Installs a FITS Blaster DMG, checks signing, launches the app and checks it
 # stays up without crashes or layout exceptions, then runs the command-line
-# mode on the sample set. Prints one PASS / WARN / FAIL / SKIP line per check
+# mode on the sample set and checks that Quick Look registered both extensions
+# and makes a thumbnail. Prints one PASS / WARN / FAIL / SKIP line per check
 # and exits 1 if any check failed.
 #
 # Usage (normally not called by hand):
@@ -262,6 +263,38 @@ else
         fi
     fi
     echo "      PNGs for the visual check are copied to this Mac (out/render/)"
+fi
+
+# ── Quick Look ───────────────────────────────────────────────────────────────
+# macOS registers the extensions when the app has been opened. Being in the bundle is
+# not enough: with a too-high minimum macOS they are silently ignored (CODE_AUDIT §5.1).
+section "Quick Look"
+if [ "$GUI_OK" = "1" ]; then
+    for id in com.astrophotoapp.FitsBlaster.FITSBlasterQL com.astrophotoapp.FitsBlaster.FITSBlasterQLThumb; do
+        REGISTERED="$(pluginkit -m -v -i "$id" 2>/dev/null)"
+        if [ -n "$REGISTERED" ]; then
+            pass "$id registered"
+            echo "      $(echo "$REGISTERED" | head -1 | tr -s ' \t' ' ')"
+        else
+            fail "$id not registered (pluginkit -m -i finds nothing)"
+        fi
+    done
+    QL_FRAME="$(find "$SAMPLE_DIR" -maxdepth 1 -iname '*.fits' | sort | head -1)"
+    mkdir -p "$WORK/out/quicklook"
+    # -x makes the thumbnail through the Quick Look server, as Finder does; without it
+    # qlmanage computes in its own process and hangs with app-extension thumbnailers.
+    # perl's alarm stops a hang after 60 s.
+    perl -e 'alarm shift; exec @ARGV' 60 \
+        qlmanage -x -t -s 256 -o "$WORK/out/quicklook" "$QL_FRAME" >"$WORK/out/quicklook/qlmanage.txt" 2>&1
+    QL_PNG="$WORK/out/quicklook/$(basename "$QL_FRAME").png"
+    if [ -s "$QL_PNG" ]; then
+        pass "qlmanage made a thumbnail of $(basename "$QL_FRAME")"
+        echo "      thumbnail for the visual check is copied to this Mac (out/quicklook/)"
+    else
+        fail "qlmanage made no thumbnail of $(basename "$QL_FRAME") (see quicklook/qlmanage.txt)"
+    fi
+else
+    skip "Quick Look (the app was not opened, so the extensions are not registered)"
 fi
 
 # ── Finish ───────────────────────────────────────────────────────────────────

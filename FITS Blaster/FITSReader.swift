@@ -128,6 +128,17 @@ struct FITSReader {
         let headers: [String: String]
     }
 
+    /// Largest NAXIS1 or NAXIS2 accepted. Far above any camera sensor; larger images
+    /// (big mosaics) are made after culling and stacking.
+    static let maxAxisLength = 65_536
+
+    /// Header blocks (2880 bytes each) searched for the END card before giving up,
+    /// so a file without END isn't parsed card by card to its end.
+    static let maxHeaderBlocks = 100
+
+    /// Every FITS file is untrusted input (Quick Look parses files from Finder without
+    /// the user opening them), so every size and scale value is checked here before
+    /// anything is allocated or indexed. Anything invalid throws, never traps.
     private static func parseHeader(from data: Data, forPreview: Bool = false) throws -> HeaderInfo {
         guard data.count >= 2880 else {
             throw FITSError.invalidFormat("File too small to be a valid FITS file.")
@@ -136,8 +147,13 @@ struct FITSReader {
         var headerCards: [(String, String)] = []
         var offset = 0
         var foundEnd = false
+        var blockCount = 0
 
         while offset < data.count {
+            guard blockCount < maxHeaderBlocks else {
+                throw FITSError.invalidFormat("No END card in the first \(maxHeaderBlocks) header blocks.")
+            }
+            blockCount += 1
             let blockEnd = min(offset + 2880, data.count)
             let block = data[offset..<blockEnd]
 
@@ -177,8 +193,8 @@ struct FITSReader {
         }
 
         guard let naxisStr = headerCards.first(where: { $0.0 == "NAXIS" })?.1,
-              let naxis = Int(naxisStr), naxis >= 2 else {
-            throw FITSError.invalidFormat("Missing NAXIS or NAXIS < 2.")
+              let naxis = Int(naxisStr), (2...999).contains(naxis) else {
+            throw FITSError.invalidFormat("Missing NAXIS, or NAXIS outside 2–999.")
         }
 
         // Multi-channel FITS (NAXIS=3, NAXIS3=3): allowed only in preview mode.
@@ -208,6 +224,12 @@ struct FITSReader {
             throw FITSError.invalidFormat("Missing NAXIS2.")
         }
 
+        let axisRange = 1...maxAxisLength
+        guard axisRange.contains(width), axisRange.contains(height) else {
+            throw FITSError.invalidFormat(
+                "Image size \(width) × \(height) is outside 1–\(maxAxisLength) pixels per side.")
+        }
+
         let bzero: Double
         if let bzeroStr = headerCards.first(where: { $0.0 == "BZERO" })?.1 {
             bzero = Double(bzeroStr) ?? 0.0
@@ -222,15 +244,25 @@ struct FITSReader {
             bscale = 1.0
         }
 
-        let pixelCount = width * height
+        // The pixels are scaled in Float, so the values must also be finite as Float.
+        guard bzero.isFinite, bscale.isFinite, Float(bzero).isFinite, Float(bscale).isFinite else {
+            throw FITSError.invalidFormat("BSCALE or BZERO is not a finite number.")
+        }
+
         let bytesPerPixel = abs(bitpix) / 8
-        let totalValues = pixelCount * channels
+        let (pixelCount, pixelOverflow) = width.multipliedReportingOverflow(by: height)
+        let (totalValues, valuesOverflow) = pixelCount.multipliedReportingOverflow(by: channels)
+        let (dataBytes, bytesOverflow) = totalValues.multipliedReportingOverflow(by: bytesPerPixel)
+        let (dataEnd, endOverflow) = offset.addingReportingOverflow(dataBytes)
+        guard !(pixelOverflow || valuesOverflow || bytesOverflow || endOverflow) else {
+            throw FITSError.invalidFormat("Image size \(width) × \(height) is too large.")
+        }
 
         guard offset < data.count else {
             throw FITSError.noImageData
         }
 
-        guard offset + totalValues * bytesPerPixel <= data.count else {
+        guard dataEnd <= data.count else {
             throw FITSError.invalidFormat("Not enough data for \(totalValues) values at \(bytesPerPixel) bytes each.")
         }
 

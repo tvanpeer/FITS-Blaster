@@ -259,102 +259,22 @@ struct FITSReaderTests {
     /// Writes a float FITS file with known pixel values stored big-endian.
     private func makeFloatFITSFile(bitpix: Int, width: Int, height: Int,
                                     floatValues: [Float], bzero: Double? = nil) throws -> URL {
-        let url = FileManager.default.temporaryDirectory
-            .appending(component: "\(UUID().uuidString).fits")
-
-        var cards: [String] = [
-            card("SIMPLE", bool: true),
-            card("BITPIX", int: bitpix),
-            card("NAXIS",  int: 2),
-            card("NAXIS1", int: width),
-            card("NAXIS2", int: height),
-        ]
-        if let bz = bzero { cards.append(card("BZERO", float: bz)) }
-        cards.append(endCard())
-
-        var headerData = Data(cards.joined().utf8)
-        while headerData.count % 2880 != 0 { headerData.append(0x20) }
-
         let pixelCount = width * height
-        let bytesPerPixel = abs(bitpix) / 8
-        var pixelData = Data(count: pixelCount * bytesPerPixel)
-
-        for i in 0..<min(floatValues.count, pixelCount) {
-            if bitpix == -32 {
-                // Store as big-endian IEEE 754 single
-                var bits = floatValues[i].bitPattern.bigEndian
-                withUnsafeBytes(of: &bits) { pixelData.replaceSubrange(i*4..<i*4+4, with: $0) }
-            } else if bitpix == -64 {
-                // Store as big-endian IEEE 754 double
-                var bits = Double(floatValues[i]).bitPattern.bigEndian
-                withUnsafeBytes(of: &bits) { pixelData.replaceSubrange(i*8..<i*8+8, with: $0) }
-            }
-        }
-
-        while pixelData.count % 2880 != 0 { pixelData.append(0x00) }
-
-        var fileData = headerData
-        fileData.append(pixelData)
-        try fileData.write(to: url)
-        return url
+        var values = Array(floatValues.prefix(pixelCount))
+        values += [Float](repeating: 0, count: pixelCount - values.count)
+        let pixels = bitpix == -64 ? TestFITS.bigEndian(values.map(Double.init)) : TestFITS.bigEndian(values)
+        let cards = TestFITS.imageCards(bitpix: bitpix, width: width, height: height, bzero: bzero)
+        return try TestFITS.write(TestFITS.fileData(cards: cards, pixels: pixels))
     }
 
     private func makeFITSFile(bitpix: Int, width: Int, height: Int,
                                bzero: Double? = nil,
                                pixelBigEndian16: Int16? = nil) throws -> URL {
-        let url = FileManager.default.temporaryDirectory
-            .appending(component: "\(UUID().uuidString).fits")
-
-        var cards: [String] = [
-            card("SIMPLE", bool: true),
-            card("BITPIX", int: bitpix),
-            card("NAXIS",  int: 2),
-            card("NAXIS1", int: width),
-            card("NAXIS2", int: height),
-        ]
-        if let bz = bzero { cards.append(card("BZERO", float: bz)) }
-        cards.append(endCard())
-
-        var headerData = Data(cards.joined().utf8)
-        while headerData.count % 2880 != 0 { headerData.append(0x20) }
-
-        let bytesPerPixel = abs(bitpix) / 8
-        var pixelData = Data(count: width * height * bytesPerPixel)
+        var pixels = Data(count: width * height * abs(bitpix) / 8)
         if let val = pixelBigEndian16, bitpix == 16, width * height >= 1 {
-            pixelData[0] = UInt8((val >> 8) & 0xFF)
-            pixelData[1] = UInt8(val & 0xFF)
+            pixels.replaceSubrange(0..<2, with: TestFITS.bigEndian([val]))
         }
-        while pixelData.count % 2880 != 0 { pixelData.append(0x00) }
-
-        var fileData = headerData
-        fileData.append(pixelData)
-        try fileData.write(to: url)
-        return url
-    }
-
-    private func card(_ key: String, bool value: Bool) -> String {
-        let v = String(repeating: " ", count: 19) + (value ? "T" : "F")
-        return fitsCard(key, value: v)
-    }
-
-    private func card(_ key: String, int value: Int) -> String {
-        let s = String(value)
-        return fitsCard(key, value: String(repeating: " ", count: max(0, 20 - s.count)) + s)
-    }
-
-    private func card(_ key: String, float value: Double) -> String {
-        let s = value == value.rounded() && abs(value) < 1e15
-            ? String(format: "%.1f", value) : String(format: "%E", value)
-        return fitsCard(key, value: String(repeating: " ", count: max(0, 20 - s.count)) + s)
-    }
-
-    private func fitsCard(_ key: String, value: String) -> String {
-        let keyword = key.padding(toLength: 8, withPad: " ", startingAt: 0)
-        let card = keyword + "= " + value
-        return card.padding(toLength: 80, withPad: " ", startingAt: 0)
-    }
-
-    private func endCard() -> String {
-        "END".padding(toLength: 80, withPad: " ", startingAt: 0)
+        let cards = TestFITS.imageCards(bitpix: bitpix, width: width, height: height, bzero: bzero)
+        return try TestFITS.write(TestFITS.fileData(cards: cards, pixels: pixels))
     }
 }

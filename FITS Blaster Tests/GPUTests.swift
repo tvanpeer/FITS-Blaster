@@ -179,31 +179,11 @@ struct GPUTests {
         let width = 64, height = 64
         let device = try #require(ImageStretcher.metalDevice)
 
-        // Build a minimal FITS file with known pixel data
-        let url = FileManager.default.temporaryDirectory
-            .appending(component: "\(UUID().uuidString).fits")
+        // Build a minimal FITS file with known pixel data: all pixels = 1000
+        let pixels = TestFITS.bigEndian([Int16](repeating: 1000, count: width * height))
+        let cards = TestFITS.imageCards(bitpix: 16, width: width, height: height)
+        let url = try TestFITS.write(TestFITS.fileData(cards: cards, pixels: pixels))
         defer { try? FileManager.default.removeItem(at: url) }
-
-        let cards: [String] = [
-            fitsCard("SIMPLE", bool: true), fitsCard("BITPIX", int: 16),
-            fitsCard("NAXIS", int: 2), fitsCard("NAXIS1", int: width),
-            fitsCard("NAXIS2", int: height), endCard()
-        ]
-        var headerData = Data(cards.joined().utf8)
-        while headerData.count % 2880 != 0 { headerData.append(0x20) }
-
-        // All pixels = 1000 (big-endian Int16)
-        var pixelData = Data(count: width * height * 2)
-        let stored: Int16 = 1000
-        for i in 0..<(width * height) {
-            pixelData[i * 2]     = UInt8((stored >> 8) & 0xFF)
-            pixelData[i * 2 + 1] = UInt8(stored & 0xFF)
-        }
-        while pixelData.count % 2880 != 0 { pixelData.append(0x00) }
-
-        var fileData = headerData
-        fileData.append(pixelData)
-        try fileData.write(to: url)
 
         let result = try FITSReader.readIntoBuffer(from: url, device: device)
         #expect(result.metadata.width == width)
@@ -214,23 +194,5 @@ struct GPUTests {
         let floatPtr = result.metalBuffer.contents().assumingMemoryBound(to: Float.self)
         #expect(abs(floatPtr[0] - 1000) < 0.5, "First pixel should be ~1000")
         #expect(abs(floatPtr[width * height - 1] - 1000) < 0.5, "Last pixel should be ~1000")
-    }
-
-    // MARK: - FITS card helpers
-
-    private func fitsCard(_ key: String, bool value: Bool) -> String {
-        let v = String(repeating: " ", count: 19) + (value ? "T" : "F")
-        return fitsCardRaw(key, value: v)
-    }
-    private func fitsCard(_ key: String, int value: Int) -> String {
-        let s = String(value)
-        return fitsCardRaw(key, value: String(repeating: " ", count: max(0, 20 - s.count)) + s)
-    }
-    private func fitsCardRaw(_ key: String, value: String) -> String {
-        let keyword = key.padding(toLength: 8, withPad: " ", startingAt: 0)
-        return (keyword + "= " + value).padding(toLength: 80, withPad: " ", startingAt: 0)
-    }
-    private func endCard() -> String {
-        "END".padding(toLength: 80, withPad: " ", startingAt: 0)
     }
 }
