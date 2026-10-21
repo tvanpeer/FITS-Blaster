@@ -4,6 +4,14 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-21 — Full screen with the keyboard
+
+### Fixed
+- **fn-F flagged a frame instead of switching to full screen** — fn-F (🌐F), the macOS shortcut for Enter Full Screen, was handled as a plain F and flagged the selected frame. It now switches to full screen, and other 🌐 shortcuts such as 🌐E (Emoji & Symbols) reach macOS as well.
+- **⌃⌘F did nothing** — Control-Command-F now switches FITS Blaster to full screen and back, as in other Mac apps.
+
+---
+
 ## 2026-10-21 — Testing: ASI294MM SHO in the metric baselines
 
 ### Testing
