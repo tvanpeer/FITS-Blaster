@@ -16,8 +16,10 @@ What to test (default: build the current checkout as Release and use that):
 
 Options:
     --quick                 sample set only
+    --only <name>           one dataset only (repeatable), e.g. --only asi294mm-sho
     --data <dir>            test data folder (default: /Volumes/FITS Blaster/Test Data)
-    --update                write the results as the new baselines (after review!)
+    --update                write the results as the new baselines (after review!);
+                            with --only, only those datasets' baselines are written
 
 Exit status: 0 when everything is within tolerance, 1 otherwise.
 """
@@ -47,6 +49,7 @@ DATASETS = {
     "rosette-r": "NGC 2244-Rosette_Nebula original/R",
     "rosette-g": "NGC 2244-Rosette_Nebula original/G",
     "rosette-b": "NGC 2244-Rosette_Nebula original/B",
+    "asi294mm-sho": "ASI294MM SHO",
 }
 
 # The standard filter: the same one the VM smoke test uses.
@@ -226,6 +229,7 @@ def main():
     parser.add_argument("--app", type=Path)
     parser.add_argument("--smoke-results", type=Path)
     parser.add_argument("--quick", action="store_true")
+    parser.add_argument("--only", action="append", choices=list(DATASETS), metavar="NAME")
     parser.add_argument("--data", type=Path, default=DEFAULT_DATA)
     parser.add_argument("--update", action="store_true")
     args = parser.parse_args()
@@ -249,7 +253,7 @@ def main():
         source = f"{app.name} {app_version(app)}"
         out_dir = RESULTS / datetime.now().strftime("%Y%m%d-%H%M%S")
         out_dir.mkdir(parents=True)
-        names = ["sample-m31"] if args.quick else list(DATASETS)
+        names = args.only or (["sample-m31"] if args.quick else list(DATASETS))
         for name in names:
             folder = unzip_sample(args.data) if DATASETS[name] is None else args.data / DATASETS[name]
             print(f"Running {name}…", flush=True)

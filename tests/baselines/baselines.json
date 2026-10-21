@@ -1,4 +1,10 @@
 {
+  "asi294mm-sho": {
+    "app": "FITS Blaster.app 1.23.1-beta.2 (206)",
+    "commit": "30d9744 (with uncommitted changes)",
+    "macOS": "27.0.1",
+    "updated": "2026-10-21T19:27:40"
+  },
   "california": {
     "app": "FITS Blaster.app 1.23-beta.10 (203)",
     "commit": "0f5c953 (with uncommitted changes)",

@@ -204,7 +204,7 @@ scripts/run-benchmark.sh v1.23 --rgb "<colour folder>" --mono "<mono folder>"
 ```
 
 Results go to `tests/benchmarks/` (not committed). Test data lives in
-`/Volumes/FITS Blaster/Test Data` (M31, California, Gamma Cygni, Rosette).
+`/Volumes/FITS Blaster/Test Data` (M31, California, Gamma Cygni, Rosette, ASI294MM SHO).
 
 **PixInsight comparison:** run the CLI on a folder, then
 `python3 scripts/compare.py <folder>` compares `frames.csv` with a
@@ -317,13 +317,17 @@ the test datasets and compares every frame with the CSVs in `tests/baselines/`.
 ```
 scripts/metric-baselines.py            # builds the current checkout (Release), all datasets, about 30 s + build
 scripts/metric-baselines.py --quick    # sample set only
+scripts/metric-baselines.py --only asi294mm-sho                             # one dataset (repeatable)
 scripts/metric-baselines.py --app "/Applications/FITS Blaster Beta.app"     # an installed or downloaded build
 scripts/metric-baselines.py --smoke-results tests/smoke-results/<run>      # CSVs from a VM smoke test (sample set)
 ```
 
 Datasets: the sample set (unpacked from the published zip), the M31 night,
-California, Gamma Cygni 03-04, Rosette R, G and B. Each run's CLI output is
-kept in `tests/baseline-results/<time>/` (not committed).
+California, Gamma Cygni 03-04, Rosette R, G and B, and ASI294MM SHO (mono
+narrowband H/O/S, `.fit` files, single-letter filter names; added 2026-10-21).
+Each run's CLI output is kept in `tests/baseline-results/<time>/` (not committed).
+To add a dataset, write only its baseline: `--only <name> --update`. A plain
+`--update` rewrites every baseline.
 
 ### What it checks
 

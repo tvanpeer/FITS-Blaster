@@ -4,6 +4,14 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-21 — Testing: ASI294MM SHO in the metric baselines
+
+### Testing
+- **Eighth baseline set: ASI294MM SHO** — 30 mono narrowband frames (H, O, S; `.fit` files, single-letter filter names), the first real mono narrowband set in the baselines. 29 of 30 frames pass the standard filter (H #0002 drops out on eccentricity 0.507).
+- `scripts/metric-baselines.py --only <name>` — check one dataset (repeatable); with `--update` only that dataset's baseline is written, so adding a set doesn't rewrite the others. `docs/internal/testing.md` updated.
+
+---
+
 ## 2026-10-21 — Site: stable-only changelog, all betas of a round on the beta page
 
 ### Site
