@@ -183,7 +183,7 @@ jobs:
             git add site/beta.html site/appcast-beta.xml
             git diff --staged --quiet || git commit -m "release: update site for v${{ env.VERSION }} (beta) [skip ci]"
           else
-            git add site/index.html site/changelog.html site/appcast.xml
+            git add site/index.html site/changelog.html site/beta.html site/appcast.xml
             git diff --staged --quiet || git commit -m "release: update site and appcast for v${{ env.VERSION }} [skip ci]"
           fi
           git pull --rebase -X ours origin main

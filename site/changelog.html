@@ -43,6 +43,16 @@
             margin: 0 auto;
         }
 
+        header p.beta-note {
+            font-size: 0.9rem;
+            color: #707088;
+            margin-top: 12px;
+        }
+
+        header p.beta-note a {
+            color: #9090ff;
+        }
+
         .content {
             max-width: 720px;
             margin: 0 auto;
@@ -217,7 +227,8 @@
 
 <header>
     <h1>Changelog</h1>
-    <p>What's new in FITS Blaster.</p>
+    <p>What's new in each FITS Blaster release.</p>
+    <p class="beta-note">Notes for the betas of the next version are on the <a href="beta.html">Beta page</a>.</p>
 </header>
 
 <div class="content">
@@ -281,207 +292,6 @@
         </div>
     </div>
 
-
-    <!-- v1.23-beta.9 -->
-    <div class="entry">
-        <div class="entry-header">
-            <div class="entry-title">STF auto-stretch, Sky BG auto-flag, full-screen layout fixes — v1.23-beta.9</div>
-            <div class="entry-date">2026-10-02</div>
-        </div>
-        <div class="section">
-            <span class="section-label label-improved">Improved</span>
-            <ul>
-                <li>Replaced gamma 2.2 stretch with a PixInsight-style Screen Transfer Function (STF). The algorithm computes the image median and MAD to set a statistical black point, then applies a Midtone Transfer Function (MTF) that places the sky background at ~25% grey — darker background, more contrast in faint nebulosity, no blown-out highlights.</li>
-                <li>The image now auto-fits to the newly available space when switching modes or showing/hiding the inspector.</li>
-            </ul>
-        </div>
-        <div class="section">
-            <span class="section-label label-added">Added</span>
-            <ul>
-                <li>Sky background threshold in the Auto-Flag sheet: flag frames where sky brightness exceeds a multiple of the group median (relative mode) or a fixed ADU ceiling (absolute mode).</li>
-            </ul>
-        </div>
-        <div class="section">
-            <span class="section-label label-fixed">Fixed</span>
-            <ul>
-                <li>Switching between Geek and Simple mode in full screen no longer leaves a black dead column where the inspector panel used to be.</li>
-                <li>Inspector panel now correctly reappears when switching back to Geek mode after having been in Simple mode.</li>
-            </ul>
-        </div>
-    </div>
-
-    <!-- v1.23-beta.8 -->
-    <div class="entry">
-        <div class="entry-header">
-            <div class="entry-title">Consistent stretch and sky background chart — v1.23-beta.8</div>
-            <div class="entry-date">2026-10-02</div>
-        </div>
-        <div class="section">
-            <span class="section-label label-improved">Improved</span>
-            <ul>
-                <li>Greyscale (mono) images in the same folder and filter group are now rendered with a consistent shared stretch, eliminating the brightness flickering when scrolling quickly through a session.</li>
-                <li>Sky background value is now shown in the inline metrics row above the chart alongside FWHM, Ecc, SNR, and Stars.</li>
-            </ul>
-        </div>
-        <div class="section">
-            <span class="section-label label-added">Added</span>
-            <ul>
-                <li><strong>Sky BG</strong> chart metric: plot the sky background ADU level across the session, with per-filter-group median lines.</li>
-            </ul>
-        </div>
-    </div>
-
-    <!-- v1.23-beta.7 -->
-    <div class="entry">
-        <div class="entry-header">
-            <div class="entry-title">Filter pills, sky background, and 1:1 zoom — v1.23-beta.7</div>
-            <div class="entry-date">2026-10-01</div>
-        </div>
-        <div class="section">
-            <span class="section-label label-improved">Improved</span>
-            <ul>
-                <li>Filter pills in the thumbnail sidebar now wrap onto multiple rows when many filter groups are active, instead of overflowing into a single cramped line.</li>
-                <li>The thumbnail sidebar can now be dragged up to 360 px wide (previously capped at 220 px).</li>
-                <li>The zoom percentage label (e.g. "0.5×") is now a button — click it to jump instantly to 1:1 (100%) for pixel peeping.</li>
-            </ul>
-        </div>
-        <div class="section">
-            <span class="section-label label-added">Added</span>
-            <ul>
-                <li><strong>Sky background</strong> metric in the inspector panel: the median ADU level of the sky background, estimated as a free side-effect of star detection. Useful as a relative sky-darkness indicator across a session.</li>
-            </ul>
-        </div>
-    </div>
-
-    <!-- v1.23-beta.6 -->
-    <div class="entry">
-        <div class="entry-header">
-            <div class="entry-title">Single-letter filter codes recognised — v1.23-beta.6</div>
-            <div class="entry-date">2026-10-01</div>
-        </div>
-        <div class="section">
-            <span class="section-label label-fixed">Fixed</span>
-            <ul>
-                <li>Filter names consisting of a single letter — <strong>H</strong>, <strong>O</strong>, <strong>S</strong> — were shown as "Unfiltered" instead of being mapped to Hα, OIII, and SII respectively. Also added <strong>IR</strong> as an alias for Luminance. Affects users whose capture software writes short codes in the FITS FILTER header (common with N.I.N.A., SGP, and some ASIAIR configurations).</li>
-            </ul>
-        </div>
-    </div>
-
-    <!-- v1.23-beta.5 -->
-    <div class="entry">
-        <div class="entry-header">
-            <div class="entry-title">Beta update channel actually works now — v1.23-beta.5</div>
-            <div class="entry-date">2026-04-29</div>
-        </div>
-        <div class="section">
-            <span class="section-label label-fixed">Fixed</span>
-            <ul>
-                <li>The "Beta updates" preference advertised on the beta page was never actually wired up — every beta build was checking the stable appcast and reporting "you're up to date" by comparing the beta build number against 1.22 (build 168). Beta builds now route Sparkle's feed at the beta channel, so Check for Updates finally tells beta users about new betas.</li>
-            </ul>
-        </div>
-        <div class="section">
-            <span class="section-label label-added">Added</span>
-            <ul>
-                <li>Settings → Interface → Software Updates section with a "Receive beta releases" toggle. Beta builds default the toggle on; stable builds default it off. Available in non-App-Store builds only.</li>
-            </ul>
-        </div>
-    </div>
-
-    <!-- v1.23-beta.4 -->
-    <div class="entry">
-        <div class="entry-header">
-            <div class="entry-title">Export path styles, padded text report, smarter header columns — v1.23-beta.4</div>
-            <div class="entry-date">2026-04-29</div>
-        </div>
-        <div class="section">
-            <span class="section-label label-added">Added</span>
-            <ul>
-                <li>File path style picker for exports — absolute path, relative to the longest folder shared by all exported frames, or filename only. Default is configurable in Settings → Export with a per-export override in the export sheet. Relative mode collapses a single-folder session to bare filenames automatically.</li>
-            </ul>
-        </div>
-        <div class="section">
-            <span class="section-label label-changed">Changed</span>
-            <ul>
-                <li>Plain text (.txt) export is now a space-padded human-readable report rather than a bare list of file paths. Same columns as CSV/TSV, but every cell is padded so the file lines up cleanly in any text editor — numeric columns right-aligned, text columns left-aligned. Use CSV or TSV for machine-parseable output.</li>
-            </ul>
-        </div>
-        <div class="section">
-            <span class="section-label label-fixed">Fixed</span>
-            <ul>
-                <li>CSV/TSV exports left FWHM, eccentricity, SNR, stars, and score blank when a metric was disabled or the user had switched out of compute-everything mode after the first batch. The exporter now falls back to the cached metric values that are preserved for the lifetime of the session.</li>
-            </ul>
-        </div>
-        <div class="section">
-            <span class="section-label label-improved">Improved</span>
-            <ul>
-                <li>Simple-mode exports (and any session where no frame has any metrics data) now omit the <code>fwhm</code>, <code>eccentricity</code>, <code>snr</code>, <code>stars</code>, and <code>score</code> columns entirely instead of emitting empty cells.</li>
-                <li>FITS header column picker (Settings → Export and the export sheet) dims keys not present in any currently loaded file, so it's clear before exporting which keys will produce data. Selected-but-absent keys are dropped from the output, and the .txt report lists them in a <code># Skipped columns with no data: …</code> footer so the omission is auditable when re-reading the file later.</li>
-                <li>FITS header column picker is now available for plain text exports too.</li>
-            </ul>
-        </div>
-    </div>
-
-    <!-- v1.23-beta.3 -->
-    <div class="entry">
-        <div class="entry-header">
-            <div class="entry-title">FITS header export columns and CSV decimal fix — v1.23-beta.3</div>
-            <div class="entry-date">2026-04-28</div>
-        </div>
-        <div class="section">
-            <span class="section-label label-added">Added</span>
-            <ul>
-                <li>Configurable FITS header columns in CSV/TSV exports — choose which header keys appear as columns in Settings → Export, or override per-export from the redesigned export sheet.</li>
-                <li>Tab-separated (.tsv) export format alongside CSV.</li>
-                <li>Optional inclusion of rejected frames. Plain text adds <code># REJECTED</code> suffix; CSV/TSV add a <code>status</code> column.</li>
-                <li>Quality score column in CSV/TSV exports.</li>
-            </ul>
-        </div>
-        <div class="section">
-            <span class="section-label label-fixed">Fixed</span>
-            <ul>
-                <li>CSV exports could emit integer FWHM and eccentricity on systems with comma-decimal locales (Dutch, German, French). Numbers now use a fixed POSIX locale.</li>
-            </ul>
-        </div>
-        <div class="section">
-            <span class="section-label label-improved">Improved</span>
-            <ul>
-                <li>Export sheet pre-populates from Settings → Export defaults; per-export edits show an "applies to this export only" notice.</li>
-            </ul>
-        </div>
-    </div>
-
-    <!-- v1.23-beta.2 -->
-    <div class="entry">
-        <div class="entry-header">
-            <div class="entry-title">QuickLook for all FITS, accessibility, 133 tests — v1.23-beta.2</div>
-            <div class="entry-date">2026-04-12</div>
-        </div>
-        <div class="section">
-            <span class="section-label label-added">Added</span>
-            <ul>
-                <li>QuickLook preview and thumbnail support for floating-point FITS files (BITPIX -32 and -64).</li>
-                <li>QuickLook preview and thumbnail support for 3-channel RGB colour FITS files (NAXIS3=3).</li>
-                <li>Asinh stretch for float FITS previews — compresses bright cores while revealing faint nebulosity.</li>
-                <li>Large-file subsampling for QuickLook previews of 1+ GB stacked integrations.</li>
-                <li>133 automated tests covering quality scoring, filter grouping, frame metrics, Bayer patterns, histograms, star detection, auto-reject logic, cursor navigation, and GPU paths.</li>
-            </ul>
-        </div>
-        <div class="section">
-            <span class="section-label label-fixed">Fixed</span>
-            <ul>
-                <li>Undo-reject and reject now advance cursor to the next visible entry.</li>
-                <li>VoiceOver: inspector toggle, chart buttons, filter strip, and inspector panel are now fully accessible.</li>
-            </ul>
-        </div>
-        <div class="section">
-            <span class="section-label label-improved">Improved</span>
-            <ul>
-                <li>Settings tabs migrated from deprecated <code>.tabItem()</code> to the <code>Tab</code> API.</li>
-                <li>Filter group header uses cached statistics instead of recomputing on every render.</li>
-                <li>Menu commands extracted into dedicated file.</li>
-            </ul>
-        </div>
-    </div>
 
     <!-- v1.22 -->
     <div class="entry">

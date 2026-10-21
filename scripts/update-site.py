@@ -3,8 +3,13 @@
 update-site.py VERSION
 
 Reads the first entry from CHANGELOG.md and:
-  1. Prepends a formatted HTML block to site/changelog.html
-  2. Updates the download URL and version label in site/index.html
+  Stable version (e.g. 1.23.1):
+    1. Prepends a formatted HTML block to site/changelog.html
+    2. Updates the download URL and version label in site/index.html
+    3. Empties the beta list on site/beta.html and greys out its download button
+  Beta version (e.g. 1.23.1-beta.3):
+    Adds the entry on top of the beta list on site/beta.html (all betas since the
+    last stable release, newest first) and points the download button at it.
 
 Run from the repository root:
     python3 scripts/update-site.py 1.16
@@ -32,8 +37,8 @@ def inline_md(text):
 # CHANGELOG.md parser
 # ---------------------------------------------------------------------------
 
-def parse_first_entry(path):
-    """Return (date, title, sections) for the first ## entry in CHANGELOG.md.
+def parse_entries(path):
+    """Yield (date, title, sections) for each ## entry in CHANGELOG.md, top first.
 
     sections is a list of (label, [item_text, ...]) tuples.
     Multi-line bullet points are joined into a single string.
@@ -83,14 +88,19 @@ def parse_first_entry(path):
         if label and items:
             sections.append((label, items))
 
-        return date, title, sections
+        yield date, title, sections
 
-    return None
+
+def parse_first_entry(path):
+    """Return (date, title, sections) for the first ## entry, or None."""
+    return next(parse_entries(path), None)
 
 
 # ---------------------------------------------------------------------------
 # HTML generation
 # ---------------------------------------------------------------------------
+
+RELEASES_URL = 'https://github.com/tvanpeer/FITS-Blaster/releases'
 
 LABEL_CLASSES = {
     'added':    'label-added',
@@ -102,7 +112,9 @@ LABEL_CLASSES = {
 }
 
 
-def build_entry_html(version, date, title, sections):
+def build_entry_html(version, date, title, sections, release_link=False):
+    """HTML for one changelog entry. release_link adds a link to the version's GitHub
+    release page (used on the beta page, where older betas stay downloadable)."""
     section_blocks = ''
     for label, items in sections:
         css = LABEL_CLASSES.get(label.lower(), f'label-{label.lower()}')
@@ -116,12 +128,14 @@ def build_entry_html(version, date, title, sections):
             f'        </div>\n'
         )
 
+    link = (f' &nbsp;&middot;&nbsp; <a class="entry-link" href="{RELEASES_URL}/tag/v{version}">'
+            f'GitHub release &#8599;</a>') if release_link else ''
     return (
         f'    <!-- v{version} -->\n'
         f'    <div class="entry">\n'
         f'        <div class="entry-header">\n'
         f'            <div class="entry-title">{inline_md(title)} — v{version}</div>\n'
-        f'            <div class="entry-date">{date}</div>\n'
+        f'            <div class="entry-date">{date}{link}</div>\n'
         f'        </div>\n'
         f'{section_blocks}'
         f'    </div>\n'
@@ -198,44 +212,62 @@ def is_beta(version: str) -> bool:
     return 'beta' in version
 
 
+def beta_button_html(version=None):
+    """The beta page's download button; greyed out without a link when there's no beta."""
+    if version is None:
+        return ('    <span class="download-btn disabled" aria-disabled="true">No beta available</span>\n'
+                '    <p class="download-sub">macOS 15.6 or later</p>')
+    return (f'    <a class="download-btn" href="{RELEASES_URL}/download/v{version}/FITS-Blaster-{version}.dmg">'
+            f'Download Beta {version}</a>\n'
+            f'    <p class="download-sub">macOS 15.6 or later &nbsp;&middot;&nbsp; Free</p>')
+
+
+def replace_between(content, start, end, inner, path):
+    """Replace what lies between the <!-- start --> and <!-- end --> markers."""
+    pattern = rf'(<!-- {start} -->\n).*?(\n\s*<!-- {end} -->)'
+    if not re.search(pattern, content, flags=re.DOTALL):
+        raise RuntimeError(f'Markers {start}/{end} not found in {path}')
+    return re.sub(pattern, lambda m: m.group(1) + inner + m.group(2), content,
+                  count=1, flags=re.DOTALL)
+
+
 def update_beta_html(path, version, entry_html):
-    """Update beta.html with latest beta download and changelog entry."""
+    """Add a beta on top of the beta list and point the download button at it."""
     with open(path, encoding='utf-8') as f:
         content = f.read()
 
-    # Update download href (matches both the initial placeholder URL and subsequent versioned URLs)
-    content = re.sub(
-        r'href="https://github\.com/tvanpeer/FITS-Blaster/releases[^"]*"',
-        f'href="https://github.com/tvanpeer/FITS-Blaster/releases/download/v{version}/FITS-Blaster-{version}.dmg"',
-        content,
-    )
+    content = replace_between(content, 'beta-button-start', 'beta-button-end',
+                              beta_button_html(version), path)
 
-    # Update button label (matches "Download Beta" with or without a trailing version)
-    content = re.sub(
-        r'(?<=>)Download Beta[^<]*(?=<)',
-        f'Download Beta {version}',
-        content,
-    )
-
-    # Update subtitle (replace "No beta available yet" or keep "Free")
-    content = re.sub(
-        r'No beta available yet',
-        'Free',
-        content,
-    )
-
-    # Replace the beta changelog entry
-    content = re.sub(
-        r'<!-- beta-entry-start -->.*?<!-- beta-entry-end -->',
-        f'<!-- beta-entry-start -->\n{entry_html}\n    <!-- beta-entry-end -->',
-        content,
-        flags=re.DOTALL,
-    )
+    if f'<!-- v{version} -->' in content:
+        print(f'{path}: v{version} already listed; button updated.')
+    else:
+        # The "no beta" message goes; earlier betas of this round stay below the new one.
+        content = re.sub(r'\n\s*<p class="no-beta">.*?</p>', '', content, flags=re.DOTALL)
+        content = content.replace('<!-- beta-entry-start -->\n',
+                                  f'<!-- beta-entry-start -->\n{entry_html}\n', 1)
+        print(f'{path}: added beta {version}.')
 
     with open(path, 'w', encoding='utf-8') as f:
         f.write(content)
 
-    print(f'{path}: updated for beta {version}.')
+
+def clear_beta_html(path, stable_version):
+    """After a stable release: no betas listed, download button greyed out."""
+    with open(path, encoding='utf-8') as f:
+        content = f.read()
+
+    content = replace_between(content, 'beta-button-start', 'beta-button-end',
+                              beta_button_html(None), path)
+    content = replace_between(
+        content, 'beta-entry-start', 'beta-entry-end',
+        f'    <p class="no-beta">No beta at the moment. The current version is '
+        f'<a href="index.html">FITS Blaster {stable_version}</a>.</p>', path)
+
+    with open(path, 'w', encoding='utf-8') as f:
+        f.write(content)
+
+    print(f'{path}: beta list cleared for stable {stable_version}.')
 
 
 if __name__ == '__main__':
@@ -251,12 +283,14 @@ if __name__ == '__main__':
         sys.exit(1)
 
     date, title, sections = result
-    entry_html = build_entry_html(version, date, title, sections)
 
     if is_beta(version):
         # Beta: only update beta.html, leave index.html untouched
+        entry_html = build_entry_html(version, date, title, sections, release_link=True)
         update_beta_html('site/beta.html', version, entry_html)
     else:
-        # Stable: update index.html and changelog.html
+        # Stable: update index.html and changelog.html; the beta round is over
+        entry_html = build_entry_html(version, date, title, sections)
         update_changelog_html('site/changelog.html', version, entry_html)
         update_index_html('site/index.html', version)
+        clear_beta_html('site/beta.html', version)

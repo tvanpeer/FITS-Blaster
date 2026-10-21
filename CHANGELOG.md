@@ -4,6 +4,15 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-21 — Site: stable-only changelog, all betas of a round on the beta page
+
+### Site
+- **Changelog page = stable releases only** — the hand-added entries for 1.23 beta 2 to beta 9 are gone (the v1.23 entry covers them); a line under the title points to the Beta page for beta notes.
+- **Beta page keeps every beta since the last stable release**, newest first, each with a link to its GitHub release (where its DMG stays available); the download button is for the newest beta. Filled with 1.23.1 beta 1 and beta 2.
+- `scripts/update-site.py` — a beta tag adds its entry on top of the list (once) instead of replacing it; a stable tag also empties the list and greys out the download button ("No beta available", no link) until the next beta. `release.yml` commits `site/beta.html` on stable releases too.
+
+---
+
 ## 2026-10-21 — Docs: FWHM comparison on mono data
 
 ### Docs
