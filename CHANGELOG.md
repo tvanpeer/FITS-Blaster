@@ -4,6 +4,13 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-21 — Docs: FWHM comparison on mono data
+
+### Docs
+- `docs/internal/FWHM-comparison.md` — new section comparing FITS Blaster (1.23.1-beta.2) with PixInsight SubframeSelector (Moffat β = 4) on two mono sets with small stars: ASI294MM SHO (30 frames, H/O/S) and Rosette R/G/B (58 frames, IMX585). FWHM ranks the frames the same (r ≈ +0.98 to +1.00 per filter) but reads 18–22 % higher, more so for smaller stars; PSF Signal Weight ranks well; eccentricity well on Rosette, moderately on SHO; SNR doesn't track PixInsight within a filter. Two open questions for master-plan step 13 at the earliest; new source of difference 6 (small stars) with the offset per set.
+
+---
+
 ## 2026-10-20 — Testing: App Store screenshots, fb-27 VM
 
 ### Testing
