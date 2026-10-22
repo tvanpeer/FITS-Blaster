@@ -101,7 +101,7 @@ Tart base VM (see [VMs](#vms)); every test runs on a fresh clone of it.
 | Level | macOS | Base VM | Tests |
 |---|---|---|---|
 | **Fully tested** | Newest 27 release (27.0.1 on 2026-10-15) | `fb-27` | Automatic smoke test, metric baselines, render check **and** 👤 the manual checks below |
-| **Fully tested** | Current 27 beta (27.2 beta 3) | `fb-27-beta` | Same |
+| **Fully tested** | Current 27 beta or RC (27.2 RC) | `fb-27-beta` | Same |
 | **Automatically tested** | Latest 26 release | `fb-26` | Automatic smoke test, metric baselines, render check — no person needed |
 | **Automatically tested** | Latest 15 release | `fb-15` | Same |
 | Supported, not tested | Everything else from 15.6 (the app's minimum) | — | — |
@@ -447,7 +447,7 @@ from scripts: clone, start, stop and delete.
 
 | Base VM | macOS | Level | Created with |
 |---|---|---|---|
-| `fb-27-beta` | 27.2 beta 3 (26B5101f) | Fully tested | `tart-create-base.sh` (2026-10-15), 50 GB disk |
+| `fb-27-beta` | 27.2 RC (26B118) | Fully tested | `tart-create-base.sh` (2026-10-22, no clicks needed, 6 minutes), 80 GB disk; replaced the 27.2 beta 3 VM (26B5101f, 2026-10-15) |
 | `fb-27` | 27.0.1 (26A434) | Fully tested | `tart-create-base.sh` (2026-10-20, no clicks needed, 8 minutes), 80 GB disk; first built 2026-10-15 and deleted for space |
 | `fb-26` | **26.6.2** (25G83) — not yet 26.7.1, see below | Automatically tested | `--manual` (2026-10-15), 50 GB disk |
 | `fb-15` | 15.8.1 (24H32) | Automatically tested | `--manual` from 15.6.1, updated to 15.8.1 (2026-10-15), 50 GB disk |

@@ -8,7 +8,7 @@
 # macOS 27+: Apple's guest provisioning (tart run --provisioning-opts) creates the user,
 #   automatic login and Remote Login on first boot. With a beta installer, 👤 you click
 #   the licence agreement (Agree, Agree) and Get Started in the VM window; release
-#   installers need no clicks (checked with 27.0.1 and 27.2 beta 3).
+#   installers need no clicks (checked with 27.0.1, 27.2 beta 3 and 27.2 RC 26B118).
 # --manual: older macOS has no provisioning. 👤 You go through Setup Assistant in the VM
 #   window (instructions are printed); the script waits and does the rest.
 #

@@ -4,6 +4,13 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-22 — Testing: fb-27-beta now runs the macOS 27.2 RC
+
+### Testing
+- **fb-27-beta** rebuilt from the macOS 27.2 release candidate (26B118, installer checked against its published SHA-256) with the 80 GB disk; replaces the 27.2 beta 3 VM. The published 1.23.1-beta.3 passes the smoke test on it. `docs/internal/testing.md` updated.
+
+---
+
 ## 2026-10-21 — Full screen with the keyboard
 
 ### Fixed
