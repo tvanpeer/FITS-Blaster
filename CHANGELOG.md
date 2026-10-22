@@ -4,6 +4,13 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-22 — App Store build 1.23.1 (208)
+
+### Changed
+- **App Store configuration** — the app and both Quick Look extensions go from 1.23 (202) to 1.23.1 (208), for the App Store submission with everything since 1.23 (beta 1–3). Debug and Release stay at 1.23.1-beta.3 (207). A local App Store build was checked: all three bundles 1.23.1 (208) with minimum macOS 15.6, no Sparkle in the bundle (linked weak only), sandbox with user-selected read-write and app-scope bookmarks, no network entitlement, no command-line mode.
+
+---
+
 ## 2026-10-22 — Testing: fb-27-beta now runs the macOS 27.2 RC
 
 ### Testing
