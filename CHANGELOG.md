@@ -4,6 +4,13 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-22 — Testing: longer countdown in the screenshot script
+
+### Testing
+- `scripts/appstore-screenshots.sh` — the countdown before each capture is now 10 seconds (was 5), enough to switch back to FITS Blaster in full screen and open a popover. `DELAY=<seconds>` still overrides it.
+
+---
+
 ## 2026-10-22 — Testing: smoke test for App Store builds
 
 ### Testing

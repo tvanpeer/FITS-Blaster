@@ -20,7 +20,7 @@
 # Usage:
 #   scripts/appstore-screenshots.sh [--fullscreen] [output folder]
 #     default folder: ~/Pictures/FITS Blaster App Store/<date>
-#   DELAY=8 scripts/appstore-screenshots.sh    a longer countdown (default 5 seconds)
+#   DELAY=15 scripts/appstore-screenshots.sh   a different countdown (default 10 seconds)
 #
 # Keys while it runs:
 #   Enter    bring FITS Blaster to the front, count down, then capture the next
@@ -43,7 +43,7 @@ WIDTH=1440            # window mode, points
 HEIGHT=900
 SHOT_W=2880           # full-screen mode, output pixels
 SHOT_H=1800
-DELAY="${DELAY:-5}"   # countdown in seconds before each capture
+DELAY="${DELAY:-10}"   # countdown in seconds before each capture
 FULLSCREEN=0
 [[ "${1:-}" == "--fullscreen" ]] && { FULLSCREEN=1; shift; }
 OUT="${1:-$HOME/Pictures/FITS Blaster App Store/$(date +%Y-%m-%d)}"
