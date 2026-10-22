@@ -22,11 +22,15 @@
 #   --sample <zip>   sample set zip (default: the website sample on the shared volume)
 #   --wait <sec>     how long the app must stay up after launch (default 30)
 #   --dev-build      local development build: skip the notarisation check
+#   --appstore       App Store build: Sparkle must be absent and the app sandboxed; the
+#                    command-line checks, rendering and metric baselines are skipped
+#                    (App Store builds have no command-line mode)
 #   --quit           close the app at the end (default: leave it open for the visual check)
 #
 # Examples:
 #   scripts/vm-smoke.sh --tart fb-26 --tag v1.23.1-beta.1
 #   scripts/vm-smoke.sh --tart fb-27-beta "$(scripts/build-beta.sh)" --dev-build --keep
+#   scripts/vm-smoke.sh --tart fb-27-beta "<App Store build>.app" --dev-build --appstore --keep
 #   scripts/vm-smoke.sh <ssh-host> ~/Downloads/FITS-Blaster-1.23.1-beta.1.dmg --quit
 #   scripts/vm-smoke.sh <ssh-host> "$(scripts/build-beta.sh)" --dev-build
 #
@@ -59,6 +63,7 @@ SAMPLE="$DEFAULT_SAMPLE"
 WAIT=30
 DEV_BUILD=0
 QUIT_AFTER=0
+APPSTORE=0
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -67,6 +72,7 @@ while [[ $# -gt 0 ]]; do
         --wait)      WAIT="$2"; shift 2 ;;
         --dev-build) DEV_BUILD=1; shift ;;
         --quit)      QUIT_AFTER=1; shift ;;
+        --appstore)  APPSTORE=1; shift ;;
         --keep)      KEEP=1; shift ;;
         -h|--help)   usage ;;
         -*)          echo "Unknown option: $1" >&2; exit 1 ;;
@@ -177,7 +183,7 @@ vm_ssh "$HOST" "mkdir -p '$REMOTE_DIR'"
 vm_scp -q "$DMG" "$SAMPLE" "$SCRIPT_DIR/vm-smoke-remote.sh" "$HOST:$REMOTE_DIR/"
 
 set +e
-vm_ssh "$HOST" "bash '$REMOTE_DIR/vm-smoke-remote.sh' \"\$HOME/$REMOTE_DIR\" '$(basename "$DMG")' '$(basename "$SAMPLE")' '$WAIT' '$DEV_BUILD' '$QUIT_AFTER'" \
+vm_ssh "$HOST" "bash '$REMOTE_DIR/vm-smoke-remote.sh' \"\$HOME/$REMOTE_DIR\" '$(basename "$DMG")' '$(basename "$SAMPLE")' '$WAIT' '$DEV_BUILD' '$QUIT_AFTER' '$APPSTORE'" \
     | tee "$RESULTS/smoke.log"
 STATUS=${PIPESTATUS[0]}
 set -e
@@ -188,7 +194,12 @@ vm_ssh "$HOST" "rm -rf '$REMOTE_DIR/mnt' '$REMOTE_DIR'/*.dmg '$REMOTE_DIR'/*.zip
 
 # Metrics against the stored baselines (sample set). A difference here on another macOS
 # version is a finding: the same files should give the same metrics everywhere.
-if [[ -n "$TART_BASE" ]]; then
+# App Store builds have no command-line mode, so there are no CSVs to compare.
+if [[ -n "$TART_BASE" && $APPSTORE == 1 ]]; then
+    echo
+    echo "== Metric baselines"
+    echo "SKIP  metric baselines (App Store builds have no command-line mode)" | tee -a "$RESULTS/smoke.log"
+elif [[ -n "$TART_BASE" ]]; then
     echo
     echo "== Metric baselines"
     BASELINE_STATUS=0

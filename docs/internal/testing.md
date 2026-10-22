@@ -193,6 +193,28 @@ Every release: `vm-test-all.sh` (all base VMs, automatic level) and the manual
 checks with `--keep` on `fb-27` and `fb-27-beta`. Also install the DMG normally
 on this Mac.
 
+### App Store builds (`--appstore`)
+
+Build the App Store configuration locally and test it before uploading:
+
+```
+xcodebuild -project "FITS Blaster.xcodeproj" -scheme "FITS Blaster" -configuration "App Store" \
+    -derivedDataPath <dir> ENABLE_CODE_COVERAGE=NO build
+scripts/vm-test-all.sh "<dir>/Build/Products/App Store/FITS Blaster.app" --dev-build --appstore
+scripts/vm-smoke.sh --tart fb-27-beta "<…>/FITS Blaster.app" --dev-build --appstore --keep
+```
+
+With `--appstore` the bundle check turns around: **Sparkle must be absent**
+(build 198 was rejected for it) and the **app sandbox entitlement must be set**;
+a network entitlement gives a warning. The command-line checks, rendering and
+metric baselines are skipped: App Store builds have no command-line mode (the
+binary opens the window instead). Install, signature, launch, crash and log
+checks and Quick Look run as usual. The metrics are only checked by hand in the
+manual checks (step 2), so do those on `fb-27-beta`, the newest macOS that
+App Review is likely to use. First used for 1.23.1 (208) on 2026-10-22: all
+four VMs passed, including Quick Look on macOS 15.8.1, which App Store build 202
+didn't have.
+
 ---
 
 ## 3. Benchmarks and PixInsight comparison

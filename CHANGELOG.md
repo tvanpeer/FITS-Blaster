@@ -4,6 +4,13 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-22 — Testing: smoke test for App Store builds
+
+### Testing
+- `vm-smoke.sh` / `vm-test-all.sh --appstore` — tests a local App Store build: Sparkle must be absent and the app sandboxed (a network entitlement warns); command-line checks, rendering and metric baselines are skipped, because App Store builds have no command-line mode. Install, signature, launch, crash and log checks and Quick Look run as usual. The App Store build 1.23.1 (208) passes on fb-15, fb-26, fb-27 and fb-27-beta (27.2 RC). `docs/internal/testing.md` has a section on it.
+
+---
+
 ## 2026-10-22 — App Store build 1.23.1 (208)
 
 ### Changed

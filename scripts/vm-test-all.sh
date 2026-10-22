@@ -3,7 +3,7 @@
 # commands for the manual checks on the fully tested macOS versions.
 #
 # Usage:
-#   scripts/vm-test-all.sh <app-path|dmg-path> [--dev-build]
+#   scripts/vm-test-all.sh <app-path|dmg-path> [--dev-build] [--appstore]
 #   scripts/vm-test-all.sh --tag <tag>
 #
 # Support levels (docs/internal/testing.md):

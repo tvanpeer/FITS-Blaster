@@ -8,7 +8,11 @@
 # and exits 1 if any check failed.
 #
 # Usage (normally not called by hand):
-#   vm-smoke-remote.sh <work-dir> <dmg-file> <sample-zip> <wait-seconds> <dev-build 0|1> <quit-after 0|1>
+#   vm-smoke-remote.sh <work-dir> <dmg-file> <sample-zip> <wait-seconds> <dev-build 0|1> <quit-after 0|1> [<appstore 0|1>]
+#
+# App Store builds (appstore = 1): Sparkle must be absent and the app sandboxed; the
+# command-line mode doesn't exist there (the binary would open the window instead), so
+# those checks and the rendering are skipped.
 #
 # Written for /bin/bash 3.2 (the version macOS ships).
 
@@ -20,6 +24,7 @@ SAMPLE_ZIP="$3"
 WAIT="$4"
 DEV_BUILD="$5"
 QUIT_AFTER="$6"
+APPSTORE="${7:-0}"
 
 FAILS=0
 WARNS=0
@@ -101,7 +106,23 @@ fi
 
 # ── Bundle contents ──────────────────────────────────────────────────────────
 section "Bundle contents"
-if [ -d "$APP/Contents/Frameworks/Sparkle.framework" ]; then
+if [ "$APPSTORE" = "1" ]; then
+    # Sparkle in an App Store bundle got build 198 rejected; the sandbox is required.
+    if [ -e "$APP/Contents/Frameworks/Sparkle.framework" ]; then
+        fail "Sparkle.framework included (App Store builds must not contain it)"
+    else
+        pass "no Sparkle.framework (App Store build)"
+    fi
+    ENTITLEMENTS="$(codesign -d --entitlements - --xml "$APP" 2>/dev/null | plutil -convert xml1 -o - - 2>/dev/null)"
+    if echo "$ENTITLEMENTS" | grep -A1 "com.apple.security.app-sandbox" | grep -q "<true/>"; then
+        pass "app sandbox entitlement set"
+    else
+        fail "app sandbox entitlement missing (App Store builds must be sandboxed)"
+    fi
+    if echo "$ENTITLEMENTS" | grep -q "com.apple.security.network.client"; then
+        warn "network client entitlement set (the App Store build makes no network requests)"
+    fi
+elif [ -d "$APP/Contents/Frameworks/Sparkle.framework" ]; then
     pass "Sparkle.framework included"
 else
     fail "Sparkle.framework missing (website builds must include it)"
@@ -166,6 +187,9 @@ SAMPLE_DIR="$(dirname "$(find "$WORK/sample" -iname '*.fits' | head -1)")"
 FRAME_COUNT="$(find "$SAMPLE_DIR" -maxdepth 1 -iname '*.fits' | wc -l | tr -d ' ')"
 echo "sample set: $FRAME_COUNT frames"
 
+if [ "$APPSTORE" = "1" ]; then
+    skip "command-line mode (not in App Store builds; the binary would open the window)"
+else
 HELP="$("$EXE" -h 2>&1)"
 if [ $? -eq 0 ] && echo "$HELP" | grep -q "^Usage:"; then
     pass "--help prints usage and exits 0"
@@ -202,6 +226,7 @@ if [ $STATUS -eq 0 ] && [ -f "$WORK/out/filtered.csv" ]; then
 else
     fail "filtered run: exit $STATUS (see filtered.stderr)"
 fi
+fi  # not an App Store build
 
 # ── Rendering (beta builds only) ─────────────────────────────────────────────
 # The CLI --render option exists only in beta builds (BETA compilation condition);
@@ -212,6 +237,9 @@ TARGET_LEVEL=63
 MAX_SPREAD=4
 MAX_OFFSET=6
 RENDER="$WORK/out/render"
+if [ "$APPSTORE" = "1" ]; then
+    skip "rendering (App Store builds have no command-line mode)"
+else
 "$EXE" "$SAMPLE_DIR" --render "$RENDER" -o "$WORK/out/render.csv" >/dev/null 2>"$WORK/out/render.stderr"
 STATUS=$?
 if [ ! -f "$RENDER/backgrounds.csv" ]; then
@@ -264,6 +292,7 @@ else
     fi
     echo "      PNGs for the visual check are copied to this Mac (out/render/)"
 fi
+fi  # not an App Store build
 
 # ── Quick Look ───────────────────────────────────────────────────────────────
 # macOS registers the extensions when the app has been opened. Being in the bundle is
