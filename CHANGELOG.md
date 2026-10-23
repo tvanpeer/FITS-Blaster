@@ -4,6 +4,13 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-23 — Docs: M42 OSC comparison with PixInsight, 10 s and 180 s
+
+### Docs
+- `docs/internal/FWHM-comparison.md` — set 3: M42 (IMX571 OSC, 10 s and 180 s) against SubframeSelector, run on the raw and on the debayered frames. Raw OSC frames give PixInsight wrong star counts, SNR and PSF Signal Weight, so OSC data are compared after debayering. Within one exposure time FWHM, eccentricity and the score rank the frames like PixInsight; across exposure times FITS Blaster's star count and SNR fall where PixInsight's rise although longer exposures should give more stars and a higher SNR (open question 3; saturated stars, METAL_REVIEW M3, suspected but not checked). FWHM reads 18 % high at about 3.4 px; added to source of difference 6.
+
+---
+
 ## 2026-10-23 — Testing: quick-test VM on the internal volume, base VMs settle before shutdown
 
 ### Testing
