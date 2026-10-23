@@ -6,6 +6,31 @@
         <description>Release notes for FITS Blaster</description>
         <language>en-us</language>
         <item>
+            <title>FITS Blaster 1.23.1</title>
+            <pubDate>Fri, 23 Oct 2026 07:19:41 +0000</pubDate>
+            <sparkle:version>209</sparkle:version>
+            <sparkle:shortVersionString>1.23.1</sparkle:shortVersionString>
+            <description><![CDATA[
+<h2>2026-10-23 — Quick Look on macOS 15 and 26, neutral colours, reproducible metrics</h2>
+<h3>Fixed</h3>
+<ul>
+  <li><b>Finder thumbnails and Quick Look previews on macOS 15.6 to 26.1</b> — FITS files showed no thumbnail or Space-bar preview on these versions; the Quick Look extensions only worked from macOS 26.2. They now work on every macOS version FITS Blaster supports.</li>
+  <li><b>Colour cast in the colour view</b> — with Colour on, a folder could be shown with a strong colour cast (the M31 sample set looked magenta). The sky background now stays neutral.</li>
+  <li><b>Reproducible metrics</b> — opening the same folder twice always gives the same star counts, SNR, PSF Signal Weight and eccentricity. Values on affected frames change once, by no more than they already varied.</li>
+  <li><b>Damaged or unusual FITS files</b> no longer crash FITS Blaster or Quick Look; they&#x27;re skipped with an &quot;Invalid FITS format&quot; message. Images larger than 65,536 pixels per side are not supported.</li>
+  <li><b>Full screen with the keyboard</b> — fn-F and ⌃⌘F now switch to full screen (fn-F used to flag the selected frame), and other 🌐 shortcuts such as 🌐E reach macOS.</li>
+  <li><b>Load speed</b> in the info bar is correct again after opening another folder.</li>
+</ul>
+<p>---</p>
+<p>**[Full changelog](https://astrophoto-app.com/changelog.html)**</p>
+            ]]></description>
+            <enclosure
+                url="https://github.com/tvanpeer/FITS-Blaster/releases/download/v1.23.1/FITS-Blaster-1.23.1.dmg"
+                length="8572635"
+                type="application/octet-stream"
+                sparkle:edSignature="DMN9TT1LGGFqNR7RfMJf2JEFxC0FfDVMtbkQNPpGpBYG6tc+U/s7YwUEA2lXEfAKDnnuQfvzZNvLSe+Cg9amDw==" />
+        </item>
+        <item>
             <title>FITS Blaster 1.23</title>
             <pubDate>Tue, 20 Oct 2026 06:52:56 +0000</pubDate>
             <sparkle:version>204</sparkle:version>
