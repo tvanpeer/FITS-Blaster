@@ -4,6 +4,15 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-22 — Testing: Tart VMs on the external SSD
+
+### Testing
+- **Tart VMs moved** to the external SSD "FITS Blaster External": `scripts/tart-lib.sh` now uses `TART_HOME=/Volumes/FITS Blaster External/Tart` by default and stops with a clear message when the drive isn't connected (Tart would otherwise quietly start an empty `~/.tart`); nothing is written to the drive path before that check. `tart-create-base.sh` and `vm-test-all.sh` show their usage without the drive; `vm-smoke.sh --host` doesn't need it. All four VMs were copied with their disk images kept sparse and are byte-identical to the originals (SHA-256). `vm-test-all.sh --tag v1.23.1-beta.3` from the drive: fb-15, fb-26, fb-27 and fb-27-beta pass (fb-27 after a rerun; the first try couldn't reach api.github.com for the DMG). `docs/internal/testing.md` has the new location and notes on copying VMs between volumes.
+- `scripts/tart-copy-vm.py` (new) — copies a VM folder to another volume with the disk image kept sparse, at drive speed (only the data regions; `cp -Rp` managed about 0.6 MB/s). Refuses an existing destination or a missing parent folder, so nothing is written under `/Volumes` when a drive isn't connected.
+- **Instruments traces** moved to `/Volumes/FITS Blaster External/Traces` (archive); the paths in `docs/internal/PERFORMANCE_AUDIT.md` follow.
+
+---
+
 ## 2026-10-22 — Testing: longer countdown in the screenshot script
 
 ### Testing

@@ -23,11 +23,10 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-source "$SCRIPT_DIR/tart-lib.sh"
-
 usage() { sed -n '2,/^$/p' "$0" | sed 's/^# \{0,1\}//'; exit 1; }
 
 [[ $# -lt 2 ]] && usage
+source "$SCRIPT_DIR/tart-lib.sh"   # after the usage, which works without the external drive
 VM="$1"; IPSW="$2"; MANUAL=0
 [[ "${3:-}" == "--manual" ]] && MANUAL=1
 tart_exists "$VM" && { echo "$VM already exists (tart list)." >&2; exit 1; }

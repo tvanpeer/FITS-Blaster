@@ -14,7 +14,10 @@
 # - Clones get a new MAC address, so a new IP: always ask `tart ip`.
 # - The SSH account works before first-boot setup has finished; wait for the desktop.
 
-export TART_HOME="${TART_HOME:-/Volumes/FITS Blaster/Tart}"
+# The VMs live on the external SSD (since 2026-10-22); Tart would otherwise quietly start
+# an empty ~/.tart, so stop with a clear message when the drive isn't connected.
+export TART_HOME="${TART_HOME:-/Volumes/FITS Blaster External/Tart}"
+[[ -d "$TART_HOME/vms" ]] || { echo "No Tart VMs in $TART_HOME — is the drive 'FITS Blaster External' connected?" >&2; exit 1; }
 export TART_NO_AUTO_PRUNE=1          # never let `tart clone` delete anything by itself
 
 TART_USER=fitstester

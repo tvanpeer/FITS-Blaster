@@ -498,10 +498,19 @@ A base VM is **never started for tests**: every test runs on a clone
 (`<base>-smoke-<time>`), made instantly with APFS copy-on-write and deleted
 afterwards.
 
-**Where:** `TART_HOME=/Volumes/FITS Blaster/Tart` (set by the scripts; set it
-yourself when you run `tart` by hand, e.g. `export TART_HOME="/Volumes/FITS Blaster/Tart"`).
-Installers (IPSW) in `/Volumes/FITS Blaster/Tart/ipsw`. A macOS VM takes about
-30 GB; clones almost nothing until they change.
+**Where:** on the external SSD "FITS Blaster External" (1 TB, APFS, since
+2026-10-22): `TART_HOME=/Volumes/FITS Blaster External/Tart` (set by the
+scripts, which stop with a message when the drive isn't connected; set it
+yourself when you run `tart` by hand, e.g.
+`export TART_HOME="/Volumes/FITS Blaster External/Tart"`). Installers (IPSW) in
+`/Volumes/FITS Blaster External/Tart/ipsw`. A macOS VM takes about 25–30 GB;
+clones almost nothing until they change. Copying a VM to another volume:
+`ditto` writes the disk image out in full (a 50–80 GB file each); `cp -Rp`
+keeps it sparse but checks every 4 KB block, at about 0.6 MB/s (hours per VM).
+`scripts/tart-copy-vm.py <source VM folder> <destination VM folder>` copies
+only the data regions (`SEEK_DATA`/`SEEK_HOLE`), so the image stays sparse, at
+drive speed: the move to the SSD took under 2 minutes for 76 GB. Shut the VM
+down first and compare `shasum -a 256` of both `disk.img` files afterwards.
 
 **Tart itself:** version 2.41.0 in `~/Applications/tart.app`, with `tart` linked
 in `~/.local/bin`. Installed from the

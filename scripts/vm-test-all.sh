@@ -19,12 +19,11 @@ set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-source "$SCRIPT_DIR/tart-lib.sh"
-
 AUTOMATIC=(fb-15 fb-26)
 FULL=(fb-27 fb-27-beta)
 
 [[ $# -lt 1 ]] && { sed -n '2,/^$/p' "$0" | sed 's/^# \{0,1\}//'; exit 1; }
+source "$SCRIPT_DIR/tart-lib.sh"   # after the usage, which works without the external drive
 ARGS=("$@")
 
 # Which bases exist, and are shut down?

@@ -84,7 +84,7 @@ All three read `store.selectedEntry`, so all three update together. Second: **du
 
 ### Trace 1: M81, 355 colour frames
 
-Release build from Xcode 27.0, MacBook Air M1 (16 GB), macOS 27.0.1. SwiftUI template (SwiftUI, Hitches, Time Profiler). Data set: `Test Data/M81 IMX571`, 3 folders × 1 filter, **355 colour frames**, Geek mode, chart visible. The trace (`/Volumes/FITS Blaster/Traces/01-load-and-cursor.trace.trace`, not in git) holds both rows 1 and 2: the load (43.5–80.5 s), then ↓ held for about 5 s (110.5–115.5 s, 52 cursor moves). The tester's impression: "it felt ok"; after the later runs: "fast but not smooth". No hangs were detected.
+Release build from Xcode 27.0, MacBook Air M1 (16 GB), macOS 27.0.1. SwiftUI template (SwiftUI, Hitches, Time Profiler). Data set: `Test Data/M81 IMX571`, 3 folders × 1 filter, **355 colour frames**, Geek mode, chart visible. The trace (`/Volumes/FITS Blaster External/Traces/01-load-and-cursor.trace.trace`, not in git) holds both rows 1 and 2: the load (43.5–80.5 s), then ↓ held for about 5 s (110.5–115.5 s, 52 cursor moves). The tester's impression: "it felt ok"; after the later runs: "fast but not smooth". No hangs were detected.
 
 **Holding ↓ (52 moves)**
 - 49 hitches totalling 3.05 s of the 5.4 s, mostly 50–67 ms each: about 12–15 frames per second instead of 60.
@@ -104,7 +104,7 @@ Release build from Xcode 27.0, MacBook Air M1 (16 GB), macOS 27.0.1. SwiftUI tem
 
 ### Traces 2 and 3: Rosette, 464 mono frames, several folders and filters
 
-Same build, Mac and settings. Both runs are in `/Volumes/FITS Blaster/Traces/03-load-and-cursor.trace` (runs 2 and 3; the file also holds trace 1 as run 1, and `02-load-and-cursor.trace` holds runs 1–2). Data: `Test Data/NGC 2244-Rosette_Nebula large`, 8 copies of the 58-frame Rosette R/G/B set (identical files).
+Same build, Mac and settings. Both runs are in `/Volumes/FITS Blaster External/Traces/03-load-and-cursor.trace` (runs 2 and 3; the file also holds trace 1 as run 1, and `02-load-and-cursor.trace` holds runs 1–2). Data: `Test Data/NGC 2244-Rosette_Nebula large`, 8 copies of the 58-frame Rosette R/G/B set (identical files).
 - **Run 2, 24 folders × 1 filter:** the set as downloaded; every R, G and B subfolder is its own sidebar section, so no filter sub-headers.
 - **Run 3, 8 folders × 3 filters:** `… large (mixed)`, the same files as APFS clones with each folder's R, G and B frames together, so Geek mode shows filter sub-headers. Confirmed from the trace (`FolderFilterSubHeader` updates only in run 3).
 
@@ -127,7 +127,7 @@ The microhang at the start of each load (trace 1 had a 333 ms hitch at the same 
 
 ### Trace 4: 476 colour frames, display size 1024 and 4096
 
-Same build and Mac, in a window (not full screen). Data: `M81 IMX571`, `California Nebula IMX571` and `Gamma Cygni Nebula IMX571`, **476 colour frames** (all 6224 × 4168), debayer on, opened one after the other. Instruments restarts the app for every recording, so each run loads the folders again. All three runs are in `/Volumes/FITS Blaster/Traces/04-load-and-cursor.trace`. Memory was read with `footprint` and `vmmap` while the app was running.
+Same build and Mac, in a window (not full screen). Data: `M81 IMX571`, `California Nebula IMX571` and `Gamma Cygni Nebula IMX571`, **476 colour frames** (all 6224 × 4168), debayer on, opened one after the other. Instruments restarts the app for every recording, so each run loads the folders again. All three runs are in `/Volumes/FITS Blaster External/Traces/04-load-and-cursor.trace`. Memory was read with `footprint` and `vmmap` while the app was running.
 - **Run A:** display size 1024 (the tester's normal setting). Load only, then the memory reading.
 - **Run B:** display size 4096. Load, then ↓ pressed once a second, 10 times (not held).
 - **Run C:** display size 4096. Load, the memory reading, then panning the zoomed image for about 10 s (zoom 0.9, which at 4096 shows less than a quarter of the image). Notification Center slid in a few times during right pans; the measurement uses a steady 4.5 s stretch.
