@@ -56,6 +56,8 @@ The log confirms validation was active in each process ("Metal API Validation En
   - M31 (6224 × 4168): 628 at 65535, 488 in plateaus.
 
   How many stars that is was not counted.
+
+  **Measured on M42 (2026-10-23,** [FWHM-comparison set 3](FWHM-comparison.md)**):** against a reference list that counts a saturated top as one star, FITS Blaster found 4 of 25 saturated stars on a 10 s frame and 25 of 139 on a 180 s frame of the same target (16 % and 18 %). Longer exposures saturate more stars, so the star count falls where it should rise. The same comparison found a second, larger cause on colour cameras: the background σ includes the R/G/B sky spread (see set 3).
 - **Why:** The star count leaves out the brightest stars. For FWHM and eccentricity this is harmless, because the measurement wants unsaturated stars anyway ("top 50 unsaturated"). But the star count and the score built on it shift with seeing and focus: a sharper night saturates more stars and may report *fewer* stars. This may be related to [the cloudy-frames question](CODE_AUDIT.md) (§5.4, "score ignores cloudy frames").
 - **How other tools do it** (checked 2026-10-18, from their documentation):
   - **PixInsight** (`StarDetector` in PCL, used by SubframeSelector and StarAlignment; [reference](https://pixinsight.com/developer/pcl/doc/html/classpcl_1_1StarDetector.html)):

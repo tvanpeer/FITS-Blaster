@@ -310,6 +310,7 @@ All decided on 2026-10-20 (see "Decisions").
 - **Small groups** (§5.16, decision 5): true median for even counts; relative checks skipped for groups under 3 frames.
 - **Colour spaces** (§4.5, decision 8: yes): named sRGB / grey spaces instead of device spaces. Changes rendered pixels: update the render-test targets and check `TARGET_LEVEL` / offsets in the smoke test.
 - If step 8 or 9 chose to unify grey and colour statistics or accept render differences, those changes land here too.
+- **Input, not decided yet** (2026-10-23, [FWHM-comparison set 3](FWHM-comparison.md)): on colour (OSC) frames the background σ includes the R/G/B sky spread, which raises the detection threshold and lowers SNR and PSF Signal Weight more the longer the exposure; and saturated stars are missed (METAL_REVIEW M3). Possible fixes: background and σ per Bayer channel, and counting a saturated top as one star. Both need a decision before they join this step.
 
 **Tests**: updated baselines and render targets, reviewed by eye before committing.
 

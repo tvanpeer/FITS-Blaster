@@ -173,15 +173,49 @@ The trailed frames in REJECTED (FWHM 7.7–9.6, eccentricity 0.84–0.97) score 
 
 - **Within one exposure time FITS Blaster culls like PixInsight**: FWHM and eccentricity rank the frames the same way, and the score follows PixInsight's PSF Signal Weight (+0.74 and +0.86).
 - **What to expect:** for the same target and conditions, a longer exposure gives a higher SNR per frame (signal grows with t, noise with √t, so about √18 ≈ 4 × from 10 s to 180 s on unsaturated stars), more stars (fainter ones rise above the detection threshold) and a slightly larger FWHM (more seeing and tracking error averaged in). Exceptions are saturation and changing conditions. Here both sets were taken alternately on the same evening (19:47–20:59 local time) at about the same airmass (1.90–2.05 for the kept frames), so conditions don't explain a difference.
-- **Across exposure times it goes the other way.** From 10 s to 180 s PixInsight's star count, SNR and PSF Signal Weight rise (702 → 1,526; 0.62 → 1.97; 0.014 → 0.052). FITS Blaster's star count halves (2,769 → 1,312) and its SNR falls (233 → 128), so the 180 s frames score lower (41 against 51). FITS Blaster loses stars on the long exposures where PixInsight finds more. The saturated pixels fit [METAL_REVIEW M3](METAL_REVIEW.md) (saturated stars aren't detected) and the brighter sky could play a part; neither has been checked. Scores of frames with different exposure times can't be compared.
+- **Across exposure times it goes the other way.** From 10 s to 180 s PixInsight's star count, SNR and PSF Signal Weight rise (702 → 1,526; 0.62 → 1.97; 0.014 → 0.052). FITS Blaster's star count halves (2,769 → 1,312) and its SNR falls (233 → 128), so the 180 s frames score lower (41 against 51). FITS Blaster loses stars on the long exposures where PixInsight finds more; the next section shows why. Scores of frames with different exposure times can't be compared.
 - **FWHM reads 18 % high** with stars of about 3.4 px, between image C (1.10 at 6.3 px) and the mono sets (1.18–1.22 at 1.5–2.2 px); see source of difference 6.
 - The 10 s REJECTED frames are all trailed and score 30, the best kept frames 53: the score spreads over a narrow band, because eccentricity of 0.5 or more adds nothing (fixed scale 0–0.5) and SNR above 200 and star counts above 500 are full marks.
+
+#### Why the star count and SNR fall: star positions (2026-10-23)
+
+Two frames taken a minute apart: 10 s #0000 (19:47) and 180 s #0000 (19:48). FITS Blaster's candidates and fit results were dumped with a temporary test that follows `MetricsCalculator.compute(metalBuffer:)` step by step (GPU detection, suppression, the top 200 for shape, the next 6,000 for the count); it reproduced the command-line star counts exactly (2,937 and 1,165). The reference star list was made separately: 2×2 superpixels (R+G+G+B), background per 32 × 32 superpixel block, noise from pixel-to-pixel differences, local maxima with `>=` so a saturated top counts as one star, peaks above 5 × the noise.
+
+**1. The noise estimate includes the sky colour.** `estimateBackground` takes the median and MAD of 5,000 pixels of the raw Bayer mosaic. In broadband light R, G and B have different sky levels, and that spread counts as noise:
+
+| | 10 s | 180 s |
+|---|---|---|
+| Sky R / G / B (ADU) | 250 / 278 / 256 | 1,019 / 1,430 / 1,051 |
+| Real noise per channel (pixel to pixel) | 16–19 | 59–72 |
+| σ used by FITS Blaster | 25 | 320 |
+| Detection threshold (background + 5σ) | 390 | 2,888 |
+
+The colour spread grows with the exposure time and the real noise with its square root, so at 180 s σ is about 4.5 × too high (at 10 s about 1.4 ×) and the threshold sits at about 20 × the real noise. The same σ divides the SNR (peak / σ, `MetricsCalculator+ShapeMeasurement.swift`) and PSF Signal Weight (mean peak / σ), so both fall with longer exposures although the stars are fine. PixInsight's run on the raw frames shows the same effect in its noise estimate (10 × higher at 180 s). Mono frames and narrowband filters have one sky level per frame, which fits the good agreement on sets 1 and 2. FWHM and eccentricity are measured on debayered stars and are not affected.
+
+**2. Which stars FITS Blaster finds** (reference stars, matched within 2 superpixels):
+
+| Reference stars | 10 s: number | FB found | 180 s: number | FB found |
+|---|---|---|---|---|
+| Unsaturated, peak 5–10 × noise | 1,090 | 33 % | 4,517 | 0 % |
+| 10–20 × | 448 | 56 % | 1,664 | 4 % |
+| 20–50 × | 316 | 76 % | 684 | 37 % |
+| 50–200 × | 222 | 88 % | 495 | 80 % |
+| over 200 × | 143 | 93 % | 249 | 90 % |
+| Saturated | 25 | 16 % | 139 | 18 % |
+| All | 2,244 | | 7,748 | |
+
+- Faint stars: at 180 s practically all are lost to the inflated threshold. The reference finds 3.5 × as many stars at 180 s as at 10 s, the direction PixInsight shows.
+- Saturated stars: more than 80 % are missed at both exposure times, as [METAL_REVIEW M3](METAL_REVIEW.md) predicted (the strict "brighter than all 8 neighbours" test fails on a flat top). Longer exposures have more of them.
+- The other way round: at 10 s FITS Blaster accepts about 1,600 detections without a reference star nearby. 357 lie in the bright nebula core (12 % of the detections in 0.4 % of the frame, where the local sky alone is above the threshold); 23 are single-pixel spikes; the rest is not explained, and the simple reference may miss some real stars. They would explain part of the high 10 s count against PixInsight (2,937 against 702). At 180 s there are 145 such detections.
+
+**What it means:** on OSC broadband frames, star count, SNR and PSF Signal Weight depend on the colour of the sky, so they can't be compared between exposure times, and probably not between nights or sites with different sky colours. Within one folder (same exposure and sky) the ranking is still usable (score against PixInsight's PSF Signal Weight +0.74 and +0.86). Possible fixes, both behaviour changes for master-plan step 13 and needing a decision: background and σ per Bayer channel (or on 2×2 superpixels) for colour cameras, which fixes threshold, SNR and PSF Signal Weight together; and counting a saturated top as one candidate (M3). Both change metrics and baselines.
 
 ### Open questions (behaviour changes, master-plan step 13 at the earliest)
 
 1. Why FWHM reads 18–22 % high on small stars (about 2 px), and whether that should be corrected.
 2. Whether FITS Blaster's SNR should track image quality within a filter, as PixInsight's does, given its weight in the score. On both sets it doesn't.
-3. Why FITS Blaster finds half as many stars, and a lower SNR, on 180 s frames than on 10 s frames of the same target, where PixInsight finds twice as many (set 3). Next step: compare the star positions of both tools on one 180 s frame to see which stars FITS Blaster misses (saturated, faint, or near the nebula).
+3. ~~Why FITS Blaster finds half as many stars, and a lower SNR, on 180 s frames than on 10 s frames~~ Answered (set 3, star positions): the background σ of OSC frames includes the R/G/B sky spread, and saturated stars aren't detected (M3). Decide on the fixes in step 13.
+4. What the ~1,250 unexplained extra detections on the 10 s frame are (set 3), and whether candidates in bright nebula should be rejected.
 
 ---
 
@@ -240,4 +274,4 @@ A likely suspect is the 1D fit along X and Y on stars only a few pixels wide, ag
 
 ## Summary
 
-For frame-quality ranking (the primary use case), the exact absolute value matters less than consistency. FITS Blaster is self-consistent across sessions and correlates well with actual image quality. Absolute values will be within ±10–15% of PixInsight Moffat4 under normal conditions. Larger differences are almost always explained by one of the factors above. The exceptions so far: small stars (about 3.5 px and less), where FITS Blaster read 18–22% high but still ranked the frames the same (source 6), and star count and SNR across exposure times, which go the opposite way from PixInsight (set 3).
+For frame-quality ranking (the primary use case), the exact absolute value matters less than consistency. FITS Blaster is self-consistent across sessions and correlates well with actual image quality. Absolute values will be within ±10–15% of PixInsight Moffat4 under normal conditions. Larger differences are almost always explained by one of the factors above. The exceptions so far: small stars (about 3.5 px and less), where FITS Blaster read 18–22% high but still ranked the frames the same (source 6), and star count, SNR and PSF Signal Weight on OSC broadband frames, which depend on the sky colour through the noise estimate and go the opposite way from PixInsight across exposure times (set 3).

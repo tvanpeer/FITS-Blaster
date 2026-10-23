@@ -4,6 +4,15 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-23 — Docs: why star count and SNR fall on long OSC exposures
+
+### Docs
+- `docs/internal/FWHM-comparison.md` — set 3, star positions on a 10 s and a 180 s M42 frame against a reference star list. Two causes: the background σ of colour-camera frames is taken from the raw Bayer mosaic and includes the R/G/B sky spread (25 against a real 16–19 at 10 s, 320 against 59–72 at 180 s), which raises the detection threshold and lowers SNR and PSF Signal Weight (both divide by σ); and saturated stars are missed (16–18 % found, METAL_REVIEW M3). Open question 3 answered; new question 4 on extra detections in bright nebula.
+- `docs/internal/METAL_REVIEW.md` M3 — the M42 measurement added.
+- `docs/internal/architecture-plan.md` step 13 — both findings noted as input; no decision yet.
+
+---
+
 ## 2026-10-23 — Docs: M42 OSC comparison with PixInsight, 10 s and 180 s
 
 ### Docs
