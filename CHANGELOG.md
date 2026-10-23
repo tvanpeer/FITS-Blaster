@@ -4,6 +4,18 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-23 — Quick Look on macOS 15 and 26, neutral colours, reproducible metrics
+
+### Fixed
+- **Finder thumbnails and Quick Look previews on macOS 15.6 to 26.1** — FITS files showed no thumbnail or Space-bar preview on these versions; the Quick Look extensions only worked from macOS 26.2. They now work on every macOS version FITS Blaster supports.
+- **Colour cast in the colour view** — with Colour on, a folder could be shown with a strong colour cast (the M31 sample set looked magenta). The sky background now stays neutral.
+- **Reproducible metrics** — opening the same folder twice always gives the same star counts, SNR, PSF Signal Weight and eccentricity. Values on affected frames change once, by no more than they already varied.
+- **Damaged or unusual FITS files** no longer crash FITS Blaster or Quick Look; they're skipped with an "Invalid FITS format" message. Images larger than 65,536 pixels per side are not supported.
+- **Full screen with the keyboard** — fn-F and ⌃⌘F now switch to full screen (fn-F used to flag the selected frame), and other 🌐 shortcuts such as 🌐E reach macOS.
+- **Load speed** in the info bar is correct again after opening another folder.
+
+---
+
 ## 2026-10-22 — Testing: Tart VMs on the external SSD
 
 ### Testing
