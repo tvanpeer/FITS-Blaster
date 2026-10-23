@@ -11,6 +11,8 @@
 #   fully tested           fb-27, fb-27-beta     — this script, then 👤 manual checks
 # Base VMs that don't exist yet are reported as SKIP. Runs two VMs at a time (the most
 # macOS allows); a VM from another app that is running takes one of the two places.
+# Without the external SSD only fb-27-beta (on the FITS Blaster volume) is there: the others
+# are reported as SKIP and the run ends as failed, "not a full release test".
 #
 # Results: tests/smoke-results/<time>-<base>-<build>/ per VM; the console log of each
 # run in tests/smoke-results/<time>-all/.
@@ -28,10 +30,16 @@ ARGS=("$@")
 
 # Which bases exist, and are shut down?
 BASES=()
+MISSING_DRIVE=()
 for base in "${AUTOMATIC[@]}" "${FULL[@]}"; do
     case "$(tart_state "$base")" in
         stopped) BASES+=("$base") ;;
-        "")      echo "SKIP  $base: no such base VM yet" ;;
+        "")      if [[ -z "$TART_FIXED_HOME" ]] && ! tart_external_connected; then
+                     echo "SKIP  $base: the drive 'FITS Blaster External' isn't connected"
+                     MISSING_DRIVE+=("$base")
+                 else
+                     echo "SKIP  $base: no such base VM yet"
+                 fi ;;
         *)       echo "SKIP  $base: it is running (base VMs must be shut down)" ;;
     esac
 done
@@ -96,4 +104,9 @@ for base in "${FULL[@]}"; do
 done
 echo "Then do the checks in docs/internal/testing.md and run scripts/tart-cleanup.sh."
 
+if [[ ${#MISSING_DRIVE[@]} -gt 0 ]]; then
+    echo
+    echo "⚠️  NOT A FULL RELEASE TEST: ${MISSING_DRIVE[*]} not tested (drive 'FITS Blaster External' not connected)."
+    exit 1
+fi
 [[ ${#FAILED[@]} -eq 0 ]]

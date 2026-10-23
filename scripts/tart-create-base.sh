@@ -14,7 +14,11 @@
 #
 # Then, over SSH: installs the SSH key, allows `sudo shutdown` without a password, turns
 # all automatic updates off, turns screen lock, sleep and screensaver off, checks the
-# settings and shuts the VM down properly.
+# settings, waits until macOS has finished its first-boot work and shuts the VM down properly.
+#
+# The VM goes on the external SSD ("FITS Blaster External"). For the internal quick-test
+# VM, set the home yourself:
+#   TART_HOME="/Volumes/FITS Blaster/Tart" scripts/tart-create-base.sh fb-27-beta <ipsw>
 #
 # Needs: Tart, the key ~/.ssh/fitsvm_ed25519, and the fitstester password in the Keychain:
 #   security add-generic-password -s fb-test-vm -a fitstester -w
@@ -30,6 +34,8 @@ source "$SCRIPT_DIR/tart-lib.sh"   # after the usage, which works without the ex
 VM="$1"; IPSW="$2"; MANUAL=0
 [[ "${3:-}" == "--manual" ]] && MANUAL=1
 tart_exists "$VM" && { echo "$VM already exists (tart list)." >&2; exit 1; }
+export TART_HOME="${TART_FIXED_HOME:-$TART_EXTERNAL}"
+[[ -d "$TART_HOME/vms" ]] || { echo "No Tart home at $TART_HOME — is the drive 'FITS Blaster External' connected?" >&2; exit 1; }
 
 PASSWORD="$(security find-generic-password -s "$TART_KEYCHAIN_SERVICE" -a "$TART_USER" -w)" || {
     echo "No password in the Keychain. Run: security add-generic-password -s $TART_KEYCHAIN_SERVICE -a $TART_USER -w" >&2
@@ -153,6 +159,10 @@ if [[ -n "$PROBLEMS" ]]; then
     echo "Not as expected:$PROBLEMS. $VM is left running so you can fix it." >&2
     exit 1
 fi
+
+step "Waiting until macOS has finished its first-boot work (load under 1.5 for 5 minutes, usually 10–15 minutes)"
+tart_wait_quiet "$WORK/ssh_config" "$VM" ||
+    echo "⚠️  $VM never got quiet; it is shut down anyway. Check the load in a clone before relying on it." >&2
 
 step "Shutting down"
 tart_shutdown "$WORK/ssh_config" "$VM"

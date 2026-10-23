@@ -4,6 +4,14 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-23 — Testing: quick-test VM on the internal volume, base VMs settle before shutdown
+
+### Testing
+- **Two Tart homes** — `fb-27-beta` now lives on the FITS Blaster volume for quick tests; `fb-15`, `fb-26` and `fb-27` stay on the external SSD, which is only connected for releases. Each VM is in one home only; `tart-lib.sh` finds it (`tart_home_of`, `tart_use`) and `vm-smoke.sh` makes the clone next to its base. Without the SSD: `vm-smoke.sh --tart fb-27-beta` works; `vm-test-all.sh` tests fb-27-beta, reports the others as SKIP and ends as failed with "NOT A FULL RELEASE TEST"; `tart-cleanup.sh` checks the volume that is there; the other scripts stop with a message about the drive. Nothing is written under `/Volumes` when the drive is missing (tested with the drive unplugged). New base VMs go on the SSD unless `TART_HOME` is set.
+- **Base VMs settle before shutdown** — after a first boot or an update, macOS works for 10–15 minutes (Apple Intelligence, widgets, Shortcuts, XProtect). A base VM shut down earlier makes every clone redo that work: on `fb-27` the load in a clone went past 170, runs took over 10 minutes, scp lost its connection and Gatekeeper's online notarisation check failed. All four base VMs were started once and shut down after the load stayed under 1.5 for 5 minutes (13–16 minutes each); a full `vm-test-all.sh` run now takes 5 minutes, all PASS. `tart-create-base.sh` does this itself before its final shutdown (`tart_wait_quiet` in `tart-lib.sh`). `docs/internal/testing.md` covers both changes.
+
+---
+
 ## 2026-10-23 — Quick Look on macOS 15 and 26, neutral colours, reproducible metrics
 
 ### Fixed

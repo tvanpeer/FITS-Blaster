@@ -98,8 +98,16 @@ vm_scp() { scp ${SSH_OPTS[@]+"${SSH_OPTS[@]}"} "$@"; }
 
 if [[ -n "$TART_BASE" ]]; then
     source "$SCRIPT_DIR/tart-lib.sh"
-    tart_exists "$TART_BASE" || { echo "No Tart VM '$TART_BASE' (tart list)." >&2; exit 1; }
+    if ! tart_exists "$TART_BASE"; then
+        if [[ -z "$TART_FIXED_HOME" ]] && ! tart_external_connected; then
+            echo "No Tart VM '$TART_BASE' on the FITS Blaster volume, and the drive 'FITS Blaster External' isn't connected." >&2
+        else
+            echo "No Tart VM '$TART_BASE' (tart list)." >&2
+        fi
+        exit 1
+    fi
     [[ "$(tart_state "$TART_BASE")" == "stopped" ]] || { echo "$TART_BASE is running; base VMs must be shut down." >&2; exit 1; }
+    tart_use "$TART_BASE"   # the clone goes in the same Tart home as its base
     HOST="$TART_BASE-smoke-$STAMP"
     TART_WORK="$(mktemp -d)"
     cleanup_clone() {

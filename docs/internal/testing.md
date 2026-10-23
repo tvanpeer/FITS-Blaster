@@ -119,6 +119,9 @@ scripts/vm-test-all.sh "$(scripts/build-beta.sh)" --dev-build     # before taggi
 scripts/vm-test-all.sh --tag v1.23.1-beta.1                        # the published DMG
 ```
 
+With only the FITS Blaster volume (SSD not connected) this tests `fb-27-beta` and
+ends as failed, "not a full release test". Fine for a quick check, never for a release.
+
 One base VM: `scripts/vm-smoke.sh --tart fb-26 <app|dmg|--tag tag> [--dev-build]`.
 The script clones the base VM, starts the clone without a window, waits for
 the desktop, runs the checks, compares the metrics with the
@@ -498,12 +501,22 @@ A base VM is **never started for tests**: every test runs on a clone
 (`<base>-smoke-<time>`), made instantly with APFS copy-on-write and deleted
 afterwards.
 
-**Where:** on the external SSD "FITS Blaster External" (1 TB, APFS, since
-2026-10-22): `TART_HOME=/Volumes/FITS Blaster External/Tart` (set by the
-scripts, which stop with a message when the drive isn't connected; set it
-yourself when you run `tart` by hand, e.g.
-`export TART_HOME="/Volumes/FITS Blaster External/Tart"`). Installers (IPSW) in
-`/Volumes/FITS Blaster External/Tart/ipsw`. A macOS VM takes about 25–30 GB;
+**Where:** two Tart homes (since 2026-10-23), each VM in one of them only:
+
+| Home | VMs | Connected |
+|---|---|---|
+| `/Volumes/FITS Blaster/Tart` | `fb-27-beta` (quick tests) | always |
+| `/Volumes/FITS Blaster External/Tart` (external SSD, 1 TB, APFS) | `fb-15`, `fb-26`, `fb-27` | for releases; two ports, three devices |
+
+The scripts find each VM's home themselves and make its clones next to it
+(APFS copy-on-write only works within a volume). Without the SSD:
+`vm-smoke.sh --tart fb-27-beta` works; `vm-test-all.sh` tests fb-27-beta,
+reports the others as SKIP and **ends as failed, "not a full release test"**;
+`tart-cleanup.sh` only checks the FITS Blaster volume. **Before every (beta)
+tag, connect the SSD**: all four VMs must pass. A new base VM goes on the SSD;
+for the internal one, prefix `TART_HOME="/Volumes/FITS Blaster/Tart"` to
+`tart-create-base.sh`. When you run `tart` by hand, set the home yourself, e.g.
+`export TART_HOME="/Volumes/FITS Blaster External/Tart"`. A macOS VM takes about 25–30 GB;
 clones almost nothing until they change. Copying a VM to another volume:
 `ditto` writes the disk image out in full (a 50–80 GB file each); `cp -Rp`
 keeps it sparse but checks every 4 KB block, at about 0.6 MB/s (hours per VM).
@@ -562,7 +575,9 @@ Later 15.x and 26.x come through Software Update in the VM.
 ### Update a base VM
 
 For a new beta, build a new base VM from its installer and delete the old one
-(`tart delete fb-27-beta`). For 26 and 15 (done this way for 15.8.1 on
+(`TART_HOME="/Volumes/FITS Blaster/Tart" tart delete fb-27-beta`, then
+`TART_HOME="/Volumes/FITS Blaster/Tart" scripts/tart-create-base.sh fb-27-beta <ipsw>`,
+so it stays on the internal volume). For 26 and 15 (done this way for 15.8.1 on
 2026-10-15): start the base VM (`tart run fb-15`), list the updates over SSH
 with `softwareupdate --list`, and install **only the macOS update for that
 major** (not the offered upgrade to 27, not Safari):
@@ -573,8 +588,21 @@ sudo softwareupdate --install 'macOS Sequoia 15.8.1-24H32' --restart --agree-to-
 
 (`sudo` and `--stdinpass` each read the password on stdin; pipe it in twice from
 the Keychain.) The VM downloads in the background (the window shows nothing),
-restarts and installs. Then check the version, and shut down properly with
-`sudo shutdown -h now` over SSH. Update the table above.
+restarts and installs. Then check the version, **wait until the VM is quiet**
+(below), and shut down properly with `sudo shutdown -h now` over SSH. Update
+the table above.
+
+**Let a base VM settle before shutting it down.** After its first boot or an
+update, macOS downloads and unpacks components (Apple Intelligence, widgets,
+Shortcuts, then an XProtect scan) for 10–15 minutes, with load peaks above
+200. A base VM shut down before that has finished makes *every* clone start
+the work again. Found on `fb-27` (2026-10-23): runs took over 10 minutes
+instead of 2, scp lost its connection and Gatekeeper's online notarisation
+check failed ("Unnotarized Developer ID") although the DMG was fine. After
+the base had settled, the same test passed in 108 s. `tart-create-base.sh`
+waits for this itself (`tart_wait_quiet` in `tart-lib.sh`: load under 1.5 for
+5 minutes); after an update, watch `sysctl -n vm.loadavg` over SSH until it
+stays low.
 
 Known oddity: after an update, `softwareupdate --schedule` reports "Automatic
 checking for updates is turned on" even when the setting is off, and on 15.8.1
