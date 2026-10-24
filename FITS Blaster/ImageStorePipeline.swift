@@ -290,7 +290,6 @@ extension ImageStore {
            let bufferResult = try? FITSReader.readIntoBuffer(from: url, device: device) {
             let meta = bufferResult.metadata
             return await MetricsCalculator.compute(metalBuffer: bufferResult.metalBuffer,
-                                                   device: device,
                                                    width: meta.width, height: meta.height,
                                                    config: config,
                                                    bayerPattern: BayerPattern.parse(from: meta.headers))
@@ -418,9 +417,9 @@ extension ImageStore {
 
                         let metrics: FrameMetrics?
                         let bayerPattern = BayerPattern.parse(from: fast.headers)
-                        if let buffer = fast.metalBuffer, let device = fast.metalDevice {
+                        if let buffer = fast.metalBuffer {
                             metrics = await MetricsCalculator.compute(
-                                metalBuffer: buffer, device: device,
+                                metalBuffer: buffer,
                                 width: fast.width, height: fast.height, config: metricsConfig,
                                 bayerPattern: bayerPattern)
                         } else {
@@ -836,8 +835,8 @@ extension ImageStore {
                 display: display, thumb: thumb,
                 info: "\(meta.width) × \(meta.height)  |  BITPIX: \(meta.bitpix)",
                 error: nil, histogram: histogram, headers: meta.headers,
-                metalBuffer: bufferResult.metalBuffer, metalDevice: device,
-                width: meta.width, height: meta.height, bitpix: meta.bitpix,
+                metalBuffer: bufferResult.metalBuffer,
+                width: meta.width, height: meta.height,
                 bayerClips: bayerClips, greyClips: greyClips)
         }
 
@@ -855,14 +854,14 @@ extension ImageStore {
             let thumb = display.flatMap { ImageStretcher.createThumbnail(from: $0, maxSize: maxThumbnailSize) }
             return FastLoadResult(display: display, thumb: thumb, info: info, error: nil,
                                   histogram: histogram, headers: headers,
-                                  metalBuffer: nil, metalDevice: nil,
-                                  width: w, height: h, bitpix: fits.bitpix,
+                                  metalBuffer: nil,
+                                  width: w, height: h,
                                   bayerClips: nil, greyClips: nil)
         } catch {
             return FastLoadResult(display: nil, thumb: nil, info: "", error: error.localizedDescription,
                                   histogram: nil, headers: [:],
-                                  metalBuffer: nil, metalDevice: nil,
-                                  width: 0, height: 0, bitpix: 0,
+                                  metalBuffer: nil,
+                                  width: 0, height: 0,
                                   bayerClips: nil, greyClips: nil)
         }
     }
@@ -882,11 +881,8 @@ struct FastLoadResult {
     /// Released when the Phase B task ends. `nil` when the CPU fallback path
     /// was used (Metal unavailable).
     let metalBuffer: MTLBuffer?
-    let metalDevice: MTLDevice?
     let width:       Int
     let height:      Int
-    /// Original FITS BITPIX value.
-    let bitpix:      Int
     /// Per-channel Bayer clip bounds computed during the grey-pass.
     /// `nil` for non-Bayer images or when `debayerColorImages` is false.
     let bayerClips:  BayerClips?

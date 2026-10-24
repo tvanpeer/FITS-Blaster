@@ -41,8 +41,6 @@ struct FITSMetadata {
     let width: Int
     let height: Int
     let bitpix: Int
-    let bzero: Double
-    let bscale: Double
     let minValue: Float
     let maxValue: Float
     let headers: [String: String]
@@ -63,8 +61,6 @@ struct FITSImage {
     let bitpix: Int
     /// Number of colour channels: 1 for greyscale, 3 for RGB (NAXIS3=3).
     let channels: Int
-    let bzero: Double
-    let bscale: Double
     /// Pixel values. For `channels == 1`: `width × height` floats.
     /// For `channels == 3`: `width × height × 3` interleaved R,G,B floats.
     var pixelValues: [Float]
@@ -391,8 +387,6 @@ struct FITSReader {
             width: header.width,
             height: header.height,
             bitpix: header.bitpix,
-            bzero: header.bzero,
-            bscale: header.bscale,
             minValue: range.min,
             maxValue: range.max,
             headers: header.headers,
@@ -482,7 +476,6 @@ struct FITSReader {
 
         return FITSImage(
             width: dstW, height: dstH, bitpix: header.bitpix, channels: header.channels,
-            bzero: header.bzero, bscale: header.bscale,
             pixelValues: pixelValues, minValue: range.min, maxValue: range.max,
             headers: header.headers,
             bayerPattern: BayerPattern.parse(from: header.headers))
@@ -598,8 +591,6 @@ struct FITSReader {
             height: header.height,
             bitpix: header.bitpix,
             channels: header.channels,
-            bzero: header.bzero,
-            bscale: header.bscale,
             pixelValues: pixelValues,
             minValue: range.min,
             maxValue: range.max,

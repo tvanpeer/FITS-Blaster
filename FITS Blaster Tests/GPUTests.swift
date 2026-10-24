@@ -104,12 +104,11 @@ struct GPUTests {
                                              SyntheticStar(cx: 80,  cy: 80,  amplitude: 6000, sigma: 2.5),
                                              SyntheticStar(cx: 180, cy: 180, amplitude: 7000, sigma: 2.0),
                                          ])
-        let device = try #require(ImageStretcher.metalDevice)
         let config = MetricsConfig(computeFWHM: true, computeEccentricity: true,
                                    computeSNR: true, computeStarCount: true)
 
         let m = try #require(
-            await MetricsCalculator.compute(metalBuffer: buffer, device: device,
+            await MetricsCalculator.compute(metalBuffer: buffer,
                                             width: width, height: height, config: config))
 
         #expect((m.starCount ?? 0) >= 2, "Should detect both planted stars")
@@ -121,8 +120,7 @@ struct GPUTests {
     @Test("GPU detection returns nil for flat image")
     func gpuDetectionFlatImage() async throws {
         let buffer = try makeMetalBuffer(width: 128, height: 128, background: 1000)
-        let device = try #require(ImageStretcher.metalDevice)
-        let m = await MetricsCalculator.compute(metalBuffer: buffer, device: device,
+        let m = await MetricsCalculator.compute(metalBuffer: buffer,
                                                  width: 128, height: 128, config: MetricsConfig())
         #expect(m == nil, "Flat image should return nil from GPU detection")
     }
@@ -138,7 +136,6 @@ struct GPUTests {
             SyntheticStar(cx: 128, cy: 192, amplitude: 8000, sigma: 2.0),
         ]
         let buffer = try makeMetalBuffer(width: width, height: height, background: 1000, stars: stars)
-        let device = try #require(ImageStretcher.metalDevice)
 
         // Build a matching Float array for the CPU path
         let ptr = buffer.contents().assumingMemoryBound(to: Float.self)
@@ -149,7 +146,7 @@ struct GPUTests {
                                    computeSNR: true, computeStarCount: true)
 
         let gpuMetrics = try #require(
-            await MetricsCalculator.compute(metalBuffer: buffer, device: device,
+            await MetricsCalculator.compute(metalBuffer: buffer,
                                             width: width, height: height, config: config))
         let cpuMetrics = try #require(
             await MetricsCalculator.compute(pixels: cpuPixels, width: width, height: height,

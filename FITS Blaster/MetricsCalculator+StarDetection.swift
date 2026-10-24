@@ -205,13 +205,11 @@ extension MetricsCalculator {
             commandBuffer.commit()
         }
 
-        // The atomic counter holds the true number of qualifying pixels found,
-        // which may exceed the buffer capacity. Preserve both values separately:
-        //   totalFound → reported as star count (accurate even when capped)
-        //   storedCount → how many candidates we can actually read back
-        let totalFound  = Int(countBuffer.contents().load(as: UInt32.self))
-        let storedCount = min(totalFound, maxDetectionCandidates)
-        guard storedCount > 0 else { return GPUDetectionResult(candidates: [], totalFound: 0) }
+        // The atomic counter holds the number of local maxima found, which may exceed
+        // the buffer capacity; only the stored ones can be read back.
+        let found       = Int(countBuffer.contents().load(as: UInt32.self))
+        let storedCount = min(found, maxDetectionCandidates)
+        guard storedCount > 0 else { return GPUDetectionResult(candidates: []) }
 
         // Convert the compact DetectCandidate list to StarCandidates, looking up
         // peak values from the input buffer. This is O(storedCount) — typically
@@ -229,6 +227,6 @@ extension MetricsCalculator {
         }
 
         candidates.sort(by: StarCandidate.brighterFirst)
-        return GPUDetectionResult(candidates: candidates, totalFound: totalFound)
+        return GPUDetectionResult(candidates: candidates)
     }
 }

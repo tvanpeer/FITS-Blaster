@@ -214,7 +214,9 @@ enum Metric: String, CaseIterable, Identifiable, Sendable, Hashable {
         case .eccentricity:    return posixFormat(metrics.eccentricity.map(Double.init),    digits: 3)
         case .snr:             return posixFormat(metrics.snr.map(Double.init),             digits: 1)
         case .starCount:       return metrics.starCount.map { String($0) } ?? ""
-        case .skyBackground:   return ""
+        case .skyBackground:
+            assertionFailure("Sky background has no export context")
+            return ""
         case .psfSignalWeight: return posixFormat(metrics.psfSignalWeight.map(Double.init), digits: 1)
         case .qualityScore:    return metrics.hasData ? String(metrics.qualityScore) : ""
         }

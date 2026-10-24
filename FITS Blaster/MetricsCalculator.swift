@@ -58,7 +58,6 @@ struct MetricsCalculator {
     /// 12 → 25×25 crop; covers the ±10-px Moffat fit window plus the ±2-px
     /// centroid window, with one pixel to spare for bilinear interpolation.
     private static let cropHalf = 12
-    private static let cropSide = 2 * cropHalf + 1
 
     // Pipeline state is created once per process and reused for every image.
     // MTLCreateSystemDefaultDevice() is idempotent — it always returns the same
@@ -107,12 +106,10 @@ struct MetricsCalculator {
     /// sorted list, and (fwhm, eccentricity, snr, peak) — nil when the fit was rejected.
     typealias IndexedShape = (index: Int, shape: (Float, Float, Float, Float)?)
 
-    /// Return type for GPU detection: stored candidates plus the true atomic total.
+    /// Return type for GPU detection.
     struct GPUDetectionResult {
         /// Candidates stored in the output buffer, sorted by peak brightness.
         let candidates: [StarCandidate]
-        /// Actual number of qualifying pixels found across the full frame.
-        let totalFound: Int
     }
 
     // MARK: - Public entry points
@@ -124,7 +121,7 @@ struct MetricsCalculator {
     ///
     /// Falls back to the CPU path automatically if the Metal pipeline is
     /// unavailable (e.g. CI, sandboxed test environment).
-    @concurrent static func compute(metalBuffer: MTLBuffer, device: MTLDevice,
+    @concurrent static func compute(metalBuffer: MTLBuffer,
                                     width: Int, height: Int,
                                     config: MetricsConfig,
                                     bayerPattern: BayerPattern? = nil) async -> FrameMetrics? {

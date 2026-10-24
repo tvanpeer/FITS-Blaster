@@ -117,11 +117,6 @@ struct BayerStretchParams {
     ///   bit 1 = row parity of R     (0 = even, 1 = odd)
     /// RGGB=0  GRBG=1  GBRG=2  BGGR=3
     uint  rOffset;
-    /// When 1, treat the source as half-resolution by mapping each output pixel
-    /// to a 2×2-aligned physical block. This guarantees every output pixel's
-    /// footprint covers at least one complete Bayer cell, eliminating the
-    /// screen-door pattern caused by single-channel output pixels.
-    uint  bayerBin;
 };
 
 /// Stretch a single channel value to UInt8 with STF shadow clip + MTF.
@@ -161,10 +156,11 @@ kernel void bayerDebayerAndStretch(
     uint rx = ro & 1u;
     uint ry = (ro >> 1u) & 1u;
 
-    // When bayerBin=1, use half the physical dimensions as the logical source so
-    // each logical pixel maps to exactly one 2×2 Bayer cell.
-    uint logW = params.bayerBin ? W / 2u : W;
-    uint logH = params.bayerBin ? H / 2u : H;
+    // The source is treated as half-resolution: each logical pixel is one 2×2 Bayer
+    // cell, so every output pixel's footprint covers complete cells and no output
+    // pixel ends up with a single colour channel (the screen-door pattern).
+    uint logW = W / 2u;
+    uint logH = H / 2u;
 
     float scaleX = float(logW) / float(params.dstWidth);
     float scaleY = float(logH) / float(params.dstHeight);
@@ -180,13 +176,12 @@ kernel void bayerDebayerAndStretch(
     uint lyEndExcl = uint(float(flippedY + 1u) * scaleY);
     uint lyEnd     = min(lyEndExcl > lyStart ? lyEndExcl - 1u : lyStart, logH - 1u);
 
-    // Map logical coordinates to physical pixel range.
-    // When bayerBin=1, each logical pixel spans a 2×2 physical block — physical
-    // coords are 2× logical — ensuring the footprint always covers aligned Bayer cells.
-    uint sxStart = params.bayerBin ? lxStart * 2u : lxStart;
-    uint sxEnd   = params.bayerBin ? min(lxEnd * 2u + 1u, W - 1u) : lxEnd;
-    uint syStart = params.bayerBin ? lyStart * 2u : lyStart;
-    uint syEnd   = params.bayerBin ? min(lyEnd * 2u + 1u, H - 1u) : lyEnd;
+    // Map logical coordinates to the physical pixel range: each logical pixel
+    // spans a 2×2 physical block, so physical coords are 2× logical.
+    uint sxStart = lxStart * 2u;
+    uint sxEnd   = min(lxEnd * 2u + 1u, W - 1u);
+    uint syStart = lyStart * 2u;
+    uint syEnd   = min(lyEnd * 2u + 1u, H - 1u);
 
     // Accumulate R, G, B channels separately across the source footprint.
     float sumR = 0.0f, sumG = 0.0f, sumB = 0.0f;

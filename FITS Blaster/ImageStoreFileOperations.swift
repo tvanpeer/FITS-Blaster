@@ -490,6 +490,7 @@ extension ImageStore {
             // with spaces. FITS header strings essentially never contain either.
             return s.replacing("\t", with: " ").replacing("\n", with: " ")
         case .plainText:
+            assertionFailure("Plain text is laid out without the column path")
             return s
         }
     }

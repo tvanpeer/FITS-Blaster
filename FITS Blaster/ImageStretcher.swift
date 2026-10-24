@@ -125,7 +125,7 @@ struct ImageStretcher {
         var bayerBin: UInt32
     }
 
-    /// Parameters struct matching the Metal shader's BayerStretchParams (15 × 4 bytes = 60 bytes)
+    /// Parameters struct matching the Metal shader's BayerStretchParams (14 × 4 bytes = 56 bytes)
     private struct BayerStretchParams {
         var shadowClipR: Float
         var highClipR: Float
@@ -141,7 +141,6 @@ struct ImageStretcher {
         var dstWidth: UInt32
         var dstHeight: UInt32
         var rOffset: UInt32
-        var bayerBin: UInt32
     }
 
     // MARK: - Public
@@ -537,8 +536,7 @@ struct ImageStretcher {
             shadowClipB: clips.loB, highClipB: clips.hiB, mtfMidtoneB: clips.midB,
             srcWidth: UInt32(width), srcHeight: UInt32(height),
             dstWidth: UInt32(dstW), dstHeight: UInt32(dstH),
-            rOffset: rOffset,
-            bayerBin: 1
+            rOffset: rOffset
         )
 
         guard let commandBuffer = commandQueue.makeCommandBuffer(),

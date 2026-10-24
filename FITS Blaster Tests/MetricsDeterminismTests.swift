@@ -94,11 +94,11 @@ struct MetricsDeterminismTests {
         let config = MetricsConfig(computeFWHM: true, computeEccentricity: true,
                                    computeSNR: true, computeStarCount: true)
         let reference = try #require(
-            await MetricsCalculator.compute(metalBuffer: buffer, device: device,
+            await MetricsCalculator.compute(metalBuffer: buffer,
                                             width: width, height: height, config: config))
         for _ in 0..<10 {
             let metrics = try #require(
-                await MetricsCalculator.compute(metalBuffer: buffer, device: device,
+                await MetricsCalculator.compute(metalBuffer: buffer,
                                                 width: width, height: height, config: config))
             #expect(metrics.fwhm == reference.fwhm)
             #expect(metrics.eccentricity == reference.eccentricity)

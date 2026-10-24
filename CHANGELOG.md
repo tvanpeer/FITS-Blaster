@@ -4,6 +4,15 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-24 — Refactor: never-read fields and unreachable branches
+
+### Internal
+- Fields nobody reads removed (CODE_AUDIT §9.2, master-plan step 3b): `bzero` and `bscale` on `FITSMetadata` and `FITSImage`, `FastLoadResult.metalDevice` and `.bitpix`, `GPUDetectionResult.totalFound`, the unused `device` parameter of `MetricsCalculator.compute(metalBuffer:)` (six test calls follow, and three tests drop a `device` they no longer use), and the unused `MetricsCalculator.cropSide`.
+- Unreachable branches (§9.3): the plain-text case of CSV/TSV quoting and the sky-background case of the metric export now assert, since neither can be reached. The colour-camera stretch kernel (`bayerDebayerAndStretch`) loses its `bayerBin` parameter, which was always 1; the kernel keeps that path only, and the Swift and Metal parameter structs shrink from 60 to 56 bytes together.
+- No behaviour change: renders and metrics are identical.
+
+---
+
 ## 2026-10-24 — Refactor: dead code removed
 
 ### Internal

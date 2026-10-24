@@ -91,7 +91,6 @@ struct BenchmarkTests {
                         let meta = buf.metadata
                         _ = await MetricsCalculator.compute(
                             metalBuffer: buf.metalBuffer,
-                            device: device,
                             width: meta.width, height: meta.height,
                             config: config,
                             bayerPattern: meta.bayerPattern)
