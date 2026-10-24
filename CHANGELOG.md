@@ -4,6 +4,25 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-24 — 1.24 beta 1: keyboard, REJECTED folder and chart fixes
+
+### Fixed
+- **Keyboard shortcuts only act in the main window.** Pressing a shortcut key in Settings, a sheet or a popover no longer flags, removes or rejects frames in the main window. Recording a shortcut on a key that's already in use works again.
+- **Undoing a rejection never deletes hidden files.** The REJECTED folder is only removed when nothing but Finder's `.DS_Store` is left in it.
+- **A frame rejected in this session no longer loads twice** when you reopen the folder with its REJECTED folder.
+- **Session chart while loading:** dots appear at their final place, and clicking one selects the right frame.
+- Removing frames no longer leaves them in the reject selection.
+
+### Improved
+- **Text size** (Settings → Interface → Appearance) now also applies to the chart's axis and hover labels and to the flag and flip badges on thumbnails.
+- **VoiceOver** announces the image as a button that sets or clears the zoom anchor.
+- The explanation under Settings → Display → Colour Images is corrected.
+
+### Under the hood
+- About 500 lines of unused code removed and many outdated comments corrected, in preparation for the next 1.24 steps. Measurements and image rendering are unchanged.
+
+---
+
 ## 2026-10-24 — Stale comments and docs
 
 ### Changed
