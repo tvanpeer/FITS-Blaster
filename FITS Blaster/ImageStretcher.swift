@@ -83,7 +83,7 @@ struct BayerClips: Sendable {
 
 /// Converts raw FITS pixel data into a displayable image using a Metal compute
 /// shader that performs the entire stretch pipeline in a single GPU pass:
-///   normalize → asinh stretch → float-to-byte → vertical flip
+///   box-filter downsample → vertical flip → STF clip → MTF stretch → float-to-byte
 ///
 /// Optimized for GPU utilization:
 ///   - Input pixels can be written directly into a Metal shared buffer (no copy)
@@ -101,7 +101,7 @@ struct ImageStretcher {
     private static let pipelineState: MTLComputePipelineState? = {
         guard let device = metalDevice,
               let library = device.makeDefaultLibrary(),
-              let function = library.makeFunction(name: "sqrtStretch") else { return nil }
+              let function = library.makeFunction(name: "mtfStretch") else { return nil }
         return try? device.makeComputePipelineState(function: function)
     }()
 
@@ -186,9 +186,8 @@ struct ImageStretcher {
     }
 
     /// Stretch interleaved RGB float data (R,G,B,R,G,B,...) into a display image.
-    /// Uses per-channel percentile clipping with the same gamma 2.2 LUT as the
-    /// greyscale path for consistent rendering. CPU-only path intended for
-    /// QuickLook previews and thumbnails.
+    /// Uses per-channel STF clip bounds and MTF stretch, the same method as the
+    /// greyscale path. CPU-only; used by the Quick Look preview and thumbnail.
     static func createRGBImage(from pixels: inout [Float], width: Int, height: Int,
                                 maxDisplaySize: Int = 1024) -> NSImage? {
         let pixelCount = width * height

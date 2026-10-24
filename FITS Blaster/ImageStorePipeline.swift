@@ -2,7 +2,7 @@
 //  ImageStorePipeline.swift
 //  FITS Blaster
 //
-//  Loading pipeline: openFiles, reprocessAll, recomputeMetrics, processParallel,
+//  Loading pipeline: openFiles, regenerateSizes, recomputeMetrics, processParallel,
 //  recolorImages, renderFolderInColour, and the nonisolated fast-load helpers.
 //
 
@@ -132,7 +132,7 @@ extension ImageStore {
 
     /// Re-renders display images and thumbnails at new sizes without touching metrics.
     ///
-    /// Unlike `reprocessAll`, this never runs Phase B (star detection). After Phase A
+    /// Unlike a normal load, this never runs Phase B (star detection). After Phase A
     /// completes, each entry's `metrics` is restored from its `cachedMetrics` so the
     /// displayed values remain unchanged throughout.
     func regenerateSizes(settings: AppSettings) {
@@ -291,9 +291,9 @@ extension ImageStore {
 
     /// Two-phase pipeline per image:
     ///
-    /// **Phase A** — I/O + GPU stretch + crop extraction (~100–300 ms total):
-    /// image becomes visible immediately. Star crops are extracted from the
-    /// MTLBuffer before it is released, so no second file read is needed.
+    /// **Phase A** — I/O + GPU stretch (~100–300 ms total): the image becomes
+    /// visible immediately. The MTLBuffer with the raw pixels is kept for Phase B,
+    /// so no second file read is needed.
     ///
     /// **Phase B** — GPU star-detection + Moffat fitting: runs in a detached
     /// task using the retained MTLBuffer. Concurrency is bounded by
@@ -742,7 +742,7 @@ extension ImageStore {
     }
 
     /// Re-reads a single FITS file and renders it in colour with the given shared clip bounds.
-    /// Called by `normalizeBayerStretch` and `renderFolderInColour`.
+    /// Called by `renderFolderInColour`.
     @concurrent static func recolorBayerEntry(
         url: URL, rOffset: UInt32, clips: BayerClips,
         maxDisplaySize: Int, maxThumbnailSize: Int

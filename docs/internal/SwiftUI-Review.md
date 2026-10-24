@@ -1,5 +1,7 @@
 # FITS Blaster — SwiftUI Pro Review
 
+> **Historical (April 2026).** A snapshot from before the October 2026 code audit; the line numbers refer to the code at that time, and `MainContentViews.swift` no longer exists. Current findings are in [CODE_AUDIT.md](CODE_AUDIT.md) (§8 SwiftUI) and the plan in [architecture-plan.md](architecture-plan.md).
+
 Reviewed against the SwiftUI Pro skill references: API, Views, Data, Navigation, Design, Accessibility, Performance, Swift, and Hygiene.
 
 ---

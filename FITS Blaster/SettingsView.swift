@@ -224,7 +224,7 @@ struct ImageDisplayTab: View {
 
             Section("Colour Images") {
                 Toggle("Debayer colour FITS images", isOn: $settings.debayerColorImages)
-                Text("When enabled, images with a Bayer CFA pattern (BAYERPAT/COLORTYP/CFA_PAT header) are displayed in colour using GPU-accelerated bilinear debayering. Requires Reprocess All to take effect on already-loaded images.")
+                Text("When enabled, images with a Bayer CFA pattern (BAYERPAT/COLORTYP/CFA_PAT header) are displayed in colour, debayered on the GPU. Images that are already loaded are re-rendered when you change this.")
                     .scaledFont(size: 10)
                     .foregroundStyle(.secondary)
             }

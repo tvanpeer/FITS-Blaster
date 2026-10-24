@@ -37,7 +37,7 @@ struct StretchParams {
 /// When bayerBin=0 each thread averages all source pixels whose centres fall
 /// within the output pixel's footprint — alias-free downsampling equivalent to
 /// vImageScale kvImageHighQualityResampling.
-kernel void sqrtStretch(
+kernel void mtfStretch(
     device const float*   inputPixels  [[ buffer(0) ]],
     device       uchar*   outputPixels [[ buffer(1) ]],
     constant StretchParams& params     [[ buffer(2) ]],
@@ -226,9 +226,8 @@ struct DetectCandidate {
 
 /// Maximum number of candidates the output buffer can hold.
 /// 50 000 × 8 bytes = 400 KB — large enough for very dense star fields.
-/// The atomic counter still records the true total even when this cap is hit,
-/// so the reported star count remains accurate; only the measurement sample
-/// (top 50 unsaturated stars) could be affected in extreme Milky Way fields.
+/// The atomic counter keeps counting past the cap, but only the stored candidates
+/// are read back. Shape metrics use the 200 brightest; the star count checks the 6,200 brightest.
 #define MAX_DETECTION_CANDIDATES 50000
 
 /// Detect strict 8-neighbour local maxima above a noise threshold.

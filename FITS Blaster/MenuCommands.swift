@@ -54,7 +54,7 @@ struct SettingsMenuCommand: View {
 }
 
 /// Toggles colour debayering from the View menu.
-/// ContentView's onChange(of: settings.debayerColorImages) triggers the reprocess.
+/// ContentView's onChange(of: settings.debayerColorImages) re-renders the loaded images.
 struct DebayerColourCommand: View {
     @FocusedValue(\.debayerColorBinding) var debayerColor
     @FocusedValue(\.debayerKeyString) var keyString

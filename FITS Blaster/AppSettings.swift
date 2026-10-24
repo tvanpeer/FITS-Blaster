@@ -212,7 +212,8 @@ final class AppSettings {
     // MARK: - Colour Settings
 
     /// When true, colour FITS images with a BAYERPAT/COLORTYP/CFA_PAT header are
-    /// debayered using the GPU (bilinear interpolation) and displayed in colour.
+    /// debayered on the GPU and displayed in colour: each displayed pixel averages the
+    /// R, G and B pixels of whole 2×2 Bayer cells (`bayerDebayerAndStretch`).
     /// When false, Bayer images are displayed as greyscale (raw sensor data).
     var debayerColorImages: Bool = false {
         didSet { UserDefaults.standard.set(debayerColorImages, forKey: "debayerColorImages") }

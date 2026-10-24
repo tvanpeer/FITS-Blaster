@@ -26,7 +26,8 @@ extension FocusedValues {
     @Entry var simpleModeBinding: Binding<Bool>? = nil
 
     /// Exposes `AppSettings.debayerColorImages` as a Binding so the View menu command
-    /// can toggle it. ContentView watches this value and triggers reprocessAll on change.
+    /// can toggle it. ContentView watches this value and re-renders the loaded images
+    /// (`recolorImages`) on change.
     @Entry var debayerColorBinding: Binding<Bool>? = nil
 
     /// The raw key string for "Toggle Simple/Geek Mode", so the View menu command can

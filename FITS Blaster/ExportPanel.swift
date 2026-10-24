@@ -11,9 +11,8 @@ import SwiftUI
 /// and FITS header columns before opening an NSSavePanel.
 ///
 /// All controls are pre-populated from `AppSettings`. Per-export edits are kept
-/// in local `@State` and never written back to settings — same pattern as the
-/// open-folder panel. An orange notice appears if the user changes any value
-/// from its stored default, mirroring `openFolderPanel(settings:)`.
+/// in local `@State` and never written back to settings. An orange notice appears
+/// if the user changes any value from its stored default.
 struct ExportSheet: View {
     @Binding var isPresented: Bool
     @Environment(ImageStore.self) private var store

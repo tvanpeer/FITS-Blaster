@@ -144,16 +144,15 @@ extension MetricsCalculator {
     /// GPU-accelerated full-frame local-maximum detection.
     ///
     /// Dispatches the `detectLocalMaxima` Metal kernel across a grid that covers
-    /// every pixel of the image simultaneously. Each thread writes 1 or 0 into a
-    /// flat UInt8 flag buffer, then the CPU scans that buffer to collect positions.
+    /// every pixel of the image. Each thread that finds a local maximum above the
+    /// threshold appends its position to a compact candidate list through an atomic
+    /// counter.
     ///
     /// Pipeline:
-    ///   1. Allocate a `width × height` byte flag buffer in shared memory.
-    ///   2. Encode and commit the compute pass (kernel runs fully on the GPU).
-    ///   3. Wait for completion (`waitUntilCompleted` — synchronous, ~3–8 ms
-    ///      for 16–50 MP on Apple Silicon).
-    ///   4. Linear scan of the flag buffer to collect candidate (x, y, peak)
-    ///      tuples (~1–2 ms at memory-bandwidth speed).
+    ///   1. Allocate the candidate list (`maxDetectionCandidates` entries) and the counter.
+    ///   2. Encode and commit the compute pass; await its completion handler.
+    ///   3. Read back the stored candidates, look up their peak values and sort
+    ///      them brightest first.
     ///
     /// Returns nil if Metal is unavailable, letting the caller fall back to CPU.
     @concurrent static func findLocalMaximaGPU(metalBuffer: MTLBuffer,
@@ -163,7 +162,7 @@ extension MetricsCalculator {
               let pipeline = detectionPipelineState,
               let device   = detectionDevice else { return nil }
 
-        // Compact candidate list: at most maxDetectionCandidates × 8 bytes = 80 KB.
+        // Compact candidate list: at most maxDetectionCandidates × 8 bytes = 400 KB.
         // Far smaller than the old width×height flag buffer (up to 200 MB for 50 MP),
         // and the CPU reads only the slots actually written — no full-frame scan.
         let candidateBytes = maxDetectionCandidates * MemoryLayout<DetectCandidate>.stride

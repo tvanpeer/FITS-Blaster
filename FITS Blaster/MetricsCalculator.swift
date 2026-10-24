@@ -330,7 +330,7 @@ struct MetricsCalculator {
         let snr          = median(snrValues)
         let starCount    = verifiedCount
 
-        // PSF Signal Weight: mean integrated flux per star normalised by sky noise.
+        // PSF Signal Weight: mean background-subtracted star peak divided by the sky sigma.
         // Nil when no stars were successfully fitted.
         let psfSignalWeight: Float? = topVerified > 0 && sigma > 0
             ? (psfFluxSum / Float(topVerified)) / sigma

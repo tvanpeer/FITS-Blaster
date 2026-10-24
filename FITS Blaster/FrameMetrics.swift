@@ -74,12 +74,13 @@ struct FrameMetrics: Sendable {
     let snr: Float?
     /// Number of detected star sources (nil if not computed)
     let starCount: Int?
-    /// Composite quality score 0–100 derived from whichever metrics were enabled
+    /// Composite quality score 0–100 from FWHM, eccentricity, SNR and star count (0 with metrics off)
     let qualityScore: Int
     /// Median sky background level in ADU, from stratified sampling (nil if star detection skipped)
     let skyBackground: Float?
-    /// PSF Signal Weight: mean integrated star flux (peakVal × α²) normalised by sky sigma.
-    /// Captures transparency × exposure — higher means more photons collected above sky noise.
+    /// PSF Signal Weight: mean background-subtracted peak of the measured stars (up to the
+    /// 200 brightest candidates) divided by the sky sigma. Higher means brighter stars above
+    /// the sky noise (transparency, exposure).
     /// Nil when no stars were successfully fitted.
     let psfSignalWeight: Float?
 

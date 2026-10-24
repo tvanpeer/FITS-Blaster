@@ -1,5 +1,7 @@
 # FITS Blaster — Loading Pipeline Performance
 
+> **History of v1.12–v1.14.** The functions named in the root-cause analysis below (`extractStarData`, `measureFromCrops`, crop extraction) belong to the v1.12.4 design. Today Phase A does I/O and the GPU stretch only, and Phase B runs GPU detection and measurement on the retained Metal buffer (`MetricsCalculator.compute(metalBuffer:)`). The unused crop code was removed in 1.24 (master-plan step 3a). Current measurements are in [PERFORMANCE_AUDIT.md](PERFORMANCE_AUDIT.md).
+
 ## Test environment
 
 - Machine: M1 Air (8 performance cores)

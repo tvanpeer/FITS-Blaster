@@ -19,8 +19,8 @@ enum UD {
     ///
     /// Uses `object(forKey:) as? Bool` rather than `bool(forKey:)` so that a
     /// never-set key returns `default` instead of `false`. This matters for
-    /// flags whose default is `true` (e.g. `computeFWHM`): without this check,
-    /// a fresh install would incorrectly disable the metric.
+    /// flags whose default is `true` (e.g. `showInspector`): without this check,
+    /// a fresh install would read them as `false`.
     static func bool(_ key: String, default d: Bool,
                      _ store: UserDefaults = .standard) -> Bool {
         (store.object(forKey: key) as? Bool) ?? d

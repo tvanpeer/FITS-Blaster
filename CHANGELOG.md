@@ -4,6 +4,19 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-24 — Stale comments and docs
+
+### Changed
+- **Settings → Display → Colour Images** — the explanation under "Debayer colour FITS images" no longer mentions bilinear debayering or "Reprocess All" (neither exists): images are debayered on the GPU, and loaded images are re-rendered when you change the setting.
+
+### Internal
+- Comments that named removed functions or described old behaviour rewritten (CODE_AUDIT §9.13, master-plan step 3d): `reprocessAll`, `normalizeBayerStretch` and crop extraction in the loading pipeline; "asinh stretch" and "gamma 2.2 LUT" (the stretch is STF clip + MTF); "bilinear" colour debayering (each displayed pixel averages whole 2×2 Bayer cells); PSF Signal Weight described as integrated flux (it is the mean star peak divided by the sky sigma); the GPU detection flow (a compact candidate list, 400 KB, not a full-frame flag buffer); `computeFWHM` as an example setting; the old open-folder panel in `ExportPanel`.
+- The grey stretch kernel is renamed `sqrtStretch` → `mtfStretch`, with its Swift lookup string.
+- `SwiftUI-Review.md` moved from the repo root to `docs/internal/` and marked historical (April 2026); `docs/internal/performance.md` notes that its root-cause analysis describes the v1.12.4 design.
+- Renders and metrics are identical.
+
+---
+
 ## 2026-10-24 — Refactor: metrics are all on or all off
 
 ### Internal
