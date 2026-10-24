@@ -99,8 +99,7 @@ struct IntegrationTests {
         let pixels = makeImage(width: width, height: height, background: 1000,
                                stars: [SyntheticStar(cx: 128, cy: 128, amplitude: 8000, sigma: sigma)])
 
-        let config = MetricsConfig(computeFWHM: true, computeEccentricity: false,
-                                   computeSNR: false, computeStarCount: true)
+        let config = MetricsConfig()
         let m = try #require(await MetricsCalculator.compute(pixels: pixels,
                                                               width: width, height: height,
                                                               config: config))
@@ -144,8 +143,7 @@ struct IntegrationTests {
 
         let m = try #require(await MetricsCalculator.compute(
             pixels: pixels, width: 512, height: 512,
-            config: MetricsConfig(computeFWHM: true, computeEccentricity: false,
-                                  computeSNR: false, computeStarCount: true)))
+            config: MetricsConfig()))
 
         #expect((m.starCount ?? 0) >= 2, "Background estimator should handle gradient")
     }
@@ -157,8 +155,7 @@ struct IntegrationTests {
         let pixels = makeImage(width: 256, height: 256, background: 1000, noise: 50)
         let m = await MetricsCalculator.compute(
             pixels: pixels, width: 256, height: 256,
-            config: MetricsConfig(computeFWHM: true, computeEccentricity: false,
-                                  computeSNR: false, computeStarCount: true))
+            config: MetricsConfig())
         // nil is acceptable (no candidates passed threshold)
         if let m { #expect((m.starCount ?? 0) <= 3) }
     }
@@ -172,8 +169,7 @@ struct IntegrationTests {
                                                      sigmaX: 1.5, sigmaY: 5.0)])
         let m = try #require(await MetricsCalculator.compute(
             pixels: pixels, width: 256, height: 256,
-            config: MetricsConfig(computeFWHM: true, computeEccentricity: true,
-                                  computeSNR: false, computeStarCount: false)))
+            config: MetricsConfig()))
 
         if let ecc = m.eccentricity {
             #expect(ecc > 0.3, "Elongated star should have elevated eccentricity")

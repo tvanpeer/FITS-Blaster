@@ -218,8 +218,6 @@ struct MetricsCalculator {
                                                      config: MetricsConfig,
                                                      bayerPattern: BayerPattern? = nil) async -> FrameMetrics? {
 
-        let needMeasure = config.computeFWHM || config.computeEccentricity || config.computeSNR
-
         // ── Phase 1: shape statistics (parallel, top 200 candidates) ────────────
         //
         // Candidates are sorted brightest-first, so the top 200 reliably contain
@@ -285,11 +283,9 @@ struct MetricsCalculator {
         for (_, shape) in measured.sorted(by: { $0.index < $1.index }) {
             guard let (fwhm, ecc, snr, peakVal) = shape else { continue }
             topVerified += 1
-            if needMeasure {
-                if config.computeFWHM         { fwhmValues.append(fwhm) }
-                if config.computeEccentricity { eccValues.append(ecc) }
-                if config.computeSNR          { snrValues.append(snr) }
-            }
+            fwhmValues.append(fwhm)
+            eccValues.append(ecc)
+            snrValues.append(snr)
             psfFluxSum += peakVal
         }
 
@@ -306,7 +302,7 @@ struct MetricsCalculator {
 
         var verifiedCount = topVerified
 
-        if config.computeStarCount, allCandidates.count > Constants.topCandidatesForShape {
+        if allCandidates.count > Constants.topCandidatesForShape {
             let remaining = allCandidates.dropFirst(Constants.topCandidatesForShape)
                                          .prefix(Constants.fallbackCandidateCount)
             await withTaskGroup(of: Int.self) { group in
@@ -329,10 +325,10 @@ struct MetricsCalculator {
             }
         }
 
-        let fwhm         = config.computeFWHM         ? median(fwhmValues) : nil
-        let eccentricity = config.computeEccentricity ? median(eccValues)  : nil
-        let snr          = config.computeSNR          ? median(snrValues)  : nil
-        let starCount    = config.computeStarCount    ? verifiedCount      : nil
+        let fwhm         = median(fwhmValues)
+        let eccentricity = median(eccValues)
+        let snr          = median(snrValues)
+        let starCount    = verifiedCount
 
         // PSF Signal Weight: mean integrated flux per star normalised by sky noise.
         // Nil when no stars were successfully fitted.
@@ -340,10 +336,7 @@ struct MetricsCalculator {
             ? (psfFluxSum / Float(topVerified)) / sigma
             : nil
 
-        let score = qualityScore(fwhm:         config.computeFWHM         ? fwhm         : nil,
-                                 eccentricity: config.computeEccentricity ? eccentricity : nil,
-                                 snr:          config.computeSNR          ? snr          : nil,
-                                 starCount:    config.computeStarCount    ? starCount    : nil)
+        let score = qualityScore(fwhm: fwhm, eccentricity: eccentricity, snr: snr, starCount: starCount)
 
         return FrameMetrics(fwhm: fwhm, eccentricity: eccentricity,
                             snr: snr, starCount: starCount, qualityScore: score,

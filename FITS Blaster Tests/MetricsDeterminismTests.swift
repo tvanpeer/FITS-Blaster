@@ -91,8 +91,7 @@ struct MetricsDeterminismTests {
         // Whole numbers, like 16-bit FITS data: every star centre is exactly 10 000.
         for i in 0..<(width * height) { pixels[i] = pixels[i].rounded() }
 
-        let config = MetricsConfig(computeFWHM: true, computeEccentricity: true,
-                                   computeSNR: true, computeStarCount: true)
+        let config = MetricsConfig()
         let reference = try #require(
             await MetricsCalculator.compute(metalBuffer: buffer,
                                             width: width, height: height, config: config))

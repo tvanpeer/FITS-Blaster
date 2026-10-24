@@ -4,6 +4,15 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-24 — Refactor: metrics are all on or all off
+
+### Internal
+- `MetricsConfig` is now a single on/off switch (`computeMetrics`, with `MetricsConfig.off` for Simple mode) instead of four per-metric switches that the settings only ever set all on or all off (CODE_AUDIT §9.10, master-plan step 3c). `MetricsCalculator` always fills in all four metrics; `FrameMetrics.filtered(by:)` returns the metrics unchanged when on, and hides FWHM, eccentricity, SNR and star count (score 0, sky and PSF Signal Weight kept) when off, as before. `merging` and `covers` are gone, and `recomputeMetrics` measures a frame from disk only when it has no cached metrics.
+- One difference with no visible effect: a frame whose cached metrics lack a value (e.g. stars counted but no FWHM fit) is no longer read from disk again on every switch to Geek mode; the calculation is deterministic, so that read always gave the same result.
+- Tests: the partial-config tests in `FrameMetricsTests` became on/off tests; `IntegrationTests` and the GPU tests use `MetricsConfig()`. New `MetricsModeSwitchTests` switches a loaded folder off and on (from the cache) and loads in Simple mode then switches on (from disk); both give exactly the values of a normal load, on the old code as well as the new.
+
+---
+
 ## 2026-10-24 — Refactor: never-read fields and unreachable branches
 
 ### Internal

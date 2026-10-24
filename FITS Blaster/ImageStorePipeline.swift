@@ -160,10 +160,7 @@ extension ImageStore {
             await processParallel(entriesToProcess, selectFirst: false,
                                   maxDisplaySize: settings.maxDisplaySize,
                                   maxThumbnailSize: settings.maxThumbnailSize,
-                                  metricsConfig: MetricsConfig(computeFWHM: false,
-                                                               computeEccentricity: false,
-                                                               computeSNR: false,
-                                                               computeStarCount: false),
+                                  metricsConfig: .off,
                                   debayerColorImages: settings.debayerColorImages)
             // Restore metric values from cache now that Phase A is done.
             for entry in entriesToProcess {
@@ -212,15 +209,11 @@ extension ImageStore {
         // Refresh the sort cache now that cached metrics have been restored synchronously.
         updateCachedSort()
 
-        // Pass 2: collect entries that still need at least one metric computed from disk.
-        let needsRecompute = entriesToProcess.filter { entry in
-            let c = entry.cachedMetrics
-            if metricsConfig.computeFWHM         && c?.fwhm         == nil { return true }
-            if metricsConfig.computeEccentricity && c?.eccentricity == nil { return true }
-            if metricsConfig.computeSNR          && c?.snr          == nil { return true }
-            if metricsConfig.computeStarCount    && c?.starCount    == nil { return true }
-            return false
-        }
+        // Pass 2: with metrics on, collect entries that have no cached metrics yet
+        // (loaded in Simple mode, or no stars found) and measure them from disk.
+        let needsRecompute = metricsConfig.computeMetrics
+            ? entriesToProcess.filter { $0.cachedMetrics == nil }
+            : []
 
         guard !needsRecompute.isEmpty else { return }
 
@@ -240,22 +233,13 @@ extension ImageStore {
                         await group.next()
                         activeCount -= 1
                     }
-                    // Only request the metrics that are actually missing from cache.
-                    let c = entry.cachedMetrics
-                    let missingConfig = MetricsConfig(
-                        computeFWHM:         metricsConfig.computeFWHM         && c?.fwhm         == nil,
-                        computeEccentricity: metricsConfig.computeEccentricity && c?.eccentricity == nil,
-                        computeSNR:          metricsConfig.computeSNR          && c?.snr          == nil,
-                        computeStarCount:    metricsConfig.computeStarCount    && c?.starCount    == nil
-                    )
                     let url = entry.url
                     group.addTask {
-                        let newMetrics = await Self.loadMetricsOnly(url: url, config: missingConfig)
+                        let newMetrics = await Self.loadMetricsOnly(url: url, config: metricsConfig)
                         await MainActor.run {
                             if let newMetrics {
-                                let merged = (entry.cachedMetrics ?? newMetrics).merging(newMetrics)
-                                entry.cachedMetrics = merged
-                                entry.metrics = merged.filtered(by: metricsConfig)
+                                entry.cachedMetrics = newMetrics
+                                entry.metrics = newMetrics.filtered(by: metricsConfig)
                             }
                         }
                     }

@@ -11,16 +11,16 @@ import SwiftUI
 
 /// Subset of AppSettings needed for metrics computation.
 /// Plain Sendable value type for safe capture in nonisolated background tasks.
+/// Metrics are all on (Geek mode) or all off (Simple mode, and passes that only
+/// re-render images); there are no per-metric switches.
 struct MetricsConfig: Sendable, Equatable {
-    var computeFWHM: Bool = true
-    var computeEccentricity: Bool = true
-    var computeSNR: Bool = true
-    var computeStarCount: Bool = true
+    var computeMetrics: Bool = true
 
-    /// True when at least one metric requires star detection.
-    var needsStarDetection: Bool {
-        computeFWHM || computeEccentricity || computeSNR || computeStarCount
-    }
+    /// Simple mode: no star detection, star metrics hidden.
+    static let off = MetricsConfig(computeMetrics: false)
+
+    /// True when star detection has to run.
+    var needsStarDetection: Bool { computeMetrics }
 }
 
 // MARK: - Badge Problem
@@ -83,42 +83,18 @@ struct FrameMetrics: Sendable {
     /// Nil when no stars were successfully fitted.
     let psfSignalWeight: Float?
 
-    // MARK: Merge / Filter
+    // MARK: Filter
 
-    /// Returns a new FrameMetrics keeping only config-enabled fields non-nil,
-    /// with the quality score recomputed for the active subset.
+    /// The metrics as shown for `config`: unchanged when metrics are on. With metrics
+    /// off (Simple mode) FWHM, eccentricity, SNR and star count are hidden and the score
+    /// is 0; sky background and PSF Signal Weight are kept.
     func filtered(by config: MetricsConfig) -> FrameMetrics {
-        let f  = config.computeFWHM         ? fwhm         : nil
-        let e  = config.computeEccentricity ? eccentricity : nil
-        let s  = config.computeSNR          ? snr          : nil
-        let sc = config.computeStarCount    ? starCount    : nil
-        return FrameMetrics(fwhm: f, eccentricity: e, snr: s, starCount: sc,
-                            qualityScore: MetricsCalculator.qualityScore(fwhm: f, eccentricity: e, snr: s, starCount: sc),
+        guard !config.computeMetrics else { return self }
+        return FrameMetrics(fwhm: nil, eccentricity: nil, snr: nil, starCount: nil,
+                            qualityScore: MetricsCalculator.qualityScore(fwhm: nil, eccentricity: nil,
+                                                                         snr: nil, starCount: nil),
                             skyBackground: skyBackground,
                             psfSignalWeight: psfSignalWeight)
-    }
-
-    /// Returns a new FrameMetrics merging self with `other`, preferring `other`'s non-nil values.
-    func merging(_ other: FrameMetrics) -> FrameMetrics {
-        let f  = other.fwhm              ?? fwhm
-        let e  = other.eccentricity      ?? eccentricity
-        let s  = other.snr               ?? snr
-        let sc = other.starCount         ?? starCount
-        let bg = other.skyBackground     ?? skyBackground
-        let ps = other.psfSignalWeight   ?? psfSignalWeight
-        return FrameMetrics(fwhm: f, eccentricity: e, snr: s, starCount: sc,
-                            qualityScore: MetricsCalculator.qualityScore(fwhm: f, eccentricity: e, snr: s, starCount: sc),
-                            skyBackground: bg,
-                            psfSignalWeight: ps)
-    }
-
-    /// True when this cached result already provides every metric requested by `config`.
-    func covers(_ config: MetricsConfig) -> Bool {
-        if config.computeFWHM         && fwhm         == nil { return false }
-        if config.computeEccentricity && eccentricity == nil { return false }
-        if config.computeSNR          && snr          == nil { return false }
-        if config.computeStarCount    && starCount    == nil { return false }
-        return true
     }
 
     /// True when at least one metric was actually computed.

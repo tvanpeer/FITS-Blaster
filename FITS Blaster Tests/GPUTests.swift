@@ -104,8 +104,7 @@ struct GPUTests {
                                              SyntheticStar(cx: 80,  cy: 80,  amplitude: 6000, sigma: 2.5),
                                              SyntheticStar(cx: 180, cy: 180, amplitude: 7000, sigma: 2.0),
                                          ])
-        let config = MetricsConfig(computeFWHM: true, computeEccentricity: true,
-                                   computeSNR: true, computeStarCount: true)
+        let config = MetricsConfig()
 
         let m = try #require(
             await MetricsCalculator.compute(metalBuffer: buffer,
@@ -142,8 +141,7 @@ struct GPUTests {
         var cpuPixels = [Float](repeating: 0, count: width * height)
         for i in 0..<cpuPixels.count { cpuPixels[i] = ptr[i] }
 
-        let config = MetricsConfig(computeFWHM: true, computeEccentricity: true,
-                                   computeSNR: true, computeStarCount: true)
+        let config = MetricsConfig()
 
         let gpuMetrics = try #require(
             await MetricsCalculator.compute(metalBuffer: buffer,

@@ -356,8 +356,7 @@ final class AppSettings {
     /// All metrics are always computed. In Simple mode, star detection is skipped entirely.
     var effectiveMetricsConfig: MetricsConfig {
         isSimpleMode
-            ? MetricsConfig(computeFWHM: false, computeEccentricity: false,
-                            computeSNR: false, computeStarCount: false)
+            ? .off
             : MetricsConfig()
     }
 

@@ -2,8 +2,7 @@
 //  FrameMetricsTests.swift
 //  FITS Blaster Tests
 //
-//  Tests for FrameMetrics: filtered(by:), merging, covers, hasData,
-//  badgeProblem, and MetricsConfig.
+//  Tests for FrameMetrics: filtered(by:), hasData, badgeProblem, and MetricsConfig.
 //
 
 import Testing
@@ -51,123 +50,42 @@ struct FrameMetricsTests {
 
     // MARK: - filtered(by:)
 
-    @Test("filtered keeps enabled metrics and nils disabled ones")
-    func filteredKeepsEnabledMetrics() throws {
-        let m = fullMetrics()
-        let config = MetricsConfig(computeFWHM: true, computeEccentricity: false,
-                                   computeSNR: true, computeStarCount: false)
-        let filtered = m.filtered(by: config)
-
-        _ = try #require(filtered.fwhm, "FWHM should be kept")
-        #expect(filtered.eccentricity == nil, "Eccentricity should be nil")
-        _ = try #require(filtered.snr, "SNR should be kept")
-        #expect(filtered.starCount == nil, "Star count should be nil")
+    @Test("With metrics on, filtered returns the metrics unchanged")
+    func filteredOnKeepsEverything() {
+        let m = FrameMetrics(fwhm: 3.0, eccentricity: 0.2, snr: 100, starCount: 200,
+                             qualityScore: MetricsCalculator.qualityScore(fwhm: 3.0, eccentricity: 0.2,
+                                                                           snr: 100, starCount: 200),
+                             skyBackground: 1200, psfSignalWeight: 45)
+        let on = m.filtered(by: MetricsConfig())
+        #expect(on.fwhm == m.fwhm)
+        #expect(on.eccentricity == m.eccentricity)
+        #expect(on.snr == m.snr)
+        #expect(on.starCount == m.starCount)
+        #expect(on.qualityScore == m.qualityScore)
+        #expect(on.skyBackground == m.skyBackground)
+        #expect(on.psfSignalWeight == m.psfSignalWeight)
     }
 
-    @Test("filtered recomputes score for active subset")
-    func filteredRecomputesScore() {
-        let m = fullMetrics()
-        let fwhmOnly = MetricsConfig(computeFWHM: true, computeEccentricity: false,
-                                     computeSNR: false, computeStarCount: false)
-
-        let filtered = m.filtered(by: fwhmOnly)
-        let expected = MetricsCalculator.qualityScore(fwhm: m.fwhm, eccentricity: nil,
-                                                       snr: nil, starCount: nil)
-        #expect(filtered.qualityScore == expected)
-    }
-
-    @Test("filtered with all disabled returns zero score")
-    func filteredAllDisabledReturnsZeroScore() {
-        let config = MetricsConfig(computeFWHM: false, computeEccentricity: false,
-                                   computeSNR: false, computeStarCount: false)
-        #expect(fullMetrics().filtered(by: config).qualityScore == 0)
-    }
-
-    // MARK: - merging
-
-    @Test("merging fills in missing values from base")
-    func mergingPrefersOtherValues() {
-        let base = FrameMetrics(fwhm: 3.0, eccentricity: 0.2, snr: nil, starCount: nil, qualityScore: 50,
-                                skyBackground: nil, psfSignalWeight: nil)
-        let other = FrameMetrics(fwhm: nil, eccentricity: nil, snr: 120, starCount: 300, qualityScore: 50,
-                                 skyBackground: nil, psfSignalWeight: nil)
-        let merged = base.merging(other)
-
-        #expect(merged.fwhm == 3.0)
-        #expect(merged.eccentricity == 0.2)
-        #expect(merged.snr == 120)
-        #expect(merged.starCount == 300)
-    }
-
-    @Test("merging overrides base with other's non-nil values")
-    func mergingOverridesBase() {
-        let base  = FrameMetrics(fwhm: 3.0, eccentricity: 0.2, snr: 80, starCount: 150, qualityScore: 50,
-                                 skyBackground: nil, psfSignalWeight: nil)
-        let other = FrameMetrics(fwhm: 2.5, eccentricity: nil, snr: nil, starCount: nil, qualityScore: 50,
-                                 skyBackground: nil, psfSignalWeight: nil)
-        let merged = base.merging(other)
-
-        #expect(merged.fwhm == 2.5, "Other's FWHM should override base")
-        #expect(merged.eccentricity == 0.2, "Base eccentricity should be kept")
-    }
-
-    @Test("merging recomputes score")
-    func mergingRecomputesScore() {
-        let base = FrameMetrics(fwhm: 3.0, eccentricity: nil, snr: nil, starCount: nil, qualityScore: 50,
-                                skyBackground: nil, psfSignalWeight: nil)
-        let other = FrameMetrics(fwhm: nil, eccentricity: 0.1, snr: nil, starCount: nil, qualityScore: 50,
-                                 skyBackground: nil, psfSignalWeight: nil)
-        let merged = base.merging(other)
-        let expected = MetricsCalculator.qualityScore(fwhm: 3.0, eccentricity: 0.1,
-                                                       snr: nil, starCount: nil)
-        #expect(merged.qualityScore == expected)
-    }
-
-    // MARK: - covers
-
-    @Test("covers returns true when all requested metrics present")
-    func coversAllWhenAllPresent() {
-        #expect(fullMetrics().covers(MetricsConfig()) == true)
-    }
-
-    @Test("covers returns false when a requested metric is missing")
-    func coversFailsWhenMissing() {
-        let m = FrameMetrics(fwhm: 3.0, eccentricity: nil, snr: nil, starCount: nil, qualityScore: 50,
-                             skyBackground: nil, psfSignalWeight: nil)
-        #expect(m.covers(MetricsConfig()) == false, "Needs all four")
-        let fwhmOnly = MetricsConfig(computeFWHM: true, computeEccentricity: false,
-                                     computeSNR: false, computeStarCount: false)
-        #expect(m.covers(fwhmOnly) == true, "Only needs FWHM")
-    }
-
-    @Test("covers with all disabled always returns true")
-    func coversAllDisabledAlwaysTrue() {
-        let m = FrameMetrics(fwhm: nil, eccentricity: nil, snr: nil, starCount: nil, qualityScore: 0,
-                             skyBackground: nil, psfSignalWeight: nil)
-        let config = MetricsConfig(computeFWHM: false, computeEccentricity: false,
-                                   computeSNR: false, computeStarCount: false)
-        #expect(m.covers(config) == true)
+    @Test("With metrics off, filtered hides the star metrics and keeps sky and PSF·S")
+    func filteredOffHidesStarMetrics() {
+        let m = FrameMetrics(fwhm: 3.0, eccentricity: 0.2, snr: 100, starCount: 200,
+                             qualityScore: 70, skyBackground: 1200, psfSignalWeight: 45)
+        let off = m.filtered(by: .off)
+        #expect(off.fwhm == nil)
+        #expect(off.eccentricity == nil)
+        #expect(off.snr == nil)
+        #expect(off.starCount == nil)
+        #expect(off.qualityScore == 0)
+        #expect(off.skyBackground == 1200)
+        #expect(off.psfSignalWeight == 45)
     }
 
     // MARK: - MetricsConfig
 
-    @Test("needsStarDetection with all enabled")
-    func needsStarDetectionAllEnabled() {
+    @Test("needsStarDetection follows the on/off switch")
+    func needsStarDetection() {
         #expect(MetricsConfig().needsStarDetection == true)
-    }
-
-    @Test("needsStarDetection with all disabled")
-    func needsStarDetectionAllDisabled() {
-        let config = MetricsConfig(computeFWHM: false, computeEccentricity: false,
-                                   computeSNR: false, computeStarCount: false)
-        #expect(config.needsStarDetection == false)
-    }
-
-    @Test("needsStarDetection with single enabled")
-    func needsStarDetectionSingleEnabled() {
-        let config = MetricsConfig(computeFWHM: false, computeEccentricity: false,
-                                   computeSNR: true, computeStarCount: false)
-        #expect(config.needsStarDetection == true)
+        #expect(MetricsConfig.off.needsStarDetection == false)
     }
 
     // MARK: - badgeProblem
