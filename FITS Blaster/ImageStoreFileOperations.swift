@@ -67,11 +67,6 @@ extension ImageStore {
         }
     }
 
-    /// Batch-reject multiple entries.
-    func rejectEntries(_ entriesToReject: [ImageEntry]) {
-        for entry in entriesToReject { rejectEntry(entry) }
-    }
-
     func rejectEntry(_ entry: ImageEntry) {
         guard !entry.isRejected else { return }
 
@@ -201,11 +196,6 @@ extension ImageStore {
             }
             return false
         }
-    }
-
-    /// Rejects all frames that match `config`, moving them to the `REJECTED/` folder.
-    func applyAutoReject(config: AutoRejectConfig) {
-        rejectEntries(previewAutoReject(config: config))
     }
 
     // MARK: - Undo reject
@@ -486,18 +476,6 @@ extension ImageStore {
         return "/" + common.dropFirst().joined(separator: "/")
     }
 
-    /// Formats an optional `Float` with a fixed number of decimal places, using a
-    /// POSIX locale so the decimal separator is always a period regardless of the
-    /// user's region. Returns "" when the value is nil.
-    private static func formatFraction(_ value: Float?, digits: Int) -> String {
-        guard let value else { return "" }
-        return Double(value).formatted(
-            .number.precision(.fractionLength(digits))
-                  .grouping(.never)
-                  .locale(Locale(identifier: "en_US_POSIX"))
-        )
-    }
-
     /// Quotes a cell per RFC 4180 when needed (CSV) or escapes embedded tabs/newlines
     /// (TSV). Plain text never reaches here because it bypasses the column path.
     private static func quote(_ s: String, format: ExportFormat) -> String {
@@ -692,40 +670,6 @@ extension ImageStore {
 
         openFiles(collected, rootFolderName: folderRootName,
                   directoryBookmark: dirBookmark,
-                  maxDisplaySize: settings.maxDisplaySize,
-                  maxThumbnailSize: settings.maxThumbnailSize,
-                  metricsConfig: settings.effectiveMetricsConfig,
-                  debayerColorImages: settings.debayerColorImages)
-    }
-
-    func openFilesPanel(settings: AppSettings) {
-        let panel = NSOpenPanel()
-        panel.canChooseDirectories = false
-        panel.canChooseFiles = true
-        panel.allowsMultipleSelection = true
-        panel.allowedContentTypes = [
-            .init(filenameExtension: "fits") ?? .data,
-            .init(filenameExtension: "fit")  ?? .data,
-            .init(filenameExtension: "fts")  ?? .data,
-        ]
-        panel.message = "Select FITS files"
-        panel.prompt = "Open"
-
-        guard panel.runModal() == .OK else { return }
-
-        let fitsURLs = panel.urls.filter {
-            ["fits", "fit", "fts"].contains($0.pathExtension.lowercased())
-        }
-        guard !fitsURLs.isEmpty else { return }
-
-        let firstURL = fitsURLs[0]
-        let didAccess = firstURL.startAccessingSecurityScopedResource()
-        let parentDir = firstURL.deletingLastPathComponent()
-        let dirBookmark = try? parentDir.bookmarkData(
-            options: .withSecurityScope, includingResourceValuesForKeys: nil, relativeTo: nil)
-        if didAccess { firstURL.stopAccessingSecurityScopedResource() }
-
-        openFiles(fitsURLs, directoryBookmark: dirBookmark,
                   maxDisplaySize: settings.maxDisplaySize,
                   maxThumbnailSize: settings.maxThumbnailSize,
                   metricsConfig: settings.effectiveMetricsConfig,

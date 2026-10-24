@@ -14,22 +14,6 @@ extension ImageStore {
 
     // MARK: - Loading
 
-    /// Convenience wrapper for callers that provide a flat list without subfolder info.
-    func openFiles(_ urls: [URL], rejectedURLs: Set<URL> = [],
-                   rootFolderName: String = "", directoryBookmark: Data? = nil,
-                   maxDisplaySize: Int = 1024, maxThumbnailSize: Int = 120,
-                   metricsConfig: MetricsConfig = MetricsConfig(),
-                   debayerColorImages: Bool = false) {
-        openFiles(urls.map { (url: $0, subfolderPath: "") },
-                  rejectedURLs: rejectedURLs,
-                  rootFolderName: rootFolderName,
-                  directoryBookmark: directoryBookmark,
-                  maxDisplaySize: maxDisplaySize,
-                  maxThumbnailSize: maxThumbnailSize,
-                  metricsConfig: metricsConfig,
-                  debayerColorImages: debayerColorImages)
-    }
-
     func openFiles(_ urlsWithPaths: [(url: URL, subfolderPath: String)],
                    rejectedURLs: Set<URL> = [],
                    rootFolderName: String = "",
@@ -144,52 +128,6 @@ extension ImageStore {
             valid.append(item)
         }
         return (valid, skippedFloat)
-    }
-
-    /// Reprocesses all currently loaded images with updated settings.
-    func reprocessAll(settings: AppSettings) {
-        let entriesToProcess = entries
-        for entry in entriesToProcess {
-            entry.isProcessing    = true
-            entry.displayImage    = nil
-            entry.thumbnail       = nil
-            entry.metrics         = nil
-            entry.cachedMetrics   = nil
-            entry.histogram       = nil
-        }
-
-        let accessedDirs = entriesToProcess.compactMap { accessDirectory(for: $0) }
-
-        batchElapsed = nil
-        batchMegapixels = nil
-        batchImageCount = nil
-        isBatchProcessing = true
-        let startTime = CFAbsoluteTimeGetCurrent()
-
-        processingTask = Task { [weak self] in
-            guard let self else { return }
-            await processParallel(entriesToProcess, selectFirst: false,
-                                  maxDisplaySize: settings.maxDisplaySize,
-                                  maxThumbnailSize: settings.maxThumbnailSize,
-                                  metricsConfig: settings.effectiveMetricsConfig,
-                                  debayerColorImages: settings.debayerColorImages)
-            if !Task.isCancelled {
-                await normalizeGreyStretch(entriesToProcess,
-                                           maxDisplaySize: settings.maxDisplaySize,
-                                           maxThumbnailSize: settings.maxThumbnailSize)
-            }
-            for dirURL in accessedDirs { dirURL.stopAccessingSecurityScopedResource() }
-            guard !Task.isCancelled else { return }
-            batchElapsed = CFAbsoluteTimeGetCurrent() - startTime
-            batchImageCount = entriesToProcess.count
-            batchMegapixels = entriesToProcess.reduce(0.0) {
-                guard let w = $1.headers["NAXIS1"].flatMap(Int.init),
-                      let h = $1.headers["NAXIS2"].flatMap(Int.init) else { return $0 }
-                return $0 + Double(w * h) / 1_000_000
-            }
-            isBatchProcessing = false
-            processingTask = nil
-        }
     }
 
     /// Re-renders display images and thumbnails at new sizes without touching metrics.

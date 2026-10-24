@@ -341,26 +341,6 @@ final class AppSettings {
            Self.availableTypeSizes.indices.contains(idx) { dynamicTypeSize = Self.availableTypeSizes[idx] }
     }
 
-    // MARK: - Key Equivalents: navigation & actions
-
-    var prevKeyEquivalent:   KeyEquivalent { keyEquivalent(for: prevImageKey,  fallback: .upArrow) }
-    var nextKeyEquivalent:   KeyEquivalent { keyEquivalent(for: nextImageKey,  fallback: .downArrow) }
-    var rejectKeyEquivalent: KeyEquivalent { keyEquivalent(for: rejectKey,     fallback: KeyEquivalent("x")) }
-    var undoKeyEquivalent:   KeyEquivalent { keyEquivalent(for: undoKey,       fallback: KeyEquivalent("u")) }
-    var firstImageKeyEquivalent:  KeyEquivalent { keyEquivalent(for: firstImageKey,  fallback: .home) }
-    var lastImageKeyEquivalent:   KeyEquivalent { keyEquivalent(for: lastImageKey,   fallback: .end) }
-    var toggleModeKeyEquivalent:  KeyEquivalent { keyEquivalent(for: toggleModeKey,  fallback: KeyEquivalent("g")) }
-    var removeKeyEquivalent:      KeyEquivalent { keyEquivalent(for: removeKey,      fallback: KeyEquivalent("r")) }
-    var debayerKeyEquivalent:     KeyEquivalent { keyEquivalent(for: debayerKey,     fallback: KeyEquivalent("c")) }
-    var flagKeyEquivalent:        KeyEquivalent { keyEquivalent(for: flagKey,      fallback: KeyEquivalent("f")) }
-    var deflagAllKeyEquivalent:   KeyEquivalent { keyEquivalent(for: deflagAllKey, fallback: KeyEquivalent("d")) }
-    var playPauseKeyEquivalent:   KeyEquivalent { keyEquivalent(for: playPauseKey, fallback: KeyEquivalent(" ")) }
-    var flipKeyEquivalent:        KeyEquivalent { keyEquivalent(for: flipKey, fallback: KeyEquivalent("v")) }
-    var selectAllKeyEquivalent:       KeyEquivalent { keyEquivalent(for: selectAllKey,       fallback: KeyEquivalent("a")) }
-    var deselectAllKeyEquivalent:     KeyEquivalent { keyEquivalent(for: deselectAllKey,     fallback: KeyEquivalent("a")) }
-    var invertSelectionKeyEquivalent: KeyEquivalent { keyEquivalent(for: invertSelectionKey, fallback: KeyEquivalent("i")) }
-    var selectAllRejectedKeyEquivalent: KeyEquivalent { keyEquivalent(for: selectAllRejectedKey, fallback: KeyEquivalent("r")) }
-
     // MARK: - Appearance helper
 
     var preferredColorScheme: ColorScheme? {
@@ -382,21 +362,6 @@ final class AppSettings {
     }
 
     // MARK: - Helpers
-
-    private func keyEquivalent(for string: String, fallback: KeyEquivalent) -> KeyEquivalent {
-        switch string {
-        case "↑": return .upArrow
-        case "↓": return .downArrow
-        case "←": return .leftArrow
-        case "→": return .rightArrow
-        case "⇱": return .home
-        case "⇲": return .end
-        case " ": return KeyEquivalent(" ")
-        default:
-            if let char = string.first { return KeyEquivalent(char) }
-            return fallback
-        }
-    }
 
     static func displayString(for keyString: String) -> String {
         switch keyString {

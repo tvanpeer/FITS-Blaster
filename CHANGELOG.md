@@ -4,6 +4,19 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-24 — Refactor: dead code removed
+
+### Internal
+- About 450 lines with no callers removed (CODE_AUDIT §9.1, master-plan step 3a), each re-checked with a grep over all targets and tests first:
+  - the crop-based star pipeline (`extractStarData`, `measureFromCrops`, `StarMeasurementCandidate`, `StarDetectionData`, `measureFWHMOnlyFromCrop`), a near-copy of the live one;
+  - `reprocessAll`, `openFilesPanel` and the flat `openFiles(_: [URL])` overload only it called;
+  - `rejectEntries` and `applyAutoReject`, `formatFraction`, `compute(ptr:)`, `makeSharedBuffer`, `estimatePercentiles`, `groupedSortedEntries`, `FolderGroup.totalCount`;
+  - the 17 `*KeyEquivalent` properties in `AppSettings` and their mapper (the menu builds its own);
+  - the empty `MainContentViews.swift` and the outdated `scripts/Create-installer.sh`.
+- No behaviour change: renders and metrics are identical.
+
+---
+
 ## 2026-10-24 — Text size, VoiceOver and small SwiftUI cleanups
 
 ### Improved

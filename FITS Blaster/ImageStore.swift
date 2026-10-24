@@ -348,16 +348,6 @@ final class ImageStore {
         }
     }
 
-    /// `sortedEntries` grouped by filter group, in canonical FilterGroup order.
-    /// Groups with no entries are omitted.
-    var groupedSortedEntries: [(group: FilterGroup, entries: [ImageEntry])] {
-        let grouped = Dictionary(grouping: sortedEntries) { $0.filterGroup }
-        return FilterGroup.allCases.compactMap { group in
-            guard let entries = grouped[group], !entries.isEmpty else { return nil }
-            return (group: group, entries: entries)
-        }
-    }
-
     /// Per-group statistics used for relative badge thresholds and auto-reject.
     ///
     /// Stored (not computed) so that individual per-entry metrics updates during a batch

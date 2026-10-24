@@ -144,14 +144,6 @@ struct ImageStretcher {
         var bayerBin: UInt32
     }
 
-    // MARK: - Shared Metal Buffer for FITS Reading
-
-    /// Allocate a Metal shared buffer that FITSReader can write into directly,
-    /// avoiding a copy when uploading to the GPU.
-    static func makeSharedBuffer(byteCount: Int) -> MTLBuffer? {
-        metalDevice?.makeBuffer(length: byteCount, options: .storageModeShared)
-    }
-
     // MARK: - Public
 
     /// Stretch using pixel data already in a Metal shared buffer.
@@ -832,23 +824,5 @@ struct ImageStretcher {
         let shadowClip = max(0, median - 2.8 * mad)
         let midtone    = mtfMidtone(shadowClip: shadowClip, highClip: highClip, background: median)
         return GreyClips(low: shadowClip, high: highClip, midtone: midtone, background: median)
-    }
-
-    /// Estimate from a raw pointer — kept for MetricsCalculator histogram usage.
-    static func estimatePercentiles(_ ptr: UnsafePointer<Float>, count: Int) -> (low: Float, high: Float) {
-        guard count > 0 else { return (0, 1) }
-        let sampleStride = max(1, count / percentileSampleCount)
-        var sample = [Float]()
-        sample.reserveCapacity(min(count, percentileSampleCount))
-        var i = 0
-        while i < count {
-            sample.append(ptr[i])
-            i += sampleStride
-        }
-        vDSP.sort(&sample, sortOrder: .ascending)
-        let n = sample.count
-        let lo = sample[Int(Float(n) * 0.001)]
-        let hi = sample[Int(Float(n - 1) * 0.999)]
-        return (lo, hi > lo ? hi : lo + 1)
     }
 }

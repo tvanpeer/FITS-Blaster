@@ -15,5 +15,4 @@ struct FolderGroup: Identifiable {
     let filterGroups: [(FilterGroup, [ImageEntry])]
 
     var id: String { folderPath }
-    var totalCount: Int { filterGroups.reduce(0) { $0 + $1.1.count } }
 }

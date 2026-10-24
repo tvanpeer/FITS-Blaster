@@ -307,46 +307,6 @@ extension MetricsCalculator {
         return (fwhm, eccentricity, snr, peakVal)
     }
 
-    /// Lightweight FWHM check from a pre-extracted crop.
-    /// Mirrors `measureFWHMOnly` but reads from the local crop array.
-    static func measureFWHMOnlyFromCrop(crop: [Float], cropHalf: Int,
-                                        background: Float) -> Float {
-        let side = 2 * cropHalf + 1
-        let cx = cropHalf, cy = cropHalf
-        let rowStart = cy * side
-        guard rowStart + cx < crop.count else { return 0 }
-        let peak = crop[rowStart + cx] - background
-        guard peak > 0 else { return 0 }
-
-        let minWing = peak * 0.05
-        let l = cx > 0        ? crop[rowStart + cx - 1]        - background : -1
-        let r = cx + 1 < side ? crop[rowStart + cx + 1]        - background : -1
-        let u = cy > 0        ? crop[(cy - 1) * side + cx]     - background : -1
-        let d = cy + 1 < side ? crop[(cy + 1) * side + cx]     - background : -1
-        guard l > minWing, r > minWing, u > minWing, d > minWing else { return 0 }
-
-        let halfW    = 10
-        let minFrac: Float = 0.02
-        var num: Float = 0, den: Float = 0
-
-        for offset in -halfW...halfW where offset != 0 {
-            let px = cx + offset
-            guard px >= 0, px < side else { continue }
-            let val = crop[rowStart + px] - background
-            guard val > peak * minFrac, val < peak else { continue }
-            let ratio = peak / val
-            let z  = ratio.squareRoot().squareRoot() - 1
-            let x2 = Float(offset * offset)
-            num += val * z  * x2
-            den += val * x2 * x2
-        }
-
-        guard den > 0, num > 0 else { return 0 }
-        let alpha      = (den / num).squareRoot()
-        let fwhmFactor = 2 * (pow(Float(2), Float(0.25)) - 1).squareRoot()
-        return alpha * fwhmFactor
-    }
-
     /// 1D Moffat β=4 fit from a pre-extracted crop along unit direction (dx, dy).
     /// Returns the Moffat α parameter in pixels, or nil on failure.
     private static func fitMoffatAlphaCrop(crop: [Float], cropSide: Int,

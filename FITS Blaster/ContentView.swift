@@ -3,7 +3,8 @@
 //  FITS Blaster
 //
 //  Root view: HSplitView layout, key monitoring, drag-drop, and window management.
-//  Sidebar views live in SidebarViews.swift; main-area views in MainContentViews.swift.
+//  Sidebar views live in SidebarViews.swift; main-area views in MainContent.swift,
+//  ImageViewer.swift and FITSToolbar.swift.
 //
 
 import SwiftUI
