@@ -4,6 +4,20 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-23 — Fixes: shortcuts in other windows, REJECTED folder, chart, removing frames
+
+### Fixed
+- **Keyboard shortcuts acted on the frames from other windows** — pressing a bound key in Settings, a sheet or a popover (reject, remove, flag, arrows) acted on the main window's frames; rejecting even moved a file. Recording a shortcut on a key that was already bound triggered the action instead. Shortcuts now only act on the frames when the main window has the focus (CODE_AUDIT §5.5).
+- **Undo of a rejection could delete hidden files** — when the last frame left the REJECTED folder, the folder was deleted together with any hidden files in it. It's now only removed when nothing but a Finder `.DS_Store` is left (§5.6).
+- **A frame rejected in this session loaded twice** when the folder was opened again with its REJECTED folder (§5.8).
+- **Session chart** — while some frames had no value yet (still loading, or no stars), the last frames fell off the right edge and clicks selected the wrong frame (§5.9).
+- **Removing frames** left their IDs in the reject and cursor state (§5.15).
+
+### Testing
+- New `RejectedFolderTests` (§5.6, §5.8) and a new case in `RemoveSelectedTests` (§5.15); each fails with the old code.
+
+---
+
 ## 2026-10-23 — Docs: why star count and SNR fall on long OSC exposures
 
 ### Docs

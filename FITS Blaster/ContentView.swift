@@ -156,6 +156,11 @@ struct ContentView: View {
             // assumeIsolated requires a Sendable return type; NSEvent is not Sendable.
             // Return Bool (true = pass event through, false = consume) and decide outside.
             let passThrough: Bool = MainActor.assumeIsolated {
+                // Only keys typed in this window act on the frames. Settings, sheets and
+                // popovers have their own windows: there a bound key (reject, remove, arrows)
+                // must reach its own control, e.g. the shortcut recorder (CODE_AUDIT §5.5).
+                guard let window = hostingWindow, event.window === window else { return true }
+
                 // System shortcuts first, so a configured plain key doesn't swallow them.
                 switch SystemKeyShortcut.match(event) {
                 case .toggleFullScreen:

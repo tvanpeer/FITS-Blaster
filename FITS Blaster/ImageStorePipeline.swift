@@ -40,7 +40,10 @@ extension ImageStore {
         let selectFirst = (selectedEntry == nil)
 
         // Snapshot existing URLs now, on the main actor, before handing off to the task.
-        let existingURLs = Set(entries.map { $0.originalURL })
+        // Both paths of each entry: a file rejected this session sits at …/REJECTED/x.fits
+        // (url) while originalURL is …/x.fits, and reopening the folder with REJECTED
+        // scans the former (CODE_AUDIT §5.8).
+        let existingURLs = Set(entries.flatMap { [$0.url, $0.originalURL] })
 
         batchElapsed = nil
         batchMegapixels = nil

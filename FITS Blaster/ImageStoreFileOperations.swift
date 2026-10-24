@@ -219,6 +219,17 @@ extension ImageStore {
         }
     }
 
+    /// Removes the REJECTED folder once the last file has been moved out of it. Only a
+    /// Finder `.DS_Store` may remain: hidden files the user put there (sidecars,
+    /// dot-files) keep the folder, because `removeItem` would delete them with it
+    /// (CODE_AUDIT §5.6).
+    nonisolated static func removeFolderIfEmpty(_ folder: URL) {
+        guard let contents = try? FileManager.default.contentsOfDirectory(
+                  at: folder, includingPropertiesForKeys: nil),
+              contents.allSatisfy({ $0.lastPathComponent == ".DS_Store" }) else { return }
+        try? FileManager.default.removeItem(at: folder)
+    }
+
     func undoRejectEntry(_ entry: ImageEntry) {
         guard let dirURL = accessDirectory(for: entry) else {
             errorMessage = "Failed to undo rejection of \(entry.fileName): folder access unavailable. Close and re-open the folder to restore access."
@@ -236,12 +247,7 @@ extension ImageStore {
             rejectedEntryIDs.remove(entry.id)
             updateVisibilityFilteredEntries()
 
-            let rejectedDir = currentURL.deletingLastPathComponent()
-            let contents = try? FileManager.default.contentsOfDirectory(
-                at: rejectedDir, includingPropertiesForKeys: nil, options: .skipsHiddenFiles)
-            if let contents, contents.isEmpty {
-                try? FileManager.default.removeItem(at: rejectedDir)
-            }
+            Self.removeFolderIfEmpty(currentURL.deletingLastPathComponent())
         } catch {
             errorMessage = "Failed to undo rejection of \(entry.fileName): \(error.localizedDescription)"
         }

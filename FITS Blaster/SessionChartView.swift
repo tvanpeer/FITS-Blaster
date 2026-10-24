@@ -298,7 +298,9 @@ private struct ChartBody: View {
                 }
             }
         }
-        .chartXScale(domain: 0...max(2, chartPoints.count + 1))
+        // Points sit at their frame's index in chartEntries; frames without a value
+        // (still processing, no stars) have no point but still take a place (CODE_AUDIT §5.9).
+        .chartXScale(domain: 0...max(2, chartEntries.count + 1))
         .chartYScale(domain: yAxisDomain)
         .chartYAxis {
             AxisMarks(values: .automatic(desiredCount: 4)) { _ in

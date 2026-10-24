@@ -62,6 +62,20 @@ struct RemoveSelectedTests {
         #expect(store.selectedEntry == nil)
     }
 
+    // MARK: - Selection state after removal
+
+    @Test("Removed entries leave no IDs in the reject sets")
+    func removedIDsLeaveRejectSets() {
+        let (store, entries) = makeStore(count: 3)
+        store.markedForRejectionIDs = [entries[1].id, entries[2].id]
+        store.rejectedEntryIDs = [entries[1].id]
+        store.selectedEntry = entries[1]
+        store.removeSelected()
+
+        #expect(store.markedForRejectionIDs == [entries[2].id])
+        #expect(store.rejectedEntryIDs.isEmpty)
+    }
+
     // MARK: - Batch (flagged) removal
 
     @Test("Removing a flagged batch from the middle advances cursor past the batch")

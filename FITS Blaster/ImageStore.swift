@@ -469,6 +469,11 @@ final class ImageStore {
 
         entries.removeAll { idsToRemove.contains($0.id) }
         flaggedEntryIDs = []
+        // Removed IDs must not linger in the other selection state (CODE_AUDIT §5.15).
+        markedForRejectionIDs.subtract(idsToRemove)
+        rejectedEntryIDs.subtract(idsToRemove)
+        cursorPerFilterGroup = cursorPerFilterGroup.filter { !idsToRemove.contains($0.value) }
+        cursorPerVisibility = cursorPerVisibility.filter { !idsToRemove.contains($0.value) }
         selectedEntry = nextEntry
         updateGroupStatistics()
     }
