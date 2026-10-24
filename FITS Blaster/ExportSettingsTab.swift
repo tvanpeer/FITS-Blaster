@@ -51,10 +51,7 @@ struct ExportSettingsTab: View {
                     .scaledFont(size: 10)
                     .foregroundStyle(.secondary)
                 ExportHeaderKeyPicker(
-                    selection: Binding(
-                        get: { settings.exportHeaderKeys },
-                        set: { settings.exportHeaderKeys = $0 }
-                    ),
+                    selection: $settings.exportHeaderKeys,
                     availableKeys: availableKeys,
                     presentKeys: presentKeys
                 )

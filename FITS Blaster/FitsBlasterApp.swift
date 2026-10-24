@@ -58,7 +58,8 @@ struct FitsBlasterApp: App {
     init() {
         // NSInitialToolTipDelay is an undocumented AppKit UserDefaults key (milliseconds).
         // Default is ~1500 ms; 500 ms feels more responsive without being distracting.
-        UserDefaults.standard.set(500, forKey: "NSInitialToolTipDelay")
+        // Registered as a default, so a value set elsewhere isn't overwritten on every launch.
+        UserDefaults.standard.register(defaults: ["NSInitialToolTipDelay": 500])
     }
 
     var body: some Scene {

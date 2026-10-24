@@ -4,6 +4,21 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-24 — Text size, VoiceOver and small SwiftUI cleanups
+
+### Improved
+- **Text size** — the chart's axis labels and hover label, and the flip and flag badges on thumbnails, now follow the text-size setting (Settings → Interface → Appearance) like the rest of the app (CODE_AUDIT §8.3).
+- **VoiceOver** — the image is announced as a button that sets or clears the zoom anchor (§8.8).
+
+### Changed
+- The tooltip delay (500 ms) is registered as a default instead of being written to the user's settings on every launch (§4.7).
+- Code: direct binding for the export header keys, an `isShowingError` property for the error alert (§8.4), and the closure form of `overlay` (§8.7).
+
+### Docs
+- `docs/internal/architecture-plan.md` — release split: steps 2–15 are version 1.24, starting with 1.24-beta.1 (build 210) after steps 2–3.
+
+---
+
 ## 2026-10-23 — Fixes: shortcuts in other windows, REJECTED folder, chart, removing frames
 
 ### Fixed

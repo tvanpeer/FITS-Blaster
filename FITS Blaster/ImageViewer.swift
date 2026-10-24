@@ -83,6 +83,10 @@ struct ImageViewer: View {
                     }
                     store.zoomAnchor = norm
                 }
+                // The tap needs its location, so it can't be a Button; tell VoiceOver instead.
+                .accessibilityAddTraits(.isButton)
+                .accessibilityLabel("Frame")
+                .accessibilityHint("Sets the zoom anchor at the clicked point, or clears it when clicked again")
         }
         .scrollPosition($scrollPos)
         .scrollIndicators(.automatic)

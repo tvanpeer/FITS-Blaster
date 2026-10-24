@@ -28,7 +28,7 @@ struct ThumbnailCell: View {
                         if entry.isFlipped {
                             Image(systemName: "arrow.trianglehead.2.counterclockwise.rotate.90")
                                 .foregroundStyle(.white)
-                                .font(.system(size: 10))
+                                .scaledFont(size: 10)
                                 .padding(3)
                                 .background(.black.opacity(0.5), in: .rect(cornerRadius: 4))
                                 .padding(4)
@@ -37,7 +37,7 @@ struct ThumbnailCell: View {
                     if isFlagged {
                         Image(systemName: "checkmark.circle.fill")
                             .foregroundStyle(.white, Color.accentColor)
-                            .font(.system(size: 14))
+                            .scaledFont(size: 14)
                             .padding(4)
                     }
                 }

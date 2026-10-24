@@ -217,6 +217,8 @@ private struct ChartBody: View {
 
     @Environment(ImageStore.self) private var store
     @Environment(AppSettings.self) private var settings
+    /// The app's text-size setting; axis labels take a Font, not the scaledFont modifier.
+    @Environment(\.fontSizeMultiplier) private var fontScale
 
     @State private var dragStartX: CGFloat?
     @State private var dragCurrentX: CGFloat?
@@ -293,7 +295,7 @@ private struct ChartBody: View {
                 AxisGridLine().foregroundStyle(.secondary.opacity(0.25))
                 AxisValueLabel {
                     if let i = value.as(Int.self) {
-                        Text("\(i)").font(.system(size: 9))
+                        Text("\(i)").scaledFont(size: 9)
                     }
                 }
             }
@@ -305,7 +307,7 @@ private struct ChartBody: View {
         .chartYAxis {
             AxisMarks(values: .automatic(desiredCount: 4)) { _ in
                 AxisGridLine().foregroundStyle(.secondary.opacity(0.25))
-                AxisValueLabel().font(.system(size: 9))
+                AxisValueLabel().font(.system(size: (9 * fontScale).rounded()))
             }
         }
         .chartOverlay { proxy in
@@ -361,7 +363,7 @@ private struct ChartBody: View {
             if hi > lo {
                 Rectangle()
                     .fill(.blue.opacity(0.12))
-                    .overlay(Rectangle().stroke(.blue.opacity(0.35), lineWidth: 1))
+                    .overlay { Rectangle().stroke(.blue.opacity(0.35), lineWidth: 1) }
                     .frame(width: hi - lo, height: plotRect.height)
                     .offset(x: lo, y: plotRect.minY)
                     .allowsHitTesting(false)
@@ -399,7 +401,7 @@ private struct ChartBody: View {
     private func dragTooltip(proxy: ChartProxy, geo: GeometryProxy) -> some View {
         if let info = hoveredInfo(proxy: proxy, geo: geo) {
             Text(info.label)
-                .font(.system(size: 10))
+                .scaledFont(size: 10)
                 .foregroundStyle(.primary)
                 .padding(.horizontal, 6)
                 .padding(.vertical, 3)

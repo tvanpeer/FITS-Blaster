@@ -17,6 +17,8 @@ struct ContentView: View {
     @State private var keyMonitor: Any?
 
     var body: some View {
+        @Bindable var store = store
+
         ContentSplitLayout()
             .modifier(ContentFocusedValues())
             .frame(minWidth: minWindowWidth, minHeight: 400)
@@ -39,10 +41,7 @@ struct ContentView: View {
                 frame.size.width = max(frame.size.width, isSimple ? 500 : (settings.showInspector ? 960 : 700))
                 window.setFrame(frame, display: true, animate: true)
             }
-            .alert("Error", isPresented: Binding(
-                get: { store.errorMessage != nil },
-                set: { if !$0 { store.errorMessage = nil } }
-            )) {
+            .alert("Error", isPresented: $store.isShowingError) {
                 Button("OK") { store.errorMessage = nil }
             } message: {
                 Text(store.errorMessage ?? "")

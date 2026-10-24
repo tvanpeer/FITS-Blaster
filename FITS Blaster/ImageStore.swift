@@ -68,6 +68,12 @@ final class ImageStore {
     var restretchingMessage: String? = nil
 
     var errorMessage: String?
+
+    /// Drives the error alert: true while there is a message; dismissing the alert clears it.
+    var isShowingError: Bool {
+        get { errorMessage != nil }
+        set { if !newValue { errorMessage = nil } }
+    }
     var showOpenFolderOptions: Bool = false
 
     // MARK: - Session-level display adjustments

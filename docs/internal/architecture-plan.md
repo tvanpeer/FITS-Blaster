@@ -389,7 +389,7 @@ Still assumed from the concurrency plan (not asked again):
 - The drop handler (its question 4): try `dropDestination` first, keep `onDrop` as fallback.
 - `reprocessAll` and `openFilesPanel`: removed in step 3.
 
-**Release split:** a beta after each group. Step 1 as 1.23.1-beta.2, then a beta after steps 2–3, 4–7, 8–9, 10–12 and 13–15.
+**Release split:** a beta after each group. Step 1 as 1.23.1-beta.2. Steps 2–15 are version **1.24** (decided 2026-10-23): 1.24-beta.1 after steps 2–3 (build 210), then a beta after steps 4–7, 8–9, 10–12 and 13–15, and stable 1.24 (with an App Store build) at the end.
 
 ---
 
