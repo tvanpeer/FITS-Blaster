@@ -310,8 +310,8 @@
     <div class="beta-badge">Beta</div>
     <p>Test the latest features before they ship. Beta builds may contain bugs.</p>
     <!-- beta-button-start -->
-    <span class="download-btn disabled" aria-disabled="true">No beta available</span>
-    <p class="download-sub">macOS 15.6 or later</p>
+    <a class="download-btn" href="https://github.com/tvanpeer/FITS-Blaster/releases/download/v1.24-beta.1/FITS-Blaster-1.24-beta.1.dmg">Download Beta 1.24-beta.1</a>
+    <p class="download-sub">macOS 15.6 or later &nbsp;&middot;&nbsp; Free</p>
     <!-- beta-button-end -->
 </header>
 
@@ -327,7 +327,38 @@
     <h2>Beta release notes</h2>
     <p class="list-note">All betas since the last stable release, newest first.</p>
     <!-- beta-entry-start -->
-    <p class="no-beta">No beta at the moment. The current version is <a href="index.html">FITS Blaster 1.23.1</a>.</p>
+    <!-- v1.24-beta.1 -->
+    <div class="entry">
+        <div class="entry-header">
+            <div class="entry-title">1.24 beta 1: keyboard, REJECTED folder and chart fixes — v1.24-beta.1</div>
+            <div class="entry-date">2026-10-24 &nbsp;&middot;&nbsp; <a class="entry-link" href="https://github.com/tvanpeer/FITS-Blaster/releases/tag/v1.24-beta.1">GitHub release &#8599;</a></div>
+        </div>
+        <div class="section">
+            <span class="section-label label-fixed">Fixed</span>
+            <ul>
+                <li><strong>Keyboard shortcuts only act in the main window.</strong> Pressing a shortcut key in Settings, a sheet or a popover no longer flags, removes or rejects frames in the main window. Recording a shortcut on a key that's already in use works again.</li>
+                <li><strong>Undoing a rejection never deletes hidden files.</strong> The REJECTED folder is only removed when nothing but Finder's <code>.DS_Store</code> is left in it.</li>
+                <li><strong>A frame rejected in this session no longer loads twice</strong> when you reopen the folder with its REJECTED folder.</li>
+                <li><strong>Session chart while loading:</strong> dots appear at their final place, and clicking one selects the right frame.</li>
+                <li>Removing frames no longer leaves them in the reject selection.</li>
+            </ul>
+        </div>
+        <div class="section">
+            <span class="section-label label-improved">Improved</span>
+            <ul>
+                <li><strong>Text size</strong> (Settings → Interface → Appearance) now also applies to the chart's axis and hover labels and to the flag and flip badges on thumbnails.</li>
+                <li><strong>VoiceOver</strong> announces the image as a button that sets or clears the zoom anchor.</li>
+                <li>The explanation under Settings → Display → Colour Images is corrected.</li>
+            </ul>
+        </div>
+        <div class="section">
+            <span class="section-label label-under the hood">Under the hood</span>
+            <ul>
+                <li>About 500 lines of unused code removed and many outdated comments corrected, in preparation for the next 1.24 steps. Measurements and image rendering are unchanged.</li>
+            </ul>
+        </div>
+    </div>
+
 
 
     <!-- beta-entry-end -->

@@ -6,6 +6,40 @@
         <description>Beta release notes for FITS Blaster</description>
         <language>en-us</language>
         <item>
+            <title>FITS Blaster 1.24-beta.1</title>
+            <pubDate>Sat, 24 Oct 2026 10:16:02 +0000</pubDate>
+            <sparkle:version>210</sparkle:version>
+            <sparkle:shortVersionString>1.24-beta.1</sparkle:shortVersionString>
+            <description><![CDATA[
+<h2>2026-10-24 — 1.24 beta 1: keyboard, REJECTED folder and chart fixes</h2>
+<h3>Fixed</h3>
+<ul>
+  <li><b>Keyboard shortcuts only act in the main window.</b> Pressing a shortcut key in Settings, a sheet or a popover no longer flags, removes or rejects frames in the main window. Recording a shortcut on a key that&#x27;s already in use works again.</li>
+  <li><b>Undoing a rejection never deletes hidden files.</b> The REJECTED folder is only removed when nothing but Finder&#x27;s `.DS_Store` is left in it.</li>
+  <li><b>A frame rejected in this session no longer loads twice</b> when you reopen the folder with its REJECTED folder.</li>
+  <li><b>Session chart while loading:</b> dots appear at their final place, and clicking one selects the right frame.</li>
+  <li>Removing frames no longer leaves them in the reject selection.</li>
+</ul>
+<h3>Improved</h3>
+<ul>
+  <li><b>Text size</b> (Settings → Interface → Appearance) now also applies to the chart&#x27;s axis and hover labels and to the flag and flip badges on thumbnails.</li>
+  <li><b>VoiceOver</b> announces the image as a button that sets or clears the zoom anchor.</li>
+  <li>The explanation under Settings → Display → Colour Images is corrected.</li>
+</ul>
+<h3>Under the hood</h3>
+<ul>
+  <li>About 500 lines of unused code removed and many outdated comments corrected, in preparation for the next 1.24 steps. Measurements and image rendering are unchanged.</li>
+</ul>
+<p>---</p>
+<p>**[Full changelog](https://astrophoto-app.com/changelog.html)**</p>
+            ]]></description>
+            <enclosure
+                url="https://github.com/tvanpeer/FITS-Blaster/releases/download/v1.24-beta.1/FITS-Blaster-1.24-beta.1.dmg"
+                length="8588933"
+                type="application/octet-stream"
+                sparkle:edSignature="2tMWkjGD6qXr5bxXojAw1qZ8pBr4oXtUHtR2mAviDSs4QSPwK6GdJJUjjvSq1uJKOiQmVSzLruLRDb2OIWN9Aw==" />
+        </item>
+        <item>
             <title>FITS Blaster 1.23.1-beta.3</title>
             <pubDate>Wed, 21 Oct 2026 19:28:46 +0000</pubDate>
             <sparkle:version>207</sparkle:version>
