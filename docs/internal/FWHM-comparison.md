@@ -162,8 +162,8 @@ FWHM and eccentricity hardly change with debayering. Star detection, SNR and PSF
 | | 180 s | 0.50 | 0.51 | 0.99 |
 | Stars | 10 s | 2,769 | 702 | 3.94 |
 | | 180 s | 1,312 | 1,526 | 0.86 |
-| SNR | 10 s | 233 | 0.62 | — |
-| | 180 s | 128 | 1.97 | — |
+| SNR | 10 s | 249 | 0.62 | — |
+| | 180 s | 127 | 1.97 | — |
 | Score | 10 s | 51 (44–53) | — | — |
 | | 180 s | 41 (38–47) | — | — |
 
@@ -173,7 +173,7 @@ The trailed frames in REJECTED (FWHM 7.7–9.6, eccentricity 0.84–0.97) score 
 
 - **Within one exposure time FITS Blaster culls like PixInsight**: FWHM and eccentricity rank the frames the same way, and the score follows PixInsight's PSF Signal Weight (+0.74 and +0.86).
 - **What to expect:** for the same target and conditions, a longer exposure gives a higher SNR per frame (signal grows with t, noise with √t, so about √18 ≈ 4 × from 10 s to 180 s on unsaturated stars), more stars (fainter ones rise above the detection threshold) and a slightly larger FWHM (more seeing and tracking error averaged in). Exceptions are saturation and changing conditions. Here both sets were taken alternately on the same evening (19:47–20:59 local time) at about the same airmass (1.90–2.05 for the kept frames), so conditions don't explain a difference.
-- **Across exposure times it goes the other way.** From 10 s to 180 s PixInsight's star count, SNR and PSF Signal Weight rise (702 → 1,526; 0.62 → 1.97; 0.014 → 0.052). FITS Blaster's star count halves (2,769 → 1,312) and its SNR falls (233 → 128), so the 180 s frames score lower (41 against 51). FITS Blaster loses stars on the long exposures where PixInsight finds more; the next section shows why. Scores of frames with different exposure times can't be compared.
+- **Across exposure times it goes the other way.** From 10 s to 180 s PixInsight's star count, SNR and PSF Signal Weight rise (702 → 1,526; 0.62 → 1.97; 0.014 → 0.052). FITS Blaster's star count halves (2,769 → 1,312) and its SNR falls (249 → 127), so the 180 s frames score lower (41 against 51). FITS Blaster loses stars on the long exposures where PixInsight finds more; the next section shows why. Scores of frames with different exposure times can't be compared.
 - **FWHM reads 18 % high** with stars of about 3.4 px, between image C (1.10 at 6.3 px) and the mono sets (1.18–1.22 at 1.5–2.2 px); see source of difference 6.
 - The 10 s REJECTED frames are all trailed and score 30, the best kept frames 53: the score spreads over a narrow band, because eccentricity of 0.5 or more adds nothing (fixed scale 0–0.5) and SNR above 200 and star counts above 500 are full marks.
 

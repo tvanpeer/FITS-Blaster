@@ -28,3 +28,6 @@ tests/baseline-results/
 
 # Coverage data written by instrumented builds
 *.profraw
+
+# Python bytecode cache (scripts import each other)
+__pycache__/

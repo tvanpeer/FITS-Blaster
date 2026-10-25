@@ -17,11 +17,16 @@ What to test (default: build the current checkout as Release and use that):
 Options:
     --quick                 sample set only
     --only <name>           one dataset only (repeatable), e.g. --only asi294mm-sho
-    --data <dir>            test data folder (default: /Volumes/FITS Blaster/Test Data)
+    --data <dir>            test data folder (default: /Volumes/FITS Blaster/Test Data (baselines),
+                            the clone made by scripts/baseline-data.py)
     --update                write the results as the new baselines (after review!);
                             with --only, only those datasets' baselines are written
 
-Exit status: 0 when everything is within tolerance, 1 otherwise.
+Before running, each set is checked against its manifest (tests/baselines/<set>.sha256);
+a changed set stops the run with "test data changed" instead of metric differences.
+
+Exit status: 0 when everything is within tolerance, 1 otherwise, 2 when the test data
+changed.
 """
 
 import argparse
@@ -34,23 +39,13 @@ import tempfile
 from datetime import datetime
 from pathlib import Path
 
+import testdata
+from testdata import DATASETS, SAMPLE_ZIP
+
 REPO = Path(__file__).resolve().parent.parent
 BASELINES = REPO / "tests" / "baselines"
 RESULTS = REPO / "tests" / "baseline-results"
-DEFAULT_DATA = Path("/Volumes/FITS Blaster/Test Data")
-SAMPLE_ZIP = "Sample set (website)/FITS-Blaster-Sample-M31.zip"
-
-# Dataset name → folder relative to the test data (None = the sample set zip).
-DATASETS = {
-    "sample-m31": None,
-    "m31-night": "M31/LIGHT",
-    "california": "California Nebula IMX571/2026-02-25_Antlia ALP-T/LIGHT",
-    "gamma-cygni-0304": "Gamma Cygni Nebula IMX571/2026-03-04_Antlia ALP-T/LIGHT",
-    "rosette-r": "NGC 2244-Rosette_Nebula original/R",
-    "rosette-g": "NGC 2244-Rosette_Nebula original/G",
-    "rosette-b": "NGC 2244-Rosette_Nebula original/B",
-    "asi294mm-sho": "ASI294MM SHO",
-}
+DEFAULT_DATA = testdata.BASELINE_DATA
 
 # The standard filter: the same one the VM smoke test uses.
 FILTER_ARGS = ["-f", "1.5", "-e", "0.5", "-p", "0.5"]
@@ -245,7 +240,18 @@ def main():
         source = f"smoke-test results in {args.smoke_results}"
     else:
         if not args.data.is_dir():
-            sys.exit(f"Test data folder not found: {args.data} (use --data)")
+            sys.exit(f"Test data folder not found: {args.data} (run scripts/baseline-data.py create, "
+                     "or use --data)")
+        # Check the test data first, before the build.
+        names = args.only or (["sample-m31"] if args.quick else list(DATASETS))
+        changed = {name: problems for name in names
+                   if (problems := testdata.verify(name, args.data))}
+        if changed:
+            for name, problems in changed.items():
+                print(f"TEST DATA CHANGED  {name}: " + "; ".join(problems))
+            print("\nThe metrics were not compared. Restore the test data, or change a set on "
+                  "purpose (see scripts/baseline-data.py --help).")
+            return 2
         app = args.app or build_release()
         executable = app / "Contents" / "MacOS" / "FITS Blaster"
         if not executable.exists():
@@ -253,7 +259,6 @@ def main():
         source = f"{app.name} {app_version(app)}"
         out_dir = RESULTS / datetime.now().strftime("%Y%m%d-%H%M%S")
         out_dir.mkdir(parents=True)
-        names = args.only or (["sample-m31"] if args.quick else list(DATASETS))
         for name in names:
             folder = unzip_sample(args.data) if DATASETS[name] is None else args.data / DATASETS[name]
             print(f"Running {name}…", flush=True)

@@ -257,8 +257,10 @@ scripts/run-render-tests.sh --full    # also the large folders, about 5 minutes
 ```
 
 The tests (`RenderingTests` in the test target) are skipped in normal ⌘U runs;
-the script switches them on by pointing `FB_TEST_DATA` at
-`/Volumes/FITS Blaster/Test Data` (`--data` for another location).
+the script switches them on by pointing `FB_TEST_DATA` at the baseline copy of the
+test data, `/Volumes/FITS Blaster/Test Data (baselines)` (see
+[the test data](#the-test-data-a-cloned-checked-copy) in section 5; `--data` for
+another location), after checking it against its manifests.
 
 ### How they work
 
@@ -349,10 +351,52 @@ scripts/metric-baselines.py --smoke-results tests/smoke-results/<run>      # CSV
 
 Datasets: the sample set (unpacked from the published zip), the M31 night,
 California, Gamma Cygni 03-04, Rosette R, G and B, and ASI294MM SHO (mono
-narrowband H/O/S, `.fit` files, single-letter filter names; added 2026-10-21).
+narrowband H/O/S, `.fit` files, single-letter filter names; added 2026-10-21),
+and M42 10 s and 180 s (OSC, one night, two exposure times; added 2026-10-25).
+The M42 baselines record today's behaviour, which is known to be wrong across
+exposure times (star count and SNR fall at 180 s; `FWHM-comparison.md` set 3):
+a fix in master-plan step 13 will change them on purpose.
 Each run's CLI output is kept in `tests/baseline-results/<time>/` (not committed).
-To add a dataset, write only its baseline: `--only <name> --update`. A plain
-`--update` rewrites every baseline.
+To add a dataset: add it to `DATASETS` in `scripts/testdata.py`, run
+`scripts/baseline-data.py create --only <name>`, then write only its baseline with
+`--only <name> --update`. A plain `--update` rewrites every baseline.
+
+### The test data: a cloned, checked copy
+
+Both this script and the rendering tests read **`/Volumes/FITS Blaster/Test Data (baselines)`**,
+not `Test Data` itself (since 2026-10-24). Rejecting, moving or deleting frames
+in `Test Data` while trying out the app used to break the baselines: on
+2026-10-24 four M31 frames moved back from REJECTED and m31-night failed with
+"frames not in the baseline", although no metric had changed.
+
+- **A clone, not a copy.** `scripts/baseline-data.py create` makes the folders
+  with `cp -c` (APFS clonefile): separate files that share their data blocks
+  with the originals. The first eight sets (11 GB of files) took about 1 MB.
+  The space only grows when a file in one of the two places is changed or deleted.
+  Clones only work within a volume, so the copy sits next to `Test Data`.
+- **A manifest per set.** `tests/baselines/<set>.sha256` lists the files the
+  tests read (the FITS files directly in the set's folder, or the sample zip)
+  with their SHA-256. `metric-baselines.py` and `run-render-tests.sh` check
+  it before anything else and stop with **TEST DATA CHANGED** and the missing,
+  extra or changed files (exit 2) instead of comparing metrics.
+  `scripts/baseline-data.py verify` checks all sets on its own (`--only`,
+  `--render`, `--render-full`).
+- **Not locked.** The copy isn't write-protected; the manifests catch changes
+  but don't prevent them. Don't open `Test Data (baselines)` in the app.
+
+**Restoring `Test Data`.** If frames of a set get deleted from `Test Data`,
+`scripts/baseline-data.py restore [--only <set>]` clones them back from the
+baseline copy (no extra space). It only adds missing files and never
+overwrites one; a changed file is reported. `verify --data "/Volumes/FITS
+Blaster/Test Data"` shows what differs. This covers the frames the tests read;
+for everything else in `Test Data` there is the CCC backup (a separate task
+since 2026-10-25).
+
+**Changing a set on purpose** (new frames, a different selection): delete the
+set's folder in `Test Data (baselines)` and its `.sha256`, run
+`scripts/baseline-data.py create --only <set>` (it clones the current state
+of `Test Data`), then `scripts/metric-baselines.py --only <set> --update`, and
+commit the manifest and baseline together with the reason.
 
 ### What it checks
 

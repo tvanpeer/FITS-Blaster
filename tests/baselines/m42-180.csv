@@ -1,0 +1,10 @@
+path,fwhm,eccentricity,snr,stars,psf_signal_weight,score,kept
+2025-03-04_19-48-14_None_Temp_-9.90_Gain_100_Off_200_Exp_180.00s_High Conversion Gain#0000.fits,4.23,0.500,94.2,1165,102.5,38,
+2025-03-04_19-51-51_None_Temp_-9.90_Gain_100_Off_200_Exp_180.00s_High Conversion Gain#0001.fits,4.18,0.487,111.1,1281,119.0,41,yes
+2025-03-04_19-55-51_None_Temp_-10.00_Gain_100_Off_200_Exp_180.00s_High Conversion Gain#0002.fits,4.29,0.467,119.5,1398,131.4,42,yes
+2025-03-04_20-03-28_None_Temp_-9.90_Gain_100_Off_200_Exp_180.00s_High Conversion Gain#0004.fits,4.64,0.518,120.0,1325,132.2,38,
+2025-03-04_20-07-05_None_Temp_-10.00_Gain_100_Off_200_Exp_180.00s_High Conversion Gain#0005.fits,4.42,0.504,128.3,1309,137.8,40,
+2025-03-04_20-10-57_None_Temp_-9.90_Gain_100_Off_200_Exp_180.00s_High Conversion Gain#0006.fits,4.27,0.492,127.3,1312,138.5,41,yes
+2025-03-04_20-14-35_None_Temp_-9.90_Gain_100_Off_200_Exp_180.00s_High Conversion Gain#0007.fits,4.28,0.507,139.3,1310,153.0,42,
+2025-03-04_20-38-18_None_Temp_-9.90_Gain_100_Off_200_Exp_180.00s_High Conversion Gain#0010.fits,4.05,0.542,166.3,1353,171.8,47,
+2025-03-04_20-46-29_None_Temp_-9.90_Gain_100_Off_200_Exp_180.00s_High Conversion Gain#0012.fits,4.40,0.523,156.7,1392,171.6,43,

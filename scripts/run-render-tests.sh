@@ -5,7 +5,11 @@
 #   scripts/run-render-tests.sh [--full] [--data <test data folder>]
 #
 #   --full   also the large folders (M31 night, California, Gamma Cygni, Rosette R/G/B)
-#   --data   test data folder (default: /Volumes/FITS Blaster/Test Data)
+#   --data   test data folder (default: /Volumes/FITS Blaster/Test Data (baselines), the
+#            clone made by scripts/baseline-data.py)
+#
+# The sets are checked against their manifests (tests/baselines/*.sha256) first; a
+# changed set stops the run before the tests (exit 2).
 #
 # Each folder's typical frame (PNG) and all frames' backgrounds (CSV) are written to
 # tests/render-results/<time>/ (not committed). See docs/internal/testing.md.
@@ -14,7 +18,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-DATA="/Volumes/FITS Blaster/Test Data"
+DATA="/Volumes/FITS Blaster/Test Data (baselines)"
 FULL=0
 
 while [[ $# -gt 0 ]]; do
@@ -25,7 +29,11 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-[[ -d "$DATA" ]] || { echo "Test data folder not found: $DATA" >&2; exit 1; }
+[[ -d "$DATA" ]] || { echo "Test data folder not found: $DATA (run scripts/baseline-data.py create, or use --data)" >&2; exit 1; }
+
+# The test data must match its manifests, or a failure would be blamed on the app.
+SETS=--render; [[ $FULL == 1 ]] && SETS=--render-full
+python3 "$SCRIPT_DIR/baseline-data.py" verify --data "$DATA" "$SETS" || exit 2
 
 # TEST_RUNNER_* is how xcodebuild forwards env vars into the test process.
 env TEST_RUNNER_FB_TEST_DATA="$DATA" TEST_RUNNER_FB_TEST_DATA_FULL="$FULL" \

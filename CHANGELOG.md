@@ -4,6 +4,17 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-24 — Testing: a cloned, checked copy of the test data
+
+### Testing
+- **Baseline copy of the test data** — the metric baselines and the rendering tests now read `/Volumes/FITS Blaster/Test Data (baselines)`, APFS clones (`cp -c`) of the eight sets in `Test Data`: separate files that share their data, so 11 GB of frames took about 1 MB. Rejecting or moving frames in `Test Data` no longer breaks the tests (on 2026-10-24 four M31 frames moved back from REJECTED and m31-night failed although no metric had changed).
+- **Manifests** — `tests/baselines/<set>.sha256` lists the files each set's tests read, with SHA-256. `metric-baselines.py` (before the build) and `run-render-tests.sh` check them first and stop with "TEST DATA CHANGED" and the missing, extra or changed files (exit 2) instead of reporting metric differences. Checking all sets takes about 9 seconds.
+- **M42 10 s and 180 s** added as baseline sets (`m42-10`, `m42-180`): one night, two exposure times. Their baselines record today's values, which are known to be wrong across exposure times (star count and SNR fall at 180 s); a fix in master-plan step 13 will change them on purpose.
+- New `scripts/baseline-data.py` (`create`, `verify`, and `restore`, which clones frames missing from `Test Data` back from the baseline copy without overwriting anything) and `scripts/testdata.py` (the set list, shared by the scripts). `docs/internal/testing.md` explains the copy and how to change a set on purpose. `__pycache__/` added to `.gitignore`.
+- `docs/internal/FWHM-comparison.md`: the M42 median SNR of FITS Blaster is 249 (10 s) and 127 (180 s), not 233 and 128 as written on 2026-10-23.
+
+---
+
 ## 2026-10-24 — 1.24 beta 1: keyboard, REJECTED folder and chart fixes
 
 ### Fixed
