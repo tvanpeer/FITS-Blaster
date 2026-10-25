@@ -376,13 +376,14 @@ final class ImageStore {
     }
 
     func reset() {
+        // Stop all work first, so a running load can't add frames to the new session (§3.1).
+        pipeline.reset()
         entries = []
         rejectionVisibility = .all
         selectedEntry = nil
         flaggedEntryIDs = []
         markedForRejectionIDs = []
         rejectedEntryIDs = []
-        pipeline.clearBatchState()
         errorMessage = nil
         sidebarFilterGroup = nil
         cursorPerFilterGroup = [:]

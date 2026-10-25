@@ -4,6 +4,38 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-25 — One batch at a time; renders that can't go stale (step 6b)
+
+### Fixed
+- **A second folder during a load** (opened or dropped) is now queued and loads after the first. Before, both ran at once and the first to finish cleared "busy": the progress bars disappeared and Cancel greyed out while the second load was still running (CODE_AUDIT §3.1).
+- **Reset during a load** stops it first. Before, the load kept the GPU busy and could still add its frames to the emptied session.
+- **Turning colour on during a load** now runs after the load, so every frame ends in colour, including the ones that weren't loaded yet when colour was turned on (before, those stayed grey). **Turning it off during a colour load**, or on and off quickly, ends on the last setting: a render of an earlier setting no longer replaces a newer one (§3.2).
+- **Cancel** now also stops a colour re-render, and starts no new star detection: frames still waiting for it are released at once instead of being measured one by one after Cancel (§3.4).
+- **Folder access** (App Store build): kept until all of a batch's work has ended, also after Cancel, so late renders no longer fail silently (§3.6).
+- **Rejecting a frame while it waits for a re-render**: the re-render reads the file at its new place in REJECTED instead of failing silently (§3.9).
+
+### Changed
+- A colour toggle is a batch: Cancel is active while it runs. The info bar still shows only its own Sampling / Restretching bars.
+- A display-size change in Settings during a load waits for the load.
+- The time on the info bar ("…s for n images") is the batch's own time from when it starts, not from when it was queued.
+
+### Improved
+- **Memory with many folders or filters:** all re-reads and re-renders (colour per folder, grey normalisation per folder and filter, colour sampling, grey re-render, metrics recompute) share one limit of max(4, cores − 2) at a time, instead of each folder or group having its own. Phase A and Phase B keep their own limits (§3.5).
+- **Folder bookmarks** are resolved once per folder for a batch instead of once per frame, on the main thread; access is stopped only where it was started, also for reject and undo (§7.6).
+
+### Internal
+- `LoadPipeline.enqueueBatch`: each batch waits for the one before it (also for a cancelled one's work still in flight); only the newest clears "busy" (`processingBatchID`); cancelling a batch cancels the ones queued before it. `openFiles`, `regenerateSizes`, `recomputeMetrics` and `recolorImages` use it; the frames to work on, the duplicate check and "select the first frame" are taken when the batch starts.
+- `renderGeneration`, raised by a colour toggle and by Reset: colour and grey re-renders of Bayer frames update the display only while their generation is current; the render caches are filled either way. A colour toggle that is already stale when its turn comes is skipped.
+- `AsyncSemaphore.wait()` returns false, without a slot, when the task is cancelled before or while waiting.
+- After Cancel the colour renders of a batch are cancelled and the batch waits for the work already running (`waitForSpawned`); `reset()` calls `pipeline.reset()` first. `accessFolders(for:)` replaces the per-frame `accessDirectory` calls of the batches; `accessDirectory` returns whether access was started.
+- Helpers for the copied code (§9.9): `forEachWithRenderSlot`, `spawnColourRender`, `megapixels(of:)`; the caps are named constants (`phaseAConcurrency`, `phaseBConcurrency`, `renderConcurrency`, concurrency part of §9.14).
+- Tests: `BatchQueueTests` (order, busy until the last batch, Cancel and Reset stop running and queued batches, a batch after Cancel waits for the cancelled one, the same folder twice, Reset during a load, a size change queued behind a load, a queued re-render after a reject), `AsyncSemaphoreTests` (cancelled waiters get no slot), `RenderGenerationTests` (on then off, off then on, colour on and off during a load, three quick toggles, Reset during a colour render, a toggle without Bayer frames), on synthetic RGGB frames. The new suites have a one-minute time limit.
+- **Measured** (CLI, full pipeline, the step 5 build and this one alternated, 3 rounds): Rosette large (464 mono frames, 8 folders × 3 filters) **peak memory 4.3–4.5 GB → 1.0 GB**, time 11.6–14.4 s → 10.7–10.8 s; M81 grey (355 frames, 3 folders) 13.3–15.9 s → 13.2–14.5 s, 2.2–2.4 GB both; M81 in colour 36.5–37.8 s → 37.3–38.4 s (≈ 1.6 % slower on average, about the run-to-run spread), 2.8–2.9 GB both. Unit tests (294), render tests and the 10 metric baselines pass unchanged; the strict build has the four known warnings.
+- VM smoke test passed on macOS 15.8.1, 26.6.2, 27.0.1 and 27.2 (0 failed, 0 warnings). 👤 Checked in the app: a second folder during a load, Reset during a load, colour off / on during a load, three quick toggles and Cancel during a re-render, a display-size change during a load, Cancel in Geek mode then the next folder, drag and drop of folders, files and a mix.
+- Not changed: switching to Geek mode while a batch runs still doesn't recompute the missing metrics (`recomputeMetrics` skips during a batch, as before); because a colour toggle is now a batch, this also applies while a colour re-render runs.
+
+---
+
 ## 2026-10-25 — Loading pipeline in its own type (step 6a)
 
 ### Internal

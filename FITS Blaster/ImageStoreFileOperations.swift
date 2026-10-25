@@ -13,13 +13,14 @@ extension ImageStore {
 
     // MARK: - Bookmark / security-scoped access
 
-    /// Resolves the directory bookmark for an entry, granting security-scoped access.
-    /// The caller must call `stopAccessingSecurityScopedResource()` on the returned URL.
+    /// Resolves the directory bookmark for an entry and starts security-scoped access.
+    /// When `didStart` is true the caller must call `stopAccessingSecurityScopedResource()`
+    /// on the returned URL, and only then (CODE_AUDIT §7.6).
     ///
     /// If the stored bookmark is missing or stale, falls back to creating a fresh bookmark
     /// from the entry's parent directory — this succeeds when the user-selected.read-write
     /// entitlement still covers that directory (i.e. during the same app session).
-    func accessDirectory(for entry: ImageEntry) -> URL? {
+    func accessDirectory(for entry: ImageEntry) -> (url: URL, didStart: Bool)? {
         // Fast path: resolve the stored security-scoped bookmark.
         if let bookmark = entry.directoryBookmark {
             var isStale = false
@@ -27,7 +28,7 @@ extension ImageStore {
                                      options: .withSecurityScope,
                                      relativeTo: nil,
                                      bookmarkDataIsStale: &isStale) {
-                _ = dirURL.startAccessingSecurityScopedResource()
+                let didStart = dirURL.startAccessingSecurityScopedResource()
                 if isStale {
                     // Refresh the stored bookmark while we still have access.
                     let fresh = try? dirURL.bookmarkData(
@@ -36,7 +37,7 @@ extension ImageStore {
                         relativeTo: nil)
                     entry.directoryBookmark = fresh
                 }
-                return dirURL
+                return (dirURL, didStart)
             }
         }
 
@@ -53,8 +54,32 @@ extension ImageStore {
                                     options: .withSecurityScope,
                                     relativeTo: nil,
                                     bookmarkDataIsStale: &isStale) else { return nil }
-        _ = dirURL.startAccessingSecurityScopedResource()
-        return dirURL
+        let didStart = dirURL.startAccessingSecurityScopedResource()
+        return (dirURL, didStart)
+    }
+
+    /// Starts security-scoped access to the folders of `entries` for a batch, resolving
+    /// each distinct bookmark once instead of once per frame (CODE_AUDIT §7.6). Frames
+    /// without a bookmark are grouped by their folder. Returns the folders whose access
+    /// was started; the caller stops exactly those when all its work has ended.
+    func accessFolders(for entries: [ImageEntry]) -> [URL] {
+        var started: [URL] = []
+        var groups: [String: [ImageEntry]] = [:]
+        var order: [String] = []
+        for entry in entries {
+            let key = entry.directoryBookmark.map { "bookmark:" + $0.base64EncodedString() }
+                ?? "folder:" + entry.url.deletingLastPathComponent().path(percentEncoded: false)
+            if groups[key] == nil { order.append(key) }
+            groups[key, default: []].append(entry)
+        }
+        for key in order {
+            guard let group = groups[key], let first = group.first,
+                  let access = accessDirectory(for: first) else { continue }
+            // A refreshed or new bookmark applies to the whole group.
+            for entry in group.dropFirst() { entry.directoryBookmark = first.directoryBookmark }
+            if access.didStart { started.append(access.url) }
+        }
+        return started
     }
 
     /// The session bookmark of the deepest opened, dropped or granted folder that
@@ -119,12 +144,12 @@ extension ImageStore {
     private func moveToRejected(_ entry: ImageEntry) -> MoveResult {
         let canAsk = asksForFolderAccess && bookmark(for: entry.url) == nil
 
-        guard let dirURL = accessDirectory(for: entry) else {
+        guard let access = accessDirectory(for: entry) else {
             if canAsk { return .needsFolderAccess }
             errorMessage = "Failed to reject \(entry.fileName): folder access unavailable. Close and re-open the folder to restore access."
             return .failed
         }
-        defer { dirURL.stopAccessingSecurityScopedResource() }
+        defer { if access.didStart { access.url.stopAccessingSecurityScopedResource() } }
 
         let originalURL = entry.url
         let parentDir = originalURL.deletingLastPathComponent()
@@ -309,11 +334,11 @@ extension ImageStore {
     }
 
     func undoRejectEntry(_ entry: ImageEntry) {
-        guard let dirURL = accessDirectory(for: entry) else {
+        guard let access = accessDirectory(for: entry) else {
             errorMessage = "Failed to undo rejection of \(entry.fileName): folder access unavailable. Close and re-open the folder to restore access."
             return
         }
-        defer { dirURL.stopAccessingSecurityScopedResource() }
+        defer { if access.didStart { access.url.stopAccessingSecurityScopedResource() } }
 
         let currentURL = entry.url
         let originalURL = entry.originalURL

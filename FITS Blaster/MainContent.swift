@@ -93,10 +93,11 @@ private struct InfoBar: View {
         HStack {
             if let preparation = store.pipeline.preparation {
                 LoadPreparationView(preparation: preparation)
+            } else if store.pipeline.restretchingMessage != nil {
+                // A colour toggle (a batch too): only its own bars, not Loaded / Metrics.
+                BatchProgressBar(store: store, showLoadedMetrics: false)
             } else if store.pipeline.isBatchProcessing {
                 BatchProgressBar(store: store, showLoadedMetrics: true)
-            } else if store.pipeline.restretchingMessage != nil {
-                BatchProgressBar(store: store, showLoadedMetrics: false)
             } else if let elapsed = store.pipeline.batchElapsed {
                 let n   = store.pipeline.batchImageCount ?? 0
                 let fps = elapsed > 0 ? Double(n) / elapsed : 0

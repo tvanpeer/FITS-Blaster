@@ -7,6 +7,10 @@
 //  state the progress UI shows. Owned by ImageStore (`store.pipeline`); the per-file
 //  work is in FrameLoading.
 //
+//  Batches run one at a time, in the order they were asked for (`enqueueBatch`,
+//  CODE_AUDIT §3.1). A colour or grey re-render only changes what is shown while its
+//  `renderGeneration` is current, so a replaced render never overwrites a newer one (§3.2).
+//
 
 import Foundation
 import AppKit
@@ -19,6 +23,21 @@ final class LoadPipeline {
     /// The store whose entries this pipeline loads; set by `ImageStore.init`.
     @ObservationIgnored weak var store: ImageStore?
 
+    // MARK: - Concurrency limits
+
+    /// Phase A (read, histogram, grey stretch) frames at once: high, to keep the disk busy.
+    nonisolated static let phaseAConcurrency = max(8, ProcessInfo.processInfo.activeProcessorCount)
+    /// Phase B (star detection, Moffat fitting) frames at once; bounds the live full-frame
+    /// Metal buffers kept from Phase A.
+    nonisolated static let phaseBConcurrency = max(4, ProcessInfo.processInfo.activeProcessorCount - 2)
+    /// Re-reads and re-renders at once across the whole pipeline: colour per folder, grey
+    /// normalisation per group, colour sampling, grey re-render and the metrics recompute
+    /// share these slots, so the number of folders or filters doesn't multiply the live
+    /// full-frame buffers (CODE_AUDIT §3.5).
+    nonisolated static let renderConcurrency = max(4, ProcessInfo.processInfo.activeProcessorCount - 2)
+
+    @ObservationIgnored private let renderSlots = AsyncSemaphore(count: LoadPipeline.renderConcurrency)
+
     // MARK: - Batch state
 
     var batchElapsed: Double?
@@ -27,8 +46,21 @@ final class LoadPipeline {
     var batchImageCount: Int?
     var isBatchProcessing: Bool = false
 
-    /// The currently running load / reprocess task. Stored so it can be cancelled by the user.
+    /// The newest batch: it waits for the batches queued before it. Stored so it can be
+    /// cancelled by the user; nil when nothing is queued.
     var processingTask: Task<Void, Never>?
+
+    /// Identifies the newest batch; only that batch may clear the busy state when it ends.
+    @ObservationIgnored private(set) var processingBatchID: UUID?
+
+    /// The last batch started, also after it was cancelled: a new batch waits for it, so
+    /// the work a cancelled batch still has in flight ends before the next one starts.
+    @ObservationIgnored private var lastBatch: Task<Void, Never>?
+
+    /// Raised whenever the wanted colour rendering changes (colour toggle, Reset). A colour
+    /// or grey re-render only updates the display while its generation is current; the
+    /// render caches are filled either way (CODE_AUDIT §3.2).
+    @ObservationIgnored private(set) var renderGeneration = 0
 
     /// The folder scan of a drag & drop, before its batch load starts (`openDroppedItems`).
     var dropScanTask: Task<Void, Never>?
@@ -36,7 +68,7 @@ final class LoadPipeline {
     /// What a load is doing before its frames appear (scanning, checking headers); nil otherwise.
     var preparation: LoadPreparation?
 
-    /// Suspends the caller until any in-progress drop scan and batch load complete.
+    /// Suspends the caller until any in-progress drop scan and all queued batches complete.
     /// Used by CLI mode and the tests.
     func waitForProcessing() async {
         await dropScanTask?.value
@@ -58,15 +90,17 @@ final class LoadPipeline {
     /// Non-nil while a restretch pass is running; the value is the status message to display.
     var restretchingMessage: String? = nil
 
-    /// Cancels any in-progress loading or recompute batch.
-    /// In-flight GPU/I/O tasks run to completion (they can't be interrupted mid-flight),
+    /// Cancels the running batch and every batch queued behind it, and the drop scan.
+    /// In-flight GPU/I/O work runs to completion (it can't be interrupted mid-flight),
     /// but no new work is started and the UI is cleaned up immediately.
     func cancelProcessing() {
         dropScanTask?.cancel()
         dropScanTask = nil
         processingTask?.cancel()
         processingTask = nil
+        processingBatchID = nil
         preparation = nil
+        restretchingMessage = nil
         for entry in store?.entries ?? [] where entry.isProcessing {
             entry.isProcessing = false
         }
@@ -76,16 +110,66 @@ final class LoadPipeline {
         batchImageCount = nil
     }
 
-    /// Clears the batch display state, as Reset does.
-    func clearBatchState() {
-        batchElapsed = nil
-        batchMegapixels = nil
-        batchImageCount = nil
-        isBatchProcessing = false
+    /// Stops all work and clears the batch state; called by `ImageStore.reset()` before it
+    /// empties the session, so a running load can't add frames to the new one (§3.1).
+    func reset() {
+        cancelProcessing()
+        renderGeneration += 1
         batchRestretchTotal = 0
         batchRestretchCount = 0
         batchSamplingTotal = 0
         batchSamplingCount = 0
+    }
+
+    // MARK: - Batch queue
+
+    /// Queues a batch behind any batch already running and returns at once (CODE_AUDIT §3.1).
+    /// `body` returns the entries it loaded, for the timing line ("…s for n images"), or
+    /// nil when it did no load work. With `showsTiming` false (a colour re-render) the
+    /// timing line of the last load stays.
+    func enqueueBatch(showsTiming: Bool = true,
+                      _ body: @escaping @MainActor (LoadPipeline, ImageStore) async -> [ImageEntry]?) {
+        let previous = lastBatch
+        let batchID = UUID()
+        processingBatchID = batchID
+        isBatchProcessing = true
+        if showsTiming {
+            batchElapsed = nil
+            batchMegapixels = nil
+            batchImageCount = nil
+        }
+        let task = Task(priority: .utility) { [weak self] in
+            // Cancelling this batch also cancels the batches queued before it.
+            await withTaskCancellationHandler {
+                await previous?.value
+            } onCancel: {
+                previous?.cancel()
+            }
+            guard let self, let store = self.store, !Task.isCancelled else { return }
+            // The time shown is the batch's own, from when it starts, not when it was queued.
+            let startTime = CFAbsoluteTimeGetCurrent()
+            let processed = await body(self, store)
+            guard !Task.isCancelled, self.processingBatchID == batchID else { return }
+            if showsTiming, let processed {
+                self.batchElapsed = CFAbsoluteTimeGetCurrent() - startTime
+                self.batchImageCount = processed.count
+                self.batchMegapixels = Self.megapixels(of: processed)
+            }
+            self.isBatchProcessing = false
+            self.processingTask = nil
+            self.processingBatchID = nil
+        }
+        processingTask = task
+        lastBatch = task
+    }
+
+    /// Total image size of `entries` in megapixels, from their NAXIS1 × NAXIS2 headers.
+    static func megapixels(of entries: [ImageEntry]) -> Double {
+        entries.reduce(0.0) {
+            guard let w = $1.headers["NAXIS1"].flatMap(Int.init),
+                  let h = $1.headers["NAXIS2"].flatMap(Int.init) else { return $0 }
+            return $0 + Double(w * h) / 1_000_000
+        }
     }
 
     // MARK: - Loading
@@ -97,41 +181,34 @@ final class LoadPipeline {
                    maxDisplaySize: Int = 1024, maxThumbnailSize: Int = 120,
                    metricsConfig: MetricsConfig = MetricsConfig(),
                    debayerColorImages: Bool = false) {
-        guard let store else { return }
-        let selectFirst = (store.selectedEntry == nil)
-
-        // Snapshot existing URLs now, on the main actor, before handing off to the task.
-        // Both paths of each entry: a file rejected this session sits at …/REJECTED/x.fits
-        // (url) while originalURL is …/x.fits, and reopening the folder with REJECTED
-        // scans the former (CODE_AUDIT §5.8).
-        let existingURLs = Set(store.entries.flatMap { [$0.url, $0.originalURL] })
-
-        batchElapsed = nil
-        batchMegapixels = nil
-        batchImageCount = nil
-        isBatchProcessing = true
-        let startTime = CFAbsoluteTimeGetCurrent()
-
-        processingTask = Task(priority: .utility) { [weak self] in
-            guard let self else { return }
+        enqueueBatch { pipeline, store in
+            // Taken when the batch starts, not when it was queued: an earlier batch may
+            // still have added frames, so the same folder dropped twice loads once.
+            let selectFirst = (store.selectedEntry == nil)
+            // Both paths of each entry: a file rejected this session sits at …/REJECTED/x.fits
+            // (url) while originalURL is …/x.fits, and reopening the folder with REJECTED
+            // scans the former (CODE_AUDIT §5.8).
+            let existingURLs = Set(store.entries.flatMap { [$0.url, $0.originalURL] })
 
             // Phase 0: validate files off the main thread.
             //
-            // peekBitpix does a synchronous FileHandle.read — moving it here via a
+            // peekBitpix does a synchronous file read — moving it here via a
             // nonisolated function ensures the main thread is never blocked by slow
             // I/O (iCloud materialisation, SMB mounts, heavy disk pressure, etc.).
             // Over a network this reads hundreds of files, so its progress is shown.
             let total = urlsWithPaths.count
-            preparation = .checking(done: 0, total: total)
+            pipeline.preparation = .checking(done: 0, total: total)
             let (progress, progressContinuation) = AsyncStream.makeStream(of: Int.self,
                                                                           bufferingPolicy: .bufferingNewest(1))
             async let filtered = FrameLoading.filterItems(urlsWithPaths, existingURLs: existingURLs,
-                                                  progress: progressContinuation)
+                                                          progress: progressContinuation)
             for await done in progress {
-                preparation = .checking(done: done, total: total)
+                pipeline.preparation = .checking(done: done, total: total)
             }
             let (validItems, skippedFloat) = await filtered
-            preparation = nil
+            // Reset or Cancel during the check: add nothing to the (new) session.
+            guard !Task.isCancelled else { return nil }
+            pipeline.preparation = nil
 
             // Add entries on the main actor so the sidebar shows loading spinners.
             var newEntries: [ImageEntry] = []
@@ -159,11 +236,7 @@ final class LoadPipeline {
                 let suffix  = skippedFloat.count > 5 ? " and \(skippedFloat.count - 5) more" : ""
                 store.errorMessage = "Skipped \(skippedFloat.count) floating-point FITS file\(skippedFloat.count == 1 ? "" : "s") (not supported): \(preview)\(suffix)"
             }
-            guard !newEntries.isEmpty else {
-                isBatchProcessing = false
-                processingTask = nil
-                return
-            }
+            guard !newEntries.isEmpty else { return nil }
 
             if selectFirst { store.selectedEntry = newEntries[0] }
 
@@ -171,25 +244,16 @@ final class LoadPipeline {
             store.updateActiveFilterGroups()
             store.updateCachedSort()
 
-            await processParallel(newEntries, selectFirst: selectFirst,
-                                  maxDisplaySize: maxDisplaySize,
-                                  maxThumbnailSize: maxThumbnailSize,
-                                  metricsConfig: metricsConfig,
-                                  debayerColorImages: debayerColorImages)
+            await pipeline.processParallel(newEntries, selectFirst: selectFirst,
+                                           maxDisplaySize: maxDisplaySize,
+                                           maxThumbnailSize: maxThumbnailSize,
+                                           metricsConfig: metricsConfig,
+                                           debayerColorImages: debayerColorImages)
             if !Task.isCancelled {
-                await normalizeGreyStretch(newEntries, maxDisplaySize: maxDisplaySize,
-                                           maxThumbnailSize: maxThumbnailSize)
+                await pipeline.normalizeGreyStretch(newEntries, maxDisplaySize: maxDisplaySize,
+                                                    maxThumbnailSize: maxThumbnailSize)
             }
-            guard !Task.isCancelled else { return }
-            batchElapsed = CFAbsoluteTimeGetCurrent() - startTime
-            batchImageCount = newEntries.count
-            batchMegapixels = newEntries.reduce(0.0) {
-                guard let w = $1.headers["NAXIS1"].flatMap(Int.init),
-                      let h = $1.headers["NAXIS2"].flatMap(Int.init) else { return $0 }
-                return $0 + Double(w * h) / 1_000_000
-            }
-            isBatchProcessing = false
-            processingTask = nil
+            return newEntries
         }
     }
 
@@ -197,35 +261,32 @@ final class LoadPipeline {
     ///
     /// Unlike a normal load, this never runs Phase B (star detection). After Phase A
     /// completes, each entry's `metrics` is restored from its `cachedMetrics` so the
-    /// displayed values remain unchanged throughout.
+    /// displayed values remain unchanged throughout. Queued behind a running load.
     func regenerateSizes(settings: AppSettings) {
-        guard let store else { return }
-        let entriesToProcess = store.entries
         let metricsConfig    = settings.effectiveMetricsConfig
-        for entry in entriesToProcess {
-            entry.isProcessing = true
-            entry.displayImage = nil
-            entry.thumbnail    = nil
-            entry.histogram    = nil
-            // Intentionally leave entry.metrics and entry.cachedMetrics intact.
-        }
+        let maxDisplaySize   = settings.maxDisplaySize
+        let maxThumbnailSize = settings.maxThumbnailSize
+        let debayer          = settings.debayerColorImages
+        enqueueBatch { pipeline, store in
+            // The frames when the batch starts, including those a queued load added.
+            let entriesToProcess = store.entries
+            for entry in entriesToProcess {
+                entry.isProcessing = true
+                entry.displayImage = nil
+                entry.thumbnail    = nil
+                entry.histogram    = nil
+                // Intentionally leave entry.metrics and entry.cachedMetrics intact.
+            }
 
-        let accessedDirs = entriesToProcess.compactMap { store.accessDirectory(for: $0) }
+            let folders = store.accessFolders(for: entriesToProcess)
+            defer { for folder in folders { folder.stopAccessingSecurityScopedResource() } }
 
-        batchElapsed = nil
-        batchMegapixels = nil
-        batchImageCount = nil
-        isBatchProcessing = true
-        let startTime = CFAbsoluteTimeGetCurrent()
-
-        processingTask = Task { [weak self] in
-            guard let self else { return }
             // Pass an all-disabled MetricsConfig so processParallel skips Phase B entirely.
-            await processParallel(entriesToProcess, selectFirst: false,
-                                  maxDisplaySize: settings.maxDisplaySize,
-                                  maxThumbnailSize: settings.maxThumbnailSize,
-                                  metricsConfig: .off,
-                                  debayerColorImages: settings.debayerColorImages)
+            await pipeline.processParallel(entriesToProcess, selectFirst: false,
+                                           maxDisplaySize: maxDisplaySize,
+                                           maxThumbnailSize: maxThumbnailSize,
+                                           metricsConfig: .off,
+                                           debayerColorImages: debayer)
             // Restore metric values from cache now that Phase A is done.
             for entry in entriesToProcess {
                 if let cached = entry.cachedMetrics {
@@ -233,21 +294,11 @@ final class LoadPipeline {
                 }
             }
             if !Task.isCancelled {
-                await normalizeGreyStretch(entriesToProcess,
-                                           maxDisplaySize: settings.maxDisplaySize,
-                                           maxThumbnailSize: settings.maxThumbnailSize)
+                await pipeline.normalizeGreyStretch(entriesToProcess,
+                                                    maxDisplaySize: maxDisplaySize,
+                                                    maxThumbnailSize: maxThumbnailSize)
             }
-            for dirURL in accessedDirs { dirURL.stopAccessingSecurityScopedResource() }
-            guard !Task.isCancelled else { return }
-            batchElapsed = CFAbsoluteTimeGetCurrent() - startTime
-            batchImageCount = entriesToProcess.count
-            batchMegapixels = entriesToProcess.reduce(0.0) {
-                guard let w = $1.headers["NAXIS1"].flatMap(Int.init),
-                      let h = $1.headers["NAXIS2"].flatMap(Int.init) else { return $0 }
-                return $0 + Double(w * h) / 1_000_000
-            }
-            isBatchProcessing = false
-            processingTask = nil
+            return entriesToProcess
         }
     }
 
@@ -282,48 +333,69 @@ final class LoadPipeline {
 
         guard !needsRecompute.isEmpty else { return }
 
-        let accessedDirs = needsRecompute.compactMap { store.accessDirectory(for: $0) }
-        isBatchProcessing = true
-        let startTime = CFAbsoluteTimeGetCurrent()
+        enqueueBatch { pipeline, store in
+            let folders = store.accessFolders(for: needsRecompute)
+            defer { for folder in folders { folder.stopAccessingSecurityScopedResource() } }
 
-        processingTask = Task(priority: .utility) { [weak self] in
-            guard let self else { return }
-            // Scale to core count, same policy as processParallel.
-            let maxConcurrency = max(4, ProcessInfo.processInfo.activeProcessorCount - 2)
-
-            await withTaskGroup(of: Void.self) { group in
-                var activeCount = 0
-                for entry in needsRecompute {
-                    if activeCount >= maxConcurrency {
-                        await group.next()
-                        activeCount -= 1
+            await pipeline.forEachWithRenderSlot(needsRecompute) { entry in
+                // The current URL: the frame may have been rejected (moved) since (§3.9).
+                let url = await entry.url
+                let newMetrics = await FrameLoading.loadMetricsOnly(url: url, config: metricsConfig)
+                await MainActor.run {
+                    if let newMetrics {
+                        entry.cachedMetrics = newMetrics
+                        entry.metrics = newMetrics.filtered(by: metricsConfig)
                     }
-                    let url = entry.url
-                    group.addTask {
-                        let newMetrics = await FrameLoading.loadMetricsOnly(url: url, config: metricsConfig)
-                        await MainActor.run {
-                            if let newMetrics {
-                                entry.cachedMetrics = newMetrics
-                                entry.metrics = newMetrics.filtered(by: metricsConfig)
-                            }
-                        }
-                    }
-                    activeCount += 1
                 }
             }
 
-            for dirURL in accessedDirs { dirURL.stopAccessingSecurityScopedResource() }
-            guard !Task.isCancelled else { return }
+            guard !Task.isCancelled else { return nil }
             store.updateGroupStatistics()
-            batchElapsed = CFAbsoluteTimeGetCurrent() - startTime
-            batchImageCount = needsRecompute.count
-            batchMegapixels = needsRecompute.reduce(0.0) {
-                guard let w = $1.headers["NAXIS1"].flatMap(Int.init),
-                      let h = $1.headers["NAXIS2"].flatMap(Int.init) else { return $0 }
-                return $0 + Double(w * h) / 1_000_000
+            return needsRecompute
+        }
+    }
+
+    // MARK: - Shared render slots
+
+    /// Runs `work` for each item, in order, each holding one of the shared render slots
+    /// (`renderConcurrency`, CODE_AUDIT §3.5), and returns when all have finished.
+    /// After Cancel no new item starts; items already running finish.
+    private func forEachWithRenderSlot<Item: Sendable>(_ items: [Item],
+                                                       _ work: @escaping @Sendable (Item) async -> Void) async {
+        let slots = renderSlots
+        await withTaskGroup(of: Void.self) { group in
+            for item in items {
+                guard await slots.wait() else { break }
+                group.addTask {
+                    await work(item)
+                    await slots.signal()
+                }
             }
-            isBatchProcessing = false
-            processingTask = nil
+        }
+    }
+
+    /// Starts the colour render of one folder as soon as its clips are known (the files
+    /// are still in the OS cache). The task is returned so the batch can wait for it,
+    /// and cancel it on Cancel.
+    private func spawnColourRender(_ entries: [ImageEntry], generation: Int,
+                                   maxDisplaySize: Int, maxThumbnailSize: Int) -> Task<Void, Never> {
+        Task(priority: .utility) { [weak self] in
+            await self?.renderFolderInColour(entries, generation: generation,
+                                             maxDisplaySize: maxDisplaySize,
+                                             maxThumbnailSize: maxThumbnailSize)
+        }
+    }
+
+    /// Waits for work the batch started as separate tasks (Phase B, colour renders).
+    /// On Cancel the colour renders are cancelled, so they start no new frames; work
+    /// already running finishes before this returns, so no file is read after the batch
+    /// has ended its folder access (CODE_AUDIT §3.6) and the next batch finds the GPU free.
+    private func waitForSpawned(phaseB: [Task<Void, Never>], colour: [Task<Void, Never>]) async {
+        await withTaskCancellationHandler {
+            for task in phaseB { await task.value }
+            for task in colour { await task.value }
+        } onCancel: {
+            for task in colour { task.cancel() }
         }
     }
 
@@ -339,6 +411,7 @@ final class LoadPipeline {
     /// task using the retained MTLBuffer. Concurrency is bounded by
     /// `phaseBSemaphore` (acquired in the group task after Phase A, before
     /// the slot is freed), keeping live MTLBuffer count and memory predictable.
+    /// After Cancel no new Phase B starts (CODE_AUDIT §3.4).
     ///
     /// **Colour normalisation** — fires per folder as soon as all entries in
     /// that folder complete Phase A, while their FITS pages are still warm in
@@ -355,11 +428,13 @@ final class LoadPipeline {
         // rather than flickering in/out as each folder completes.
         batchRestretchTotal  = debayerColorImages ? entriesToProcess.count : 0
         batchRestretchCount = 0
+        // The colour renders of this load show only while no colour toggle came since.
+        let generation = renderGeneration
 
         // Phase A: high I/O concurrency keeps the SSD pipeline full.
         // Phase B: bounded separately to prevent CPU/memory over-subscription.
-        let ioConcurrency   = max(8, ProcessInfo.processInfo.activeProcessorCount)
-        let phaseBSemaphore = AsyncSemaphore(count: max(4, ProcessInfo.processInfo.activeProcessorCount - 2))
+        let ioConcurrency   = Self.phaseAConcurrency
+        let phaseBSemaphore = AsyncSemaphore(count: Self.phaseBConcurrency)
         var phaseBTasks:   [Task<Void, Never>] = []
         var colourTasks:   [Task<Void, Never>] = []
 
@@ -420,13 +495,10 @@ final class LoadPipeline {
                     var colourTask: Task<Void, Never>? = nil
                     if debayerColorImages {
                         let folderDone = await folderTracker.complete(path: path)
-                        if folderDone, let fEntries = folderEntriesMap[path] {
-                            colourTask = Task(priority: .utility) { [weak self] in
-                                guard let self else { return }
-                                await self.renderFolderInColour(fEntries,
-                                                                maxDisplaySize: maxDisplaySize,
-                                                                maxThumbnailSize: maxThumbnailSize)
-                            }
+                        if folderDone, !Task.isCancelled, let fEntries = folderEntriesMap[path] {
+                            colourTask = await self?.spawnColourRender(fEntries, generation: generation,
+                                                                       maxDisplaySize: maxDisplaySize,
+                                                                       maxThumbnailSize: maxThumbnailSize)
                         }
                     }
 
@@ -434,8 +506,9 @@ final class LoadPipeline {
                     // Acquire a Phase B slot before spawning the detached task.
                     // This bounds the number of live MTLBuffers to phaseBSemaphore.count
                     // while still freeing this group slot immediately after.
+                    // A cancelled load gets no slot, so no new detection starts (§3.4).
                     guard metricsConfig.needsStarDetection else { return (entry, nil, colourTask) }
-                    await phaseBSemaphore.wait()
+                    guard await phaseBSemaphore.wait() else { return (entry, nil, colourTask) }
                     let phaseB = Task(priority: .utility) {
                         defer { Task { await phaseBSemaphore.signal() } }
 
@@ -447,8 +520,10 @@ final class LoadPipeline {
                                 width: fast.width, height: fast.height, config: metricsConfig,
                                 bayerPattern: bayerPattern)
                         } else {
-                            // CPU fallback: Metal was unavailable during Phase A.
-                            metrics = await FrameLoading.loadMetricsOnly(url: url, config: metricsConfig)
+                            // CPU fallback: Metal was unavailable during Phase A. Read the
+                            // current URL: the frame may have been rejected (moved) since (§3.9).
+                            let currentURL = await entry.url
+                            metrics = await FrameLoading.loadMetricsOnly(url: currentURL, config: metricsConfig)
                         }
                         await MainActor.run {
                             entry.metrics       = metrics
@@ -465,18 +540,7 @@ final class LoadPipeline {
             }
         }
 
-        // Wait for all Phase B tasks. On cancellation, break early — queued
-        // tasks will complete in the background and harmlessly update entries.
-        for task in phaseBTasks {
-            if Task.isCancelled { break }
-            await task.value
-        }
-
-        // Wait for any per-folder colour tasks that are still running.
-        for task in colourTasks {
-            if Task.isCancelled { break }
-            await task.value
-        }
+        await waitForSpawned(phaseB: phaseBTasks, colour: colourTasks)
 
         store?.updateGroupStatistics()
     }
@@ -487,154 +551,164 @@ final class LoadPipeline {
     /// - Colour ON:  computes missing per-channel clip bounds (if images were loaded
     ///               with debayer off), then re-renders with per-folder median clips.
     /// - Colour OFF: re-renders Bayer images as greyscale.
+    ///
+    /// A batch: during a load it runs after the load, so it also covers the frames that
+    /// weren't loaded yet when colour was toggled (CODE_AUDIT §3.2); Cancel stops it.
     func recolorImages(settings: AppSettings) {
-        let debayer          = settings.debayerColorImages
-        let maxDisplaySize   = settings.maxDisplaySize
-        let maxThumbnailSize = settings.maxThumbnailSize
+        recolorImages(debayer: settings.debayerColorImages,
+                      maxDisplaySize: settings.maxDisplaySize,
+                      maxThumbnailSize: settings.maxThumbnailSize)
+    }
+
+    /// `recolorImages(settings:)` with the values passed in (also used by the tests, which
+    /// mustn't change the app's saved settings).
+    func recolorImages(debayer: Bool, maxDisplaySize: Int, maxThumbnailSize: Int) {
         guard let store else { return }
-        let bayerEntries     = store.entries.filter { $0.isBayer }
-        guard !bayerEntries.isEmpty else { return }
+        // Nothing to do without Bayer frames, unless a running load may still add some.
+        guard processingTask != nil || store.entries.contains(where: { $0.isBayer }) else { return }
 
-        let accessedDirs = bayerEntries.compactMap { store.accessDirectory(for: $0) }
+        // The wanted rendering changes now: renders of an earlier setting that are still
+        // running or queued no longer change what is shown.
+        renderGeneration += 1
+        let generation = renderGeneration
 
-        Task { [weak self] in
-            guard let self else { return }
-            defer { for d in accessedDirs { d.stopAccessingSecurityScopedResource() } }
+        enqueueBatch(showsTiming: false) { pipeline, store in
+            // A newer toggle is queued behind this one: it does the work.
+            guard generation == pipeline.renderGeneration else { return nil }
+            let bayerEntries = store.entries.filter { $0.isBayer }
+            guard !bayerEntries.isEmpty else { return nil }
+
+            let folders = store.accessFolders(for: bayerEntries)
+            defer { for folder in folders { folder.stopAccessingSecurityScopedResource() } }
 
             if debayer {
-                restretchingMessage = "Rendering colour…"
-                defer { restretchingMessage = nil }
-
-                let needsClips = bayerEntries.filter { $0.bayerClips == nil }
-                // Set progress counters upfront so the bars are stable for the full run.
-                batchSamplingTotal = bayerEntries.count
-                batchSamplingCount = bayerEntries.count - needsClips.count
-                batchRestretchTotal    = bayerEntries.count
-                batchRestretchCount   = 0
-
-                // Group by folder to enable per-folder streaming: colour rendering fires
-                // as soon as all entries in a folder are sampled, rather than waiting for
-                // the entire set to finish sampling.
-                let folderEntriesMap = Dictionary(grouping: bayerEntries, by: \.qualifiedFolderPath)
-                let folderTracker    = FolderTracker(grouping: bayerEntries)
-                var colourTasks: [Task<Void, Never>] = []
-
-                // Pre-credit entries that already have clips. If every entry in a folder
-                // was loaded in colour mode previously, that folder can render immediately.
-                for entry in bayerEntries where entry.bayerClips != nil {
-                    if await folderTracker.complete(path: entry.qualifiedFolderPath),
-                       let fEntries = folderEntriesMap[entry.qualifiedFolderPath] {
-                        let t = Task(priority: .utility) { [weak self] in
-                            guard let self else { return }
-                            await self.renderFolderInColour(fEntries,
-                                                           maxDisplaySize: maxDisplaySize,
-                                                           maxThumbnailSize: maxThumbnailSize)
-                        }
-                        colourTasks.append(t)
-                    }
-                }
-
-                let concurrency = max(4, ProcessInfo.processInfo.activeProcessorCount - 2)
-                await withTaskGroup(of: String?.self) { group in
-                    var active = 0
-                    for entry in needsClips {
-                        // Drain a result before adding another task when at capacity.
-                        while active >= concurrency {
-                            guard let taskResult = await group.next() else { break }
-                            if let path = taskResult, let fEntries = folderEntriesMap[path] {
-                                let t = Task(priority: .utility) { [weak self] in
-                                    guard let self else { return }
-                                    await self.renderFolderInColour(fEntries,
-                                                                   maxDisplaySize: maxDisplaySize,
-                                                                   maxThumbnailSize: maxThumbnailSize)
-                                }
-                                colourTasks.append(t)
-                            }
-                            active -= 1
-                        }
-                        let url     = entry.url
-                        let bayerPattern = entry.bayerPattern
-                        let path    = entry.qualifiedFolderPath
-                        group.addTask { [weak self] in
-                            let didStart = url.startAccessingSecurityScopedResource()
-                            defer { if didStart { url.stopAccessingSecurityScopedResource() } }
-                            guard let pattern = bayerPattern,
-                                  let device  = ImageStretcher.metalDevice,
-                                  let result  = try? FITSReader.readIntoBuffer(from: url, device: device)
-                            else { return nil }
-                            let clips = ImageStretcher.computeBayerClips(
-                                result.metalBuffer,
-                                width: result.metadata.width, height: result.metadata.height,
-                                rOffset: pattern.rOffset)
-                            let capturedSelf = self
-                            await MainActor.run {
-                                entry.bayerClips = clips
-                                capturedSelf?.batchSamplingCount += 1
-                            }
-                            // Return the folder path if this was the last entry in the folder
-                            // to be sampled, signalling that colour rendering can now begin.
-                            return await folderTracker.complete(path: path) ? path : nil
-                        }
-                        active += 1
-                    }
-                    // Drain remaining results and fire any outstanding colour tasks.
-                    for await taskResult in group {
-                        if let path = taskResult, let fEntries = folderEntriesMap[path] {
-                            let t = Task(priority: .utility) { [weak self] in
-                                guard let self else { return }
-                                await self.renderFolderInColour(fEntries,
-                                                               maxDisplaySize: maxDisplaySize,
-                                                               maxThumbnailSize: maxThumbnailSize)
-                            }
-                            colourTasks.append(t)
-                        }
-                    }
-                }
-                // Wait for all per-folder colour renders to finish.
-                for task in colourTasks { await task.value }
+                await pipeline.renderBayerEntriesInColour(bayerEntries, generation: generation,
+                                                          maxDisplaySize: maxDisplaySize,
+                                                          maxThumbnailSize: maxThumbnailSize)
             } else {
-                // Re-render Bayer images as greyscale; metrics and histogram are unchanged.
-                // Use cached greyscale renders if available to avoid file re-reads.
-                let needsRender = bayerEntries.filter { $0.cachedGreyscaleDisplay == nil }
-                if !needsRender.isEmpty {
-                    restretchingMessage = "Rendering greyscale…"
-                    defer { restretchingMessage = nil }
-                    let concurrency = max(4, ProcessInfo.processInfo.activeProcessorCount - 2)
-                    await withTaskGroup(of: Void.self) { group in
-                        var active = 0
-                        for entry in needsRender {
-                            if active >= concurrency { await group.next(); active -= 1 }
-                            let url = entry.url
-                            group.addTask {
-                                let didStart = url.startAccessingSecurityScopedResource()
-                                defer { if didStart { url.stopAccessingSecurityScopedResource() } }
-                                guard let device = ImageStretcher.metalDevice,
-                                      let result = try? FITSReader.readIntoBuffer(from: url, device: device)
-                                else { return }
-                                let display = await ImageStretcher.createImage(
-                                    inputBuffer: result.metalBuffer,
-                                    width: result.metadata.width, height: result.metadata.height,
-                                    maxDisplaySize: maxDisplaySize)
-                                let thumb = display.flatMap {
-                                    ImageStretcher.createThumbnail(from: $0, maxSize: maxThumbnailSize)
-                                }
-                                await MainActor.run {
-                                    entry.cachedGreyscaleDisplay = display
-                                    entry.cachedGreyscaleThumb   = thumb
-                                    if let d = display { entry.displayImage = d }
-                                    if let t = thumb   { entry.thumbnail    = t }
-                                }
-                            }
-                            active += 1
-                        }
+                await pipeline.renderBayerEntriesInGrey(bayerEntries, generation: generation,
+                                                        maxDisplaySize: maxDisplaySize,
+                                                        maxThumbnailSize: maxThumbnailSize)
+            }
+            return nil
+        }
+    }
+
+    /// The colour-on part of `recolorImages`: samples the clips that are missing, then
+    /// renders each folder in colour as soon as its clips are all known.
+    private func renderBayerEntriesInColour(_ bayerEntries: [ImageEntry], generation: Int,
+                                            maxDisplaySize: Int, maxThumbnailSize: Int) async {
+        restretchingMessage = "Rendering colour…"
+        defer { restretchingMessage = nil }
+
+        let needsClips = bayerEntries.filter { $0.bayerClips == nil }
+        // Set progress counters upfront so the bars are stable for the full run.
+        batchSamplingTotal = bayerEntries.count
+        batchSamplingCount = bayerEntries.count - needsClips.count
+        batchRestretchTotal    = bayerEntries.count
+        batchRestretchCount   = 0
+
+        // Group by folder to enable per-folder streaming: colour rendering fires
+        // as soon as all entries in a folder are sampled, rather than waiting for
+        // the entire set to finish sampling.
+        let folderEntriesMap = Dictionary(grouping: bayerEntries, by: \.qualifiedFolderPath)
+        let folderTracker    = FolderTracker(grouping: bayerEntries)
+        var colourTasks: [Task<Void, Never>] = []
+
+        // Pre-credit entries that already have clips. If every entry in a folder
+        // was loaded in colour mode previously, that folder can render immediately.
+        for entry in bayerEntries where entry.bayerClips != nil {
+            if await folderTracker.complete(path: entry.qualifiedFolderPath),
+               let fEntries = folderEntriesMap[entry.qualifiedFolderPath] {
+                colourTasks.append(spawnColourRender(fEntries, generation: generation,
+                                                     maxDisplaySize: maxDisplaySize,
+                                                     maxThumbnailSize: maxThumbnailSize))
+            }
+        }
+
+        // Sample the missing clips; the last frame of a folder starts its colour render.
+        // A cancelled toggle gets no slot, so no new sampling starts.
+        let slots = renderSlots
+        await withTaskGroup(of: String?.self) { group in
+            for entry in needsClips {
+                guard await slots.wait() else { break }
+                let bayerPattern = entry.bayerPattern
+                let path         = entry.qualifiedFolderPath
+                group.addTask { [weak self] in
+                    defer { Task { await slots.signal() } }
+                    // The current URL: the frame may have been rejected (moved) since (§3.9).
+                    let url = await entry.url
+                    let didStart = url.startAccessingSecurityScopedResource()
+                    defer { if didStart { url.stopAccessingSecurityScopedResource() } }
+                    guard let pattern = bayerPattern,
+                          let device  = ImageStretcher.metalDevice,
+                          let result  = try? FITSReader.readIntoBuffer(from: url, device: device)
+                    else { return nil }
+                    let clips = ImageStretcher.computeBayerClips(
+                        result.metalBuffer,
+                        width: result.metadata.width, height: result.metadata.height,
+                        rOffset: pattern.rOffset)
+                    let capturedSelf = self
+                    await MainActor.run {
+                        entry.bayerClips = clips
+                        capturedSelf?.batchSamplingCount += 1
                     }
-                }
-                // Apply cached renders for entries that already had them.
-                for entry in bayerEntries where entry.cachedGreyscaleDisplay != nil && !needsRender.contains(where: { $0 === entry }) {
-                    entry.displayImage = entry.cachedGreyscaleDisplay
-                    entry.thumbnail    = entry.cachedGreyscaleThumb
+                    // Return the folder path if this was the last entry in the folder
+                    // to be sampled, signalling that colour rendering can now begin.
+                    return await folderTracker.complete(path: path) ? path : nil
                 }
             }
+            for await taskResult in group {
+                if let path = taskResult, !Task.isCancelled, let fEntries = folderEntriesMap[path] {
+                    colourTasks.append(spawnColourRender(fEntries, generation: generation,
+                                                         maxDisplaySize: maxDisplaySize,
+                                                         maxThumbnailSize: maxThumbnailSize))
+                }
+            }
+        }
+        // Wait for all per-folder colour renders to finish (cancelled on Cancel).
+        await waitForSpawned(phaseB: [], colour: colourTasks)
+    }
+
+    /// The colour-off part of `recolorImages`: shows the grey renders, re-rendering the
+    /// Bayer frames that have none cached. Metrics and histograms are unchanged.
+    private func renderBayerEntriesInGrey(_ bayerEntries: [ImageEntry], generation: Int,
+                                          maxDisplaySize: Int, maxThumbnailSize: Int) async {
+        // Use cached greyscale renders if available to avoid file re-reads.
+        let needsRender = bayerEntries.filter { $0.cachedGreyscaleDisplay == nil }
+        if !needsRender.isEmpty {
+            restretchingMessage = "Rendering greyscale…"
+            defer { restretchingMessage = nil }
+            await forEachWithRenderSlot(needsRender) { [weak self] entry in
+                let pipeline = self
+                // The current URL: the frame may have been rejected (moved) since (§3.9).
+                let url = await entry.url
+                let didStart = url.startAccessingSecurityScopedResource()
+                defer { if didStart { url.stopAccessingSecurityScopedResource() } }
+                guard let device = ImageStretcher.metalDevice,
+                      let result = try? FITSReader.readIntoBuffer(from: url, device: device)
+                else { return }
+                let display = await ImageStretcher.createImage(
+                    inputBuffer: result.metalBuffer,
+                    width: result.metadata.width, height: result.metadata.height,
+                    maxDisplaySize: maxDisplaySize)
+                let thumb = display.flatMap {
+                    ImageStretcher.createThumbnail(from: $0, maxSize: maxThumbnailSize)
+                }
+                await MainActor.run {
+                    entry.cachedGreyscaleDisplay = display
+                    entry.cachedGreyscaleThumb   = thumb
+                    guard pipeline?.renderGeneration == generation else { return }
+                    if let d = display { entry.displayImage = d }
+                    if let t = thumb   { entry.thumbnail    = t }
+                }
+            }
+        }
+        // Apply cached renders for entries that already had them.
+        guard renderGeneration == generation else { return }
+        for entry in bayerEntries where entry.cachedGreyscaleDisplay != nil && !needsRender.contains(where: { $0 === entry }) {
+            entry.displayImage = entry.cachedGreyscaleDisplay
+            entry.thumbnail    = entry.cachedGreyscaleThumb
         }
     }
 
@@ -657,6 +731,7 @@ final class LoadPipeline {
             "\($0.qualifiedFolderPath)::\($0.filterGroup.rawValue)"
         }
 
+        // The groups render at the same time, sharing the render slots.
         await withTaskGroup(of: Void.self) { group in
             for (_, groupEntries) in groups {
                 guard groupEntries.count >= 2 else { continue }
@@ -677,33 +752,27 @@ final class LoadPipeline {
                                                 clips: GreyClips,
                                                 maxDisplaySize: Int,
                                                 maxThumbnailSize: Int) async {
-        let concurrency = max(4, ProcessInfo.processInfo.activeProcessorCount - 2)
-        await withTaskGroup(of: Void.self) { group in
-            var active = 0
-            for entry in entries {
-                if active >= concurrency { await group.next(); active -= 1 }
-                let url     = entry.url
-                let bayerPattern = entry.bayerPattern
-                group.addTask {
-                    let didStart = url.startAccessingSecurityScopedResource()
-                    defer { if didStart { url.stopAccessingSecurityScopedResource() } }
-                    guard let device = ImageStretcher.metalDevice,
-                          let result = try? FITSReader.readIntoBuffer(from: url, device: device)
-                    else { return }
-                    let display = await ImageStretcher.createImage(
-                        inputBuffer: result.metalBuffer,
-                        width: result.metadata.width, height: result.metadata.height,
-                        clips: clips, maxDisplaySize: maxDisplaySize,
-                        bayerPattern: bayerPattern)
-                    let thumb = display.flatMap {
-                        ImageStretcher.createThumbnail(from: $0, maxSize: maxThumbnailSize)
-                    }
-                    await MainActor.run {
-                        if let d = display { entry.displayImage = d }
-                        if let t = thumb   { entry.thumbnail    = t }
-                    }
-                }
-                active += 1
+        let items = entries.map { (entry: $0, bayerPattern: $0.bayerPattern) }
+        await forEachWithRenderSlot(items) { item in
+            let entry = item.entry
+            // The current URL: the frame may have been rejected (moved) since (§3.9).
+            let url = await entry.url
+            let didStart = url.startAccessingSecurityScopedResource()
+            defer { if didStart { url.stopAccessingSecurityScopedResource() } }
+            guard let device = ImageStretcher.metalDevice,
+                  let result = try? FITSReader.readIntoBuffer(from: url, device: device)
+            else { return }
+            let display = await ImageStretcher.createImage(
+                inputBuffer: result.metalBuffer,
+                width: result.metadata.width, height: result.metadata.height,
+                clips: clips, maxDisplaySize: maxDisplaySize,
+                bayerPattern: item.bayerPattern)
+            let thumb = display.flatMap {
+                ImageStretcher.createThumbnail(from: $0, maxSize: maxThumbnailSize)
+            }
+            await MainActor.run {
+                if let d = display { entry.displayImage = d }
+                if let t = thumb   { entry.thumbnail    = t }
             }
         }
     }
@@ -715,7 +784,8 @@ final class LoadPipeline {
     /// folder complete their clip computation, while FITS pages are still warm in cache.
     /// Updates `batchRestretchCount` so the Restretching bar advances smoothly.
     /// `batchRestretchTotal` must be set to the full entry count by the caller upfront.
-    private func renderFolderInColour(_ entries: [ImageEntry],
+    /// The renders are shown only while `generation` is current; they are cached either way.
+    private func renderFolderInColour(_ entries: [ImageEntry], generation: Int,
                                       maxDisplaySize: Int,
                                       maxThumbnailSize: Int) async {
         let bayerEntries = entries.filter { $0.bayerClips != nil }
@@ -730,7 +800,8 @@ final class LoadPipeline {
         guard sharedClips.isValid else { return }
 
         // Render the selected entry first so the on-screen image switches to colour immediately.
-        if let selected = store?.selectedEntry,
+        if !Task.isCancelled,
+           let selected = store?.selectedEntry,
            bayerEntries.contains(where: { $0 === selected }),
            selected.cachedColourDisplay == nil,
            let pattern = selected.bayerPattern,
@@ -739,44 +810,48 @@ final class LoadPipeline {
                maxDisplaySize: maxDisplaySize, maxThumbnailSize: maxThumbnailSize) {
             selected.cachedColourDisplay = display
             selected.cachedColourThumb   = thumb
-            selected.displayImage        = display
-            selected.thumbnail           = thumb
+            if renderGeneration == generation {
+                selected.displayImage    = display
+                selected.thumbnail       = thumb
+            }
             batchRestretchCount += 1
         }
 
-        let concurrency = max(4, ProcessInfo.processInfo.activeProcessorCount - 2)
-
-        await withTaskGroup(of: Void.self) { group in
-            var activeCount = 0
-            for entry in bayerEntries {
-                // Apply a cached colour render (e.g. the priority pass above) without a task.
-                if entry.cachedColourDisplay != nil {
+        // Apply cached colour renders (e.g. the priority pass above) without a task.
+        var toRender: [(entry: ImageEntry, bayerPattern: BayerPattern?)] = []
+        for entry in bayerEntries {
+            if entry.cachedColourDisplay != nil {
+                if renderGeneration == generation {
                     entry.displayImage = entry.cachedColourDisplay
                     entry.thumbnail    = entry.cachedColourThumb
-                    batchRestretchCount += 1
-                    continue
                 }
-                if activeCount >= concurrency { await group.next(); activeCount -= 1 }
-                let url     = entry.url
-                let bayerPattern = entry.bayerPattern
-                group.addTask {
-                    guard let pattern = bayerPattern,
-                          let (display, thumb) = await FrameLoading.recolorBayerEntry(
-                              url: url, rOffset: pattern.rOffset, clips: sharedClips,
-                              maxDisplaySize: maxDisplaySize, maxThumbnailSize: maxThumbnailSize
-                          ) else {
-                        await MainActor.run { self.batchRestretchCount += 1 }
-                        return
-                    }
-                    await MainActor.run {
-                        entry.cachedColourDisplay = display
-                        entry.cachedColourThumb   = thumb
-                        entry.displayImage        = display
-                        entry.thumbnail           = thumb
-                        self.batchRestretchCount += 1
-                    }
+                batchRestretchCount += 1
+            } else {
+                toRender.append((entry, entry.bayerPattern))
+            }
+        }
+
+        await forEachWithRenderSlot(toRender) { [weak self] item in
+            let pipeline = self
+            let entry = item.entry
+            // The current URL: the frame may have been rejected (moved) since (§3.9).
+            let url = await entry.url
+            guard let pattern = item.bayerPattern,
+                  let (display, thumb) = await FrameLoading.recolorBayerEntry(
+                      url: url, rOffset: pattern.rOffset, clips: sharedClips,
+                      maxDisplaySize: maxDisplaySize, maxThumbnailSize: maxThumbnailSize
+                  ) else {
+                await MainActor.run { pipeline?.batchRestretchCount += 1 }
+                return
+            }
+            await MainActor.run {
+                entry.cachedColourDisplay = display
+                entry.cachedColourThumb   = thumb
+                if pipeline?.renderGeneration == generation {
+                    entry.displayImage    = display
+                    entry.thumbnail       = thumb
                 }
-                activeCount += 1
+                pipeline?.batchRestretchCount += 1
             }
         }
     }
