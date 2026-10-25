@@ -381,21 +381,20 @@ extension ImageStore {
         includeSubfolders: Bool,
         includeRejected: Bool = false
     ) -> [(url: URL, subfolderPath: String)] {
-        guard let contents = try? FileManager.default.contentsOfDirectory(
-            at: folder,
-            includingPropertiesForKeys: [.isDirectoryKey],
-            options: [.skipsHiddenFiles]
-        ) else { return [] }
+        // POSIX readdir instead of FileManager.contentsOfDirectory: on an SMB share the
+        // latter was about 35 times slower (75 s against 2.3 s for 1290 files, measured
+        // 2026-10-25), and readdir gives the item type without asking for each item.
+        // Symlinks in the folder's path resolved, as FileManager did (/var → /private/var),
+        // so the frames' URLs are the same as before.
+        let folder = realFolder(folder)
+        guard let listing = listDirectory(folder) else { return [] }
 
         var results: [(URL, String)] = []
-        let sorted = contents.sorted {
-            $0.lastPathComponent.localizedStandardCompare($1.lastPathComponent) == .orderedAscending
-        }
+        let sorted = listing.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
 
-        for item in sorted {
-            let isDir = (try? item.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory ?? false
+        for (name, isDir) in sorted {
+            let item = folder.appending(component: name, directoryHint: isDir ? .isDirectory : .notDirectory)
             if isDir {
-                let name = item.lastPathComponent
                 // REJECTED is handled before the includeSubfolders gate so it is picked up
                 // at every depth (root, and inside each subfolder) when includeRejected is on.
                 if name.caseInsensitiveCompare("REJECTED") == .orderedSame {
@@ -422,6 +421,40 @@ extension ImageStore {
             }
         }
         return results
+    }
+
+    /// The folder with symlinks in its path resolved (`realpath`); unchanged when that fails.
+    nonisolated static func realFolder(_ folder: URL) -> URL {
+        guard let resolved = realpath(folder.path(percentEncoded: false), nil) else { return folder }
+        defer { free(resolved) }
+        return URL(filePath: String(cString: resolved), directoryHint: .isDirectory)
+    }
+
+    /// The visible entries of a directory, with whether each is a folder; nil when it
+    /// can't be read. Names starting with "." are skipped (the Finder "hidden" flag isn't
+    /// checked: that would cost a request per file on a network share). When the file
+    /// system doesn't report the type, `lstat` decides.
+    nonisolated static func listDirectory(_ folder: URL) -> [(name: String, isDirectory: Bool)]? {
+        let path = folder.path(percentEncoded: false)
+        guard let dir = opendir(path) else { return nil }
+        defer { closedir(dir) }
+        var entries: [(name: String, isDirectory: Bool)] = []
+        while let entry = readdir(dir) {
+            let name = withUnsafeBytes(of: entry.pointee.d_name) { raw in
+                String(decoding: raw.prefix { $0 != 0 }, as: UTF8.self)
+            }
+            guard !name.hasPrefix(".") else { continue }
+            let isDirectory: Bool
+            switch Int32(entry.pointee.d_type) {
+            case DT_DIR: isDirectory = true
+            case DT_UNKNOWN:
+                var info = stat()
+                isDirectory = lstat(path + "/" + name, &info) == 0 && (info.st_mode & S_IFMT) == S_IFDIR
+            default: isDirectory = false
+            }
+            entries.append((name, isDirectory))
+        }
+        return entries
     }
 
     /// `collectFITSURLs` off the main thread, so a large folder tree on a NAS, SMB
@@ -456,9 +489,11 @@ extension ImageStore {
         let excludedSet = Set(settings.excludedSubfolderNames.map { $0.lowercased() })
         let didAccess = folderURL.startAccessingSecurityScopedResource()
         registerFolder(folderURL)
+        preparation = .scanning(folder: folderURL.lastPathComponent)
         let collected = await Self.scanFolder(folderURL, excludedNames: excludedSet,
                                               includeSubfolders: includeSubfolders,
                                               includeRejected: includeRejected)
+        preparation = nil
         if didAccess { folderURL.stopAccessingSecurityScopedResource() }
 
         guard !collected.isEmpty else {
@@ -481,48 +516,65 @@ extension ImageStore {
     /// are always added directly. Files from different directories are merged into the session.
     func openDroppedItems(_ urls: [URL], settings: AppSettings) {
         let excludedSet = Set(settings.excludedSubfolderNames.map { $0.lowercased() })
-        var collected: [(url: URL, subfolderPath: String)] = []
-        // Each frame's root folder name, so the sidebar shows a section per dropped
-        // folder; a dropped file counts as being in its parent folder.
-        var rootNames: [URL: String] = [:]
+        let includeSubfolders = settings.includeSubfolders
 
+        // Sort out folders and files now, and make each dropped folder's bookmark while
+        // the drop's access is fresh (CODE_AUDIT §5.13); the scan follows off the main thread.
+        var items: [(url: URL, isFolder: Bool)] = []
         for url in urls {
             guard let isDirectory = Self.isDirectory(url) else { continue }
-
             if isDirectory {
-                // Each dropped folder keeps its own access (CODE_AUDIT §5.13).
                 registerFolder(url)
-                let folderCollected = Self.collectFITSURLs(in: url, relativePath: "",
-                                                           excludedNames: excludedSet,
-                                                           includeSubfolders: settings.includeSubfolders)
-                collected.append(contentsOf: folderCollected)
-                for item in folderCollected { rootNames[item.url] = url.lastPathComponent }
+                items.append((url, true))
             } else if FITSFile.hasFITSExtension(url) {
-                collected.append((url, ""))
-                rootNames[url] = url.deletingLastPathComponent().lastPathComponent
+                items.append((url, false))
             }
         }
+        guard !items.isEmpty else { return }
 
-        guard !collected.isEmpty else { return }
-        // Single dropped files get no folder bookmark: the sandbox only granted the
-        // file. Rejecting one asks for its folder first (folderAccessRequest).
+        // A drop that arrives while the previous one is still scanning waits for it.
+        let previous = dropScanTask
+        dropScanTask = Task { [weak self] in
+            await previous?.value
+            var collected: [(url: URL, subfolderPath: String)] = []
+            // Each frame's root folder name, so the sidebar shows a section per dropped
+            // folder; a dropped file counts as being in its parent folder.
+            var rootNames: [URL: String] = [:]
+            for item in items {
+                if item.isFolder {
+                    // Off the main thread: a large folder on a NAS doesn't freeze the window (§7.4).
+                    self?.preparation = .scanning(folder: item.url.lastPathComponent)
+                    let found = await Self.scanFolder(item.url, excludedNames: excludedSet,
+                                                      includeSubfolders: includeSubfolders,
+                                                      includeRejected: false)
+                    self?.preparation = nil
+                    guard !Task.isCancelled else { return }
+                    collected.append(contentsOf: found)
+                    for frame in found { rootNames[frame.url] = item.url.lastPathComponent }
+                } else {
+                    collected.append((item.url, ""))
+                    rootNames[item.url] = item.url.deletingLastPathComponent().lastPathComponent
+                }
+            }
+            guard let self, !collected.isEmpty else { return }
+            // Single dropped files get no folder bookmark: the sandbox only granted the
+            // file. Rejecting one asks for its folder first (folderAccessRequest).
 
-        // One shared name (one folder, or files from one folder) is also the session's
-        // root name, as when a single folder is opened.
-        let distinctNames = Set(rootNames.values)
-        let folderRootName = distinctNames.count == 1 ? distinctNames.first ?? "" : ""
-        if !folderRootName.isEmpty { rootFolderName = folderRootName }
+            // One shared name (one folder, or files from one folder) is also the session's
+            // root name, as when a single folder is opened.
+            let distinctNames = Set(rootNames.values)
+            let folderRootName = distinctNames.count == 1 ? distinctNames.first ?? "" : ""
+            if !folderRootName.isEmpty { rootFolderName = folderRootName }
 
-        // Track dropped folder URLs so we can detect if the same folder is dropped again.
-        for url in urls where Self.isDirectory(url) == true {
-            knownRootURLs.insert(url)
+            // Track dropped folder URLs so we can detect if the same folder is dropped again.
+            for item in items where item.isFolder { knownRootURLs.insert(item.url) }
+
+            openFiles(collected, rootFolderName: folderRootName, rootFolderNames: rootNames,
+                      maxDisplaySize: settings.maxDisplaySize,
+                      maxThumbnailSize: settings.maxThumbnailSize,
+                      metricsConfig: settings.effectiveMetricsConfig,
+                      debayerColorImages: settings.debayerColorImages)
         }
-
-        openFiles(collected, rootFolderName: folderRootName, rootFolderNames: rootNames,
-                  maxDisplaySize: settings.maxDisplaySize,
-                  maxThumbnailSize: settings.maxThumbnailSize,
-                  metricsConfig: settings.effectiveMetricsConfig,
-                  debayerColorImages: settings.debayerColorImages)
     }
 
     /// True for a folder, false for a file, nil when the item doesn't exist.

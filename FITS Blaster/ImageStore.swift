@@ -46,8 +46,16 @@ final class ImageStore {
     /// Internal (not private(set)) so the pipeline extension can update it.
     var processingTask: Task<Void, Never>?
 
-    /// Suspends the caller until any in-progress batch load completes. Used by CLI mode.
+    /// The folder scan of a drag & drop, before its batch load starts (`openDroppedItems`).
+    var dropScanTask: Task<Void, Never>?
+
+    /// What a load is doing before its frames appear (scanning, checking headers); nil otherwise.
+    var preparation: LoadPreparation?
+
+    /// Suspends the caller until any in-progress drop scan and batch load complete.
+    /// Used by CLI mode and the tests.
     func waitForProcessing() async {
+        await dropScanTask?.value
         await processingTask?.value
     }
 
@@ -374,8 +382,11 @@ final class ImageStore {
     /// In-flight GPU/I/O tasks run to completion (they can't be interrupted mid-flight),
     /// but no new work is started and the UI is cleaned up immediately.
     func cancelProcessing() {
+        dropScanTask?.cancel()
+        dropScanTask = nil
         processingTask?.cancel()
         processingTask = nil
+        preparation = nil
         for entry in entries where entry.isProcessing {
             entry.isProcessing = false
         }

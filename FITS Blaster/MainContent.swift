@@ -11,8 +11,13 @@ struct MainContent: View {
     var body: some View {
         if let entry = store.selectedEntry {
             if entry.isProcessing {
-                ProgressView("Stretching \(entry.fileName)…")
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                VStack(spacing: 0) {
+                    ProgressView("Stretching \(entry.fileName)…")
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    // Keep the info bar: it holds the batch progress bars.
+                    Divider()
+                    InfoBar(store: store, entry: entry)
+                }
             } else if let displayImage = entry.displayImage {
                 VStack(spacing: 0) {
                     Text(entry.fileName)
@@ -54,6 +59,11 @@ struct MainContent: View {
                     .foregroundStyle(.secondary)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else if let preparation = store.preparation {
+            // First load: the frames aren't in the list yet (scanning, checking headers).
+            LoadPreparationView(preparation: preparation)
+                .frame(maxWidth: 360)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
             VStack {
                 Image(systemName: "star.circle")
@@ -81,7 +91,9 @@ private struct InfoBar: View {
 
     var body: some View {
         HStack {
-            if store.isBatchProcessing {
+            if let preparation = store.preparation {
+                LoadPreparationView(preparation: preparation)
+            } else if store.isBatchProcessing {
                 BatchProgressBar(store: store, showLoadedMetrics: true)
             } else if store.restretchingMessage != nil {
                 BatchProgressBar(store: store, showLoadedMetrics: false)

@@ -248,6 +248,7 @@ Then a scratch build with `SWIFT_STRICT_CONCURRENCY=complete` shows 0 warnings. 
   (b) conflicts with the memory goal of §7.3, so (a) is the expected choice. Renders must stay byte-identical, or the difference goes to step 13.
 - **Display images in memory** (§7.1): full display images only for the selected frame and its neighbours (LRU); the rest keep thumbnails and re-render on demand. The CLI, `CLIRenderer` and the render tests need every frame's image, so the pipeline keeps a "keep all" mode for them.
 - **CLI without display work** (§7.7): when nothing is rendered, the CLI runs a metrics-only path (one read per file).
+- **Start loading while checking** (Tom's request, 2026-10-25): the first frames should start loading as soon as their header check is done, instead of after all files are checked (over a network the check of 1147 files took 13 s, after the speed-up of 2026-10-25). Options, decided with measurements: feed checked files into the loading pipeline as they come, or drop the separate check and test the bit depth during Phase A (the header is read there anyway; float files would then appear briefly before being dropped, a behaviour change). Also measure here whether `loadFast` (whole-file reads) has the same Foundation overhead on a network share as the scan and header read had.
 
 **Tests**: memory and time with `BenchmarkTests` before and after; render tests (use "keep all"); a test that the LRU re-renders on selection.
 

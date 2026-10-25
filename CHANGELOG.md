@@ -4,6 +4,27 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-25 — Opening folders over the network: 5× faster, with progress
+
+### Improved
+- **Much faster on network folders** — before the frames appear, FITS Blaster lists the folder and reads each file's header to skip unsupported files. On an SMB share from another Mac (1 Gb/s, wired, the M81 folder with subfolders, 1147 files), that took 26 s for the listing and 50 s for the headers; now about 1 s and 13 s. The listing uses `readdir` instead of `FileManager` (about 35× faster on that share, measured 2026-10-25), the header is read with `open`/`read` instead of `FileHandle` (about 4×), and 8 headers are read at a time (about 6×).
+- **Progress while preparing a load** — "Scanning <folder>…" with a spinner, then "Checking files" with a bar and a counter, in the empty window on a first load and in the info bar above the chart when frames are already loaded. Before, the window stayed blank, which over a network could last a minute.
+- **Dropped folders are scanned off the main thread too**, like Open Folder, so dropping a large folder tree no longer freezes the window (CODE_AUDIT §7.4).
+
+### Fixed
+- **The info bar disappeared** when a frame that wasn't rendered yet was selected; it now stays, with its progress bars.
+
+### Changed
+- Files with the Finder "hidden" flag are no longer skipped when a folder is scanned (files whose name starts with a dot still are): checking the flag would cost a network request per file.
+
+### Internal
+- `collectFITSURLs` lists folders with `readdir` (`listDirectory`; `lstat` when the file system doesn't report the type) and resolves the folder path with `realpath`, as `FileManager` did; a test compares it with the old `FileManager` scan on a tree with hidden files, REJECTED at two levels, an excluded FLAT folder, accented names and numeric sorting: same files, same order, in all four subfolder/REJECTED combinations.
+- `filterItems` checks headers in a bounded task group (`headerChecksAtOnce` = 8), keeps the input order, and reports progress through an `AsyncStream` that the loading task reads; the store's `preparation` holds the status. Drops scan in `dropScanTask`, owned by the store (cancelled with the load; a second drop waits for the first).
+- Loading itself (`loadFast`, reading whole files) may have the same Foundation overhead on a network share; to be measured in master-plan step 9.
+- `docs/internal/architecture-plan.md` step 9: start loading as soon as the first files are checked, instead of after all of them (requested).
+
+---
+
 ## 2026-10-25 — Drag and drop: rejecting works in the App Store build, a section per folder (step 4c)
 
 ### Fixed

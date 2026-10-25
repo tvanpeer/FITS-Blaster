@@ -146,4 +146,109 @@ struct OpenFolderTests {
         #expect(store.entries.allSatisfy { $0.rootFolderName == folder.lastPathComponent })
         #expect(store.rootFolderName == folder.lastPathComponent)
     }
+
+    @Test("Two drops in quick succession both load, in order")
+    func twoQuickDrops() async throws {
+        let first = try makeFolder()
+        let second = try makeFolder()
+        defer { try? FileManager.default.removeItem(at: first); try? FileManager.default.removeItem(at: second) }
+
+        let store = ImageStore()
+        store.openDroppedItems([first], settings: AppSettings())
+        store.openDroppedItems([second], settings: AppSettings())
+        await store.waitForProcessing()
+        await store.waitForProcessing()
+
+        #expect(store.entries.count == 4)
+        #expect(store.isAlreadyLoaded(first) && store.isAlreadyLoaded(second))
+    }
+
+    // MARK: - Progress while preparing a load
+
+    @Test("filterItems reports each file and finishes the progress stream")
+    func filterItemsProgress() async throws {
+        let folder = try makeFolder()
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let items: [(url: URL, subfolderPath: String)] = [
+            (folder.appending(component: "a.fits"), ""), (folder.appending(component: "b.FIT"), ""),
+            (folder.appending(component: "notes.txt"), ""),
+        ]
+        let (stream, continuation) = AsyncStream.makeStream(of: Int.self)
+        let result = await ImageStore.filterItems(items, existingURLs: [], progress: continuation)
+        var reported: [Int] = []
+        for await done in stream { reported.append(done) }   // ends because the stream is finished
+
+        #expect(reported == [1, 2, 3])
+        #expect(result.valid.count == 2)
+    }
+
+    @Test("No preparation status is left after a load")
+    func preparationClearedAfterLoad() async throws {
+        let folder = try makeFolder()
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let store = ImageStore()
+        await store.openFolder(at: folder, includeSubfolders: false, includeRejected: false, settings: AppSettings())
+        await store.waitForProcessing()
+        #expect(store.preparation == nil)
+
+        store.openDroppedItems([folder], settings: AppSettings())
+        await store.waitForProcessing()
+        #expect(store.preparation == nil)
+    }
+
+    // MARK: - The readdir scan gives the same result as the FileManager scan
+
+    /// The scan as it was before 2026-10-25 (FileManager.contentsOfDirectory), as reference.
+    private func referenceScan(_ folder: URL, relativePath: String, excluded: Set<String>,
+                               subfolders: Bool, rejected: Bool) -> [(url: URL, subfolderPath: String)] {
+        guard let contents = try? FileManager.default.contentsOfDirectory(
+            at: folder, includingPropertiesForKeys: [.isDirectoryKey], options: [.skipsHiddenFiles]) else { return [] }
+        var results: [(url: URL, subfolderPath: String)] = []
+        for item in contents.sorted(by: { $0.lastPathComponent.localizedStandardCompare($1.lastPathComponent) == .orderedAscending }) {
+            if (try? item.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory ?? false {
+                let name = item.lastPathComponent
+                if name.caseInsensitiveCompare("REJECTED") == .orderedSame {
+                    if rejected { results += referenceScan(item, relativePath: relativePath, excluded: [], subfolders: false, rejected: false) }
+                    continue
+                }
+                guard subfolders, !excluded.contains(name.lowercased()) else { continue }
+                results += referenceScan(item, relativePath: relativePath.isEmpty ? name : "\(relativePath)/\(name)",
+                                         excluded: excluded, subfolders: true, rejected: rejected)
+            } else if FITSFile.hasFITSExtension(item) {
+                results.append((item, relativePath))
+            }
+        }
+        return results
+    }
+
+    @Test("The readdir scan finds the same files, in the same order, as the FileManager scan",
+          arguments: [(false, false), (true, false), (false, true), (true, true)])
+    func scanMatchesReference(subfolders: Bool, rejected: Bool) throws {
+        let root = FileManager.default.temporaryDirectory.appending(component: UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let fm = FileManager.default
+        for dir in ["Ha", "Ha/REJECTED", "OIII", "FLAT", "Darks/nested", "REJECTED", "Ünïcödé map"] {
+            try fm.createDirectory(at: root.appending(path: dir), withIntermediateDirectories: true)
+        }
+        for file in ["frame10.fits", "frame2.fits", "frame1.FIT", "note.txt", ".hidden.fits",
+                     "Ha/a.fts", "Ha/REJECTED/r.fits", "OIII/b.fits", "FLAT/flat.fits",
+                     "Darks/nested/d.fits", "REJECTED/top.fits", "Ünïcödé map/ü.fits"] {
+            try Data([0]).write(to: root.appending(path: file))
+        }
+        let excluded: Set<String> = ["flat", "dark", "bias", "calib"]
+
+        let new = ImageStore.collectFITSURLs(in: root, relativePath: "", excludedNames: excluded,
+                                             includeSubfolders: subfolders, includeRejected: rejected)
+        let old = referenceScan(root, relativePath: "", excluded: excluded, subfolders: subfolders, rejected: rejected)
+
+        #expect(new.map { $0.url.path(percentEncoded: false) } == old.map { $0.url.path(percentEncoded: false) })
+        #expect(new.map(\.subfolderPath) == old.map(\.subfolderPath))
+        #expect(!new.isEmpty)
+    }
+
+    @Test("A folder that can't be read gives no files")
+    func unreadableFolder() {
+        #expect(ImageStore.collectFITSURLs(in: URL(fileURLWithPath: "/nonexistent-\(UUID().uuidString)"),
+                                           relativePath: "", excludedNames: [], includeSubfolders: true).isEmpty)
+    }
 }
