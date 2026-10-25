@@ -4,6 +4,17 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-25 — Header facts computed once (step 5a)
+
+### Internal
+- **Header values are cleaned once**, when the file is read: `FITSReader` stores each value through `cleanHeaderString` (quotes and padding removed), so the Inspector, the export and the header pickers no longer clean them on every access.
+- **`ImageEntry` stores the facts derived from its headers** — `filterName`, `filterGroup` and `bayerPattern` (with `isBayer`) are set when `headers` is set, instead of being parsed from the headers on every access (CODE_AUDIT §7.5). The loading pipeline uses the stored Bayer pattern (`FastLoadResult.bayerPattern`, `FITSImage.bayerPattern`, `entry.bayerPattern`); `BayerPattern.parse` is now only called by the reader and the entry.
+- No visible change: a one-time check over all 296 frames of the baseline test sets gave the same filter names, filter groups and Bayer patterns as the old code, and the cleaned headers equal the old values after cleaning. Unit tests, render tests and the 10 metric baselines pass unchanged.
+- Tests: `HeaderFactsTests` (facts stored, no or empty FILTER, facts follow a header change, the reader cleans string values and leaves numbers alone). `ExportTests` now gives its empty-key fixture the cleaned value `""`, as the reader would.
+- 👤 Before-trace for step 5 recorded (`05-step5-before.trace`, build of 069105f: M81, 355 frames, Geek mode, chart visible, ↓ held 5 s).
+
+---
+
 ## 2026-10-25 — Opening folders over the network: 5× faster, with progress
 
 ### Improved

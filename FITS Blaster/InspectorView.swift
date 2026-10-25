@@ -139,7 +139,7 @@ private struct InspectorHeadersSection: View {
         var result: [(String, String)] = []
         for key in Self.priorityKeys {
             if let val = headers[key] {
-                result.append((key, FITSReader.cleanHeaderString(val)))
+                result.append((key, val))
             }
         }
         let prioritySet = Set(Self.priorityKeys)
@@ -147,7 +147,7 @@ private struct InspectorHeadersSection: View {
             .filter { !prioritySet.contains($0.key) }
             .sorted { $0.key < $1.key }
         for (k, v) in rest {
-            result.append((k, FITSReader.cleanHeaderString(v)))
+            result.append((k, v))
         }
         return result
     }

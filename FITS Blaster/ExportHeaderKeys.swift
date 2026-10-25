@@ -44,7 +44,7 @@ enum ExportHeaderKeys {
         var keys = Set(known)
         var present: Set<String> = []
         for entry in entries {
-            for (key, value) in entry.headers where !FITSReader.cleanHeaderString(value).isEmpty {
+            for (key, value) in entry.headers where !value.isEmpty {
                 keys.insert(key)
                 present.insert(key)
             }

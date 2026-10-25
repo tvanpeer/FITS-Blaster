@@ -314,7 +314,7 @@ struct ExportTests {
 
     @Test("Available keys: known, present in a frame, and selected; present only from frames")
     func availableHeaderKeys() {
-        let entry = makeEntry(path: "/data/frame.fits", headers: ["MYKEY": "1", "EMPTYKEY": "''"])
+        let entry = makeEntry(path: "/data/frame.fits", headers: ["MYKEY": "1", "EMPTYKEY": ""])
         let (keys, present) = ExportHeaderKeys.available(in: [entry], selected: ["CUSTOM"])
         #expect(keys.contains("MYKEY"))
         #expect(keys.contains("CUSTOM"))

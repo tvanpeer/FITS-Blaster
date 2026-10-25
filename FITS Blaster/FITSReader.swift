@@ -277,10 +277,11 @@ struct FITSReader {
             throw FITSError.invalidFormat("Not enough data for \(totalValues) values at \(bytesPerPixel) bytes each.")
         }
 
-        // Build a flat dictionary of all parsed header cards
+        // Build a flat dictionary of all parsed header cards. String values are cleaned
+        // here, once (quotes and padding removed), not by every reader (CODE_AUDIT §7.5).
         var headers: [String: String] = [:]
         for (key, value) in headerCards where !key.isEmpty {
-            headers[key] = value
+            headers[key] = cleanHeaderString(value)
         }
 
         return HeaderInfo(width: width, height: height, bitpix: bitpix, channels: channels,

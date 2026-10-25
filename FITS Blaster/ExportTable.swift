@@ -31,7 +31,7 @@ struct ExportTable {
         // omitting empty columns keeps the output clean. The plain-text report
         // additionally lists what was dropped in a footer line.
         let usedKeys = headerKeys.filter { key in
-            frames.contains { !FITSReader.cleanHeaderString($0.headers[key] ?? "").isEmpty }
+            frames.contains { !($0.headers[key] ?? "").isEmpty }
         }
         skippedKeys = headerKeys.filter { !usedKeys.contains($0) }
 
@@ -57,7 +57,7 @@ struct ExportTable {
                 let m = entry.metrics ?? entry.cachedMetrics
                 cells.append(contentsOf: exportMetrics.map { $0.exportString(from: m) })
             }
-            cells.append(contentsOf: usedKeys.map { FITSReader.cleanHeaderString(entry.headers[$0] ?? "") })
+            cells.append(contentsOf: usedKeys.map { entry.headers[$0] ?? "" })
             return cells
         }
     }

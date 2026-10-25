@@ -30,17 +30,23 @@ final class ImageEntry: Identifiable {
     var cachedMetrics: FrameMetrics?
 
     var histogram: [Int]?
-    var headers: [String: String] = [:]
-
-    var filterName: String? {
-        guard let raw = headers["FILTER"] else { return nil }
-        let cleaned = FITSReader.cleanHeaderString(raw)
-        return cleaned.isEmpty ? nil : cleaned
+    /// The FITS header, with values cleaned by `FITSReader`. Setting it stores the facts
+    /// derived from it once, so reading them is free; the chart reads `filterGroup` for
+    /// every point on every cursor move (CODE_AUDIT §7.5a, about 5 ms per move with 355
+    /// frames when it was recomputed).
+    var headers: [String: String] = [:] {
+        didSet {
+            filterName = headers["FILTER"].flatMap { $0.isEmpty ? nil : $0 }
+            filterGroup = FilterGroup.normalise(filterName)
+            bayerPattern = BayerPattern.parse(from: headers)
+        }
     }
 
-    var filterGroup: FilterGroup { FilterGroup.normalise(filterName) }
+    private(set) var filterName: String?
+    private(set) var filterGroup: FilterGroup = FilterGroup.normalise(nil)
+    private(set) var bayerPattern: BayerPattern?
 
-    var isBayer: Bool { BayerPattern.parse(from: headers) != nil }
+    var isBayer: Bool { bayerPattern != nil }
 
     /// Percentile clip bounds computed during Phase A for greyscale (non-Bayer) images.
     var greyClips: GreyClips?

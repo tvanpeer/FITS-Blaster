@@ -318,7 +318,7 @@ extension ImageStore {
             return await MetricsCalculator.compute(metalBuffer: bufferResult.metalBuffer,
                                                    width: meta.width, height: meta.height,
                                                    config: config,
-                                                   bayerPattern: BayerPattern.parse(from: meta.headers))
+                                                   bayerPattern: meta.bayerPattern)
         }
 
         // CPU fallback when Metal is unavailable.
@@ -326,7 +326,7 @@ extension ImageStore {
         return await MetricsCalculator.compute(pixels: fits.pixelValues,
                                                width: fits.width, height: fits.height,
                                                config: config,
-                                               bayerPattern: BayerPattern.parse(from: fits.headers))
+                                               bayerPattern: fits.bayerPattern)
     }
 
     // MARK: - Concurrent pipeline
@@ -402,7 +402,7 @@ extension ImageStore {
                         entry.bayerClips   = fast.bayerClips
                         entry.greyClips    = fast.greyClips
                         // Pre-populate the greyscale cache so any toggle to grey is instant.
-                        if BayerPattern.parse(from: fast.headers) != nil {
+                        if entry.isBayer {
                             entry.cachedGreyscaleDisplay = fast.display
                             entry.cachedGreyscaleThumb   = fast.thumb
                         }
@@ -442,7 +442,7 @@ extension ImageStore {
                         defer { Task { await phaseBSemaphore.signal() } }
 
                         let metrics: FrameMetrics?
-                        let bayerPattern = BayerPattern.parse(from: fast.headers)
+                        let bayerPattern = fast.bayerPattern
                         if let buffer = fast.metalBuffer {
                             metrics = await MetricsCalculator.compute(
                                 metalBuffer: buffer,
@@ -554,12 +554,12 @@ extension ImageStore {
                             active -= 1
                         }
                         let url     = entry.url
-                        let headers = entry.headers
+                        let bayerPattern = entry.bayerPattern
                         let path    = entry.qualifiedFolderPath
                         group.addTask { [weak self] in
                             let didStart = url.startAccessingSecurityScopedResource()
                             defer { if didStart { url.stopAccessingSecurityScopedResource() } }
-                            guard let pattern = BayerPattern.parse(from: headers),
+                            guard let pattern = bayerPattern,
                                   let device  = ImageStretcher.metalDevice,
                                   let result  = try? FITSReader.readIntoBuffer(from: url, device: device)
                             else { return nil }
@@ -684,14 +684,13 @@ extension ImageStore {
             for entry in entries {
                 if active >= concurrency { await group.next(); active -= 1 }
                 let url     = entry.url
-                let headers = entry.headers
+                let bayerPattern = entry.bayerPattern
                 group.addTask {
                     let didStart = url.startAccessingSecurityScopedResource()
                     defer { if didStart { url.stopAccessingSecurityScopedResource() } }
                     guard let device = ImageStretcher.metalDevice,
                           let result = try? FITSReader.readIntoBuffer(from: url, device: device)
                     else { return }
-                    let bayerPattern = BayerPattern.parse(from: headers)
                     let display = await ImageStretcher.createImage(
                         inputBuffer: result.metalBuffer,
                         width: result.metadata.width, height: result.metadata.height,
@@ -735,7 +734,7 @@ extension ImageStore {
         if let selected = selectedEntry,
            bayerEntries.contains(where: { $0 === selected }),
            selected.cachedColourDisplay == nil,
-           let pattern = BayerPattern.parse(from: selected.headers),
+           let pattern = selected.bayerPattern,
            let (display, thumb) = await Self.recolorBayerEntry(
                url: selected.url, rOffset: pattern.rOffset, clips: sharedClips,
                maxDisplaySize: maxDisplaySize, maxThumbnailSize: maxThumbnailSize) {
@@ -760,9 +759,9 @@ extension ImageStore {
                 }
                 if activeCount >= concurrency { await group.next(); activeCount -= 1 }
                 let url     = entry.url
-                let headers = entry.headers
+                let bayerPattern = entry.bayerPattern
                 group.addTask {
-                    guard let pattern = BayerPattern.parse(from: headers),
+                    guard let pattern = bayerPattern,
                           let (display, thumb) = await Self.recolorBayerEntry(
                               url: url, rOffset: pattern.rOffset, clips: sharedClips,
                               maxDisplaySize: maxDisplaySize, maxThumbnailSize: maxThumbnailSize
@@ -837,7 +836,7 @@ extension ImageStore {
                                                            maxDisplaySize: maxDisplaySize,
                                                            bayerPattern: meta.bayerPattern)
             let bayerClips: BayerClips?
-            if debayerColorImages, let pattern = BayerPattern.parse(from: meta.headers) {
+            if debayerColorImages, let pattern = meta.bayerPattern {
                 bayerClips = ImageStretcher.computeBayerClips(bufferResult.metalBuffer,
                                                               width: meta.width, height: meta.height,
                                                               rOffset: pattern.rOffset)
@@ -848,7 +847,7 @@ extension ImageStore {
             // Compute greyscale clip bounds for non-Bayer images so the post-batch
             // normalisation pass can re-render with per-(folder, filter) median clips.
             let greyClips: GreyClips?
-            if BayerPattern.parse(from: meta.headers) == nil {
+            if meta.bayerPattern == nil {
                 greyClips = ImageStretcher.computeGreyClips(bufferResult.metalBuffer,
                                                             pixelCount: meta.width * meta.height)
             } else {
@@ -861,7 +860,7 @@ extension ImageStore {
                 display: display, thumb: thumb,
                 info: "\(meta.width) × \(meta.height)  |  BITPIX: \(meta.bitpix)",
                 error: nil, histogram: histogram, headers: meta.headers,
-                metalBuffer: bufferResult.metalBuffer,
+                metalBuffer: bufferResult.metalBuffer, bayerPattern: meta.bayerPattern,
                 width: meta.width, height: meta.height,
                 bayerClips: bayerClips, greyClips: greyClips)
         }
@@ -880,13 +879,13 @@ extension ImageStore {
             let thumb = display.flatMap { ImageStretcher.createThumbnail(from: $0, maxSize: maxThumbnailSize) }
             return FastLoadResult(display: display, thumb: thumb, info: info, error: nil,
                                   histogram: histogram, headers: headers,
-                                  metalBuffer: nil,
+                                  metalBuffer: nil, bayerPattern: fits.bayerPattern,
                                   width: w, height: h,
                                   bayerClips: nil, greyClips: nil)
         } catch {
             return FastLoadResult(display: nil, thumb: nil, info: "", error: error.localizedDescription,
                                   histogram: nil, headers: [:],
-                                  metalBuffer: nil,
+                                  metalBuffer: nil, bayerPattern: nil,
                                   width: 0, height: 0,
                                   bayerClips: nil, greyClips: nil)
         }
@@ -907,6 +906,8 @@ struct FastLoadResult {
     /// Released when the Phase B task ends. `nil` when the CPU fallback path
     /// was used (Metal unavailable).
     let metalBuffer: MTLBuffer?
+    /// The CFA pattern from the header, nil for mono and RGB images.
+    let bayerPattern: BayerPattern?
     let width:       Int
     let height:      Int
     /// Per-channel Bayer clip bounds computed during the grey-pass.
