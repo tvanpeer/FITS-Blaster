@@ -2,9 +2,10 @@
 //  ExportTests.swift
 //  FITS Blaster Tests
 //
-//  Tests for ImageStore.exportContent: CSV/TSV column layout, status column,
-//  POSIX decimal formatting, path styles, FITS header key filtering, and
-//  commonAncestorPath.
+//  Tests for ImageStore.exportContent / ExportTable: CSV/TSV column layout, status
+//  column, POSIX decimal formatting, path styles, FITS header key filtering and order,
+//  cell escaping (formula prefixes, line breaks, quotes), commonAncestorPath, writing
+//  with export(to:), and header-key discovery.
 //
 
 import Foundation
@@ -202,7 +203,7 @@ struct ExportTests {
             URL(fileURLWithPath: "/sessions/night1/frame001.fits"),
             URL(fileURLWithPath: "/sessions/night1/frame002.fits"),
         ]
-        #expect(ImageStore.commonAncestorPath(of: urls) == "/sessions/night1")
+        #expect(ExportTable.commonAncestorPath(of: urls) == "/sessions/night1")
     }
 
     @Test("commonAncestorPath returns the deepest common ancestor across subdirectories")
@@ -211,12 +212,12 @@ struct ExportTests {
             URL(fileURLWithPath: "/sessions/Ha/frame001.fits"),
             URL(fileURLWithPath: "/sessions/OIII/frame001.fits"),
         ]
-        #expect(ImageStore.commonAncestorPath(of: urls) == "/sessions")
+        #expect(ExportTable.commonAncestorPath(of: urls) == "/sessions")
     }
 
     @Test("commonAncestorPath returns empty string for empty input")
     func commonAncestorEmptyInput() {
-        #expect(ImageStore.commonAncestorPath(of: []) == "")
+        #expect(ExportTable.commonAncestorPath(of: []) == "")
     }
 
     @Test("commonAncestorPath returns empty string when only the root is shared")
@@ -225,6 +226,100 @@ struct ExportTests {
             URL(fileURLWithPath: "/a/frame.fits"),
             URL(fileURLWithPath: "/b/frame.fits"),
         ]
-        #expect(ImageStore.commonAncestorPath(of: urls) == "")
+        #expect(ExportTable.commonAncestorPath(of: urls) == "")
+    }
+
+    // MARK: - Header column order
+
+    @Test("Header columns follow the given order, not the alphabet")
+    func headerColumnOrder() {
+        let entry = makeEntry(path: "/data/frame.fits",
+                              headers: ["OBJECT": "M31", "EXPTIME": "120", "FILTER": "L"])
+        let csv = ImageStore.exportContent(frames: [entry], format: .csv,
+                                           includeRejected: false,
+                                           headerKeys: ["OBJECT", "FILTER", "EXPTIME"],
+                                           pathStyle: .filename)
+        #expect(csv.components(separatedBy: "\n").first == "path,OBJECT,FILTER,EXPTIME")
+    }
+
+    // MARK: - Cell escaping (CODE_AUDIT §6.2)
+
+    @Test("Text starting with =, +, - or @ gets a leading quote; numbers don't")
+    func formulaNeutralised() {
+        #expect(ExportTable.neutralisingFormula("=HYPERLINK(\"x\")") == "'=HYPERLINK(\"x\")")
+        #expect(ExportTable.neutralisingFormula("+cmd") == "'+cmd")
+        #expect(ExportTable.neutralisingFormula("-cmd") == "'-cmd")
+        #expect(ExportTable.neutralisingFormula("@SUM(A1)") == "'@SUM(A1)")
+        #expect(ExportTable.neutralisingFormula("-10.0") == "-10.0")
+        #expect(ExportTable.neutralisingFormula("+5") == "+5")
+        #expect(ExportTable.neutralisingFormula("M31") == "M31")
+        #expect(ExportTable.neutralisingFormula("") == "")
+    }
+
+    @Test("CSV neutralises a formula in a header value and keeps negative numbers")
+    func csvFormulaInHeaderValue() {
+        let entry = makeEntry(path: "/data/frame.fits",
+                              headers: ["OBJECT": "=1+1", "CCD-TEMP": "-10.0"])
+        let csv = ImageStore.exportContent(frames: [entry], format: .csv,
+                                           includeRejected: false, headerKeys: ["OBJECT", "CCD-TEMP"],
+                                           pathStyle: .filename)
+        #expect(csv.components(separatedBy: "\n").last == "frame.fits,'=1+1,-10.0")
+    }
+
+    @Test("CSV quotes cells with a comma, quote, newline or carriage return")
+    func csvQuoting() {
+        #expect(ExportTable.csvCell("a,b") == "\"a,b\"")
+        #expect(ExportTable.csvCell("say \"hi\"") == "\"say \"\"hi\"\"\"")
+        #expect(ExportTable.csvCell("a\nb") == "\"a\nb\"")
+        #expect(ExportTable.csvCell("a\rb") == "\"a\rb\"")
+        #expect(ExportTable.csvCell("plain") == "plain")
+    }
+
+    @Test("TSV replaces tabs and line breaks with spaces")
+    func tsvCell() {
+        #expect(ExportTable.tsvCell("a\tb\nc\rd") == "a b c d")
+        #expect(ExportTable.tsvCell("=x") == "'=x")
+    }
+
+    // MARK: - Writing (CODE_AUDIT §5.7)
+
+    @Test("export(to:) writes the same content as exportContent")
+    func exportWritesContent() throws {
+        let folder = FileManager.default.temporaryDirectory.appending(component: UUID().uuidString)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+
+        let store = ImageStore()
+        let entry = makeEntry(path: "/data/frame.fits", metrics: sampleMetrics(), headers: ["OBJECT": "M31"])
+        store.entries = [entry]
+        let url = folder.appending(component: "frames.csv")
+        store.export(to: url, format: .csv, includeRejected: false, headerKeys: ["OBJECT"], pathStyle: .absolute)
+
+        let expected = ImageStore.exportContent(frames: [entry], format: .csv, includeRejected: false,
+                                                headerKeys: ["OBJECT"], pathStyle: .absolute)
+        #expect(try String(contentsOf: url, encoding: .utf8) == expected)
+        #expect(store.errorMessage == nil)
+    }
+
+    @Test("A failed write is reported through errorMessage")
+    func exportFailureSetsError() {
+        let store = ImageStore()
+        store.entries = [makeEntry(path: "/data/frame.fits")]
+        let url = URL(fileURLWithPath: "/nonexistent-folder-\(UUID().uuidString)/frames.csv")
+        store.export(to: url, format: .csv, includeRejected: false, headerKeys: [], pathStyle: .absolute)
+        #expect(store.errorMessage?.contains("frames.csv") == true)
+    }
+
+    // MARK: - Header-key discovery
+
+    @Test("Available keys: known, present in a frame, and selected; present only from frames")
+    func availableHeaderKeys() {
+        let entry = makeEntry(path: "/data/frame.fits", headers: ["MYKEY": "1", "EMPTYKEY": "''"])
+        let (keys, present) = ExportHeaderKeys.available(in: [entry], selected: ["CUSTOM"])
+        #expect(keys.contains("MYKEY"))
+        #expect(keys.contains("CUSTOM"))
+        #expect(keys.contains("OBJECT"))
+        #expect(keys == keys.sorted())
+        #expect(present == ["MYKEY"])
     }
 }

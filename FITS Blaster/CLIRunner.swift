@@ -185,7 +185,7 @@ enum CLIRunner {
             frames: frames,
             format: .csv,
             includeRejected: options.includeRejectedInCSV,
-            headerKeys: options.headerKeys ?? defaultHeaderKeys,
+            headerKeys: options.headerKeys ?? ExportHeaderKeys.defaults,
             pathStyle: options.pathStyle)
 
         do {
@@ -293,13 +293,6 @@ enum CLIRunner {
     }
 
     // MARK: - Helpers
-
-    private static let defaultHeaderKeys = [
-        "OBJECT", "DATE-OBS", "EXPTIME", "FILTER",
-        "GAIN", "OFFSET", "CCD-TEMP",
-        "FOCUSPOS", "AIRMASS", "OBJCTALT",
-        "AMBTEMP", "HUMIDITY"
-    ]
 
     private static func printError(_ message: String) {
         fputs("error: \(message)\nRun with --help for usage.\n", stderr)

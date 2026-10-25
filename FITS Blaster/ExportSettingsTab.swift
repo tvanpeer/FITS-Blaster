@@ -50,7 +50,7 @@ struct ExportSettingsTab: View {
                 Text("Header keys discovered in the currently-loaded FITS files are merged with a curated list of common keys. Dimmed keys are not present in any loaded file (still selectable; empty columns are dropped at export time).")
                     .scaledFont(size: 10)
                     .foregroundStyle(.secondary)
-                ExportHeaderKeyPicker(
+                HeaderKeyPicker(
                     selection: $settings.exportHeaderKeys,
                     availableKeys: availableKeys,
                     presentKeys: presentKeys
@@ -58,12 +58,7 @@ struct ExportSettingsTab: View {
                 HStack {
                     Spacer()
                     Button("Reset to defaults") {
-                        settings.exportHeaderKeys = [
-                            "OBJECT", "DATE-OBS", "EXPTIME", "FILTER",
-                            "GAIN", "OFFSET", "CCD-TEMP",
-                            "FOCUSPOS", "AIRMASS", "OBJCTALT",
-                            "AMBTEMP", "HUMIDITY"
-                        ]
+                        settings.exportHeaderKeys = ExportHeaderKeys.defaults
                     }
                 }
             }
@@ -74,65 +69,7 @@ struct ExportSettingsTab: View {
     }
 
     private func refreshAvailableKeys() {
-        var keys = Set(AppSettings.knownExportHeaderKeys)
-        var present: Set<String> = []
-        for entry in store.entries {
-            for (key, value) in entry.headers
-            where !FITSReader.cleanHeaderString(value).isEmpty {
-                keys.insert(key)
-                present.insert(key)
-            }
-        }
-        // Always show selected keys even if neither list contains them anymore
-        // (e.g. user typed a custom key in a previous version of the app).
-        keys.formUnion(settings.exportHeaderKeys)
-        availableKeys = keys.sorted()
-        presentKeys = present
-    }
-}
-
-// MARK: - Header key picker
-
-/// A scrollable, two-column grid of toggles. Selected keys are persisted in
-/// `AppSettings.exportHeaderKeys` in the order the user clicks them, but we
-/// display the available list alphabetically for findability.
-private struct ExportHeaderKeyPicker: View {
-    @Binding var selection: [String]
-    let availableKeys: [String]
-    let presentKeys: Set<String>
-
-    private let columns = [
-        GridItem(.flexible(), alignment: .leading),
-        GridItem(.flexible(), alignment: .leading)
-    ]
-
-    var body: some View {
-        ScrollView(.vertical) {
-            LazyVGrid(columns: columns, alignment: .leading, spacing: 4) {
-                ForEach(availableKeys, id: \.self) { key in
-                    Toggle(isOn: binding(for: key)) {
-                        Text(key)
-                            .scaledFont(size: 11, monospaced: true)
-                            .foregroundStyle(presentKeys.contains(key) ? .primary : .secondary)
-                    }
-                    .toggleStyle(.checkbox)
-                }
-            }
-            .padding(.vertical, 4)
-        }
-        .frame(minHeight: 160, maxHeight: 240)
-    }
-
-    private func binding(for key: String) -> Binding<Bool> {
-        Binding(
-            get: { selection.contains(key) },
-            set: { isOn in
-                if isOn {
-                    if !selection.contains(key) { selection.append(key) }
-                } else {
-                    selection.removeAll { $0 == key }
-                }
-            }
-        )
+        (availableKeys, presentKeys) = ExportHeaderKeys.available(in: store.entries,
+                                                                  selected: settings.exportHeaderKeys)
     }
 }

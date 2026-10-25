@@ -50,7 +50,7 @@ enum CLIRenderer {
             for (entry, frame) in measured.sorted(by: { $0.frame.name < $1.frame.name }) {
                 let isTypical = frame.name == typicalName
                 let bg = frame.background
-                csv += [csvField(folder), csvField(frame.name), view(of: entry),
+                csv += [ExportTable.csvCell(folder), ExportTable.csvCell(frame.name), view(of: entry),
                         String(bg[0]), String(bg[1]), String(bg[2]), isTypical ? "yes" : ""]
                     .joined(separator: ",") + "\n"
                 if !typicalOnly || isTypical {
@@ -79,12 +79,6 @@ enum CLIRenderer {
         guard CGImageDestinationFinalize(destination) else {
             throw CocoaError(.fileWriteUnknown, userInfo: [NSFilePathErrorKey: url.path(percentEncoded: false)])
         }
-    }
-
-    /// Quotes a CSV field when it contains a comma or a quote (frame names can).
-    private static func csvField(_ value: String) -> String {
-        guard value.contains(",") || value.contains("\"") else { return value }
-        return "\"" + value.replacing("\"", with: "\"\"") + "\""
     }
 }
 #endif

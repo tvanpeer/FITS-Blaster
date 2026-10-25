@@ -21,7 +21,8 @@ struct ExportSheet: View {
     @State private var format: ExportFormat = .plainText
     @State private var includeRejected: Bool = false
     @State private var pathStyle: PathStyle = .absolute
-    @State private var selectedHeaderKeys: Set<String> = []
+    /// In export column order: the order from Settings, newly ticked keys at the end.
+    @State private var selectedHeaderKeys: [String] = []
     @State private var availableKeys: [String] = []
     @State private var presentKeys: Set<String> = []
     @State private var showHeaderPicker: Bool = false
@@ -35,7 +36,7 @@ struct ExportSheet: View {
         format != settings.defaultExportFormat
             || includeRejected != settings.includeRejectedInExport
             || pathStyle != settings.exportPathStyle
-            || selectedHeaderKeys != Set(settings.exportHeaderKeys)
+            || selectedHeaderKeys != settings.exportHeaderKeys
     }
 
     var body: some View {
@@ -60,10 +61,11 @@ struct ExportSheet: View {
                         Text("Dimmed keys are not present in any currently loaded file. They are still selectable, but empty columns are dropped at export time (the .txt report notes which were skipped).")
                             .scaledFont(size: 10)
                             .foregroundStyle(.secondary)
-                        ExportSheetHeaderList(
+                        HeaderKeyPicker(
                             selection: $selectedHeaderKeys,
                             availableKeys: availableKeys,
-                            presentKeys: presentKeys
+                            presentKeys: presentKeys,
+                            minHeight: 140, maxHeight: 220
                         )
                     } label: {
                         HStack {
@@ -96,10 +98,14 @@ struct ExportSheet: View {
                 Spacer()
                 Button("Save…") {
                     isPresented = false
-                    store.export(format: format,
-                                 includeRejected: includeRejected,
-                                 headerKeys: selectedHeaderKeys.sorted(),
-                                 pathStyle: pathStyle)
+                    // The sheet's choices, captured before it goes away.
+                    let (format, includeRejected, headerKeys, pathStyle) =
+                        (format, includeRejected, selectedHeaderKeys, pathStyle)
+                    Task {
+                        guard let url = await FileDialogs.chooseExportDestination(format: format) else { return }
+                        store.export(to: url, format: format, includeRejected: includeRejected,
+                                     headerKeys: headerKeys, pathStyle: pathStyle)
+                    }
                 }
                 .buttonStyle(.borderedProminent)
                 .disabled(frameCount == 0)
@@ -112,65 +118,13 @@ struct ExportSheet: View {
             format             = settings.defaultExportFormat
             includeRejected    = settings.includeRejectedInExport
             pathStyle          = settings.exportPathStyle
-            selectedHeaderKeys = Set(settings.exportHeaderKeys)
+            selectedHeaderKeys = settings.exportHeaderKeys
             refreshAvailableKeys()
         }
     }
 
     private func refreshAvailableKeys() {
-        var keys = Set(AppSettings.knownExportHeaderKeys)
-        var present: Set<String> = []
-        for entry in store.entries {
-            for (key, value) in entry.headers
-            where !FITSReader.cleanHeaderString(value).isEmpty {
-                keys.insert(key)
-                present.insert(key)
-            }
-        }
-        keys.formUnion(selectedHeaderKeys)
-        availableKeys = keys.sorted()
-        presentKeys = present
-    }
-}
-
-// MARK: - Header list inside the sheet
-
-/// Two-column scrollable checkbox list for picking FITS header keys.
-/// Mirrors the structure used in Settings → Export so the visual language is
-/// consistent across both surfaces.
-private struct ExportSheetHeaderList: View {
-    @Binding var selection: Set<String>
-    let availableKeys: [String]
-    let presentKeys: Set<String>
-
-    private let columns = [
-        GridItem(.flexible(), alignment: .leading),
-        GridItem(.flexible(), alignment: .leading)
-    ]
-
-    var body: some View {
-        ScrollView(.vertical) {
-            LazyVGrid(columns: columns, alignment: .leading, spacing: 4) {
-                ForEach(availableKeys, id: \.self) { key in
-                    Toggle(isOn: $selection[member: key]) {
-                        Text(key)
-                            .scaledFont(size: 11, monospaced: true)
-                            .foregroundStyle(presentKeys.contains(key) ? .primary : .secondary)
-                    }
-                    .toggleStyle(.checkbox)
-                }
-            }
-            .padding(.vertical, 4)
-        }
-        .frame(minHeight: 140, maxHeight: 220)
-    }
-}
-
-private extension Binding<Set<String>> {
-    subscript(member element: String) -> Binding<Bool> {
-        Binding<Bool>(
-            get: { wrappedValue.contains(element) },
-            set: { if $0 { wrappedValue.insert(element) } else { wrappedValue.remove(element) } }
-        )
+        (availableKeys, presentKeys) = ExportHeaderKeys.available(in: store.entries,
+                                                                  selected: selectedHeaderKeys)
     }
 }

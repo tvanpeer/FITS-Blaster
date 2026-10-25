@@ -4,6 +4,23 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-25 — Export: column order, safe CSV, errors shown (step 4a)
+
+### Changed
+- **Export column order** — the FITS header columns in an export now follow the order chosen in Settings → Export (the order in which keys were ticked), also from the Export sheet, which used to sort them alphabetically. Keys ticked in the sheet come last (decision 9 of the master plan).
+- **Safer CSV and TSV** — a text value that starts with `=`, `+`, `-` or `@`, such as an OBJECT header from someone else's files, gets a leading `'`, so Excel and Numbers show it as text instead of running it as a formula. Numbers such as `-10.0` (CCD-TEMP) are left alone. CSV cells with a carriage return are quoted, and TSV replaces it with a space (CODE_AUDIT §6.2).
+
+### Fixed
+- **A failed export is reported** — when the file can't be written, an error now says so; before, the export failed silently (§5.7).
+
+### Internal
+- The export is built once as a table (`ExportTable`) and rendered as CSV, TSV or the aligned text report; the command-line mode and `CLIRenderer` use the same cell rules. The default header keys, the curated key list and key discovery live in `ExportHeaderKeys`; Settings and the Export sheet share one `HeaderKeyPicker` (§9.11, export part).
+- The save panel moved out of the store into `FileDialogs` and opens with `begin` instead of `runModal`; the store's `export(to:…)` gets the chosen URL (master-plan step 4).
+- The CSV output of the command-line mode is byte-identical to 1.24-beta.1 on M31, California, ASI294MM SHO and M42 (with and without REJECTED, absolute paths, filtered).
+- Tests: column order, formula prefixes, quoting, TSV cells, `export(to:)`, a failed write, key discovery.
+
+---
+
 ## 2026-10-24 — Testing: a cloned, checked copy of the test data
 
 ### Testing
