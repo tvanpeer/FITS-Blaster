@@ -57,11 +57,16 @@ env_prefix=()
 [[ -n "$RGB_PATH"  ]] && env_prefix+=("TEST_RUNNER_BENCH_RGB_PATH=$RGB_PATH")
 [[ -n "$MONO_PATH" ]] && env_prefix+=("TEST_RUNNER_BENCH_MONO_PATH=$MONO_PATH")
 
+# Release, as shipped, but with testability (the tests use @testable import) and the BETA
+# condition (the test target also compiles the render tests, which use BETA-only code),
+# without coverage instrumentation.
 env "${env_prefix[@]}" xcodebuild test \
     -scheme "FITS Blaster" \
     -configuration Release \
     -destination "platform=macOS" \
     -only-testing "FITS Blaster Tests/BenchmarkTests" \
+    ENABLE_TESTABILITY=YES ENABLE_CODE_COVERAGE=NO \
+    'SWIFT_ACTIVE_COMPILATION_CONDITIONS=$(inherited) BETA' \
     2>&1 | tee "$TMPLOG"
 
 # ── Parse BENCH: lines ────────────────────────────────────────────────────────

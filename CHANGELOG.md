@@ -4,6 +4,18 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-25 — Swift 6 readiness: three warnings and the pointer escape (step 7a)
+
+### Internal
+- **Phase A result** (`LoadPipeline.processParallel`): the values the screen needs are copied out before the hop to the main actor, so `FastLoadResult` with its Metal buffer only goes to Phase B (CODE_AUDIT §3.3, "sending 'fast'").
+- **Star measurement** (`MetricsCalculator.measureCandidates`): the shape fits of the top 200 candidates and the star count over up to 6,000 more now run one after another in candidate order, without child tasks. The pixel pointer no longer crosses into other tasks (§3.3, two warnings), and the thousands of microsecond-sized tasks per frame are gone (§3.8, planned for step 8; its "4 chunked tasks" would have captured the pointer again). This is the main path for every frame, GPU and CPU, not only the CPU fallback as the concurrency plan assumed. Results unchanged: the shape values were already combined in candidate order, and the count is a sum. `IndexedShape` removed.
+- **CPU fallback** (`compute(pixels:)`): the pixels are copied into a buffer the function owns and frees, instead of using a pointer from `withUnsafeBufferPointer` after the closure has returned (§3.10).
+- The strict build (`SWIFT_STRICT_CONCURRENCY=complete`) has one warning left: the drop handler (step 7b).
+- **Measured**, alternating with the step 6 build: `BenchmarkTests` (71 M81 colour frames, 30 ASI294MM mono frames, read + star measurement, several frames at once) RGB 1.72–1.74 s instead of 1.82–1.88 s, mono 0.40–0.45 s instead of 0.44–0.45 s; CLI full pipeline M81 grey 9.9–10.4 s instead of 10.2–10.4 s, Rosette large 7.6–7.65 s instead of 7.8 s, same peak memory. Unit tests (294), render tests and the 10 metric baselines pass unchanged.
+- **`scripts/run-benchmark.sh` builds again:** its Release test build now sets `ENABLE_TESTABILITY=YES` (the tests use `@testable import`), the BETA condition (the test target also compiles the render tests, which use BETA-only code) and no coverage instrumentation.
+
+---
+
 ## 2026-10-25 — One batch at a time; renders that can't go stale (step 6b)
 
 ### Fixed

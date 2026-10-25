@@ -102,10 +102,6 @@ struct MetricsCalculator {
         }
     }
 
-    /// One shape measurement from a parallel task: the candidate's position in the
-    /// sorted list, and (fwhm, eccentricity, snr, peak) — nil when the fit was rejected.
-    typealias IndexedShape = (index: Int, shape: (Float, Float, Float, Float)?)
-
     /// Return type for GPU detection.
     struct GPUDetectionResult {
         /// Candidates stored in the output buffer, sorted by peak brightness.
@@ -165,17 +161,15 @@ struct MetricsCalculator {
                                     config: MetricsConfig,
                                     bayerPattern: BayerPattern? = nil) async -> FrameMetrics? {
         guard config.needsStarDetection, !pixels.isEmpty else { return nil }
-        // `pixels` is a value parameter whose heap storage is kept alive for the entire
-        // duration of this async function. We extract the base address here (before the
-        // first suspension point) and reconstruct an UnsafeBufferPointer for computeImpl.
-        // This is safe because:
-        //   - `pixels` is never mutated after this point, so no COW copy can occur.
-        //   - Swift heap arrays are not relocated in memory; `base` stays valid.
-        //   - The pointer is fully consumed before this function returns.
-        let base = pixels.withUnsafeBufferPointer { $0.baseAddress! }
-        let buf  = UnsafeBufferPointer(start: base, count: pixels.count)
-        return await computeImpl(pixels: buf, width: width, height: height, config: config,
-                                 bayerPattern: bayerPattern)
+        // computeImpl suspends, and a pointer from `withUnsafeBufferPointer` is only valid
+        // inside its closure (CODE_AUDIT §3.10). So the pixels are copied into a buffer
+        // this function owns and frees when computeImpl has returned. Only the CPU
+        // fallback (no Metal) comes here, so the copy costs nothing in normal use.
+        let buffer = UnsafeMutableBufferPointer<Float>.allocate(capacity: pixels.count)
+        defer { buffer.deallocate() }
+        _ = buffer.initialize(from: pixels)
+        return await computeImpl(pixels: UnsafeBufferPointer(buffer), width: width, height: height,
+                                 config: config, bayerPattern: bayerPattern)
     }
 
     // MARK: - Private orchestration
@@ -218,12 +212,14 @@ struct MetricsCalculator {
                                                      config: MetricsConfig,
                                                      bayerPattern: BayerPattern? = nil) async -> FrameMetrics? {
 
-        // ── Phase 1: shape statistics (parallel, top 200 candidates) ────────────
+        // ── Phase 1: shape statistics (top 200 candidates) ───────────────────────
         //
         // Candidates are sorted brightest-first, so the top 200 reliably contain
         // enough unsaturated stars for stable median FWHM/eccentricity/SNR estimates.
-        // measureShape is pure (no shared mutable state), so fits can run 4-wide
-        // across the cooperative thread pool without any synchronisation overhead.
+        // The fits run one after another, in candidate order: several frames are
+        // measured at the same time during a load, which keeps the cores busy, and the
+        // pixel pointer then never crosses into another task (CODE_AUDIT §3.3, §3.8).
+        // Aggregating in candidate order keeps the float sums the same on every run.
 
         var fwhmValues:  [Float] = []
         var eccValues:   [Float] = []
@@ -232,55 +228,36 @@ struct MetricsCalculator {
         // PSF Signal Weight accumulator: Σ(peakVal) across verified stars.
         var psfFluxSum:  Float = 0
 
-        // Results arrive in task-completion order; they are aggregated afterwards in
-        // candidate order so the float sum (and everything else) is the same on every run.
-        var measured: [IndexedShape] = []
-        await withTaskGroup(of: IndexedShape.self) { group in
-            let innerConcurrency = 4
-            var active = 0
-            for (index, candidate) in allCandidates.prefix(Constants.topCandidatesForShape).enumerated() {
-                if active >= innerConcurrency {
-                    if let r = await group.next() { measured.append(r) }
-                    active -= 1
+        for c in allCandidates.prefix(Constants.topCandidatesForShape) {
+            let shape: (Float, Float, Float, Float)? = {
+                if let pattern = bayerPattern {
+                    let rawCrop = Self.extractCrop(from: pixels, width: width, height: height,
+                                                   cx: c.x, cy: c.y, cropHalf: Self.cropHalf)
+                    let rec709Lum = Self.debayerCropToLuminance(
+                        crop: rawCrop, cropHalf: Self.cropHalf,
+                        originX: c.x - Self.cropHalf, originY: c.y - Self.cropHalf,
+                        pattern: pattern, weights: .rec709)
+                    let (fwhm, eccRec709, snr, peakVal) = Self.measureShapeFromCrop(
+                        crop: rec709Lum, cropHalf: Self.cropHalf,
+                        background: background, sigma: sigma)
+                    guard fwhm >= 0.5, fwhm <= 20 else { return nil }
+                    let adaptiveLum = Self.debayerCropToLuminance(
+                        crop: rawCrop, cropHalf: Self.cropHalf,
+                        originX: c.x - Self.cropHalf, originY: c.y - Self.cropHalf,
+                        pattern: pattern, weights: .adaptive)
+                    let (_, eccAdaptive, _, _) = Self.measureShapeFromCrop(
+                        crop: adaptiveLum, cropHalf: Self.cropHalf,
+                        background: background, sigma: sigma)
+                    let ecc = eccAdaptive > 0 ? eccAdaptive : eccRec709
+                    return (fwhm, ecc, snr, peakVal)
+                } else {
+                    let (fwhm, ecc, snr, peakVal) = Self.measureShape(
+                        pixels: pixels, width: width, height: height,
+                        cx: c.x, cy: c.y, background: background, sigma: sigma)
+                    guard fwhm >= 0.5, fwhm <= 20 else { return nil }
+                    return (fwhm, ecc, snr, peakVal)
                 }
-                let c = candidate
-                group.addTask {
-                    let shape: (Float, Float, Float, Float)? = {
-                        if let pattern = bayerPattern {
-                            let rawCrop = Self.extractCrop(from: pixels, width: width, height: height,
-                                                           cx: c.x, cy: c.y, cropHalf: Self.cropHalf)
-                            let rec709Lum = Self.debayerCropToLuminance(
-                                crop: rawCrop, cropHalf: Self.cropHalf,
-                                originX: c.x - Self.cropHalf, originY: c.y - Self.cropHalf,
-                                pattern: pattern, weights: .rec709)
-                            let (fwhm, eccRec709, snr, peakVal) = Self.measureShapeFromCrop(
-                                crop: rec709Lum, cropHalf: Self.cropHalf,
-                                background: background, sigma: sigma)
-                            guard fwhm >= 0.5, fwhm <= 20 else { return nil }
-                            let adaptiveLum = Self.debayerCropToLuminance(
-                                crop: rawCrop, cropHalf: Self.cropHalf,
-                                originX: c.x - Self.cropHalf, originY: c.y - Self.cropHalf,
-                                pattern: pattern, weights: .adaptive)
-                            let (_, eccAdaptive, _, _) = Self.measureShapeFromCrop(
-                                crop: adaptiveLum, cropHalf: Self.cropHalf,
-                                background: background, sigma: sigma)
-                            let ecc = eccAdaptive > 0 ? eccAdaptive : eccRec709
-                            return (fwhm, ecc, snr, peakVal)
-                        } else {
-                            let (fwhm, ecc, snr, peakVal) = Self.measureShape(
-                                pixels: pixels, width: width, height: height,
-                                cx: c.x, cy: c.y, background: background, sigma: sigma)
-                            guard fwhm >= 0.5, fwhm <= 20 else { return nil }
-                            return (fwhm, ecc, snr, peakVal)
-                        }
-                    }()
-                    return (index, shape)
-                }
-                active += 1
-            }
-            for await r in group { measured.append(r) }
-        }
-        for (_, shape) in measured.sorted(by: { $0.index < $1.index }) {
+            }()
             guard let (fwhm, ecc, snr, peakVal) = shape else { continue }
             topVerified += 1
             fwhmValues.append(fwhm)
@@ -298,30 +275,19 @@ struct MetricsCalculator {
         // with a sample+extrapolate approach, even a 1% noise false-positive rate
         // multiplied by ~49 700 remaining candidates adds ~497 phantom stars.
         // Direct counting limits noise contamination to at most a few dozen stars
-        // regardless of how large the candidate list is.
+        // regardless of how large the candidate list is. Each check takes about a
+        // microsecond, less than a child task would cost, so they run in one loop (§3.8).
 
         var verifiedCount = topVerified
 
         if allCandidates.count > Constants.topCandidatesForShape {
             let remaining = allCandidates.dropFirst(Constants.topCandidatesForShape)
                                          .prefix(Constants.fallbackCandidateCount)
-            await withTaskGroup(of: Int.self) { group in
-                let innerConcurrency = 4
-                var active = 0
-                for c in remaining {
-                    if active >= innerConcurrency {
-                        verifiedCount += await group.next() ?? 0
-                        active -= 1
-                    }
-                    group.addTask {
-                        let fwhm = Self.measureFWHMOnly(
-                            pixels: pixels, width: width, height: height,
-                            cx: c.x, cy: c.y, background: background)
-                        return (fwhm >= 0.5 && fwhm <= 20) ? 1 : 0
-                    }
-                    active += 1
-                }
-                for await count in group { verifiedCount += count }
+            for c in remaining {
+                let fwhm = Self.measureFWHMOnly(
+                    pixels: pixels, width: width, height: height,
+                    cx: c.x, cy: c.y, background: background)
+                if fwhm >= 0.5 && fwhm <= 20 { verifiedCount += 1 }
             }
         }
 

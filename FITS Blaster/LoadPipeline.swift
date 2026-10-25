@@ -465,23 +465,33 @@ final class LoadPipeline {
                                                    maxDisplaySize: maxDisplaySize,
                                                    maxThumbnailSize: maxThumbnailSize,
                                                    debayerColorImages: debayerColorImages)
+                    // Only these values go to the main actor; `fast` itself, with its
+                    // Metal buffer, stays with Phase B below (CODE_AUDIT §3.3).
+                    let display    = fast.display
+                    let thumb      = fast.thumb
+                    let info       = fast.info
+                    let error      = fast.error
+                    let histogram  = fast.histogram
+                    let headers    = fast.headers
+                    let bayerClips = fast.bayerClips
+                    let greyClips  = fast.greyClips
                     await MainActor.run { [weak self] in
-                        entry.displayImage = fast.display
-                        entry.thumbnail    = fast.thumb
-                        entry.imageInfo    = fast.info
-                        entry.errorMessage = fast.error
-                        entry.histogram    = fast.histogram
-                        entry.headers      = fast.headers
-                        entry.bayerClips   = fast.bayerClips
-                        entry.greyClips    = fast.greyClips
+                        entry.displayImage = display
+                        entry.thumbnail    = thumb
+                        entry.imageInfo    = info
+                        entry.errorMessage = error
+                        entry.histogram    = histogram
+                        entry.headers      = headers
+                        entry.bayerClips   = bayerClips
+                        entry.greyClips    = greyClips
                         // Pre-populate the greyscale cache so any toggle to grey is instant.
                         if entry.isBayer {
-                            entry.cachedGreyscaleDisplay = fast.display
-                            entry.cachedGreyscaleThumb   = fast.thumb
+                            entry.cachedGreyscaleDisplay = display
+                            entry.cachedGreyscaleThumb   = thumb
                         }
                         entry.isProcessing = false   // ← image visible now
 
-                        if selectFirst, entry === entriesToProcess.first, fast.display != nil {
+                        if selectFirst, entry === entriesToProcess.first, display != nil {
                             self?.store?.selectedEntry = entry
                         }
                     }
