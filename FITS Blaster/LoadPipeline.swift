@@ -1,16 +1,92 @@
 //
-//  ImageStorePipeline.swift
+//  LoadPipeline.swift
 //  FITS Blaster
 //
-//  Loading pipeline: openFiles, regenerateSizes, recomputeMetrics, processParallel,
-//  recolorImages, renderFolderInColour, and the nonisolated fast-load helpers.
+//  The loading pipeline: batches (open, new sizes, metrics recompute, colour toggle),
+//  the concurrent Phase A / Phase B work, grey and colour normalisation, and the batch
+//  state the progress UI shows. Owned by ImageStore (`store.pipeline`); the per-file
+//  work is in FrameLoading.
 //
 
 import Foundation
 import AppKit
 import Metal
 
-extension ImageStore {
+@Observable
+@MainActor
+final class LoadPipeline {
+
+    /// The store whose entries this pipeline loads; set by `ImageStore.init`.
+    @ObservationIgnored weak var store: ImageStore?
+
+    // MARK: - Batch state
+
+    var batchElapsed: Double?
+    var batchMegapixels: Double?
+    /// Number of images in the last finished batch (not the whole session).
+    var batchImageCount: Int?
+    var isBatchProcessing: Bool = false
+
+    /// The currently running load / reprocess task. Stored so it can be cancelled by the user.
+    var processingTask: Task<Void, Never>?
+
+    /// The folder scan of a drag & drop, before its batch load starts (`openDroppedItems`).
+    var dropScanTask: Task<Void, Never>?
+
+    /// What a load is doing before its frames appear (scanning, checking headers); nil otherwise.
+    var preparation: LoadPreparation?
+
+    /// Suspends the caller until any in-progress drop scan and batch load complete.
+    /// Used by CLI mode and the tests.
+    func waitForProcessing() async {
+        await dropScanTask?.value
+        await processingTask?.value
+    }
+
+    // MARK: - Batch progress counters
+    // batchLoadedCount and batchMetricsCount are intentionally absent: updating them
+    // per-image via MainActor.run creates back-pressure that serialises the pipeline.
+    // BatchProgressBar polls entry state every 200 ms instead (see its .task modifier).
+    // Only the lower-frequency restretch/sampling counters are stored here.
+    /// Set to the full entry count when a restretch pass begins; 0 at all other times.
+    var batchRestretchTotal: Int = 0
+    var batchRestretchCount: Int = 0
+    /// Tracks per-channel clip sampling before colour rendering begins (recolorImages path).
+    var batchSamplingTotal: Int = 0
+    var batchSamplingCount: Int = 0
+
+    /// Non-nil while a restretch pass is running; the value is the status message to display.
+    var restretchingMessage: String? = nil
+
+    /// Cancels any in-progress loading or recompute batch.
+    /// In-flight GPU/I/O tasks run to completion (they can't be interrupted mid-flight),
+    /// but no new work is started and the UI is cleaned up immediately.
+    func cancelProcessing() {
+        dropScanTask?.cancel()
+        dropScanTask = nil
+        processingTask?.cancel()
+        processingTask = nil
+        preparation = nil
+        for entry in store?.entries ?? [] where entry.isProcessing {
+            entry.isProcessing = false
+        }
+        isBatchProcessing = false
+        batchElapsed = nil
+        batchMegapixels = nil
+        batchImageCount = nil
+    }
+
+    /// Clears the batch display state, as Reset does.
+    func clearBatchState() {
+        batchElapsed = nil
+        batchMegapixels = nil
+        batchImageCount = nil
+        isBatchProcessing = false
+        batchRestretchTotal = 0
+        batchRestretchCount = 0
+        batchSamplingTotal = 0
+        batchSamplingCount = 0
+    }
 
     // MARK: - Loading
 
@@ -21,13 +97,14 @@ extension ImageStore {
                    maxDisplaySize: Int = 1024, maxThumbnailSize: Int = 120,
                    metricsConfig: MetricsConfig = MetricsConfig(),
                    debayerColorImages: Bool = false) {
-        let selectFirst = (selectedEntry == nil)
+        guard let store else { return }
+        let selectFirst = (store.selectedEntry == nil)
 
         // Snapshot existing URLs now, on the main actor, before handing off to the task.
         // Both paths of each entry: a file rejected this session sits at …/REJECTED/x.fits
         // (url) while originalURL is …/x.fits, and reopening the folder with REJECTED
         // scans the former (CODE_AUDIT §5.8).
-        let existingURLs = Set(entries.flatMap { [$0.url, $0.originalURL] })
+        let existingURLs = Set(store.entries.flatMap { [$0.url, $0.originalURL] })
 
         batchElapsed = nil
         batchMegapixels = nil
@@ -48,7 +125,7 @@ extension ImageStore {
             preparation = .checking(done: 0, total: total)
             let (progress, progressContinuation) = AsyncStream.makeStream(of: Int.self,
                                                                           bufferingPolicy: .bufferingNewest(1))
-            async let filtered = Self.filterItems(urlsWithPaths, existingURLs: existingURLs,
+            async let filtered = FrameLoading.filterItems(urlsWithPaths, existingURLs: existingURLs,
                                                   progress: progressContinuation)
             for await done in progress {
                 preparation = .checking(done: done, total: total)
@@ -66,21 +143,21 @@ extension ImageStore {
                                .appending(component: item.url.lastPathComponent) // …/Ha/image.fits
                     : nil
                 let entry = ImageEntry(url: item.url, originalURL: computedOriginalURL,
-                                       directoryBookmark: self.bookmark(for: item.url))
+                                       directoryBookmark: store.bookmark(for: item.url))
                 entry.subfolderPath = item.subfolderPath
                 // Per-frame names (several dropped folders) win over the batch name.
                 entry.rootFolderName = rootFolderNames[item.url] ?? rootFolderName
                 if isRejected {
                     entry.isRejected = true
-                    rejectedEntryIDs.insert(entry.id)
+                    store.rejectedEntryIDs.insert(entry.id)
                 }
-                entries.append(entry)
+                store.entries.append(entry)
                 newEntries.append(entry)
             }
             if !skippedFloat.isEmpty {
                 let preview = skippedFloat.prefix(5).joined(separator: ", ")
                 let suffix  = skippedFloat.count > 5 ? " and \(skippedFloat.count - 5) more" : ""
-                errorMessage = "Skipped \(skippedFloat.count) floating-point FITS file\(skippedFloat.count == 1 ? "" : "s") (not supported): \(preview)\(suffix)"
+                store.errorMessage = "Skipped \(skippedFloat.count) floating-point FITS file\(skippedFloat.count == 1 ? "" : "s") (not supported): \(preview)\(suffix)"
             }
             guard !newEntries.isEmpty else {
                 isBatchProcessing = false
@@ -88,11 +165,11 @@ extension ImageStore {
                 return
             }
 
-            if selectFirst { selectedEntry = newEntries[0] }
+            if selectFirst { store.selectedEntry = newEntries[0] }
 
             // Populate the sort/filter cache so the sidebar renders immediately.
-            updateActiveFilterGroups()
-            updateCachedSort()
+            store.updateActiveFilterGroups()
+            store.updateCachedSort()
 
             await processParallel(newEntries, selectFirst: selectFirst,
                                   maxDisplaySize: maxDisplaySize,
@@ -116,69 +193,14 @@ extension ImageStore {
         }
     }
 
-    /// Filters a list of candidate URLs off the main thread: strips unsupported
-    /// extensions, removes duplicates, and reads the first header block of each
-    /// remaining file to detect and reject floating-point FITS.
-    ///
-    /// This function is `nonisolated` so Swift runs it on the cooperative thread
-    /// pool rather than the main actor, keeping the UI responsive even when files
-    /// are stored on iCloud Drive, SMB mounts, or a loaded SSD.
-    /// `progress` receives the number of files done so far, and is finished at the end.
-    /// The headers are read `headerChecksAtOnce` at a time: each costs a round trip on a
-    /// network share (8 at once: about 6× faster than one by one, measured 2026-10-25).
-    /// The result keeps the input order.
-    @concurrent static func filterItems(
-        _ items: [(url: URL, subfolderPath: String)],
-        existingURLs: Set<URL>,
-        progress: AsyncStream<Int>.Continuation? = nil
-    ) async -> (valid: [(url: URL, subfolderPath: String)], skippedFloat: [String]) {
-        defer { progress?.finish() }
-        let candidates = items.filter { FITSFile.hasFITSExtension($0.url) && !existingURLs.contains($0.url) }
-        var done = items.count - candidates.count   // skipped without reading
-        if done > 0 { progress?.yield(done) }
-
-        var bitpix = [Int?](repeating: nil, count: candidates.count)
-        await withTaskGroup(of: (Int, Int?).self) { group in
-            var next = 0
-            while next < min(headerChecksAtOnce, candidates.count) {
-                let i = next
-                group.addTask { (i, FITSReader.peekBitpix(url: candidates[i].url)) }
-                next += 1
-            }
-            for await (i, value) in group {
-                bitpix[i] = value
-                done += 1
-                progress?.yield(done)
-                if next < candidates.count {
-                    let j = next
-                    group.addTask { (j, FITSReader.peekBitpix(url: candidates[j].url)) }
-                    next += 1
-                }
-            }
-        }
-
-        var valid: [(url: URL, subfolderPath: String)] = []
-        var skippedFloat: [String] = []
-        for (item, value) in zip(candidates, bitpix) {
-            if let value, ![8, 16, 32].contains(value) {
-                skippedFloat.append(item.url.lastPathComponent)
-            } else {
-                valid.append(item)
-            }
-        }
-        return (valid, skippedFloat)
-    }
-
-    /// How many file headers `filterItems` reads at the same time.
-    nonisolated static let headerChecksAtOnce = 8
-
     /// Re-renders display images and thumbnails at new sizes without touching metrics.
     ///
     /// Unlike a normal load, this never runs Phase B (star detection). After Phase A
     /// completes, each entry's `metrics` is restored from its `cachedMetrics` so the
     /// displayed values remain unchanged throughout.
     func regenerateSizes(settings: AppSettings) {
-        let entriesToProcess = entries
+        guard let store else { return }
+        let entriesToProcess = store.entries
         let metricsConfig    = settings.effectiveMetricsConfig
         for entry in entriesToProcess {
             entry.isProcessing = true
@@ -188,7 +210,7 @@ extension ImageStore {
             // Intentionally leave entry.metrics and entry.cachedMetrics intact.
         }
 
-        let accessedDirs = entriesToProcess.compactMap { accessDirectory(for: $0) }
+        let accessedDirs = entriesToProcess.compactMap { store.accessDirectory(for: $0) }
 
         batchElapsed = nil
         batchMegapixels = nil
@@ -238,7 +260,8 @@ extension ImageStore {
     /// - Only entries genuinely missing a newly-enabled metric trigger a file re-read,
     ///   and only for those specific missing metrics.
     func recomputeMetrics(metricsConfig: MetricsConfig) {
-        let entriesToProcess = entries.filter { !$0.isProcessing }
+        guard let store else { return }
+        let entriesToProcess = store.entries.filter { !$0.isProcessing }
         guard !entriesToProcess.isEmpty, !isBatchProcessing else { return }
 
         // Pass 1 (synchronous, no I/O): restore from cache for everything we already have.
@@ -249,7 +272,7 @@ extension ImageStore {
         }
 
         // Refresh the sort cache now that cached metrics have been restored synchronously.
-        updateCachedSort()
+        store.updateCachedSort()
 
         // Pass 2: with metrics on, collect entries that have no cached metrics yet
         // (loaded in Simple mode, or no stars found) and measure them from disk.
@@ -259,7 +282,7 @@ extension ImageStore {
 
         guard !needsRecompute.isEmpty else { return }
 
-        let accessedDirs = needsRecompute.compactMap { accessDirectory(for: $0) }
+        let accessedDirs = needsRecompute.compactMap { store.accessDirectory(for: $0) }
         isBatchProcessing = true
         let startTime = CFAbsoluteTimeGetCurrent()
 
@@ -277,7 +300,7 @@ extension ImageStore {
                     }
                     let url = entry.url
                     group.addTask {
-                        let newMetrics = await Self.loadMetricsOnly(url: url, config: metricsConfig)
+                        let newMetrics = await FrameLoading.loadMetricsOnly(url: url, config: metricsConfig)
                         await MainActor.run {
                             if let newMetrics {
                                 entry.cachedMetrics = newMetrics
@@ -291,7 +314,7 @@ extension ImageStore {
 
             for dirURL in accessedDirs { dirURL.stopAccessingSecurityScopedResource() }
             guard !Task.isCancelled else { return }
-            updateGroupStatistics()
+            store.updateGroupStatistics()
             batchElapsed = CFAbsoluteTimeGetCurrent() - startTime
             batchImageCount = needsRecompute.count
             batchMegapixels = needsRecompute.reduce(0.0) {
@@ -302,31 +325,6 @@ extension ImageStore {
             isBatchProcessing = false
             processingTask = nil
         }
-    }
-
-    @concurrent static func loadMetricsOnly(url: URL,
-                                            config: MetricsConfig) async -> FrameMetrics? {
-        let didStart = url.startAccessingSecurityScopedResource()
-        defer { if didStart { url.stopAccessingSecurityScopedResource() } }
-
-        // GPU path: read into a Metal shared buffer (same path as the initial load),
-        // then run the GPU detection kernel. Much faster than the CPU fallback because
-        // the Metal kernel uses the full frame, while the CPU path is limited to a crop.
-        if let device = ImageStretcher.metalDevice,
-           let bufferResult = try? FITSReader.readIntoBuffer(from: url, device: device) {
-            let meta = bufferResult.metadata
-            return await MetricsCalculator.compute(metalBuffer: bufferResult.metalBuffer,
-                                                   width: meta.width, height: meta.height,
-                                                   config: config,
-                                                   bayerPattern: meta.bayerPattern)
-        }
-
-        // CPU fallback when Metal is unavailable.
-        guard let fits = try? FITSReader.read(from: url) else { return nil }
-        return await MetricsCalculator.compute(pixels: fits.pixelValues,
-                                               width: fits.width, height: fits.height,
-                                               config: config,
-                                               bayerPattern: fits.bayerPattern)
     }
 
     // MARK: - Concurrent pipeline
@@ -388,7 +386,7 @@ extension ImageStore {
                 let path = entry.qualifiedFolderPath
                 group.addTask { [weak self] in
                     // ── Phase A: I/O + histogram + GPU stretch ────────────────
-                    let fast = await Self.loadFast(url: url,
+                    let fast = await FrameLoading.loadFast(url: url,
                                                    maxDisplaySize: maxDisplaySize,
                                                    maxThumbnailSize: maxThumbnailSize,
                                                    debayerColorImages: debayerColorImages)
@@ -409,7 +407,7 @@ extension ImageStore {
                         entry.isProcessing = false   // ← image visible now
 
                         if selectFirst, entry === entriesToProcess.first, fast.display != nil {
-                            self?.selectedEntry = entry
+                            self?.store?.selectedEntry = entry
                         }
                     }
 
@@ -450,7 +448,7 @@ extension ImageStore {
                                 bayerPattern: bayerPattern)
                         } else {
                             // CPU fallback: Metal was unavailable during Phase A.
-                            metrics = await Self.loadMetricsOnly(url: url, config: metricsConfig)
+                            metrics = await FrameLoading.loadMetricsOnly(url: url, config: metricsConfig)
                         }
                         await MainActor.run {
                             entry.metrics       = metrics
@@ -480,7 +478,7 @@ extension ImageStore {
             await task.value
         }
 
-        updateGroupStatistics()
+        store?.updateGroupStatistics()
     }
 
     /// Re-renders only display images and thumbnails for Bayer frames when the
@@ -493,10 +491,11 @@ extension ImageStore {
         let debayer          = settings.debayerColorImages
         let maxDisplaySize   = settings.maxDisplaySize
         let maxThumbnailSize = settings.maxThumbnailSize
-        let bayerEntries     = entries.filter { $0.isBayer }
+        guard let store else { return }
+        let bayerEntries     = store.entries.filter { $0.isBayer }
         guard !bayerEntries.isEmpty else { return }
 
-        let accessedDirs = bayerEntries.compactMap { accessDirectory(for: $0) }
+        let accessedDirs = bayerEntries.compactMap { store.accessDirectory(for: $0) }
 
         Task { [weak self] in
             guard let self else { return }
@@ -731,11 +730,11 @@ extension ImageStore {
         guard sharedClips.isValid else { return }
 
         // Render the selected entry first so the on-screen image switches to colour immediately.
-        if let selected = selectedEntry,
+        if let selected = store?.selectedEntry,
            bayerEntries.contains(where: { $0 === selected }),
            selected.cachedColourDisplay == nil,
            let pattern = selected.bayerPattern,
-           let (display, thumb) = await Self.recolorBayerEntry(
+           let (display, thumb) = await FrameLoading.recolorBayerEntry(
                url: selected.url, rOffset: pattern.rOffset, clips: sharedClips,
                maxDisplaySize: maxDisplaySize, maxThumbnailSize: maxThumbnailSize) {
             selected.cachedColourDisplay = display
@@ -762,7 +761,7 @@ extension ImageStore {
                 let bayerPattern = entry.bayerPattern
                 group.addTask {
                     guard let pattern = bayerPattern,
-                          let (display, thumb) = await Self.recolorBayerEntry(
+                          let (display, thumb) = await FrameLoading.recolorBayerEntry(
                               url: url, rOffset: pattern.rOffset, clips: sharedClips,
                               maxDisplaySize: maxDisplaySize, maxThumbnailSize: maxThumbnailSize
                           ) else {
@@ -779,191 +778,6 @@ extension ImageStore {
                 }
                 activeCount += 1
             }
-        }
-    }
-
-    /// Re-reads a single FITS file and renders it in colour with the given shared clip bounds.
-    /// Called by `renderFolderInColour`.
-    @concurrent static func recolorBayerEntry(
-        url: URL, rOffset: UInt32, clips: BayerClips,
-        maxDisplaySize: Int, maxThumbnailSize: Int
-    ) async -> (display: NSImage, thumb: NSImage?)? {
-        let didStart = url.startAccessingSecurityScopedResource()
-        defer { if didStart { url.stopAccessingSecurityScopedResource() } }
-
-        guard let device = ImageStretcher.metalDevice,
-              let result = try? FITSReader.readIntoBuffer(from: url, device: device)
-        else { return nil }
-
-        guard let display = await ImageStretcher.createBayerImage(
-            inputBuffer: result.metalBuffer,
-            width: result.metadata.width, height: result.metadata.height,
-            rOffset: rOffset, clips: clips, maxDisplaySize: maxDisplaySize
-        ) else { return nil }
-
-        let thumb = ImageStretcher.createThumbnail(from: display, maxSize: maxThumbnailSize)
-        return (display, thumb)
-    }
-
-    /// Phase A of the loading pipeline: read the FITS file, compute the histogram,
-    /// and GPU-stretch to produce the display image and thumbnail.
-    ///
-    /// The returned `FastLoadResult.metalBuffer` is retained so Phase B can run
-    /// GPU star-detection on the same buffer without a second file read.
-    @concurrent static func loadFast(url: URL,
-                                     maxDisplaySize: Int = 1024,
-                                     maxThumbnailSize: Int = 120,
-                                     debayerColorImages: Bool = false) async -> FastLoadResult {
-        let didStart = url.startAccessingSecurityScopedResource()
-        defer { if didStart { url.stopAccessingSecurityScopedResource() } }
-
-        if let device = ImageStretcher.metalDevice,
-           let bufferResult = try? FITSReader.readIntoBuffer(from: url, device: device) {
-            let meta     = bufferResult.metadata
-            let floatPtr = bufferResult.metalBuffer.contents().assumingMemoryBound(to: Float.self)
-            let histogram = MetricsCalculator.computeHistogram(ptr: floatPtr,
-                                                               count: meta.width * meta.height,
-                                                               minVal: meta.minValue,
-                                                               maxVal: meta.maxValue)
-
-            // Always render a greyscale image immediately so the UI shows something fast.
-            // For Bayer images with debayering enabled, also compute per-channel clip bounds
-            // so the post-batch normalise pass can re-render in colour with shared median clips.
-            // Pass bayerPattern so the greyscale stretch applies 2×2 Bayer binning,
-            // eliminating the screen-door effect on raw Bayer mosaic files.
-            let display = await ImageStretcher.createImage(inputBuffer: bufferResult.metalBuffer,
-                                                           width: meta.width, height: meta.height,
-                                                           maxDisplaySize: maxDisplaySize,
-                                                           bayerPattern: meta.bayerPattern)
-            let bayerClips: BayerClips?
-            if debayerColorImages, let pattern = meta.bayerPattern {
-                bayerClips = ImageStretcher.computeBayerClips(bufferResult.metalBuffer,
-                                                              width: meta.width, height: meta.height,
-                                                              rOffset: pattern.rOffset)
-            } else {
-                bayerClips = nil
-            }
-
-            // Compute greyscale clip bounds for non-Bayer images so the post-batch
-            // normalisation pass can re-render with per-(folder, filter) median clips.
-            let greyClips: GreyClips?
-            if meta.bayerPattern == nil {
-                greyClips = ImageStretcher.computeGreyClips(bufferResult.metalBuffer,
-                                                            pixelCount: meta.width * meta.height)
-            } else {
-                greyClips = nil
-            }
-
-            let thumb = display.flatMap { ImageStretcher.createThumbnail(from: $0, maxSize: maxThumbnailSize) }
-            // metalBuffer is retained in FastLoadResult so Phase B can use it.
-            return FastLoadResult(
-                display: display, thumb: thumb,
-                info: "\(meta.width) × \(meta.height)  |  BITPIX: \(meta.bitpix)",
-                error: nil, histogram: histogram, headers: meta.headers,
-                metalBuffer: bufferResult.metalBuffer, bayerPattern: meta.bayerPattern,
-                width: meta.width, height: meta.height,
-                bayerClips: bayerClips, greyClips: greyClips)
-        }
-
-        do {
-            var fits  = try FITSReader.read(from: url)
-            let histogram = MetricsCalculator.computeHistogram(pixels: fits.pixelValues,
-                                                               minVal: fits.minValue, maxVal: fits.maxValue)
-            let display = ImageStretcher.createImage(from: &fits.pixelValues,
-                                                     width: fits.width, height: fits.height,
-                                                     maxDisplaySize: maxDisplaySize)
-            let info    = "\(fits.width) × \(fits.height)  |  BITPIX: \(fits.bitpix)"
-            let headers = fits.headers
-            let w = fits.width, h = fits.height
-            fits.pixelValues = []
-            let thumb = display.flatMap { ImageStretcher.createThumbnail(from: $0, maxSize: maxThumbnailSize) }
-            return FastLoadResult(display: display, thumb: thumb, info: info, error: nil,
-                                  histogram: histogram, headers: headers,
-                                  metalBuffer: nil, bayerPattern: fits.bayerPattern,
-                                  width: w, height: h,
-                                  bayerClips: nil, greyClips: nil)
-        } catch {
-            return FastLoadResult(display: nil, thumb: nil, info: "", error: error.localizedDescription,
-                                  histogram: nil, headers: [:],
-                                  metalBuffer: nil, bayerPattern: nil,
-                                  width: 0, height: 0,
-                                  bayerClips: nil, greyClips: nil)
-        }
-    }
-}
-
-// MARK: - Private result types
-
-struct FastLoadResult {
-    let display:     NSImage?
-    let thumb:       NSImage?
-    let info:        String
-    let error:       String?
-    let histogram:   [Int]?
-    let headers:     [String: String]
-    /// Raw FITS float pixels in a Metal shared buffer. Passed to Phase B so
-    /// GPU detection and Moffat fitting can run without a second file read.
-    /// Released when the Phase B task ends. `nil` when the CPU fallback path
-    /// was used (Metal unavailable).
-    let metalBuffer: MTLBuffer?
-    /// The CFA pattern from the header, nil for mono and RGB images.
-    let bayerPattern: BayerPattern?
-    let width:       Int
-    let height:      Int
-    /// Per-channel Bayer clip bounds computed during the grey-pass.
-    /// `nil` for non-Bayer images or when `debayerColorImages` is false.
-    let bayerClips:  BayerClips?
-    /// Greyscale clip bounds for non-Bayer images, used by the post-batch normalisation pass.
-    let greyClips:   GreyClips?
-}
-
-// MARK: - FolderTracker
-
-/// Tracks per-folder Phase A completion counts across concurrent tasks.
-/// When all entries in a folder have completed Phase A, `complete(path:)` returns
-/// `true` exactly once — the signal to fire that folder's colour normalisation task.
-private actor FolderTracker {
-    private var completions: [String: Int] = [:]
-    private let totals: [String: Int]
-
-    @MainActor
-    init(grouping entries: [ImageEntry]) {
-        totals = Dictionary(grouping: entries, by: { $0.qualifiedFolderPath })
-            .mapValues(\.count)
-    }
-
-    /// Records one Phase A completion for `path`.
-    /// Returns `true` if this call is the last completion for that folder.
-    func complete(path: String) -> Bool {
-        completions[path, default: 0] += 1
-        return completions[path] == totals[path]
-    }
-}
-
-// MARK: - AsyncSemaphore
-
-/// Async-friendly counting semaphore. Callers that exceed the concurrency cap
-/// are suspended and resumed in FIFO order as earlier callers call `signal()`.
-actor AsyncSemaphore {
-    private var count: Int
-    private var waiters: [CheckedContinuation<Void, Never>] = []
-
-    init(count: Int) { self.count = count }
-
-    func wait() async {
-        if count > 0 {
-            count -= 1
-        } else {
-            await withCheckedContinuation { waiters.append($0) }
-        }
-    }
-
-    func signal() {
-        if let waiter = waiters.first {
-            waiters.removeFirst()
-            waiter.resume()
-        } else {
-            count += 1
         }
     }
 }

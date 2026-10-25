@@ -137,9 +137,9 @@ enum CLIRunner {
         #else
         let debayer = false
         #endif
-        store.openFiles(collected, rejectedURLs: rejectedURLs, rootFolderName: folderURL.lastPathComponent,
+        store.pipeline.openFiles(collected, rejectedURLs: rejectedURLs, rootFolderName: folderURL.lastPathComponent,
                         debayerColorImages: debayer)
-        await store.waitForProcessing()
+        await store.pipeline.waitForProcessing()
         fputs("Done.\n", stderr)
 
         #if BETA || DEBUG

@@ -56,9 +56,9 @@ struct FITSToolbar: View {
             PlaybackControls()
 
             Button("Cancel") {
-                store.cancelProcessing()
+                store.pipeline.cancelProcessing()
             }
-            .disabled(!store.isBatchProcessing)
+            .disabled(!store.pipeline.isBatchProcessing)
             .help("Cancel the current batch processing")
 
             Button("(De)flag", systemImage: "flag") {

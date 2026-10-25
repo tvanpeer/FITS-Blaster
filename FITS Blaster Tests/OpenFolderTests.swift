@@ -36,7 +36,7 @@ struct OpenFolderTests {
         let store = ImageStore()
 
         await store.openFolder(at: folder, includeSubfolders: false, includeRejected: false, settings: AppSettings())
-        await store.waitForProcessing()
+        await store.pipeline.waitForProcessing()
 
         #expect(store.entries.map(\.fileName).sorted() == ["a.fits", "b.FIT"])
         #expect(store.entries.allSatisfy { !$0.isRejected })
@@ -50,7 +50,7 @@ struct OpenFolderTests {
         let store = ImageStore()
 
         await store.openFolder(at: folder, includeSubfolders: false, includeRejected: true, settings: AppSettings())
-        await store.waitForProcessing()
+        await store.pipeline.waitForProcessing()
 
         #expect(store.entries.count == 3)
         #expect(store.entries.filter(\.isRejected).map(\.fileName) == ["c.fits"])
@@ -64,7 +64,7 @@ struct OpenFolderTests {
         #expect(store.isAlreadyLoaded(folder) == false)
 
         await store.openFolder(at: folder, includeSubfolders: false, includeRejected: false, settings: AppSettings())
-        await store.waitForProcessing()
+        await store.pipeline.waitForProcessing()
         #expect(store.isAlreadyLoaded(folder))
     }
 
@@ -128,7 +128,7 @@ struct OpenFolderTests {
 
         let store = ImageStore()
         store.openDroppedItems([first, second], settings: AppSettings())
-        await store.waitForProcessing()
+        await store.pipeline.waitForProcessing()
 
         #expect(Set(store.entries.map(\.rootFolderName)) == ["Night 1", "Night 2"])
         #expect(store.groupedByFolderAndFilter.map(\.folderDisplayName).sorted() == ["Night 1", "Night 2"])
@@ -141,7 +141,7 @@ struct OpenFolderTests {
         let store = ImageStore()
         store.openDroppedItems([folder.appending(component: "a.fits"), folder.appending(component: "b.FIT")],
                                settings: AppSettings())
-        await store.waitForProcessing()
+        await store.pipeline.waitForProcessing()
 
         #expect(store.entries.allSatisfy { $0.rootFolderName == folder.lastPathComponent })
         #expect(store.rootFolderName == folder.lastPathComponent)
@@ -156,8 +156,8 @@ struct OpenFolderTests {
         let store = ImageStore()
         store.openDroppedItems([first], settings: AppSettings())
         store.openDroppedItems([second], settings: AppSettings())
-        await store.waitForProcessing()
-        await store.waitForProcessing()
+        await store.pipeline.waitForProcessing()
+        await store.pipeline.waitForProcessing()
 
         #expect(store.entries.count == 4)
         #expect(store.isAlreadyLoaded(first) && store.isAlreadyLoaded(second))
@@ -174,7 +174,7 @@ struct OpenFolderTests {
             (folder.appending(component: "notes.txt"), ""),
         ]
         let (stream, continuation) = AsyncStream.makeStream(of: Int.self)
-        let result = await ImageStore.filterItems(items, existingURLs: [], progress: continuation)
+        let result = await FrameLoading.filterItems(items, existingURLs: [], progress: continuation)
         var reported: [Int] = []
         for await done in stream { reported.append(done) }   // ends because the stream is finished
 
@@ -188,12 +188,12 @@ struct OpenFolderTests {
         defer { try? FileManager.default.removeItem(at: folder) }
         let store = ImageStore()
         await store.openFolder(at: folder, includeSubfolders: false, includeRejected: false, settings: AppSettings())
-        await store.waitForProcessing()
-        #expect(store.preparation == nil)
+        await store.pipeline.waitForProcessing()
+        #expect(store.pipeline.preparation == nil)
 
         store.openDroppedItems([folder], settings: AppSettings())
-        await store.waitForProcessing()
-        #expect(store.preparation == nil)
+        await store.pipeline.waitForProcessing()
+        #expect(store.pipeline.preparation == nil)
     }
 
     // MARK: - The readdir scan gives the same result as the FileManager scan

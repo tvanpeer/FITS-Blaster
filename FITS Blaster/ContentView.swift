@@ -52,11 +52,11 @@ struct ContentView: View {
             }
             .onChange(of: settings.debayerColorImages) { _, _ in
                 guard !store.entries.isEmpty else { return }
-                store.recolorImages(settings: settings)
+                store.pipeline.recolorImages(settings: settings)
             }
             .onChange(of: settings.isSimpleMode) { _, isSimple in
                 if !isSimple {
-                    store.recomputeMetrics(metricsConfig: settings.effectiveMetricsConfig)
+                    store.pipeline.recomputeMetrics(metricsConfig: settings.effectiveMetricsConfig)
                 }
                 guard let window = hostingWindow,
                       !window.styleMask.contains(.fullScreen) else { return }

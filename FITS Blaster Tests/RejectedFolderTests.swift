@@ -73,8 +73,8 @@ struct RejectedFolderTests {
         try fitsData().write(to: file)
 
         let store = ImageStore()
-        store.openFiles([(url: file, subfolderPath: "")])
-        await store.waitForProcessing()
+        store.pipeline.openFiles([(url: file, subfolderPath: "")])
+        await store.pipeline.waitForProcessing()
         let entry = try #require(store.entries.first)
 
         store.rejectEntry(entry)
@@ -83,8 +83,8 @@ struct RejectedFolderTests {
         #expect(exists(rejectedFile))
 
         // Reopen the folder with its REJECTED folder, as Open Folder does.
-        store.openFiles([(url: entry.url, subfolderPath: "")], rejectedURLs: [entry.url])
-        await store.waitForProcessing()
+        store.pipeline.openFiles([(url: entry.url, subfolderPath: "")], rejectedURLs: [entry.url])
+        await store.pipeline.waitForProcessing()
         #expect(store.entries.count == 1)
     }
 }

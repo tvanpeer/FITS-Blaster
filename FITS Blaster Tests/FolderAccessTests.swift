@@ -49,7 +49,7 @@ struct FolderAccessTests {
 
         let store = ImageStore()
         store.openDroppedItems([first, second], settings: AppSettings())
-        await store.waitForProcessing()
+        await store.pipeline.waitForProcessing()
 
         let a = try #require(store.entries.first { $0.fileName == "a.fits" })
         let b = try #require(store.entries.first { $0.fileName == "b.fits" })
@@ -78,7 +78,7 @@ struct FolderAccessTests {
         let store = ImageStore()
         store.asksForFolderAccess = true
         store.openDroppedItems([folder.appending(component: "a.fits")], settings: AppSettings())
-        await store.waitForProcessing()
+        await store.pipeline.waitForProcessing()
         let entry = try #require(store.entries.first)
 
         try setReadOnly(folder, true)
@@ -104,7 +104,7 @@ struct FolderAccessTests {
         let store = ImageStore()
         store.asksForFolderAccess = true
         store.openDroppedItems([folder.appending(component: "a.fits")], settings: AppSettings())
-        await store.waitForProcessing()
+        await store.pipeline.waitForProcessing()
         let entry = try #require(store.entries.first)
 
         try setReadOnly(folder, true)
@@ -126,7 +126,7 @@ struct FolderAccessTests {
         let store = ImageStore()
         store.asksForFolderAccess = true
         store.openDroppedItems([folder.appending(component: "a.fits")], settings: AppSettings())
-        await store.waitForProcessing()
+        await store.pipeline.waitForProcessing()
         let entry = try #require(store.entries.first)
 
         try setReadOnly(folder, true)
@@ -143,7 +143,7 @@ struct FolderAccessTests {
         let store = ImageStore()
         store.asksForFolderAccess = false
         store.openDroppedItems([folder.appending(component: "a.fits")], settings: AppSettings())
-        await store.waitForProcessing()
+        await store.pipeline.waitForProcessing()
         let entry = try #require(store.entries.first)
 
         try setReadOnly(folder, true)

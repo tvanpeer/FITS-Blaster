@@ -4,7 +4,8 @@
 //
 //  Core class: stored properties, sort/filter/grouping helpers, navigation, and
 //  selection. File operations live in ImageStoreFileOperations.swift; the loading
-//  and reprocessing pipeline lives in ImageStorePipeline.swift.
+//  and reprocessing pipeline is LoadPipeline (`pipeline`), with the per-file work in
+//  FrameLoading.swift.
 //
 
 import Foundation
@@ -14,16 +15,20 @@ import UniformTypeIdentifiers
 
 // MARK: - ImageStore
 
-/// Manages a collection of FITS images, handling loading and stretching.
-///
-/// Uses a bounded concurrent pipeline to maximize throughput:
-/// CPU-bound work (FITS reading, stretching, metrics) runs in a nonisolated
-/// async function so the main actor stays responsive during loading.
+/// Manages a collection of FITS images: the session's entries, sorting, filtering,
+/// grouping, navigation and selection. Loading and re-rendering are done by `pipeline`.
 @Observable
 @MainActor
 final class ImageStore {
     var entries: [ImageEntry] = []
     var selectedEntry: ImageEntry?
+
+    /// Loads and re-renders the entries; holds the batch state the progress UI shows.
+    let pipeline = LoadPipeline()
+
+    init() {
+        pipeline.store = self
+    }
 
     /// IDs of entries flagged for batch operations and the "Flagged" sidebar filter.
     /// Populated by cmd+click, shift+click, chart drag-select, and Auto-Flag.
@@ -36,45 +41,6 @@ final class ImageStore {
     /// Used only for batch reject inside that view; cleared on plain click or view switch.
     /// Has no relationship to `flaggedEntryIDs`.
     var markedForRejectionIDs: Set<UUID> = []
-    var batchElapsed: Double?
-    var batchMegapixels: Double?
-    /// Number of images in the last finished batch (not the whole session).
-    var batchImageCount: Int?
-    var isBatchProcessing: Bool = false
-
-    /// The currently running load / reprocess task. Stored so it can be cancelled by the user.
-    /// Internal (not private(set)) so the pipeline extension can update it.
-    var processingTask: Task<Void, Never>?
-
-    /// The folder scan of a drag & drop, before its batch load starts (`openDroppedItems`).
-    var dropScanTask: Task<Void, Never>?
-
-    /// What a load is doing before its frames appear (scanning, checking headers); nil otherwise.
-    var preparation: LoadPreparation?
-
-    /// Suspends the caller until any in-progress drop scan and batch load complete.
-    /// Used by CLI mode and the tests.
-    func waitForProcessing() async {
-        await dropScanTask?.value
-        await processingTask?.value
-    }
-
-    // MARK: - Batch progress counters
-    // batchLoadedCount and batchMetricsCount are intentionally absent: updating them
-    // per-image via MainActor.run creates back-pressure that serialises the pipeline.
-    // BatchProgressBar polls entry state every 200 ms instead (see its .task modifier).
-    // Only the lower-frequency restretch/sampling counters are stored here.
-    /// Set to the full entry count when a restretch pass begins; 0 at all other times.
-    var batchRestretchTotal: Int = 0
-    var batchRestretchCount: Int = 0
-    /// Tracks per-channel clip sampling before colour rendering begins (recolorImages path).
-    var batchSamplingTotal: Int = 0
-    var batchSamplingCount: Int = 0
-
-    /// Non-nil while a restretch pass is running; the value is the status message to display.
-    /// Internal (not private(set)) so the pipeline extension can update it.
-    var restretchingMessage: String? = nil
-
     var errorMessage: String?
 
     /// Drives the error alert: true while there is a message; dismissing the alert clears it.
@@ -305,24 +271,6 @@ final class ImageStore {
     /// Updated only at batch boundaries via `updateGroupStatistics()`.
     private(set) var groupStatistics: [FilterGroup: GroupStats] = [:]
 
-    /// Cancels any in-progress loading or recompute batch.
-    /// In-flight GPU/I/O tasks run to completion (they can't be interrupted mid-flight),
-    /// but no new work is started and the UI is cleaned up immediately.
-    func cancelProcessing() {
-        dropScanTask?.cancel()
-        dropScanTask = nil
-        processingTask?.cancel()
-        processingTask = nil
-        preparation = nil
-        for entry in entries where entry.isProcessing {
-            entry.isProcessing = false
-        }
-        isBatchProcessing = false
-        batchElapsed = nil
-        batchMegapixels = nil
-        batchImageCount = nil
-    }
-
     func updateGroupStatistics() {
         let grouped = Dictionary(grouping: entries) { $0.filterGroup }
         var result: [FilterGroup: GroupStats] = [:]
@@ -434,10 +382,7 @@ final class ImageStore {
         flaggedEntryIDs = []
         markedForRejectionIDs = []
         rejectedEntryIDs = []
-        batchElapsed = nil
-        batchMegapixels = nil
-        batchImageCount = nil
-        isBatchProcessing = false
+        pipeline.clearBatchState()
         errorMessage = nil
         sidebarFilterGroup = nil
         cursorPerFilterGroup = [:]
@@ -451,10 +396,6 @@ final class ImageStore {
         groupedByFolderAndFilter = []
         collapsedFolderPaths = []
         visibilityFilteredEntries = []
-        batchRestretchTotal = 0
-        batchRestretchCount = 0
-        batchSamplingTotal = 0
-        batchSamplingCount = 0
     }
 
     // MARK: - Range selection helpers (Cmd+A / Cmd+D / Cmd+I)

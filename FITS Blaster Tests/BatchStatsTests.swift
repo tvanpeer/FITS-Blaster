@@ -40,15 +40,15 @@ struct BatchStatsTests {
         defer { try? FileManager.default.removeItem(at: folder) }
 
         let store = ImageStore()
-        store.openFiles(try writeFiles(3, prefix: "first", in: folder))
-        await store.waitForProcessing()
-        #expect(store.batchImageCount == 3)
+        store.pipeline.openFiles(try writeFiles(3, prefix: "first", in: folder))
+        await store.pipeline.waitForProcessing()
+        #expect(store.pipeline.batchImageCount == 3)
 
-        store.openFiles(try writeFiles(2, prefix: "second", in: folder))
-        await store.waitForProcessing()
+        store.pipeline.openFiles(try writeFiles(2, prefix: "second", in: folder))
+        await store.pipeline.waitForProcessing()
         #expect(store.entries.count == 5)
-        #expect(store.batchImageCount == 2)
+        #expect(store.pipeline.batchImageCount == 2)
         let expected = 2.0 * Double(Self.width * Self.height) / 1_000_000
-        #expect(abs((store.batchMegapixels ?? 0) - expected) < 1e-9)
+        #expect(abs((store.pipeline.batchMegapixels ?? 0) - expected) < 1e-9)
     }
 }

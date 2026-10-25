@@ -59,7 +59,7 @@ struct MainContent: View {
                     .foregroundStyle(.secondary)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-        } else if let preparation = store.preparation {
+        } else if let preparation = store.pipeline.preparation {
             // First load: the frames aren't in the list yet (scanning, checking headers).
             LoadPreparationView(preparation: preparation)
                 .frame(maxWidth: 360)
@@ -91,16 +91,16 @@ private struct InfoBar: View {
 
     var body: some View {
         HStack {
-            if let preparation = store.preparation {
+            if let preparation = store.pipeline.preparation {
                 LoadPreparationView(preparation: preparation)
-            } else if store.isBatchProcessing {
+            } else if store.pipeline.isBatchProcessing {
                 BatchProgressBar(store: store, showLoadedMetrics: true)
-            } else if store.restretchingMessage != nil {
+            } else if store.pipeline.restretchingMessage != nil {
                 BatchProgressBar(store: store, showLoadedMetrics: false)
-            } else if let elapsed = store.batchElapsed {
-                let n   = store.batchImageCount ?? 0
+            } else if let elapsed = store.pipeline.batchElapsed {
+                let n   = store.pipeline.batchImageCount ?? 0
                 let fps = elapsed > 0 ? Double(n) / elapsed : 0
-                let mpx = store.batchMegapixels ?? 0
+                let mpx = store.pipeline.batchMegapixels ?? 0
                 let mps = elapsed > 0 && mpx > 0 ? mpx / elapsed : 0
                 let mpf = n > 0 && mpx > 0 ? mpx / Double(n) : 0
                 Text("\(elapsed, format: .number.precision(.fractionLength(2)))s for \(n) images · \(fps, format: .number.precision(.fractionLength(1))) fps\(mpf > 0 ? " (\(mpf.formatted(.number.precision(.fractionLength(0)))) MP)" : "")\(mps > 0 ? " · \(mps.formatted(.number.precision(.fractionLength(0)))) MP/s" : "")")
@@ -149,11 +149,11 @@ private struct BatchProgressBar: View {
                     ProgressBarRow(label: "Metrics", value: metricsCount, total: total, color: .indigo)
                 }
             }
-            if store.batchSamplingTotal > 0 {
-                ProgressBarRow(label: "Sampling", value: store.batchSamplingCount, total: store.batchSamplingTotal, color: .mint)
+            if store.pipeline.batchSamplingTotal > 0 {
+                ProgressBarRow(label: "Sampling", value: store.pipeline.batchSamplingCount, total: store.pipeline.batchSamplingTotal, color: .mint)
             }
-            if store.batchRestretchTotal > 0 {
-                ProgressBarRow(label: "Restretching", value: store.batchRestretchCount, total: store.batchRestretchTotal, color: .orange)
+            if store.pipeline.batchRestretchTotal > 0 {
+                ProgressBarRow(label: "Restretching", value: store.pipeline.batchRestretchCount, total: store.pipeline.batchRestretchTotal, color: .orange)
             }
         }
         .task {

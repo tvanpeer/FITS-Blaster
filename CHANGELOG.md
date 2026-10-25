@@ -4,6 +4,18 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-25 — Loading pipeline in its own type (step 6a)
+
+### Internal
+- New `LoadPipeline` (`@Observable @MainActor`), owned by `ImageStore` as `store.pipeline` with a weak reference back. It holds the batch state the progress UI shows (`isBatchProcessing`, `batchElapsed`, `batchMegapixels`, `batchImageCount`, the restretch and sampling counters, `restretchingMessage`, `preparation`), the tasks (`processingTask`, `dropScanTask`), `cancelProcessing`, `waitForProcessing`, and the load and re-render functions (`openFiles`, `regenerateSizes`, `recomputeMetrics`, `processParallel`, `recolorImages`, grey and colour normalisation). Reset clears the batch state through `clearBatchState()`, as before.
+- The per-file work (`filterItems`, `loadFast`, `loadMetricsOnly`, `recolorBayerEntry`) and `FastLoadResult` are in `FrameLoading.swift`; `FolderTracker` and `AsyncSemaphore` have files of their own. `ImageStorePipeline.swift` is gone.
+- Callers read `store.pipeline.…` (MainContent, FITSToolbar, SessionChartView, ContentView, SettingsView, CLIRunner, Open Folder and drag and drop, and the tests).
+- Only code moved: no behaviour change. Unit tests, render tests and the 10 metric baselines pass unchanged; the strict build has the same four known warnings (CODE_AUDIT §3.3).
+- **Pipeline benchmark** for step 6 (CLI, full pipeline, 3 runs each; before this commit): M81 355 colour frames grey 16.0–17.3 s, peak memory 2.2 GB; M81 in colour (`--render`) 35.9–38.3 s, 2.8–2.9 GB; Rosette large 464 mono frames 12.9–13.3 s, 4.2–4.5 GB. After this commit the same within noise when the two builds are run alternately (colour 34–36 s, mono 12.5–13.3 s for both); separate series drift by up to 10 %, so later comparisons alternate too. `BenchmarkTests` times only the per-frame read and measurement, not the pipeline, so step 6 is measured with the CLI.
+- 👤 Checked in the app: Open Folder with progress and the timing line, colour toggle, Cancel during a load, Reset.
+
+---
+
 ## 2026-10-25 — Narrower redraws on a cursor move (step 5c)
 
 ### Improved

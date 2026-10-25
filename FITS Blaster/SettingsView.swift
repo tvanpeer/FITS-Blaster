@@ -267,7 +267,7 @@ struct ImageDisplayTab: View {
         settings.maxThumbnailSize = clampedThumb
 
         if !store.entries.isEmpty {
-            store.regenerateSizes(settings: settings)
+            store.pipeline.regenerateSizes(settings: settings)
         }
 
         resizeMainWindow(toFit: clampedDisplay)

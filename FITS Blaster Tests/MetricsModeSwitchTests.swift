@@ -3,7 +3,7 @@
 //  FITS Blaster Tests
 //
 //  Switching between Geek mode (metrics on) and Simple mode (metrics off) through
-//  ImageStore.recomputeMetrics: off hides the star metrics, on brings back exactly
+//  LoadPipeline.recomputeMetrics: off hides the star metrics, on brings back exactly
 //  the values a normal load measures, whether they come from the cache or from disk.
 //
 
@@ -69,22 +69,22 @@ struct MetricsModeSwitchTests {
         defer { try? FileManager.default.removeItem(at: folder) }
 
         let store = ImageStore()
-        store.openFiles(try writeFiles(in: folder), metricsConfig: MetricsConfig())
-        await store.waitForProcessing()
+        store.pipeline.openFiles(try writeFiles(in: folder), metricsConfig: MetricsConfig())
+        await store.pipeline.waitForProcessing()
         let measured = values(store)
         #expect(measured.values.allSatisfy { $0.starCount != nil && $0.fwhm != nil },
                 "The test frames must have stars")
 
-        store.recomputeMetrics(metricsConfig: .off)
-        await store.waitForProcessing()
+        store.pipeline.recomputeMetrics(metricsConfig: .off)
+        await store.pipeline.waitForProcessing()
         for entry in store.entries {
             #expect(entry.metrics?.starCount == nil)
             #expect(entry.metrics?.fwhm == nil)
             #expect(entry.metrics?.qualityScore == 0)
         }
 
-        store.recomputeMetrics(metricsConfig: MetricsConfig())
-        await store.waitForProcessing()
+        store.pipeline.recomputeMetrics(metricsConfig: MetricsConfig())
+        await store.pipeline.waitForProcessing()
         #expect(values(store) == measured)
     }
 
@@ -95,16 +95,16 @@ struct MetricsModeSwitchTests {
         let files = try writeFiles(in: folder)
 
         let reference = ImageStore()
-        reference.openFiles(files, metricsConfig: MetricsConfig())
-        await reference.waitForProcessing()
+        reference.pipeline.openFiles(files, metricsConfig: MetricsConfig())
+        await reference.pipeline.waitForProcessing()
 
         let store = ImageStore()
-        store.openFiles(files, metricsConfig: .off)
-        await store.waitForProcessing()
+        store.pipeline.openFiles(files, metricsConfig: .off)
+        await store.pipeline.waitForProcessing()
         #expect(store.entries.allSatisfy { $0.metrics == nil || $0.metrics?.starCount == nil })
 
-        store.recomputeMetrics(metricsConfig: MetricsConfig())
-        await store.waitForProcessing()
+        store.pipeline.recomputeMetrics(metricsConfig: MetricsConfig())
+        await store.pipeline.waitForProcessing()
         #expect(values(store) == values(reference))
     }
 }

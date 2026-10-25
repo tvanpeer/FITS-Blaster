@@ -3,7 +3,7 @@
 //  FITS Blaster Tests
 //
 //  Rendering tests on real data. Each test loads a folder exactly as the app does
-//  (ImageStore.openFiles → waitForProcessing), reads back the pixels of every frame's
+//  (LoadPipeline.openFiles → waitForProcessing), reads back the pixels of every frame's
 //  display image and measures the sky background per channel (the median, which stars
 //  and nebulae are too sparse to move).
 //
@@ -147,8 +147,8 @@ struct RenderingTests {
         let collected = ImageStore.collectFITSURLs(in: folder, relativePath: "",
                                                    excludedNames: [], includeSubfolders: false)
         let store = ImageStore()
-        store.openFiles(collected, rootFolderName: folder.lastPathComponent, debayerColorImages: colour)
-        await store.waitForProcessing()
+        store.pipeline.openFiles(collected, rootFolderName: folder.lastPathComponent, debayerColorImages: colour)
+        await store.pipeline.waitForProcessing()
         return store.entries.compactMap { entry in
             guard let image = entry.displayImage,
                   let pixels = RGBAPixels(image) else { return nil }

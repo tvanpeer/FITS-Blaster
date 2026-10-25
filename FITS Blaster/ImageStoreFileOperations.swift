@@ -489,11 +489,11 @@ extension ImageStore {
         let excludedSet = Set(settings.excludedSubfolderNames.map { $0.lowercased() })
         let didAccess = folderURL.startAccessingSecurityScopedResource()
         registerFolder(folderURL)
-        preparation = .scanning(folder: folderURL.lastPathComponent)
+        pipeline.preparation = .scanning(folder: folderURL.lastPathComponent)
         let collected = await Self.scanFolder(folderURL, excludedNames: excludedSet,
                                               includeSubfolders: includeSubfolders,
                                               includeRejected: includeRejected)
-        preparation = nil
+        pipeline.preparation = nil
         if didAccess { folderURL.stopAccessingSecurityScopedResource() }
 
         guard !collected.isEmpty else {
@@ -502,7 +502,7 @@ extension ImageStore {
         }
         knownRootURLs.insert(folderURL)
         rootFolderName = folderURL.lastPathComponent
-        openFiles(collected, rejectedURLs: includeRejected ? Self.rejectedURLs(in: collected) : [],
+        pipeline.openFiles(collected, rejectedURLs: includeRejected ? Self.rejectedURLs(in: collected) : [],
                   rootFolderName: folderURL.lastPathComponent,
                   maxDisplaySize: settings.maxDisplaySize,
                   maxThumbnailSize: settings.maxThumbnailSize,
@@ -533,8 +533,8 @@ extension ImageStore {
         guard !items.isEmpty else { return }
 
         // A drop that arrives while the previous one is still scanning waits for it.
-        let previous = dropScanTask
-        dropScanTask = Task { [weak self] in
+        let previous = pipeline.dropScanTask
+        pipeline.dropScanTask = Task { [weak self] in
             await previous?.value
             var collected: [(url: URL, subfolderPath: String)] = []
             // Each frame's root folder name, so the sidebar shows a section per dropped
@@ -543,11 +543,11 @@ extension ImageStore {
             for item in items {
                 if item.isFolder {
                     // Off the main thread: a large folder on a NAS doesn't freeze the window (§7.4).
-                    self?.preparation = .scanning(folder: item.url.lastPathComponent)
+                    self?.pipeline.preparation = .scanning(folder: item.url.lastPathComponent)
                     let found = await Self.scanFolder(item.url, excludedNames: excludedSet,
                                                       includeSubfolders: includeSubfolders,
                                                       includeRejected: false)
-                    self?.preparation = nil
+                    self?.pipeline.preparation = nil
                     guard !Task.isCancelled else { return }
                     collected.append(contentsOf: found)
                     for frame in found { rootNames[frame.url] = item.url.lastPathComponent }
@@ -569,7 +569,7 @@ extension ImageStore {
             // Track dropped folder URLs so we can detect if the same folder is dropped again.
             for item in items where item.isFolder { knownRootURLs.insert(item.url) }
 
-            openFiles(collected, rootFolderName: folderRootName, rootFolderNames: rootNames,
+            pipeline.openFiles(collected, rootFolderName: folderRootName, rootFolderNames: rootNames,
                       maxDisplaySize: settings.maxDisplaySize,
                       maxThumbnailSize: settings.maxThumbnailSize,
                       metricsConfig: settings.effectiveMetricsConfig,

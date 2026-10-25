@@ -199,7 +199,7 @@ private struct ChartPlaceholder: View {
     private var message: String {
         if store.entries.isEmpty {
             "Open a folder with ⌘O to Blast through your session"
-        } else if store.isBatchProcessing {
+        } else if store.pipeline.isBatchProcessing {
             "Computing metrics…"
         } else {
             "No \(selectedMetric.displayName) data for this session"
