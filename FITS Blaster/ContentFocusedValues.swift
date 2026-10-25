@@ -20,7 +20,7 @@ struct ContentFocusedValues: ViewModifier {
             .focusedSceneValue(\.debayerColorBinding,   $bindableSettings.debayerColorImages)
             .focusedSceneValue(\.toggleModeKeyString,   settings.toggleModeKey)
             .focusedSceneValue(\.debayerKeyString,      settings.debayerKey)
-            .focusedSceneValue(\.openFolderAction,      FocusedAction { store.showOpenFolderOptions = true })
+            .focusedSceneValue(\.openFolderAction,      FocusedAction { store.openFolderRequested = true })
             // Selection actions
             .focusedSceneValue(\.selectAllAction,             FocusedAction { store.selectAllVisible() })
             .focusedSceneValue(\.deselectAllAction,           FocusedAction { store.deselectAll() })

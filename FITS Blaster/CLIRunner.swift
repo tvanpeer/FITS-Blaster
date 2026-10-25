@@ -126,13 +126,8 @@ enum CLIRunner {
         }
         fputs("Found \(collected.count) file\(collected.count == 1 ? "" : "s"). Computing metrics…\n", stderr)
 
-        // Mirror the rejectedURLs logic from openFolderPanel
-        let rejectedURLs: Set<URL> = options.includeRejected
-            ? Set(collected.filter {
-                $0.url.deletingLastPathComponent().lastPathComponent
-                    .caseInsensitiveCompare("REJECTED") == .orderedSame
-              }.map { $0.url })
-            : []
+        // The same rule as Open Folder in the app.
+        let rejectedURLs: Set<URL> = options.includeRejected ? ImageStore.rejectedURLs(in: collected) : []
 
         // Load + compute metrics (full pipeline; display images are unused and discarded on exit)
         let store = ImageStore()

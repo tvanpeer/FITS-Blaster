@@ -119,7 +119,7 @@ extension ImageStore {
         var skippedFloat: [String] = []
         for item in items {
             let url = item.url
-            guard ["fits", "fit", "fts"].contains(url.pathExtension.lowercased()) else { continue }
+            guard FITSFile.hasFITSExtension(url) else { continue }
             guard !existingURLs.contains(url) else { continue }
             if let bitpix = FITSReader.peekBitpix(url: url), ![8, 16, 32].contains(bitpix) {
                 skippedFloat.append(url.lastPathComponent)

@@ -74,7 +74,8 @@ final class ImageStore {
         get { errorMessage != nil }
         set { if !newValue { errorMessage = nil } }
     }
-    var showOpenFolderOptions: Bool = false
+    /// Set by ⌘O in the menu; the toolbar runs the Open Folder flow and resets it.
+    var openFolderRequested: Bool = false
 
     // MARK: - Session-level display adjustments
 

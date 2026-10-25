@@ -82,7 +82,7 @@ extension ImageStore {
         let destinationURL = rejectedDir.appending(component: originalURL.lastPathComponent)
 
         do {
-            if !FileManager.default.fileExists(atPath: rejectedDir.path(percentEncoded: false)) {
+            if Self.isDirectory(rejectedDir) == nil {
                 try FileManager.default.createDirectory(at: rejectedDir, withIntermediateDirectories: true)
             }
             try FileManager.default.moveItem(at: originalURL, to: destinationURL)
@@ -293,7 +293,6 @@ extension ImageStore {
         includeSubfolders: Bool,
         includeRejected: Bool = false
     ) -> [(url: URL, subfolderPath: String)] {
-        let fitsExtensions: Set<String> = ["fits", "fit", "fts"]
         guard let contents = try? FileManager.default.contentsOfDirectory(
             at: folder,
             includingPropertiesForKeys: [.isDirectoryKey],
@@ -330,63 +329,58 @@ extension ImageStore {
                                            excludedNames: excludedNames,
                                            includeSubfolders: true,
                                            includeRejected: includeRejected)
-            } else if fitsExtensions.contains(item.pathExtension.lowercased()) {
+            } else if FITSFile.hasFITSExtension(item) {
                 results.append((item, relativePath))
             }
         }
         return results
     }
 
-    // MARK: - File Panels
+    /// `collectFITSURLs` off the main thread, so a large folder tree on a NAS, SMB
+    /// share or iCloud Drive doesn't freeze the window (CODE_AUDIT §7.4).
+    @concurrent static func scanFolder(_ folder: URL, excludedNames: Set<String>,
+                                       includeSubfolders: Bool, includeRejected: Bool) async
+        -> [(url: URL, subfolderPath: String)] {
+        collectFITSURLs(in: folder, relativePath: "", excludedNames: excludedNames,
+                        includeSubfolders: includeSubfolders, includeRejected: includeRejected)
+    }
 
-    func openFolderPanel(includeSubfolders: Bool, includeRejected: Bool, settings: AppSettings) {
-        let panel = NSOpenPanel()
-        panel.canChooseDirectories = true
-        panel.canChooseFiles = false
-        panel.allowsMultipleSelection = false
-        panel.message = "Select a folder containing FITS files"
-        panel.prompt = "Open"
+    /// The collected files whose immediate parent folder is named REJECTED.
+    nonisolated static func rejectedURLs(in collected: [(url: URL, subfolderPath: String)]) -> Set<URL> {
+        Set(collected.filter {
+            $0.url.deletingLastPathComponent().lastPathComponent
+                .caseInsensitiveCompare("REJECTED") == .orderedSame
+        }.map(\.url))
+    }
 
-        guard panel.runModal() == .OK, let folderURL = panel.url else { return }
+    // MARK: - Open folder
+
+    /// True when this folder was opened or dropped before in this session; the caller
+    /// asks whether to open it again (`FileDialogs.confirmOpenAgain`).
+    func isAlreadyLoaded(_ folder: URL) -> Bool {
+        knownRootURLs.contains(folder)
+    }
+
+    /// Scans `folderURL` and loads its FITS files. The folder and options come from
+    /// `FileDialogs.chooseFolder`; there is no panel or alert in here.
+    func openFolder(at folderURL: URL, includeSubfolders: Bool, includeRejected: Bool,
+                    settings: AppSettings) async {
         let excludedSet = Set(settings.excludedSubfolderNames.map { $0.lowercased() })
-
         let didAccess = folderURL.startAccessingSecurityScopedResource()
         let dirBookmark = try? folderURL.bookmarkData(
             options: .withSecurityScope, includingResourceValuesForKeys: nil, relativeTo: nil)
-
-        let collected = Self.collectFITSURLs(in: folderURL, relativePath: "",
-                                             excludedNames: excludedSet,
-                                             includeSubfolders: includeSubfolders,
-                                             includeRejected: includeRejected)
-
-        // Any file whose immediate parent directory is named REJECTED is a rejected file.
-        let rejectedURLs: Set<URL> = includeRejected
-            ? Set(collected.filter {
-                $0.url.deletingLastPathComponent().lastPathComponent
-                    .caseInsensitiveCompare("REJECTED") == .orderedSame
-              }.map { $0.url })
-            : []
-
+        let collected = await Self.scanFolder(folderURL, excludedNames: excludedSet,
+                                              includeSubfolders: includeSubfolders,
+                                              includeRejected: includeRejected)
         if didAccess { folderURL.stopAccessingSecurityScopedResource() }
 
         guard !collected.isEmpty else {
             errorMessage = "No FITS files found in the selected folder."
             return
         }
-
-        // Warn the user if this directory has already been loaded in this session.
-        if knownRootURLs.contains(folderURL) {
-            let alert = NSAlert()
-            alert.messageText = "Folder Already Loaded"
-            alert.informativeText = "\"\(folderURL.lastPathComponent)\" is already in your session. Any duplicate files will be skipped automatically."
-            alert.addButton(withTitle: "Open Anyway")
-            alert.addButton(withTitle: "Cancel")
-            guard alert.runModal() == .alertFirstButtonReturn else { return }
-        }
         knownRootURLs.insert(folderURL)
-
         rootFolderName = folderURL.lastPathComponent
-        openFiles(collected, rejectedURLs: rejectedURLs,
+        openFiles(collected, rejectedURLs: includeRejected ? Self.rejectedURLs(in: collected) : [],
                   rootFolderName: folderURL.lastPathComponent,
                   directoryBookmark: dirBookmark,
                   maxDisplaySize: settings.maxDisplaySize,
@@ -400,18 +394,15 @@ extension ImageStore {
     /// Folders are scanned according to `settings.includeSubfolders`. Individual FITS files
     /// are always added directly. Files from different directories are merged into the session.
     func openDroppedItems(_ urls: [URL], settings: AppSettings) {
-        let fitsExtensions: Set<String> = ["fits", "fit", "fts"]
         let excludedSet = Set(settings.excludedSubfolderNames.map { $0.lowercased() })
         var collected: [(url: URL, subfolderPath: String)] = []
         var dirBookmark: Data?
         var singleDroppedFolderName: String?
 
         for url in urls {
-            var isDir: ObjCBool = false
-            guard FileManager.default.fileExists(
-                atPath: url.path(percentEncoded: false), isDirectory: &isDir) else { continue }
+            guard let isDirectory = Self.isDirectory(url) else { continue }
 
-            if isDir.boolValue {
+            if isDirectory {
                 if dirBookmark == nil {
                     dirBookmark = try? url.bookmarkData(
                         options: .withSecurityScope,
@@ -423,7 +414,7 @@ extension ImageStore {
                                                            includeSubfolders: settings.includeSubfolders)
                 collected.append(contentsOf: folderCollected)
                 if urls.count == 1 { singleDroppedFolderName = url.lastPathComponent }
-            } else if fitsExtensions.contains(url.pathExtension.lowercased()) {
+            } else if FITSFile.hasFITSExtension(url) {
                 collected.append((url, ""))
             }
         }
@@ -442,12 +433,8 @@ extension ImageStore {
         if !folderRootName.isEmpty { rootFolderName = folderRootName }
 
         // Track dropped folder URLs so we can detect if the same folder is dropped again.
-        for url in urls {
-            var isDir: ObjCBool = false
-            if FileManager.default.fileExists(atPath: url.path(percentEncoded: false), isDirectory: &isDir),
-               isDir.boolValue {
-                knownRootURLs.insert(url)
-            }
+        for url in urls where Self.isDirectory(url) == true {
+            knownRootURLs.insert(url)
         }
 
         openFiles(collected, rootFolderName: folderRootName,
@@ -456,5 +443,10 @@ extension ImageStore {
                   maxThumbnailSize: settings.maxThumbnailSize,
                   metricsConfig: settings.effectiveMetricsConfig,
                   debayerColorImages: settings.debayerColorImages)
+    }
+
+    /// True for a folder, false for a file, nil when the item doesn't exist.
+    nonisolated static func isDirectory(_ url: URL) -> Bool? {
+        (try? url.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory
     }
 }

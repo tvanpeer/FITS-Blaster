@@ -172,7 +172,10 @@ clone's window. In that window:
    full-screen and the traffic lights work.
 2. **Open the sample set:** Open Folder… → the folder printed at the end of the
    run (`~/fb-smoke/<time>/sample/FITS-Blaster-Sample-M31`). All 8 thumbnails
-   appear and the metrics fill in.
+   appear and the metrics fill in. **The two checkboxes in the open panel**
+   (subfolders, REJECTED) must be clickable: they once weren't on macOS 27
+   (2026-10-10, with `runModal`); since 1.24 the panel opens with `begin`.
+   Check this on every macOS version you test by hand, and in the App Store build.
 3. **Colour:** switch Colour on. The sky background should look roughly
    neutral grey — **not** magenta, green or strongly tinted. Frames 0041 and
    0042 are brighter (cloud); 0024–0028 can look slightly blue. Compare with

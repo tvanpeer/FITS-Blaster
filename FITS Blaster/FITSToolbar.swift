@@ -10,42 +10,21 @@ struct FITSToolbar: View {
     @Environment(AppSettings.self) private var settings
     @State private var showExportSheet = false
     @State private var showAutoRejectSheet = false
-    @State private var pendingSubfolders = false
-    @State private var pendingIncludeRejected = false
+    /// The running Open Folder flow (panel, question, scan); one at a time.
+    @State private var openFolderTask: Task<Void, Never>?
 
     var body: some View {
-        @Bindable var bindableStore = store
         HStack {
             Button("Open Folder…") {
-                pendingSubfolders       = settings.includeSubfolders
-                pendingIncludeRejected  = settings.includeRejectedFolder
-                store.showOpenFolderOptions = true
+                startOpenFolder()
             }
             .keyboardShortcut("o", modifiers: .command)
             .help("Open a folder of FITS files (⌘O)")
-            .popover(isPresented: $bindableStore.showOpenFolderOptions) {
-                VStack(alignment: .leading, spacing: 10) {
-                    Toggle("Include files from subfolders", isOn: $pendingSubfolders)
-                    Toggle("Include REJECTED folder (mark images as rejected)",
-                           isOn: $pendingIncludeRejected)
-                    HStack {
-                        Spacer()
-                        Button("Open Folder…") {
-                            let sub = pendingSubfolders
-                            let rej = pendingIncludeRejected
-                            store.showOpenFolderOptions = false
-                            Task { @MainActor in
-                                try? await Task.sleep(for: .milliseconds(300))
-                                store.openFolderPanel(includeSubfolders: sub,
-                                                      includeRejected: rej,
-                                                      settings: settings)
-                            }
-                        }
-                        .keyboardShortcut(.defaultAction)
-                    }
-                }
-                .padding()
-                .frame(minWidth: 300)
+            .onChange(of: store.openFolderRequested) { _, requested in
+                // ⌘O from the menu (ContentFocusedValues) asks the toolbar to open.
+                guard requested else { return }
+                store.openFolderRequested = false
+                startOpenFolder()
             }
 
             Button("Reset") {
@@ -135,6 +114,14 @@ struct FITSToolbar: View {
         .sheet(isPresented: $showAutoRejectSheet) {
             AutoRejectSheet(isPresented: $showAutoRejectSheet)
                 .environment(store)
+        }
+    }
+
+    private func startOpenFolder() {
+        guard openFolderTask == nil else { return }
+        openFolderTask = Task {
+            await FileDialogs.openFolder(store: store, settings: settings)
+            openFolderTask = nil
         }
     }
 }

@@ -4,6 +4,23 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-25 — Open Folder: options back in the panel, no frozen window (step 4b)
+
+### Changed
+- **Open Folder options in the panel again** — "Include files from subfolders" and "Include REJECTED folder" are checkboxes in the open panel itself, starting from the defaults in Settings → Files & Folders; the separate popover is gone. The checkboxes were moved out in October because they couldn't be clicked on macOS 27 with the panel opened the old way (`runModal`); the panel now opens with `begin`, and they work (checked on macOS 27.0.1).
+- **"Folder Already Loaded"** appears as a sheet on the main window.
+
+### Fixed
+- **Opening a large folder no longer freezes the window** — the folder scan runs off the main thread, which matters for deep folder trees on a NAS, an SMB share or iCloud Drive (CODE_AUDIT §7.4).
+
+### Internal
+- The store's `openFolder(at:includeSubfolders:includeRejected:settings:)` has no panel or alert; `FileDialogs` shows the panel and the question, and the toolbar owns the running flow (⌘O asks the toolbar through `openFolderRequested`). The 300 ms sleep before the panel is gone (§4.2).
+- One FITS extension list (`FITSFile`), used by the scan, drops and the pipeline (§9.11); `isDirectory` via URL resource values instead of `fileExists(atPath:isDirectory:)` with `ObjCBool`, and one rule for which frames count as rejected, shared with the command-line mode (§4.4).
+- `docs/internal/testing.md`: the manual checks include the panel checkboxes on every macOS version and in the App Store build.
+- Tests: `OpenFolderTests` (with and without REJECTED, already loaded, empty folder, the helpers).
+
+---
+
 ## 2026-10-25 — Export: column order, safe CSV, errors shown (step 4a)
 
 ### Changed
