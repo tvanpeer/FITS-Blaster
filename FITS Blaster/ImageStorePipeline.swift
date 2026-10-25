@@ -17,7 +17,7 @@ extension ImageStore {
     func openFiles(_ urlsWithPaths: [(url: URL, subfolderPath: String)],
                    rejectedURLs: Set<URL> = [],
                    rootFolderName: String = "",
-                   directoryBookmark: Data? = nil,
+                   rootFolderNames: [URL: String] = [:],
                    maxDisplaySize: Int = 1024, maxThumbnailSize: Int = 120,
                    metricsConfig: MetricsConfig = MetricsConfig(),
                    debayerColorImages: Bool = false) {
@@ -55,9 +55,11 @@ extension ImageStore {
                                .deletingLastPathComponent() // …/Ha/
                                .appending(component: item.url.lastPathComponent) // …/Ha/image.fits
                     : nil
-                let entry = ImageEntry(url: item.url, originalURL: computedOriginalURL, directoryBookmark: directoryBookmark)
+                let entry = ImageEntry(url: item.url, originalURL: computedOriginalURL,
+                                       directoryBookmark: self.bookmark(for: item.url))
                 entry.subfolderPath = item.subfolderPath
-                entry.rootFolderName = rootFolderName
+                // Per-frame names (several dropped folders) win over the batch name.
+                entry.rootFolderName = rootFolderNames[item.url] ?? rootFolderName
                 if isRejected {
                     entry.isRejected = true
                     rejectedEntryIDs.insert(entry.id)

@@ -4,6 +4,19 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-25 — Drag and drop: rejecting works in the App Store build, a section per folder (step 4c)
+
+### Fixed
+- **Rejecting dropped frames in the App Store version** — frames dragged in as single files couldn't be rejected ("folder access unavailable"): the sandbox only grants access to the dropped files, not to the folder where REJECTED goes. Rejecting one now asks once for access to its folder (an open panel pointed at it); after Allow, the frame moves into REJECTED, and the question isn't asked again for that folder while FITS Blaster runs, also not for files from it dropped later. Cancel moves nothing. The website version has no sandbox and never asks (CODE_AUDIT §5.13).
+- **Several dropped folders** — every frame got the folder access of the first dropped folder, so in the App Store version frames from the other folders couldn't be rejected. Each folder now keeps its own access.
+- **A sidebar section per dropped folder** — dragging in several folders at once put all frames in one list without headings; each folder now gets its own section, as when folders are opened one after the other. Dropped single files appear under the name of their folder.
+
+### Internal
+- The store keeps one security-scoped bookmark per opened, dropped or granted folder for the session (`sessionBookmarks`), and each new frame gets the bookmark of its own folder; `openFiles` no longer takes one bookmark for the whole batch. A missing permission becomes a `FolderAccessRequest` that `ContentView` answers with `FileDialogs.requestFolderAccess`; only in the sandboxed build (in the website build a permission error, e.g. on a read-only share, stays an error).
+- Tests: `FolderAccessTests` (bookmarks per dropped folder, lookup, asking then rejecting, cancel, a different folder chosen, the website build, permission errors; a read-only folder stands in for the sandbox) and sidebar sections for dropped folders and files. 👤 Checked in the App Store build on macOS 27.2 RC: single files, the question once per folder, undo and reject again, cancel, two folders with headings, the Open Folder checkboxes in the sandbox.
+
+---
+
 ## 2026-10-25 — Open Folder: options back in the panel, no frozen window (step 4b)
 
 ### Changed

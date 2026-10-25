@@ -16,6 +16,8 @@ struct ContentView: View {
 
     @State private var hostingWindow: NSWindow?
     @State private var keyMonitor: Any?
+    /// The running folder-access question (sandbox); one at a time.
+    @State private var folderAccessTask: Task<Void, Never>?
 
     var body: some View {
         @Bindable var store = store
@@ -28,6 +30,18 @@ struct ContentView: View {
             .background(WindowAccessor { window in
                 hostingWindow = window
             })
+            .onChange(of: store.folderAccessRequest) { _, request in
+                // Rejecting a frame whose folder the sandbox hasn't granted (CODE_AUDIT §5.13).
+                guard let request, folderAccessTask == nil else { return }
+                folderAccessTask = Task {
+                    if let folder = await FileDialogs.requestFolderAccess(request.folder) {
+                        store.grantFolderAccess(folder)
+                    } else {
+                        store.cancelFolderAccessRequest()
+                    }
+                    folderAccessTask = nil
+                }
+            }
             .onChange(of: settings.debayerColorImages) { _, _ in
                 guard !store.entries.isEmpty else { return }
                 store.recolorImages(settings: settings)

@@ -87,4 +87,21 @@ enum FileDialogs {
         await store.openFolder(at: choice.url, includeSubfolders: choice.includeSubfolders,
                                includeRejected: choice.includeRejected, settings: settings)
     }
+
+    // MARK: - Folder access (sandbox)
+
+    /// Asks the user to grant access to `folder`, so rejected frames can be moved into
+    /// REJECTED inside it (frames dropped as single files in the App Store build).
+    /// Returns the chosen folder, or nil when the user cancels.
+    static func requestFolderAccess(_ folder: URL) async -> URL? {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.allowsMultipleSelection = false
+        panel.directoryURL = folder
+        panel.message = "FITS Blaster needs access to \"\(folder.lastPathComponent)\" to move rejected frames into its REJECTED folder."
+        panel.prompt = "Allow"
+        guard await panel.begin() == .OK else { return nil }
+        return panel.url
+    }
 }

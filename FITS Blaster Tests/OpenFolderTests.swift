@@ -109,4 +109,41 @@ struct OpenFolderTests {
         #expect(!FITSFile.hasFITSExtension(URL(fileURLWithPath: "/x/a.xisf")))
         #expect(!FITSFile.hasFITSExtension(URL(fileURLWithPath: "/x/fits")))
     }
+
+    // MARK: - Dropped folders in the sidebar
+
+    @Test("Two dropped folders each get their own sidebar section")
+    func droppedFoldersGetSections() async throws {
+        let parent = FileManager.default.temporaryDirectory.appending(component: UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: parent) }
+        let first = parent.appending(component: "Night 1")
+        let second = parent.appending(component: "Night 2")
+        for folder in [first, second] {
+            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        }
+        let source = try makeFolder()
+        defer { try? FileManager.default.removeItem(at: source) }
+        try FileManager.default.copyItem(at: source.appending(component: "a.fits"), to: first.appending(component: "a.fits"))
+        try FileManager.default.copyItem(at: source.appending(component: "a.fits"), to: second.appending(component: "b.fits"))
+
+        let store = ImageStore()
+        store.openDroppedItems([first, second], settings: AppSettings())
+        await store.waitForProcessing()
+
+        #expect(Set(store.entries.map(\.rootFolderName)) == ["Night 1", "Night 2"])
+        #expect(store.groupedByFolderAndFilter.map(\.folderDisplayName).sorted() == ["Night 1", "Night 2"])
+    }
+
+    @Test("Files dropped from one folder take that folder's name")
+    func droppedFilesTakeParentName() async throws {
+        let folder = try makeFolder()
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let store = ImageStore()
+        store.openDroppedItems([folder.appending(component: "a.fits"), folder.appending(component: "b.FIT")],
+                               settings: AppSettings())
+        await store.waitForProcessing()
+
+        #expect(store.entries.allSatisfy { $0.rootFolderName == folder.lastPathComponent })
+        #expect(store.rootFolderName == folder.lastPathComponent)
+    }
 }

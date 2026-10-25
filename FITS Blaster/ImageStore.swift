@@ -208,6 +208,20 @@ final class ImageStore {
     /// Internal (not private) so the file-operations extension can update it.
     var knownRootURLs: Set<URL> = []
 
+    /// Security-scoped bookmarks of the folders opened, dropped or granted in this run
+    /// of the app, by folder. Each new frame gets the bookmark of the folder it is in
+    /// (CODE_AUDIT §5.13). Kept on Reset: the access stays valid until the app quits.
+    var sessionBookmarks: [URL: Data] = [:]
+
+    /// Set when rejecting needs access to a folder the sandbox hasn't granted;
+    /// ContentView asks the user. See `FolderAccessRequest`.
+    var folderAccessRequest: FolderAccessRequest?
+
+    /// Whether a missing folder permission is answered with `folderAccessRequest`. Only
+    /// in the sandboxed (App Store) build: without the sandbox a permission error is a
+    /// real one (e.g. a read-only share) and is reported as an error.
+    var asksForFolderAccess = ProcessInfo.processInfo.environment["APP_SANDBOX_CONTAINER_ID"] != nil
+
     /// Sorted list of unique subfolder paths present across all loaded entries.
     /// Empty string ("") represents root-level files. Updated at batch boundaries.
     private(set) var activeFolderPaths: [String] = []

@@ -57,22 +57,72 @@ extension ImageStore {
         return dirURL
     }
 
+    /// The session bookmark of the deepest opened, dropped or granted folder that
+    /// contains `fileURL`; nil when there is none (a dropped single file).
+    func bookmark(for fileURL: URL) -> Data? {
+        let path = fileURL.resolvingSymlinksInPath().path(percentEncoded: false)
+        return sessionBookmarks
+            .filter { path.hasPrefix(Self.folderPrefix($0.key)) }
+            .max { Self.folderPrefix($0.key).count < Self.folderPrefix($1.key).count }?
+            .value
+    }
+
+    /// Remembers access to `folder` for this run of the app; returns the bookmark.
+    @discardableResult
+    func registerFolder(_ folder: URL) -> Data? {
+        guard let bookmark = try? folder.bookmarkData(options: .withSecurityScope,
+                                                      includingResourceValuesForKeys: nil,
+                                                      relativeTo: nil) else { return nil }
+        sessionBookmarks[folder.standardizedFileURL] = bookmark
+        return bookmark
+    }
+
+    /// The folder's real path (symlinks resolved, e.g. /var → /private/var) with a
+    /// trailing slash, so /a/LIGHT doesn't match /a/LIGHT2.
+    nonisolated static func folderPrefix(_ folder: URL) -> String {
+        let path = folder.resolvingSymlinksInPath().path(percentEncoded: false)
+        return path.hasSuffix("/") ? path : path + "/"
+    }
+
     // MARK: - Reject
 
     func rejectSelected() {
         if !markedForRejectionIDs.isEmpty {
-            entries.filter { markedForRejectionIDs.contains($0.id) }.forEach { rejectEntry($0) }
+            rejectEntries(entries.filter { markedForRejectionIDs.contains($0.id) })
         } else if let entry = selectedEntry {
-            rejectEntry(entry)
+            rejectEntries([entry])
         }
     }
 
     func rejectEntry(_ entry: ImageEntry) {
-        guard !entry.isRejected else { return }
+        rejectEntries([entry])
+    }
+
+    /// Rejects each entry. Entries whose folder the sandbox hasn't granted wait in a
+    /// `folderAccessRequest` for the first such folder; the others are rejected now.
+    func rejectEntries(_ entriesToReject: [ImageEntry]) {
+        var waiting: [ImageEntry] = []
+        for entry in entriesToReject where !entry.isRejected {
+            if moveToRejected(entry) == .needsFolderAccess { waiting.append(entry) }
+        }
+        if let first = waiting.first, folderAccessRequest == nil {
+            folderAccessRequest = FolderAccessRequest(folder: first.url.deletingLastPathComponent(),
+                                                      entryIDs: waiting.map(\.id))
+        }
+    }
+
+    private enum MoveResult { case moved, failed, needsFolderAccess }
+
+    /// Moves one frame into REJECTED next to it. A missing folder permission becomes
+    /// `.needsFolderAccess` when the user can grant it (sandbox) and the folder wasn't
+    /// granted already; any other failure sets `errorMessage`.
+    private func moveToRejected(_ entry: ImageEntry) -> MoveResult {
+        let canAsk = asksForFolderAccess && bookmark(for: entry.url) == nil
 
         guard let dirURL = accessDirectory(for: entry) else {
+            if canAsk { return .needsFolderAccess }
             errorMessage = "Failed to reject \(entry.fileName): folder access unavailable. Close and re-open the folder to restore access."
-            return
+            return .failed
         }
         defer { dirURL.stopAccessingSecurityScopedResource() }
 
@@ -90,9 +140,47 @@ extension ImageStore {
             entry.isRejected = true
             rejectedEntryIDs.insert(entry.id)
             updateVisibilityFilteredEntries()
+            return .moved
         } catch {
+            if canAsk, Self.isPermissionDenied(error) { return .needsFolderAccess }
             errorMessage = "Failed to reject \(entry.fileName): \(error.localizedDescription)"
+            return .failed
         }
+    }
+
+    /// True for "no permission" errors from FileManager (Cocoa or POSIX).
+    nonisolated static func isPermissionDenied(_ error: Error) -> Bool {
+        let ns = error as NSError
+        if ns.domain == NSCocoaErrorDomain,
+           [NSFileWriteNoPermissionError, NSFileReadNoPermissionError].contains(ns.code) { return true }
+        if ns.domain == NSPOSIXErrorDomain, [Int(EPERM), Int(EACCES)].contains(ns.code) { return true }
+        if let underlying = ns.userInfo[NSUnderlyingErrorKey] as? Error { return isPermissionDenied(underlying) }
+        return false
+    }
+
+    /// The user chose `folder` in answer to `folderAccessRequest`: remember it, give
+    /// every frame inside it the bookmark, and reject the waiting frames.
+    func grantFolderAccess(_ folder: URL) {
+        guard let request = folderAccessRequest else { return }
+        folderAccessRequest = nil
+        guard Self.folderPrefix(request.folder).hasPrefix(Self.folderPrefix(folder)) else {
+            errorMessage = "To reject these frames, choose the folder \"\(request.folder.lastPathComponent)\" (or one that contains it)."
+            return
+        }
+        guard let bookmark = registerFolder(folder) else {
+            errorMessage = "Could not get access to \"\(folder.lastPathComponent)\"."
+            return
+        }
+        let prefix = Self.folderPrefix(folder)
+        for entry in entries where entry.url.resolvingSymlinksInPath().path(percentEncoded: false).hasPrefix(prefix) {
+            entry.directoryBookmark = bookmark
+        }
+        rejectEntries(entries.filter { request.entryIDs.contains($0.id) })
+    }
+
+    /// The user cancelled the folder-access question: nothing is rejected.
+    func cancelFolderAccessRequest() {
+        folderAccessRequest = nil
     }
 
     // MARK: - Flag / unflag
@@ -367,8 +455,7 @@ extension ImageStore {
                     settings: AppSettings) async {
         let excludedSet = Set(settings.excludedSubfolderNames.map { $0.lowercased() })
         let didAccess = folderURL.startAccessingSecurityScopedResource()
-        let dirBookmark = try? folderURL.bookmarkData(
-            options: .withSecurityScope, includingResourceValuesForKeys: nil, relativeTo: nil)
+        registerFolder(folderURL)
         let collected = await Self.scanFolder(folderURL, excludedNames: excludedSet,
                                               includeSubfolders: includeSubfolders,
                                               includeRejected: includeRejected)
@@ -382,7 +469,6 @@ extension ImageStore {
         rootFolderName = folderURL.lastPathComponent
         openFiles(collected, rejectedURLs: includeRejected ? Self.rejectedURLs(in: collected) : [],
                   rootFolderName: folderURL.lastPathComponent,
-                  directoryBookmark: dirBookmark,
                   maxDisplaySize: settings.maxDisplaySize,
                   maxThumbnailSize: settings.maxThumbnailSize,
                   metricsConfig: settings.effectiveMetricsConfig,
@@ -396,40 +482,35 @@ extension ImageStore {
     func openDroppedItems(_ urls: [URL], settings: AppSettings) {
         let excludedSet = Set(settings.excludedSubfolderNames.map { $0.lowercased() })
         var collected: [(url: URL, subfolderPath: String)] = []
-        var dirBookmark: Data?
-        var singleDroppedFolderName: String?
+        // Each frame's root folder name, so the sidebar shows a section per dropped
+        // folder; a dropped file counts as being in its parent folder.
+        var rootNames: [URL: String] = [:]
 
         for url in urls {
             guard let isDirectory = Self.isDirectory(url) else { continue }
 
             if isDirectory {
-                if dirBookmark == nil {
-                    dirBookmark = try? url.bookmarkData(
-                        options: .withSecurityScope,
-                        includingResourceValuesForKeys: nil,
-                        relativeTo: nil)
-                }
+                // Each dropped folder keeps its own access (CODE_AUDIT §5.13).
+                registerFolder(url)
                 let folderCollected = Self.collectFITSURLs(in: url, relativePath: "",
                                                            excludedNames: excludedSet,
                                                            includeSubfolders: settings.includeSubfolders)
                 collected.append(contentsOf: folderCollected)
-                if urls.count == 1 { singleDroppedFolderName = url.lastPathComponent }
+                for item in folderCollected { rootNames[item.url] = url.lastPathComponent }
             } else if FITSFile.hasFITSExtension(url) {
                 collected.append((url, ""))
+                rootNames[url] = url.deletingLastPathComponent().lastPathComponent
             }
         }
 
         guard !collected.isEmpty else { return }
+        // Single dropped files get no folder bookmark: the sandbox only granted the
+        // file. Rejecting one asks for its folder first (folderAccessRequest).
 
-        if dirBookmark == nil, let first = collected.first {
-            let parent = first.url.deletingLastPathComponent()
-            dirBookmark = try? parent.bookmarkData(
-                options: .withSecurityScope,
-                includingResourceValuesForKeys: nil,
-                relativeTo: nil)
-        }
-
-        let folderRootName = singleDroppedFolderName ?? ""
+        // One shared name (one folder, or files from one folder) is also the session's
+        // root name, as when a single folder is opened.
+        let distinctNames = Set(rootNames.values)
+        let folderRootName = distinctNames.count == 1 ? distinctNames.first ?? "" : ""
         if !folderRootName.isEmpty { rootFolderName = folderRootName }
 
         // Track dropped folder URLs so we can detect if the same folder is dropped again.
@@ -437,8 +518,7 @@ extension ImageStore {
             knownRootURLs.insert(url)
         }
 
-        openFiles(collected, rootFolderName: folderRootName,
-                  directoryBookmark: dirBookmark,
+        openFiles(collected, rootFolderName: folderRootName, rootFolderNames: rootNames,
                   maxDisplaySize: settings.maxDisplaySize,
                   maxThumbnailSize: settings.maxThumbnailSize,
                   metricsConfig: settings.effectiveMetricsConfig,
