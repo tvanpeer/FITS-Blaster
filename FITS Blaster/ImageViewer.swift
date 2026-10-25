@@ -8,7 +8,7 @@ import SwiftUI
 /// Displays a stretched FITS image inside a scroll view with pinch-to-zoom support.
 ///
 /// Scroll position is preserved across image navigation: `entryID` changes trigger
-/// a programmatic scroll to the stored center fraction in `ImageStore`.
+/// a programmatic scroll to the stored center fraction in `ViewerState`.
 /// Zoom from the slider keeps the viewport center fixed by adjusting the scroll offset
 /// proportionally before the next layout pass.
 struct ImageViewer: View {
@@ -16,7 +16,7 @@ struct ImageViewer: View {
     let displayImage: NSImage
     let isFlipped: Bool
 
-    @Environment(ImageStore.self) private var store
+    @Environment(ViewerState.self) private var viewer
     @Environment(AppSettings.self) private var settings
 
     @GestureState private var gestureScale: Double = 1.0
@@ -29,7 +29,7 @@ struct ImageViewer: View {
     private func adjustScroll(to newZoom: Double, geo: ViewportGeometry) {
         let fx: Double
         let fy: Double
-        if let anchor = store.zoomAnchor {
+        if let anchor = viewer.zoomAnchor {
             fx = anchor.x
             fy = anchor.y
         } else {
@@ -56,9 +56,9 @@ struct ImageViewer: View {
                 )
                 .rotationEffect(isFlipped ? .degrees(180) : .zero)
                 .brightness(settings.targetBackground - 0.25)
-                .contrast(store.displayStretch)
+                .contrast(viewer.displayStretch)
                 .overlay {
-                    if let anchor = store.zoomAnchor {
+                    if let anchor = viewer.zoomAnchor {
                         GeometryReader { geo in
                             ZoomAnchorIndicator()
                                 .position(
@@ -73,15 +73,15 @@ struct ImageViewer: View {
                     let h = displayImage.size.height * effectiveZoom
                     guard w > 0, h > 0 else { return }
                     let norm = CGPoint(x: location.x / w, y: location.y / h)
-                    if let existing = store.zoomAnchor {
+                    if let existing = viewer.zoomAnchor {
                         let dx = (norm.x - existing.x) * w
                         let dy = (norm.y - existing.y) * h
                         if dx * dx + dy * dy < 400 {
-                            store.zoomAnchor = nil
+                            viewer.zoomAnchor = nil
                             return
                         }
                     }
-                    store.zoomAnchor = norm
+                    viewer.zoomAnchor = norm
                 }
                 // The tap needs its location, so it can't be a Button; tell VoiceOver instead.
                 .accessibilityAddTraits(.isButton)
@@ -94,16 +94,7 @@ struct ImageViewer: View {
             lastGeo = geo
             let cw = geo.contentSize.width, ch = geo.contentSize.height
             guard cw > 0, ch > 0 else { return }
-            store.viewportFraction = CGRect(
-                x: max(0, geo.contentOffset.x / cw),
-                y: max(0, geo.contentOffset.y / ch),
-                width:  min(1, geo.containerSize.width  / cw),
-                height: min(1, geo.containerSize.height / ch)
-            )
-            store.viewportCenter = CGPoint(
-                x: (geo.contentOffset.x + geo.containerSize.width  / 2) / cw,
-                y: (geo.contentOffset.y + geo.containerSize.height / 2) / ch
-            )
+            viewer.updateViewport(geo)
             if pendingFitToContainer {
                 pendingFitToContainer = false
                 let imgW = displayImage.size.width
@@ -118,8 +109,8 @@ struct ImageViewer: View {
             guard let geo = lastGeo else { return }
             let cw = displayImage.size.width  * settings.zoomScale
             let ch = displayImage.size.height * settings.zoomScale
-            let x = store.viewportCenter.x * cw - geo.containerSize.width  / 2
-            let y = store.viewportCenter.y * ch - geo.containerSize.height / 2
+            let x = viewer.viewportCenter.x * cw - geo.containerSize.width  / 2
+            let y = viewer.viewportCenter.y * ch - geo.containerSize.height / 2
             scrollPos.scrollTo(x: max(0, x), y: max(0, y))
         }
         .onChange(of: gestureScale) { _, newGestureScale in
@@ -131,11 +122,11 @@ struct ImageViewer: View {
             guard let geo = lastGeo, geo.containerSize.width > 0 else { return }
             adjustScroll(to: newZoom, geo: geo)
         }
-        .onChange(of: store.centerOnAnchorTrigger) { _, _ in
+        .onChange(of: viewer.centerOnAnchorTrigger) { _, _ in
             guard let geo = lastGeo, geo.containerSize.width > 0 else { return }
             adjustScroll(to: settings.zoomScale, geo: geo)
         }
-        .onChange(of: store.fitToContainerTrigger) { _, _ in
+        .onChange(of: viewer.fitToContainerTrigger) { _, _ in
             guard let geo = lastGeo,
                   geo.containerSize.width > 0, geo.containerSize.height > 0,
                   displayImage.size.width > 0, displayImage.size.height > 0 else { return }
@@ -165,5 +156,11 @@ struct ViewportGeometry: Equatable {
         contentOffset  = geometry.contentOffset
         contentSize    = geometry.contentSize
         containerSize  = geometry.containerSize
+    }
+
+    init(contentOffset: CGPoint, contentSize: CGSize, containerSize: CGSize) {
+        self.contentOffset = contentOffset
+        self.contentSize   = contentSize
+        self.containerSize = containerSize
     }
 }

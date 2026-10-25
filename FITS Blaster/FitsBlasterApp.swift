@@ -46,6 +46,7 @@ struct FitsBlasterApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @State private var settings = AppSettings()
     @State private var store = ImageStore()
+    @State private var viewer = ViewerState()
     #if !APPSTORE
     private static let updaterDelegate = BetaChannelUpdaterDelegate()
     private let updaterController = SPUStandardUpdaterController(
@@ -75,6 +76,7 @@ struct FitsBlasterApp: App {
         .windowToolbarStyle(.unified)
         .environment(settings)
         .environment(store)
+        .environment(viewer)
         .environment(\.dynamicTypeSize, settings.dynamicTypeSize)
         .commands {
             CommandGroup(replacing: .newItem) {
@@ -142,6 +144,7 @@ struct FitsBlasterApp: App {
             SettingsView()
                 .environment(settings)
                 .environment(store)
+                .environment(viewer)
                 .environment(\.dynamicTypeSize, settings.dynamicTypeSize)
         }
     }

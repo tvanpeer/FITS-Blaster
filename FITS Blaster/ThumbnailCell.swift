@@ -9,6 +9,7 @@ struct ThumbnailCell: View {
     let entry: ImageEntry
     @Environment(ImageStore.self) private var store
     @Environment(AppSettings.self) private var settings
+    @Environment(ViewerState.self) private var viewer
     @AppStorage("sessionChartMetric") private var selectedMetric: Metric = .qualityScore
 
     private var isCursor: Bool { store.selectedEntry === entry }
@@ -102,7 +103,7 @@ struct ThumbnailCell: View {
                 .clipShape(.rect(cornerRadius: 4))
                 .overlay {
                     if entry.isRejected { RejectionOverlay() }
-                    if isCursor { ViewportBox(fraction: store.viewportFraction) }
+                    if isCursor { ViewportBox(fraction: viewer.viewportFraction) }
                 }
         } else {
             RoundedRectangle(cornerRadius: 4)

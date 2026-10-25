@@ -8,6 +8,7 @@ import SwiftUI
 struct FITSToolbar: View {
     let store: ImageStore
     @Environment(AppSettings.self) private var settings
+    @Environment(ViewerState.self) private var viewer
     @State private var showExportSheet = false
     @State private var showAutoRejectSheet = false
     /// The running Open Folder flow (panel, question, scan); one at a time.
@@ -29,6 +30,7 @@ struct FITSToolbar: View {
 
             Button("Reset") {
                 store.reset()
+                viewer.reset()
             }
             .disabled(store.entries.isEmpty)
             .help("Remove all loaded images from the list")

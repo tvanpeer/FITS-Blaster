@@ -8,6 +8,7 @@ import SwiftUI
 /// Play/pause button with a speed slider, shown in the toolbar.
 struct PlaybackControls: View {
     @Environment(ImageStore.self) private var store
+    @Environment(ViewerState.self) private var viewer
     @Environment(AppSettings.self) private var settings
 
     @State private var wasPlayingBeforeDrag = false
@@ -15,29 +16,29 @@ struct PlaybackControls: View {
     var body: some View {
         @Bindable var bound = settings
 
-        Button(store.isPlaying ? "Pause" : "Play",
-               systemImage: store.isPlaying ? "pause.fill" : "play.fill") {
+        Button(viewer.isPlaying ? "Pause" : "Play",
+               systemImage: viewer.isPlaying ? "pause.fill" : "play.fill") {
             guard store.selectedEntry != nil else { return }
-            if store.isPlaying {
-                store.stopPlayback()
+            if viewer.isPlaying {
+                viewer.stopPlayback()
             } else {
-                store.startPlayback(settings: settings)
+                viewer.startPlayback(store: store, settings: settings)
             }
         }
         .disabled(store.selectedEntry == nil)
-        .tooltip(store.isPlaying
+        .tooltip(viewer.isPlaying
                  ? "Pause slideshow (\(AppSettings.displayString(for: settings.playPauseKey)))"
                  : "Play slideshow (\(AppSettings.displayString(for: settings.playPauseKey)))")
 
-        if store.isPlaying || wasPlayingBeforeDrag {
+        if viewer.isPlaying || wasPlayingBeforeDrag {
             Slider(value: $bound.playbackSpeed, in: 0.2...5.0, step: 0.1,
                    onEditingChanged: { editing in
                 if editing {
-                    wasPlayingBeforeDrag = store.isPlaying
-                    store.stopPlayback()
+                    wasPlayingBeforeDrag = viewer.isPlaying
+                    viewer.stopPlayback()
                 } else if wasPlayingBeforeDrag {
                     wasPlayingBeforeDrag = false
-                    store.startPlayback(settings: settings)
+                    viewer.startPlayback(store: store, settings: settings)
                 }
             })
                 .frame(width: 60)

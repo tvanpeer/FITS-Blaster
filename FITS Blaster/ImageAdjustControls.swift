@@ -8,12 +8,12 @@ import SwiftUI
 /// A compact strip of session-level display sliders: zoom, brightness, and stretch.
 /// Shown below the image viewer; resets on session reset but zoom persists across launches.
 struct ImageAdjustControls: View {
-    @Environment(ImageStore.self) private var store
+    @Environment(ViewerState.self) private var viewer
     @Environment(AppSettings.self) private var settings
 
     private var isDefault: Bool {
         settings.zoomScale == 1.0 && settings.targetBackground == 0.25
-            && store.displayStretch == 1.0 && store.zoomAnchor == nil
+            && viewer.displayStretch == 1.0 && viewer.zoomAnchor == nil
     }
 
     var body: some View {
@@ -27,8 +27,8 @@ struct ImageAdjustControls: View {
             Button("Defaults", systemImage: "arrow.counterclockwise") {
                 settings.zoomScale = 1.0
                 settings.targetBackground = 0.25
-                store.displayStretch = 1.0
-                store.zoomAnchor = nil
+                viewer.displayStretch = 1.0
+                viewer.zoomAnchor = nil
             }
             .disabled(isDefault)
             .tooltip("Reset all display adjustments")
@@ -43,7 +43,7 @@ struct ImageAdjustControls: View {
 /// state from being reset when any slider value changes.
 struct ZoomControl: View {
     @Environment(AppSettings.self) private var settings
-    @Environment(ImageStore.self) private var store
+    @Environment(ViewerState.self) private var viewer
 
     var body: some View {
         @Bindable var bound = settings
@@ -62,14 +62,14 @@ struct ZoomControl: View {
         .tooltip("Click for 1:1 (100%)")
         .disabled(settings.zoomScale == 1.0)
         Button("Fit", systemImage: "arrow.up.left.and.arrow.down.right") {
-            store.fitToContainerTrigger.toggle()
+            viewer.fitToContainerTrigger.toggle()
         }
         .labelStyle(.iconOnly)
         .buttonStyle(.borderless)
         .tooltip("Zoom to fit")
-        if store.zoomAnchor != nil {
+        if viewer.zoomAnchor != nil {
             Button("Centre on anchor", systemImage: "scope") {
-                store.centerOnAnchorTrigger.toggle()
+                viewer.centerOnAnchorTrigger.toggle()
             }
             .labelStyle(.iconOnly)
             .buttonStyle(.borderless)
@@ -80,12 +80,12 @@ struct ZoomControl: View {
 }
 
 struct StretchControl: View {
-    @Environment(ImageStore.self) private var store
+    @Environment(ViewerState.self) private var viewer
 
     var body: some View {
-        @Bindable var bound = store
+        @Bindable var bound = viewer
         Button("Stretch", systemImage: "waveform.path.ecg") {
-            store.displayStretch = 1.0
+            viewer.displayStretch = 1.0
         }
         .tooltip("Stretch — click to reset")
         Slider(value: $bound.displayStretch, in: 0.5...3.0)

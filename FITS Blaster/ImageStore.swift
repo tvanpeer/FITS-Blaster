@@ -85,77 +85,6 @@ final class ImageStore {
     /// Set by ⌘O in the menu; the toolbar runs the Open Folder flow and resets it.
     var openFolderRequested: Bool = false
 
-    // MARK: - Session-level display adjustments
-
-    /// Contrast multiplier applied to the displayed image (0.5 to 3.0, 1.0 = normal).
-    /// Higher values produce a stronger stretch; maps to SwiftUI's .contrast() modifier.
-    /// Resets when a new session is loaded.
-    var displayStretch: Double = 1.0
-
-    // MARK: - Playback
-
-    /// Whether the auto-play slideshow is currently running.
-    var isPlaying: Bool = false
-
-    /// The active playback task — stored here (not in a view) so it survives SwiftUI view rebuilds.
-    private var playbackTask: Task<Void, Never>?
-
-    /// Starts auto-advancing through the visible entries at the given interval.
-    func startPlayback(settings: AppSettings) {
-        stopPlayback()
-        isPlaying = true
-        playbackTask = Task { @MainActor [weak self] in
-            guard let self else { return }
-            while !Task.isCancelled, self.isPlaying {
-                try? await Task.sleep(for: .milliseconds(Int(settings.playbackSpeed * 1000)))
-                guard !Task.isCancelled, self.isPlaying else { break }
-
-                let ordered = self.sidebarNavigationEntries(isSimpleMode: settings.isSimpleMode)
-                guard let current = self.selectedEntry,
-                      let idx = ordered.firstIndex(where: { $0.id == current.id }) else {
-                    self.isPlaying = false
-                    break
-                }
-
-                let nextIdx = idx + 1
-                if nextIdx < ordered.count {
-                    self.selectedEntry = ordered[nextIdx]
-                } else {
-                    self.isPlaying = false
-                }
-            }
-        }
-    }
-
-    /// Stops playback and cancels the timer task.
-    func stopPlayback() {
-        isPlaying = false
-        playbackTask?.cancel()
-        playbackTask = nil
-    }
-
-    // MARK: - Viewport tracking
-
-    /// The visible area of the current image as a fraction of its full content size (0–1).
-    /// Updated continuously by the image viewer as the user scrolls or zooms.
-    /// Used by the sidebar thumbnail to draw the viewport indicator box.
-    var viewportFraction: CGRect = CGRect(x: 0, y: 0, width: 1, height: 1)
-
-    /// Fractional position of the viewport center (0–1 in both axes).
-    /// Stored so that navigating to the next image can restore the same relative scroll position.
-    var viewportCenter: CGPoint = .zero
-
-    /// Normalized image coordinates (0–1) of the user-set zoom anchor.
-    /// When non-nil, zoom changes center on this point rather than the viewport center.
-    /// Persists across image navigation (same field → same sky position).
-    var zoomAnchor: CGPoint? = nil
-
-    /// Toggled by the scope button to ask ImageViewer to scroll the anchor into the centre.
-    var centerOnAnchorTrigger: Bool = false
-
-    /// Toggled by the "Fit" button to ask ImageViewer to scale the image to fill the container.
-    var fitToContainerTrigger: Bool = false
-
     var thumbnailSortOrder: ThumbnailSortOrder = .filename {
         didSet { updateCachedSort() }
     }
@@ -173,7 +102,6 @@ final class ImageStore {
     /// `nil` means "show all groups". Cleared on reset.
     var sidebarFilterGroup: FilterGroup? = nil {
         didSet {
-            stopPlayback()
             // Save cursor for the group we're leaving.
             if let sel = selectedEntry { cursorPerFilterGroup[oldValue] = sel.id }
             updateVisibilityFilteredEntries()
@@ -191,7 +119,6 @@ final class ImageStore {
     /// Controls which images are visible in the sidebar and session chart.
     var rejectionVisibility: RejectionVisibility = .all {
         didSet {
-            stopPlayback()
             if let sel = selectedEntry { cursorPerVisibility[oldValue] = sel.id }
             updateVisibilityFilteredEntries()
             if let savedID = cursorPerVisibility[rejectionVisibility],
@@ -528,11 +455,6 @@ final class ImageStore {
         batchRestretchCount = 0
         batchSamplingTotal = 0
         batchSamplingCount = 0
-        displayStretch = 1.0
-        stopPlayback()
-        viewportFraction = CGRect(x: 0, y: 0, width: 1, height: 1)
-        viewportCenter = .zero
-        zoomAnchor = nil
     }
 
     // MARK: - Range selection helpers (Cmd+A / Cmd+D / Cmd+I)

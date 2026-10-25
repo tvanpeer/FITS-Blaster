@@ -4,6 +4,19 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-25 — Viewer state out of the image store (step 5b)
+
+### Improved
+- **Fewer redraws while scrolling a zoomed frame** — the viewport box in the cursor's thumbnail is updated only when it moves visibly (by 0.1 % of the frame or more, less than a pixel on any thumbnail), instead of on every scroll frame; the scroll position kept for the next frame is no longer observed by any view (performance audit P4).
+
+### Internal
+- New `ViewerState` (`@Observable @MainActor`, in the environment of the main and Settings windows) holds the display contrast, playback, the viewport fraction and centre, the zoom anchor and the Fit / centre-on-anchor triggers, which were in `ImageStore`. Views that only read the session no longer depend on scrolling and playback state. `startPlayback(store:settings:)` gets the store as a parameter; one playback step is `advancePlayback`. Reset in the toolbar resets both.
+- Playback still stops when the filter strip or the rejection visibility changes; `ContentView` now does that (it was in the store's `didSet`s).
+- Tests: `ViewerStateTests` (playback steps in sidebar order and ends after the last frame or without a cursor, start/stop, Reset restores the defaults, viewport fraction and centre from the scroll geometry, clamping, empty content ignored, a change below the tolerance isn't written or observed, a visible one is).
+- 👤 Checked by hand: zoom (slider, pinch, 1:1, Fit, fit after Inspector / Simple mode), scroll and the viewport box, the scroll position kept on ↓, zoom anchor and centre on anchor, stretch and Defaults, playback (button, key, speed slider, stops on filter strip, visibility and ↓), Reset while playing, Settings.
+
+---
+
 ## 2026-10-25 — Header facts computed once (step 5a)
 
 ### Internal

@@ -13,6 +13,7 @@ import UniformTypeIdentifiers
 struct ContentView: View {
     @Environment(ImageStore.self) private var store
     @Environment(AppSettings.self) private var settings
+    @Environment(ViewerState.self) private var viewer
 
     @State private var hostingWindow: NSWindow?
     @State private var keyMonitor: Any?
@@ -41,6 +42,13 @@ struct ContentView: View {
                     }
                     folderAccessTask = nil
                 }
+            }
+            .onChange(of: store.sidebarFilterGroup) { _, _ in
+                // A different set of frames is shown: playback stops, as on a cursor key.
+                viewer.stopPlayback()
+            }
+            .onChange(of: store.rejectionVisibility) { _, _ in
+                viewer.stopPlayback()
             }
             .onChange(of: settings.debayerColorImages) { _, _ in
                 guard !store.entries.isEmpty else { return }
@@ -121,10 +129,10 @@ struct ContentView: View {
         case .deselectAll:       store.deselectAll()
         case .invertSelection:   store.invertSelection()
         case .selectAllRejected: store.selectAllRejected()
-        case .first:             store.stopPlayback(); store.selectFirst(in: sidebarNavigationEntries)
-        case .last:              store.stopPlayback(); store.selectLast(in: sidebarNavigationEntries)
-        case .previous:          store.stopPlayback(); store.selectPrevious(in: sidebarNavigationEntries)
-        case .next:              store.stopPlayback(); store.selectNext(in: sidebarNavigationEntries)
+        case .first:             viewer.stopPlayback(); store.selectFirst(in: sidebarNavigationEntries)
+        case .last:              viewer.stopPlayback(); store.selectLast(in: sidebarNavigationEntries)
+        case .previous:          viewer.stopPlayback(); store.selectPrevious(in: sidebarNavigationEntries)
+        case .next:              viewer.stopPlayback(); store.selectNext(in: sidebarNavigationEntries)
         case .reject:
             let preReject = sidebarNavigationEntries
             if settings.useToggleReject { store.toggleRejectSelected() } else { store.rejectSelected() }
@@ -143,11 +151,11 @@ struct ContentView: View {
         case .remove:      store.removeSelected()
         case .debayer:     settings.debayerColorImages.toggle()
         case .playPause:
-            if store.isPlaying {
-                store.stopPlayback()
+            if viewer.isPlaying {
+                viewer.stopPlayback()
             } else {
                 guard store.selectedEntry != nil else { return false }
-                store.startPlayback(settings: settings)
+                viewer.startPlayback(store: store, settings: settings)
             }
         case .flip:
             store.toggleFlipSelected()
@@ -314,4 +322,5 @@ private final class AccessorView: NSView {
     ContentView()
         .environment(AppSettings())
         .environment(ImageStore())
+        .environment(ViewerState())
 }
