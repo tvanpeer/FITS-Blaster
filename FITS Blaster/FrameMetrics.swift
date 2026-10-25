@@ -47,7 +47,7 @@ enum BadgeProblem {
 
 /// Per-filter-group summary statistics used for relative threshold comparisons
 /// in badge colouring and auto-reject.
-struct GroupStats {
+struct GroupStats: Equatable {
     let medianFWHM: Float?
     let medianEccentricity: Float?
     let medianStarCount: Int?

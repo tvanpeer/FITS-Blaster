@@ -129,10 +129,7 @@ struct ThumbnailSidebar: View {
                 }
                 .scrollIndicators(.hidden)
                 .background(.background)
-                .onChange(of: store.selectedEntry?.id) { _, id in
-                    guard let id else { return }
-                    withAnimation { proxy.scrollTo(id, anchor: .center) }
-                }
+                .background { SidebarCursorScroller(proxy: proxy, lastClickedID: $lastClickedID) }
             }
 
             Divider()
@@ -146,13 +143,6 @@ struct ThumbnailSidebar: View {
             .scaledFont(size: 10)
             .padding(.horizontal, 8)
             .padding(.vertical, 6)
-        }
-        // When the first image is auto-selected at load time (nil → non-nil transition),
-        // seed lastClickedID so shift-click works without requiring an explicit prior click.
-        .onChange(of: store.selectedEntry?.id) { oldID, newID in
-            if oldID == nil, let id = newID {
-                lastClickedID = id
-            }
         }
         // Leaving the Flagged view clears the rejection sub-selection.
         .onChange(of: store.rejectionVisibility) { _, _ in
@@ -197,7 +187,7 @@ struct ThumbnailSidebar: View {
                 lastClickedID = entry.id
             }
         } label: {
-            ThumbnailCell(entry: entry)
+            ThumbnailRow(entry: entry)
         }
         .buttonStyle(.plain)
         .id(entry.id)

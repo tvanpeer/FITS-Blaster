@@ -58,14 +58,14 @@ struct ImageViewer: View {
                 .brightness(settings.targetBackground - 0.25)
                 .contrast(viewer.displayStretch)
                 .overlay {
+                    // The overlay has the image's frame, so the anchor is placed from the
+                    // known size × zoom (CODE_AUDIT §8.6).
                     if let anchor = viewer.zoomAnchor {
-                        GeometryReader { geo in
-                            ZoomAnchorIndicator()
-                                .position(
-                                    x: anchor.x * geo.size.width,
-                                    y: anchor.y * geo.size.height
-                                )
-                        }
+                        ZoomAnchorIndicator()
+                            .position(
+                                x: anchor.x * displayImage.size.width  * effectiveZoom,
+                                y: anchor.y * displayImage.size.height * effectiveZoom
+                            )
                     }
                 }
                 .onTapGesture { location in

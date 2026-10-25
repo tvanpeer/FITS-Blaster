@@ -5,20 +5,18 @@
 
 import SwiftUI
 
+/// One frame in the sidebar. The cursor, flag, range-selection and group-statistics state
+/// come in as plain values from `ThumbnailRow`, so a cursor move or a flag only redraws
+/// the cells whose values changed (CODE_AUDIT §8.1).
 struct ThumbnailCell: View {
     let entry: ImageEntry
-    @Environment(ImageStore.self) private var store
+    let isCursor: Bool
+    let isFlagged: Bool
+    let isMarkedForRejection: Bool
+    let groupStats: GroupStats?
+
     @Environment(AppSettings.self) private var settings
-    @Environment(ViewerState.self) private var viewer
     @AppStorage("sessionChartMetric") private var selectedMetric: Metric = .qualityScore
-
-    private var isCursor: Bool { store.selectedEntry === entry }
-    private var isFlagged: Bool { store.flaggedEntryIDs.contains(entry.id) }
-    private var isMarkedForRejection: Bool { store.markedForRejectionIDs.contains(entry.id) }
-
-    private var groupStats: GroupStats? {
-        store.groupStatistics[entry.filterGroup]
-    }
 
     var body: some View {
         VStack(spacing: 4) {
@@ -103,7 +101,7 @@ struct ThumbnailCell: View {
                 .clipShape(.rect(cornerRadius: 4))
                 .overlay {
                     if entry.isRejected { RejectionOverlay() }
-                    if isCursor { ViewportBox(fraction: viewer.viewportFraction) }
+                    if isCursor { ViewportBox() }
                 }
         } else {
             RoundedRectangle(cornerRadius: 4)
@@ -122,10 +120,12 @@ struct ThumbnailCell: View {
 /// is currently visible in the main image viewer. Only shown when zoomed in enough
 /// that the viewport covers less than the full image in at least one axis.
 /// Uses Canvas (no GeometryReader) since Canvas receives its size directly.
+/// Reads the viewport itself, so scrolling redraws only the box, not the cell.
 private struct ViewportBox: View {
-    let fraction: CGRect
+    @Environment(ViewerState.self) private var viewer
 
     var body: some View {
+        let fraction = viewer.viewportFraction
         if fraction.width < 0.99 || fraction.height < 0.99 {
             Canvas { context, size in
                 let boxW = max(4, fraction.width  * size.width)

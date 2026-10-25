@@ -182,6 +182,7 @@ struct ContentView: View {
                 // popovers have their own windows: there a bound key (reject, remove, arrows)
                 // must reach its own control, e.g. the shortcut recorder (CODE_AUDIT §5.5).
                 guard let window = hostingWindow, event.window === window else { return true }
+                self.viewer.isKeyRepeat = event.isARepeat
 
                 // System shortcuts first, so a configured plain key doesn't swallow them.
                 switch SystemKeyShortcut.match(event) {

@@ -3,7 +3,8 @@
 //  FITS Blaster Tests
 //
 //  Tests for ViewerState: playback steps through the sidebar order, Reset restores the
-//  defaults, and viewport updates write the fraction only on a visible change (P4).
+//  defaults, viewport updates write the fraction only on a visible change (P4), and a
+//  key repeat is reported once (P5).
 //
 
 import Foundation
@@ -102,6 +103,17 @@ struct ViewerStateTests {
         #expect(viewer.viewportFraction == ViewerState.fullFrame)
         #expect(viewer.viewportCenter == .zero)
         #expect(!viewer.isPlaying)
+    }
+
+    // MARK: - Key repeat
+
+    @Test("A key repeat is reported once, then cleared, so a later click animates again")
+    func keyRepeatTakenOnce() {
+        let viewer = ViewerState()
+        #expect(!viewer.takeKeyRepeat())
+        viewer.isKeyRepeat = true
+        #expect(viewer.takeKeyRepeat())
+        #expect(!viewer.takeKeyRepeat())
     }
 
     // MARK: - Viewport

@@ -108,6 +108,20 @@ final class ViewerState {
             || abs(new.width - old.width) >= t || abs(new.height - old.height) >= t
     }
 
+    // MARK: - Key repeat
+
+    /// Set by the key monitor for every key press: true while a key is held down
+    /// (auto-repeat). The sidebar then scrolls to the cursor without animation
+    /// (performance audit P5). Not observed: only read when the cursor moves.
+    @ObservationIgnored var isKeyRepeat = false
+
+    /// Returns whether the last key press was an auto-repeat, and clears it, so a later
+    /// click scrolls with animation again.
+    func takeKeyRepeat() -> Bool {
+        defer { isKeyRepeat = false }
+        return isKeyRepeat
+    }
+
     // MARK: - Zoom anchor
 
     /// Normalized image coordinates (0–1) of the user-set zoom anchor.

@@ -4,6 +4,23 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-25 — Narrower redraws on a cursor move (step 5c)
+
+### Improved
+- **Holding an arrow key** — the sidebar scrolls to the cursor without animation while the key is held down, so the animations no longer pile up; a single key press or a click still scrolls with animation (performance audit P5).
+- **Fewer redraws per cursor move** — a thumbnail is redrawn only when its own cursor, flag, range or group-statistics state changes, instead of every visible thumbnail on every cursor move or flag (CODE_AUDIT §8.1); scrolling a zoomed frame redraws only the viewport box in the cursor's thumbnail. The sidebar's list no longer depends on the cursor (performance audit P1).
+
+### Internal
+- `ThumbnailRow` reads the per-frame state from the store and gives `ThumbnailCell` plain values (`isCursor`, `isFlagged`, `isMarkedForRejection`, `groupStats`); `GroupStats` is `Equatable`. `ViewportBox` reads the viewport itself.
+- `SidebarCursorScroller`, an invisible view in the sidebar's scroll view, scrolls to the cursor and seeds the shift-click anchor; the key monitor records key repeats in `ViewerState.isKeyRepeat` (not observed), taken once per cursor move.
+- The zoom-anchor marker is placed from the image size × zoom, without `GeometryReader` (CODE_AUDIT §8.6).
+- The chart's cursor stays part of the chart for now: drawing it on top would change how the cursor looks with bars and on rejected frames. After the measurement below it isn't needed for smoothness; noted in master-plan step 9, with the thumbnail cells that still re-run on every move.
+- **Measured** (after-trace `05-step5-after.trace`, M81 355 frames, Geek mode, chart visible, ↓ held 5 s; Release build): 5 hitches = 0.27 s instead of 39–57 = 1.7–3.6 s before step 5; per move ≈ 25 ms of SwiftUI work outside view bodies instead of 33–40 ms; the chart's mark collection 9.1 ms instead of 13.8 ms (5a); the sidebar's list body no longer runs. Details in `PERFORMANCE_AUDIT.md`, Metrics.
+- 👤 Checked by hand: holding ↓ (smoother), thumbnail highlights, flags, ranges and badges, shift-click right after loading, the viewport box, the zoom anchor while zooming.
+- Tests: `ViewerStateTests` checks that a key repeat is taken once.
+
+---
+
 ## 2026-10-25 — Viewer state out of the image store (step 5b)
 
 ### Improved
