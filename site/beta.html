@@ -310,7 +310,7 @@
     <div class="beta-badge">Beta</div>
     <p>Test the latest features before they ship. Beta builds may contain bugs.</p>
     <!-- beta-button-start -->
-    <a class="download-btn" href="https://github.com/tvanpeer/FITS-Blaster/releases/download/v1.24-beta.1/FITS-Blaster-1.24-beta.1.dmg">Download Beta 1.24-beta.1</a>
+    <a class="download-btn" href="https://github.com/tvanpeer/FITS-Blaster/releases/download/v1.24-beta.2/FITS-Blaster-1.24-beta.2.dmg">Download Beta 1.24-beta.2</a>
     <p class="download-sub">macOS 15.6 or later &nbsp;&middot;&nbsp; Free</p>
     <!-- beta-button-end -->
 </header>
@@ -327,6 +327,48 @@
     <h2>Beta release notes</h2>
     <p class="list-note">All betas since the last stable release, newest first.</p>
     <!-- beta-entry-start -->
+    <!-- v1.24-beta.2 -->
+    <div class="entry">
+        <div class="entry-header">
+            <div class="entry-title">1.24 beta 2: faster network folders, smoother browsing, safer loading — v1.24-beta.2</div>
+            <div class="entry-date">2026-10-26 &nbsp;&middot;&nbsp; <a class="entry-link" href="https://github.com/tvanpeer/FITS-Blaster/releases/tag/v1.24-beta.2">GitHub release &#8599;</a></div>
+        </div>
+        <div class="section">
+            <span class="section-label label-improved">Improved</span>
+            <ul>
+                <li><strong>Opening folders over the network is much faster:</strong> listing the folder and checking the files went from over a minute to about 15 seconds for 1,147 files on a 1 Gb/s share. While FITS Blaster prepares a load you now see "Scanning…" and "Checking files" with a progress bar instead of an empty window.</li>
+                <li><strong>Holding an arrow key is smooth again</strong> in large sessions: the sidebar keeps up without stutter (5 short hitches in 5 seconds instead of 39–57 in a 355-frame session). Scrolling a zoomed frame redraws less too.</li>
+                <li><strong>Much less memory with many folders or filters:</strong> a session of 464 mono frames in 8 folders × 3 filters now peaks at 1 GB instead of 4.4 GB while loading.</li>
+                <li><strong>Open Folder:</strong> "Include files from subfolders" and "Include REJECTED folder" are back in the folder panel itself, and scanning a large folder no longer freezes the window. Dropped folders are scanned in the background too.</li>
+                <li><strong>Export:</strong> the header columns follow the order you chose in Settings → Export. Text that a spreadsheet could read as a formula is protected, and a failed export now shows an error.</li>
+            </ul>
+        </div>
+        <div class="section">
+            <span class="section-label label-fixed">Fixed</span>
+            <ul>
+                <li><strong>A second folder during a load</strong> (opened or dropped) now waits for the first one. Before, the progress bars disappeared and Cancel greyed out while the second folder was still loading.</li>
+                <li><strong>Reset during a load</strong> stops the load; it can no longer add frames to the emptied session.</li>
+                <li><strong>Colour toggled during a load</strong> now ends correctly: turned on, every frame ends in colour, also the frames that weren't loaded yet; turned off, every frame ends in grey. Toggling quickly ends on the last setting.</li>
+                <li><strong>Cancel</strong> also stops a colour re-render, and no longer measures the remaining frames one by one.</li>
+                <li><strong>Several folders dropped at once</strong> each get their own section in the sidebar, in the order you dropped them.</li>
+                <li>The info bar above the chart no longer disappears when you select a frame that is still loading.</li>
+            </ul>
+        </div>
+        <div class="section">
+            <span class="section-label label-changed">Changed</span>
+            <ul>
+                <li>A colour toggle can be cancelled (Cancel is active while it runs), and a display-size change made during a load runs after the load.</li>
+                <li>Files with Finder's "hidden" flag are no longer skipped when a folder is scanned (files whose name starts with a dot still are).</li>
+            </ul>
+        </div>
+        <div class="section">
+            <span class="section-label label-under the hood">Under the hood</span>
+            <ul>
+                <li>The loading pipeline was rebuilt so batches run one at a time, and the app now compiles in Swift 6 language mode, which turns data races the compiler can detect into errors. Measurements and image rendering are unchanged.</li>
+            </ul>
+        </div>
+    </div>
+
     <!-- v1.24-beta.1 -->
     <div class="entry">
         <div class="entry-header">

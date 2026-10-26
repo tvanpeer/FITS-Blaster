@@ -6,6 +6,48 @@
         <description>Beta release notes for FITS Blaster</description>
         <language>en-us</language>
         <item>
+            <title>FITS Blaster 1.24-beta.2</title>
+            <pubDate>Mon, 26 Oct 2026 14:37:05 +0000</pubDate>
+            <sparkle:version>211</sparkle:version>
+            <sparkle:shortVersionString>1.24-beta.2</sparkle:shortVersionString>
+            <description><![CDATA[
+<h2>2026-10-26 — 1.24 beta 2: faster network folders, smoother browsing, safer loading</h2>
+<h3>Improved</h3>
+<ul>
+  <li><b>Opening folders over the network is much faster:</b> listing the folder and checking the files went from over a minute to about 15 seconds for 1,147 files on a 1 Gb/s share. While FITS Blaster prepares a load you now see &quot;Scanning…&quot; and &quot;Checking files&quot; with a progress bar instead of an empty window.</li>
+  <li><b>Holding an arrow key is smooth again</b> in large sessions: the sidebar keeps up without stutter (5 short hitches in 5 seconds instead of 39–57 in a 355-frame session). Scrolling a zoomed frame redraws less too.</li>
+  <li><b>Much less memory with many folders or filters:</b> a session of 464 mono frames in 8 folders × 3 filters now peaks at 1 GB instead of 4.4 GB while loading.</li>
+  <li><b>Open Folder:</b> &quot;Include files from subfolders&quot; and &quot;Include REJECTED folder&quot; are back in the folder panel itself, and scanning a large folder no longer freezes the window. Dropped folders are scanned in the background too.</li>
+  <li><b>Export:</b> the header columns follow the order you chose in Settings → Export. Text that a spreadsheet could read as a formula is protected, and a failed export now shows an error.</li>
+</ul>
+<h3>Fixed</h3>
+<ul>
+  <li><b>A second folder during a load</b> (opened or dropped) now waits for the first one. Before, the progress bars disappeared and Cancel greyed out while the second folder was still loading.</li>
+  <li><b>Reset during a load</b> stops the load; it can no longer add frames to the emptied session.</li>
+  <li><b>Colour toggled during a load</b> now ends correctly: turned on, every frame ends in colour, also the frames that weren&#x27;t loaded yet; turned off, every frame ends in grey. Toggling quickly ends on the last setting.</li>
+  <li><b>Cancel</b> also stops a colour re-render, and no longer measures the remaining frames one by one.</li>
+  <li><b>Several folders dropped at once</b> each get their own section in the sidebar, in the order you dropped them.</li>
+  <li>The info bar above the chart no longer disappears when you select a frame that is still loading.</li>
+</ul>
+<h3>Changed</h3>
+<ul>
+  <li>A colour toggle can be cancelled (Cancel is active while it runs), and a display-size change made during a load runs after the load.</li>
+  <li>Files with Finder&#x27;s &quot;hidden&quot; flag are no longer skipped when a folder is scanned (files whose name starts with a dot still are).</li>
+</ul>
+<h3>Under the hood</h3>
+<ul>
+  <li>The loading pipeline was rebuilt so batches run one at a time, and the app now compiles in Swift 6 language mode, which turns data races the compiler can detect into errors. Measurements and image rendering are unchanged.</li>
+</ul>
+<p>---</p>
+<p>**[Full changelog](https://astrophoto-app.com/changelog.html)**</p>
+            ]]></description>
+            <enclosure
+                url="https://github.com/tvanpeer/FITS-Blaster/releases/download/v1.24-beta.2/FITS-Blaster-1.24-beta.2.dmg"
+                length="8722077"
+                type="application/octet-stream"
+                sparkle:edSignature="LSgkZeV2ypiuH+DkQqrwge/38ZHxFMIY7xQQeEvM2VfVi/CeiOvOPADSr8HTKV4RS/f024XqUlQVTx1uEQ2LAA==" />
+        </item>
+        <item>
             <title>FITS Blaster 1.24-beta.1</title>
             <pubDate>Sat, 24 Oct 2026 10:16:02 +0000</pubDate>
             <sparkle:version>210</sparkle:version>
