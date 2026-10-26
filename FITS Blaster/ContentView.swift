@@ -61,7 +61,16 @@ struct ContentView: View {
                 guard let window = hostingWindow,
                       !window.styleMask.contains(.fullScreen) else { return }
                 var frame = window.frame
-                frame.size.width = max(frame.size.width, isSimple ? 500 : (settings.showInspector ? 960 : 700))
+                frame.size.width = max(frame.size.width, minWindowWidth)
+                window.setFrame(frame, display: true, animate: true)
+            }
+            .onChange(of: settings.maxThumbnailSize) { _, _ in
+                // Larger thumbnails make the sidebar wider: widen the window if it got too narrow.
+                guard let window = hostingWindow,
+                      !window.styleMask.contains(.fullScreen),
+                      window.frame.size.width < minWindowWidth else { return }
+                var frame = window.frame
+                frame.size.width = minWindowWidth
                 window.setFrame(frame, display: true, animate: true)
             }
             .alert("Error", isPresented: $store.isShowingError) {
@@ -73,9 +82,12 @@ struct ContentView: View {
             .onDisappear { removeKeyMonitor() }
     }
 
+    /// The window's minimum width: as before, or wider when large thumbnails make the
+    /// sidebar wider (sidebar + content column + inspector).
     private var minWindowWidth: CGFloat {
-        if settings.isSimpleMode { return 500 }
-        return settings.showInspector ? 960 : 700
+        let sidebar = SidebarLayout.width(forThumbnail: settings.maxThumbnailSize)
+        if settings.isSimpleMode { return max(500, sidebar + 380) }
+        return settings.showInspector ? max(960, sidebar + 400 + 260) : max(700, sidebar + 400)
     }
 
     // MARK: - Key dispatch tables

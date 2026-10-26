@@ -215,7 +215,7 @@ struct ImageDisplayTab: View {
                     SizeField(value: $thumbnailSize, text: $thumbnailSizeText,
                               range: AppSettings.thumbnailSizeRange, step: 20, unit: "pt")
                 }
-                Text("Thumbnails are rendered at this size times the screen's scale, so they stay sharp on Retina screens.")
+                Text("The width of the thumbnails in the sidebar; the sidebar follows it, and can be dragged wider. Thumbnails are rendered at this size times the screen's scale, so they stay sharp on Retina screens.")
                     .scaledFont(size: 10)
                     .foregroundStyle(.secondary)
                 HStack {

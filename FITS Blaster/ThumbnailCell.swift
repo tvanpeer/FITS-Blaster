@@ -73,7 +73,10 @@ struct ThumbnailCell: View {
                 }
             }
         }
-        .padding()
+        // The setting is the thumbnail's shown width; in a sidebar dragged wider the cell
+        // keeps that width and is centred, with the highlight around the thumbnail.
+        .frame(maxWidth: CGFloat(settings.maxThumbnailSize))
+        .padding(SidebarLayout.cellPadding)
         .background(
             RoundedRectangle(cornerRadius: 6)
                 .fill(isMarkedForRejection ? Color.orange.opacity(0.15) :
@@ -84,6 +87,7 @@ struct ThumbnailCell: View {
                 .stroke(isMarkedForRejection ? Color.orange :
                         isCursor ? Color.accentColor : Color.clear, lineWidth: 2)
         )
+        .frame(maxWidth: .infinity)
     }
 
     @ViewBuilder

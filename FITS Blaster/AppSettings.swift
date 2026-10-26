@@ -111,16 +111,17 @@ final class AppSettings {
     var maxDisplaySize: Int = 1024 {
         didSet { UserDefaults.standard.set(maxDisplaySize, forKey: "maxDisplaySize") }
     }
-    /// Thumbnail detail in points: thumbnails are rendered at this size × the screen scale
+    /// The shown width of a sidebar thumbnail, in points; the sidebar's width follows it
+    /// (`SidebarLayout`). Thumbnails are rendered at this size × the screen scale
     /// (`thumbnailRenderSize`), so they are sharp on Retina screens. Until 2026-10-26 this
-    /// was in pixels (default 120), which left thumbnails soft when the sidebar enlarged them.
+    /// was the thumbnail's pixel size (default 120), and the sidebar width set the shown size.
     var maxThumbnailSize: Int = 180 {
         didSet { UserDefaults.standard.set(maxThumbnailSize, forKey: "maxThumbnailSize") }
     }
 
-    /// The thumbnail setting's range, in points. 320 is about the widest the sidebar ever
-    /// shows a thumbnail; more would only cost memory.
-    nonisolated static let thumbnailSizeRange = 40...320
+    /// The thumbnail setting's range, in points. Below 80 the file name and the metric line
+    /// under a thumbnail become unreadable.
+    nonisolated static let thumbnailSizeRange = 80...400
 
     /// The pixel size thumbnails are rendered at: `maxThumbnailSize` points × the largest
     /// scale of the connected screens.

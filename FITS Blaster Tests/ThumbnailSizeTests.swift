@@ -3,7 +3,8 @@
 //  FITS Blaster Tests
 //
 //  The thumbnail setting is in points; thumbnails are rendered at points × screen scale,
-//  so they are sharp on Retina screens. A saved value outside 40–320 is brought into range.
+//  so they are sharp on Retina screens. A saved value outside 80–400 is brought into range;
+//  the sidebar's width follows the setting.
 //  A new thumbnail size only remakes the thumbnails from the display images in memory.
 //
 
@@ -24,7 +25,7 @@ struct ThumbnailSizeTests {
     }
 
     @Test("A saved size outside the range is brought into it", arguments: [
-        (400, 320), (320, 320), (180, 180), (40, 40), (20, 40),
+        (500, 400), (400, 400), (180, 180), (80, 80), (40, 80),
     ])
     func savedValueClamped(saved: Int, used: Int) {
         #expect(AppSettings.clampedThumbnailSize(saved) == used)
@@ -32,8 +33,19 @@ struct ThumbnailSizeTests {
 
     @Test("The default is 180 points, within the range")
     func defaultSize() {
-        #expect(AppSettings.thumbnailSizeRange == 40...320)
+        #expect(AppSettings.thumbnailSizeRange == 80...400)
         #expect(AppSettings.thumbnailSizeRange.contains(180))
+    }
+
+    // MARK: - Sidebar width
+
+    @Test("The sidebar is the thumbnail plus padding, at least as wide as its controls", arguments: [
+        (180, 212.0), (400, 432.0), (138, 170.0), (80, 170.0),
+    ])
+    func sidebarWidth(thumbnail: Int, width: Double) {
+        let expected = CGFloat(width)
+        #expect(SidebarLayout.width(forThumbnail: thumbnail) == expected)
+        #expect(SidebarLayout.maxWidth(forThumbnail: thumbnail) == expected + 240)
     }
 
     // MARK: - Thumbnails only

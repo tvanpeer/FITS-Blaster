@@ -4,6 +4,24 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-26 — The thumbnail size sets the shown size; the sidebar follows it
+
+### Changed
+- **"Max thumbnail size" is now the width the sidebar shows a thumbnail at** (Settings → Display → Sizes). Before, a thumbnail always filled the sidebar's width and the setting only changed its sharpness. Smaller thumbnails take less height, so more of them fit in the sidebar; larger ones show more detail.
+- **The sidebar's width follows the setting:** thumbnail + padding (212 points at the default 180), never narrower than its controls need (170 points: the Sort row, the "Show" picker and the filter pills stay readable; smaller thumbnails are centred). After changing the setting the sidebar takes its new width. Its edge can be dragged up to 240 points wider (as far as the window allows), and the thumbnails then keep their size, centred; the extra width is kept between launches until the setting changes.
+- **Range 80–400 points** (was 40–320 after the previous change): below 80 the file name and metric line become unreadable. A saved value outside the range is brought into it. At 400 points the thumbnails of 355 colour frames take about 600 MB on a Retina screen (125 MB at the default 180).
+- The window widens when large thumbnails make the sidebar wider than the window allows, and its minimum width includes the sidebar.
+- **The "Show" picker (All / Flagged / Rejected) adapts to the sidebar's width:** segments with the full words, in a narrower sidebar segments with short words (All / Flag / Rej), and only if even those don't fit a pop-up menu (also with a large text size). Before, it was cut off at both sides (seen by Tom).
+
+### Internal
+- **The app sets the sidebar's width itself**, with its own drag handle (`SidebarDivider`: the system divider line, an 8-point grab area, the column-resize pointer, and a VoiceOver adjustable action). Content and Inspector stay in an `HSplitView`. A first version kept the sidebar as a split-view pane and could not get it to its natural width: the split view gave it its maximum width at launch, made it jump after a size change and stopped it being dragged (seen by Tom, 2026-10-26).
+- `RejectionVisibilityPicker`: full words, short words or a menu, whichever fits first (`ViewThatFits`); VoiceOver reads the full names.
+- New `SidebarLayout` (cell padding, controls width, natural and maximum sidebar width) used by the layout, the window minimum and `ThumbnailCell` (content at most the set width, centred, with the highlight around it).
+- Tests: the new range and the sidebar widths.
+- Unit tests (314), render tests and the 10 metric baselines pass unchanged; 0 strict warnings. 👤 Checked in the app: the sidebar at its natural width at launch and after a size change (no jumps), dragging wider and back, kept between launches, Inspector and Simple mode, the Show picker with short words at 180 and full words from 220.
+
+---
+
 ## 2026-10-26 — Sharp sidebar thumbnails on Retina screens
 
 ### Improved

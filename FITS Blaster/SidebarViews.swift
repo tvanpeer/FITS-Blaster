@@ -133,14 +133,8 @@ struct ThumbnailSidebar: View {
             }
 
             Divider()
-            Picker("Show", selection: $bindableStore.rejectionVisibility) {
-                ForEach(RejectionVisibility.allCases, id: \.self) { v in
-                    Text(v.rawValue).tag(v)
-                }
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-            .scaledFont(size: 10)
+            RejectionVisibilityPicker(selection: $bindableStore.rejectionVisibility)
+                .scaledFont(size: 10)
             .padding(.horizontal, 8)
             .padding(.vertical, 6)
         }
