@@ -4,6 +4,20 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-26 — Engine files split by what they need (step 8f)
+
+### Internal
+- **Engine files split** (engine part of CODE_AUDIT §9.12), code moved without changes:
+  - `ImageStretcher` → `StretchClips.swift` (the `GreyClips` / `BayerClips` types), `ImageStretcher.swift` (statistics), `ImageStretcher+CPU.swift` (CPU stretch, RGB images, thumbnails) and `ImageStretcher+Metal.swift` (GPU stretch);
+  - `FITSReader` → `FITSTypes.swift` (errors and result types), `FITSHeader.swift` (BITPIX check and header parser), `FITSReader.swift` (CPU reads) and `FITSReader+Metal.swift` (the buffer read);
+  - `MetricsCalculator` → its shared types and constants in `MetricsCalculator+Types.swift`, the star crops and Bayer demosaic in `MetricsCalculator+Bayer.swift`.
+- **The Quick Look extensions compile only what they use:** the header, the CPU reads, the statistics, the CPU stretch and `QuickLookRendering` — no Metal files, no `MetalContext`. (Their binaries had no Metal code before either: the linker dropped it as unused. The weak link to the system's `libswiftMetal` comes with Apple's frameworks and is unchanged.)
+- **Engine tunables as named constants** (engine part of §9.14): `highClipPercentile` (99.99 %), `shadowClipMADs` (2.8), `mtfLUTSize` (4096), `Constants.detectionSigmas` (5) and `Constants.cpuDetectionCropSide` (4096). Same values.
+- A few members became internal instead of private because another file now uses them (`parseHeader`, `parseCard`, `HeaderInfo`, the byte-swap and scale helpers, `cpuFallbackOnBuffer`).
+- Unit tests (308), render tests and the 10 metric baselines pass unchanged; the strict build has 0 warnings; the website and App Store builds compile without warnings.
+
+---
+
 ## 2026-10-26 — Sharper Quick Look thumbnails on Retina screens (step 8e)
 
 ### Improved

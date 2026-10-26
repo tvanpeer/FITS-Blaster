@@ -68,10 +68,13 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				BayerPattern.swift,
+				FITSHeader.swift,
 				FITSReader.swift,
+				FITSTypes.swift,
+				"ImageStretcher+CPU.swift",
 				ImageStretcher.swift,
-				MetalContext.swift,
 				QuickLookRendering.swift,
+				StretchClips.swift,
 			);
 			target = 653AE5D72F857C71008BBC9C /* FITSBlasterQL */;
 		};
@@ -93,10 +96,13 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				BayerPattern.swift,
+				FITSHeader.swift,
 				FITSReader.swift,
+				FITSTypes.swift,
+				"ImageStretcher+CPU.swift",
 				ImageStretcher.swift,
-				MetalContext.swift,
 				QuickLookRendering.swift,
+				StretchClips.swift,
 			);
 			target = 653AE5F82F859C2B008BBC9C /* FITSBlasterQLThumb */;
 		};

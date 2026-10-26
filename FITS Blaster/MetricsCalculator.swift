@@ -4,10 +4,12 @@
 //
 //  Created by Tom van Peer on 01/03/2026.
 //
-//  Public API, orchestration, and shared internal types.
+//  Public API and orchestration.
 //  Implementation is split across focused extension files:
-//    MetricsCalculator+StarDetection.swift   — background estimation, GPU/CPU detection, NMS
-//    MetricsCalculator+ShapeMeasurement.swift — FWHM, eccentricity, SNR, crop extraction
+//    MetricsCalculator+Types.swift            — shared types and tuning constants
+//    MetricsCalculator+StarDetection.swift    — background estimation, GPU/CPU detection, NMS
+//    MetricsCalculator+ShapeMeasurement.swift — FWHM, eccentricity, SNR
+//    MetricsCalculator+Bayer.swift            — star crops and their Bayer demosaic
 //    MetricsCalculator+Scoring.swift          — quality score, histogram, median
 //
 
@@ -20,55 +22,6 @@ import Metal
 /// from the cooperative thread pool.
 struct MetricsCalculator {
 
-    // MARK: - Metal state (detection kernel)
-
-    /// CPU-side mirror of the Metal DetectParams struct in FITSStretch.metal.
-    /// Field order and types must match exactly so setBytes() copies the right bytes.
-    struct DetectParams {
-        var width:     UInt32   // image width in pixels
-        var height:    UInt32   // image height in pixels
-        var threshold: Float    // background + 5σ detection threshold
-    }
-
-    /// CPU-side mirror of the Metal DetectCandidate struct.
-    /// Two UInt32 values → 8 bytes, naturally aligned, no padding.
-    struct DetectCandidate {
-        var x: UInt32
-        var y: UInt32
-    }
-
-    // MARK: - Tuning constants
-
-    /// Controls star detection and measurement limits.
-    enum Constants {
-        /// Must match MAX_DETECTION_CANDIDATES in FITSStretch.metal.
-        static let maxDetectionCandidates  = 50_000
-        /// Number of stratified samples for background estimation.
-        static let backgroundSampleCount   = 5_000
-        /// Top N candidates used for full shape measurement (FWHM, ecc, SNR).
-        static let topCandidatesForShape   = 200
-        /// Additional candidates checked in the fast star-count pass (Phase 2).
-        static let fallbackCandidateCount  = 6_000
-    }
-
-    /// Tunables of the per-star shape measurement (CODE_AUDIT §9.4).
-    enum Shape {
-        /// A measured FWHM outside this range (pixels) is not a usable star: too small is a
-        /// hot pixel or noise, too large a galaxy, nebula knot or blend.
-        static let acceptedFWHM: ClosedRange<Float> = 0.5...20
-        /// Half-width of the centroid window (2·2+1 = 5×5 pixels).
-        static let centroidHalfWidth = 2
-        /// Steps on each side of the centre along which the Moffat profile is fitted.
-        static let moffatHalfWidth = 10
-        /// Profile samples below this fraction of the peak are left out of the fit.
-        static let moffatMinimumFraction: Float = 0.02
-        /// FWHM = α · 2·√(2^{1/β} − 1) for a Moffat profile with β = 4 (≈ 0.870).
-        static let moffatFWHMFactor: Float = 2 * (pow(Float(2), Float(0.25)) - 1).squareRoot()
-        /// Star-count pre-filter: each of the 4 neighbours must carry at least this
-        /// fraction of the background-subtracted peak (see `measureFWHMOnly`).
-        static let wingFraction: Float = 0.05
-    }
-
     /// Must match MAX_DETECTION_CANDIDATES in FITSStretch.metal.
     static let maxDetectionCandidates = Constants.maxDetectionCandidates
 
@@ -79,33 +32,6 @@ struct MetricsCalculator {
 
     // The detection pipeline, device and queue are MetalContext's, shared with the
     // stretch: the frame's buffer from Phase A is used without a copy.
-
-    // MARK: - Internal types shared with extension files
-
-    /// Intermediate star candidate used internally during detection and NMS.
-    struct StarCandidate {
-        let x: Int
-        let y: Int
-        let peak: Float
-
-        /// Sort order for candidates: brightest peak first; equal peaks by row, then column.
-        ///
-        /// The tie-break makes the order deterministic. 16-bit data has many equal peaks
-        /// (saturated stars above all), and the GPU returns candidates in a random order,
-        /// so sorting on the peak alone let that order decide which stars were kept and
-        /// measured — and the metrics varied between runs on the same file.
-        static func brighterFirst(_ a: StarCandidate, _ b: StarCandidate) -> Bool {
-            if a.peak != b.peak { return a.peak > b.peak }
-            if a.y != b.y { return a.y < b.y }
-            return a.x < b.x
-        }
-    }
-
-    /// Return type for GPU detection.
-    struct GPUDetectionResult {
-        /// Candidates stored in the output buffer, sorted by peak brightness.
-        let candidates: [StarCandidate]
-    }
 
     // MARK: - Public entry points
 
@@ -128,7 +54,7 @@ struct MetricsCalculator {
         let pixels   = UnsafeBufferPointer(start: floatPtr, count: count)
 
         let (background, sigma) = estimateBackground(pixels, width: width, height: height)
-        let threshold = background + 5 * sigma
+        let threshold = background + Constants.detectionSigmas * sigma
 
         // Try GPU detection over the full frame; fall back to CPU on failure.
         let allCandidates: [StarCandidate]
@@ -181,13 +107,13 @@ struct MetricsCalculator {
                                                 bayerPattern: BayerPattern? = nil) async -> FrameMetrics? {
         // 4096² cap: large enough to cover most or all of a typical 16 MP sensor,
         // while bounding worst-case CPU time to ~80 ms for 48 MP+ files.
-        let cropW = min(width,  4096)
-        let cropH = min(height, 4096)
+        let cropW = min(width,  Constants.cpuDetectionCropSide)
+        let cropH = min(height, Constants.cpuDetectionCropSide)
         let cropX = (width  - cropW) / 2   // centre the crop horizontally
         let cropY = (height - cropH) / 2   // centre the crop vertically
 
         let (background, sigma) = estimateBackground(pixels, width: width, height: height)
-        let threshold = background + 5 * sigma
+        let threshold = background + Constants.detectionSigmas * sigma
 
         let raw = findLocalMaxima(pixels: pixels, width: width, height: height,
                                   cropX: cropX, cropY: cropY,
