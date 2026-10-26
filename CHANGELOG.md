@@ -4,6 +4,20 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-26 — Sidebar and chart lists built once; the chart refreshes during a load (step 9b)
+
+### Improved
+- **Smoother while loading with the chart visible:** the chart no longer redraws for every frame that gets its metrics, but at most four times a second during a load, and once at the end (performance audit P3). Loading M81 (355 colour frames): chart redraws 278 → 118, chart mark collection 2.8 → 1.4 s, all view bodies 1.7 → 0.4 s, hitches 486 = 14.5 s → 417 = 10.3 s of 31 s. What is left is mostly the sidebar's thumbnail cells being redrawn as frames arrive (text layout ≈ 1.6 s, the loading spinners ≈ 0.6 s) — step 9c.
+
+### Internal
+- **Stored sidebar lists** (performance audit P2, CODE_AUDIT §7.5b, §8.5): `visibilityGroupedSortedEntries` and the new `visibleFolderSections` (each folder's visible frames per filter group) are stored and rebuilt with `visibilityFilteredEntries`, once per change; the sidebar no longer filters inside its `ForEach`, and keyboard navigation uses the stored sections. `listRevision` goes up with every rebuild.
+- **Chart data snapshot** (`SessionChartData`): the chart's frames, points and medians are built outside its body — when `listRevision`, the metric or the folder selection change, every 250 ms during a batch, and at its end — so the chart no longer observes every frame's metrics.
+- **One grouping and one median** (part of §9.11): `FilterGroup.grouped` (canonical order) replaces four copies; `upperMedian` (the middle value after sorting, as before) is used by the group statistics and the chart.
+- Tests: `SessionListsTests` — grouping order, the median, the stored sections equal the sidebar's old filtering (All / Flagged / Rejected, with and without the filter strip), the revision, the chart data.
+- Unit tests (319), render tests and the 10 metric baselines pass unchanged; 0 strict warnings. 👤 Checked in the app: the chart fills in during a load, sorting, filter strip, flagging and rejecting update sidebar and chart smoothly. Measured with trace `09b-load-and-switch.trace`.
+
+---
+
 ## 2026-10-26 — Step 9 baseline measurements (9a)
 
 ### Internal

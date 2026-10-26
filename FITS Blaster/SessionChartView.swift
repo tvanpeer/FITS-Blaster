@@ -24,51 +24,9 @@ struct SessionChartView: View {
     /// Empty set means "All" — no folder filtering applied.
     @State private var selectedFolderPaths: Set<String> = []
 
-    // MARK: - Derived data
-
-    /// Entries shown in the chart strip, filtered by `selectedFolderPaths` and `rejectionVisibility`.
-    private var chartEntries: [ImageEntry] {
-        let base: [ImageEntry]
-        if !selectedFolderPaths.isEmpty, store.isMultiFolder {
-            base = store.cachedSortedEntries.filter { selectedFolderPaths.contains($0.qualifiedFolderPath) }
-        } else {
-            base = store.cachedSortedEntries
-        }
-        return base.filter { store.isVisible($0) }
-    }
-
-    /// All frames that have at least a partial metric value for the active metric,
-    /// paired with their 0-based position in `chartEntries`.
-    private var chartPoints: [(index: Int, entry: ImageEntry, value: Double)] {
-        chartEntries.enumerated().compactMap { index, entry in
-            guard let value = selectedMetric.value(from: entry.metrics) else { return nil }
-            return (index: index, entry: entry, value: value)
-        }
-    }
-
-    /// Per-group median of the active metric, used for threshold lines.
-    /// Groups with fewer than two data points are skipped.
-    ///
-    /// Uses pre-cached values from `ImageStore.groupStatistics` when no folder filter
-    /// is active (the common case), avoiding an O(n log n) sort on every render pass.
-    /// Falls back to a live per-render computation when a folder filter is selected.
-    private var groupMedians: [(group: FilterGroup, median: Double)] {
-        if selectedFolderPaths.isEmpty || !store.isMultiFolder {
-            return FilterGroup.allCases.compactMap { group in
-                guard let stats = store.groupStatistics[group],
-                      let median = selectedMetric.median(from: stats) else { return nil }
-                return (group: group, median: median)
-            }
-        }
-        let grouped = Dictionary(grouping: chartEntries) { $0.filterGroup }
-        return FilterGroup.allCases.compactMap { group in
-            let values = (grouped[group] ?? [])
-                .compactMap { selectedMetric.value(from: $0.metrics) }
-                .sorted()
-            guard values.count >= 2 else { return nil }
-            return (group: group, median: values[values.count / 2])
-        }
-    }
+    /// The chart's frames, points and medians, rebuilt from the store when they can have
+    /// changed — not read from every frame while drawing (performance audit P3).
+    @State private var data = SessionChartData()
 
     // MARK: - Body
 
@@ -80,13 +38,13 @@ struct SessionChartView: View {
                 FolderFilterStrip(selectedFolderPaths: $selectedFolderPaths)
             }
             Divider()
-            if chartPoints.isEmpty {
+            if data.points.isEmpty {
                 ChartPlaceholder(selectedMetric: selectedMetric)
             } else {
                 ChartBody(
-                    chartEntries: chartEntries,
-                    chartPoints: chartPoints,
-                    groupMedians: groupMedians,
+                    chartEntries: data.entries,
+                    chartPoints: data.points,
+                    groupMedians: data.medians,
                     selectedMetric: selectedMetric
                 )
             }
@@ -95,6 +53,26 @@ struct SessionChartView: View {
         .onChange(of: store.activeFolderPaths) { _, newPaths in
             selectedFolderPaths = selectedFolderPaths.filter { newPaths.contains($0) }
         }
+        // Rebuilt when the lists, the metric or the folder selection change…
+        .onAppear { rebuild() }
+        .onChange(of: store.listRevision) { _, _ in rebuild() }
+        .onChange(of: selectedMetric) { _, _ in rebuild() }
+        .onChange(of: selectedFolderPaths) { _, _ in rebuild() }
+        // …and while a batch runs, every 250 ms (metrics arrive frame by frame), plus once
+        // when it ends.
+        .task(id: store.pipeline.isBatchProcessing) {
+            rebuild()
+            guard store.pipeline.isBatchProcessing else { return }
+            while !Task.isCancelled {
+                try? await Task.sleep(for: SessionChartData.refreshInterval)
+                guard !Task.isCancelled else { return }
+                rebuild()
+            }
+        }
+    }
+
+    private func rebuild() {
+        data = SessionChartData.make(store: store, metric: selectedMetric, folderPaths: selectedFolderPaths)
     }
 }
 

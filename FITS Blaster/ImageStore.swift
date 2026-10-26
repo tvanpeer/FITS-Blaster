@@ -236,6 +236,11 @@ final class ImageStore {
     /// and reliably invalidates every view that reads it.
     private(set) var visibilityFilteredEntries: [ImageEntry] = []
 
+    /// Rebuilds the stored lists the sidebar and chart show: `visibilityFilteredEntries`,
+    /// `visibilityGroupedSortedEntries` and `visibleFolderSections`, once per change instead
+    /// of on every redraw (performance audit P2, CODE_AUDIT §7.5b, §8.5). Called from every
+    /// write path that affects them: reject/undo, flags, the filter strip, the visibility
+    /// picker, sorting and the batch boundaries.
     func updateVisibilityFilteredEntries() {
         let base = filteredSortedEntries
         switch rejectionVisibility {
@@ -243,26 +248,46 @@ final class ImageStore {
         case .active:   visibilityFilteredEntries = base.filter { flaggedEntryIDs.contains($0.id) }
         case .rejected: visibilityFilteredEntries = base.filter { rejectedEntryIDs.contains($0.id) }
         }
+
+        // All filter groups (the filter strip is not applied here), visibility applied.
+        visibilityGroupedSortedEntries = FilterGroup.grouped(sortedEntries).compactMap { group, all in
+            let visible = all.filter(matchesVisibility)
+            return visible.isEmpty ? nil : (group: group, entries: visible)
+        }
+
+        visibleFolderSections = groupedByFolderAndFilter.map { folder in
+            let groups = folder.filterGroups.compactMap { group, groupEntries in
+                let visible = groupEntries.filter { isVisible($0) }
+                return visible.isEmpty ? nil : (group: group, entries: visible)
+            }
+            return VisibleFolderSection(folder: folder, filterGroups: groups,
+                                        entries: groups.flatMap(\.entries))
+        }
+
+        listRevision += 1
+    }
+
+    /// Whether `entry` passes the All / Flagged / Rejected choice (not the filter strip).
+    private func matchesVisibility(_ entry: ImageEntry) -> Bool {
+        switch rejectionVisibility {
+        case .all:      true
+        case .active:   flaggedEntryIDs.contains(entry.id)
+        case .rejected: rejectedEntryIDs.contains(entry.id)
+        }
     }
 
     /// `sortedEntries` grouped by filter group, in canonical FilterGroup order,
     /// filtered by `rejectionVisibility`. Groups with no visible entries are omitted.
-    var visibilityGroupedSortedEntries: [(group: FilterGroup, entries: [ImageEntry])] {
-        let rejIDs = rejectedEntryIDs
-        let flgIDs = flaggedEntryIDs
-        let vis = rejectionVisibility
-        let grouped = Dictionary(grouping: sortedEntries) { $0.filterGroup }
-        return FilterGroup.allCases.compactMap { group in
-            guard let all = grouped[group] else { return nil }
-            let visible: [ImageEntry]
-            switch vis {
-            case .all:      visible = all
-            case .active:   visible = all.filter { flgIDs.contains($0.id) }
-            case .rejected: visible = all.filter { rejIDs.contains($0.id) }
-            }
-            return visible.isEmpty ? nil : (group: group, entries: visible)
-        }
-    }
+    /// Stored; rebuilt by `updateVisibilityFilteredEntries()`.
+    private(set) var visibilityGroupedSortedEntries: [(group: FilterGroup, entries: [ImageEntry])] = []
+
+    /// Every folder section of the sidebar with its visible frames (filter strip and
+    /// visibility applied). Stored; rebuilt by `updateVisibilityFilteredEntries()`.
+    private(set) var visibleFolderSections: [VisibleFolderSection] = []
+
+    /// Raised each time the lists above are rebuilt, so a view (the session chart) can
+    /// rebuild its own data from them without observing every frame.
+    private(set) var listRevision = 0
 
     /// Per-group statistics used for relative badge thresholds and auto-reject.
     ///
@@ -272,25 +297,17 @@ final class ImageStore {
     private(set) var groupStatistics: [FilterGroup: GroupStats] = [:]
 
     func updateGroupStatistics() {
-        let grouped = Dictionary(grouping: entries) { $0.filterGroup }
         var result: [FilterGroup: GroupStats] = [:]
-        for group in FilterGroup.allCases {
-            guard let groupEntries = grouped[group], !groupEntries.isEmpty else { continue }
-            let fwhms  = groupEntries.compactMap { $0.metrics?.fwhm }.sorted()
-            let eccs   = groupEntries.compactMap { $0.metrics?.eccentricity }.sorted()
-            let stars  = groupEntries.compactMap { $0.metrics?.starCount }.sorted()
-            let snrs   = groupEntries.compactMap { $0.metrics?.snr }.sorted()
+        for (group, groupEntries) in FilterGroup.grouped(entries) {
             let scores = groupEntries.compactMap { $0.metrics?.qualityScore }.sorted()
-            let bgs    = groupEntries.compactMap { $0.metrics?.skyBackground }.sorted()
-            let psfs   = groupEntries.compactMap { $0.metrics?.psfSignalWeight }.sorted()
             result[group] = GroupStats(
-                medianFWHM:            fwhms.isEmpty  ? nil : fwhms[fwhms.count / 2],
-                medianEccentricity:    eccs.isEmpty   ? nil : eccs[eccs.count / 2],
-                medianStarCount:       stars.isEmpty  ? nil : stars[stars.count / 2],
-                medianSNR:             snrs.isEmpty   ? nil : snrs[snrs.count / 2],
-                medianScore:           scores.isEmpty ? nil : scores[scores.count / 2],
-                medianSkyBackground:   bgs.isEmpty    ? nil : bgs[bgs.count / 2],
-                medianPSFSignalWeight: psfs.isEmpty   ? nil : psfs[psfs.count / 2],
+                medianFWHM:            groupEntries.compactMap { $0.metrics?.fwhm }.upperMedian,
+                medianEccentricity:    groupEntries.compactMap { $0.metrics?.eccentricity }.upperMedian,
+                medianStarCount:       groupEntries.compactMap { $0.metrics?.starCount }.upperMedian,
+                medianSNR:             groupEntries.compactMap { $0.metrics?.snr }.upperMedian,
+                medianScore:           scores.upperMedian,
+                medianSkyBackground:   groupEntries.compactMap { $0.metrics?.skyBackground }.upperMedian,
+                medianPSFSignalWeight: groupEntries.compactMap { $0.metrics?.psfSignalWeight }.upperMedian,
                 topThirdScoreFloor:    scores.count < 3 ? nil : scores[scores.count * 2 / 3],
                 isNarrowband:          group.isNarrowband
             )
@@ -327,11 +344,7 @@ final class ImageStore {
                 displayName = first.subfolderPath.isEmpty ? rootFolderName : first.subfolderPath
             }
 
-            let byFilter = Dictionary(grouping: pathEntries) { $0.filterGroup }
-            let filterGroups: [(FilterGroup, [ImageEntry])] = FilterGroup.allCases.compactMap { group in
-                guard let groupEntries = byFilter[group], !groupEntries.isEmpty else { return nil }
-                return (group, groupEntries)
-            }
+            let filterGroups: [(FilterGroup, [ImageEntry])] = FilterGroup.grouped(pathEntries).map { ($0.group, $0.entries) }
             return FolderGroup(rootFolderName: first.rootFolderName,
                                folderPath: qualifiedPath,
                                folderDisplayName: displayName,
@@ -467,10 +480,9 @@ final class ImageStore {
         // Multi-folder: always navigate in folder → filter section order, skipping collapsed.
         // Applies in both simple and geek mode since both show folder headers.
         if isMultiFolder {
-            return groupedByFolderAndFilter
-                .filter { !collapsedFolderPaths.contains($0.folderPath) }
-                .flatMap { folder in folder.filterGroups.flatMap { $0.1 } }
-                .filter { isVisible($0) }
+            return visibleFolderSections
+                .filter { !collapsedFolderPaths.contains($0.folder.folderPath) }
+                .flatMap(\.entries)
         }
         // Simple mode (single folder) or a filter strip selection: flat list.
         if isSimpleMode || sidebarFilterGroup != nil || !isMultiFilter {

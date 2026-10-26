@@ -69,34 +69,30 @@ struct ThumbnailSidebar: View {
                         if store.isMultiFolder {
                             // Multi-folder: folder sections in both simple and geek mode.
                             // Geek mode adds filter sub-headers within each folder.
-                            ForEach(store.groupedByFolderAndFilter) { folderGroup in
+                            // The visible frames per folder and filter are stored by the
+                            // store, so nothing is filtered here while drawing (§8.5).
+                            ForEach(store.visibleFolderSections) { section in
+                                let folderGroup = section.folder
                                 let isCollapsed = store.collapsedFolderPaths.contains(folderGroup.folderPath)
                                 Section {
                                     if !isCollapsed {
                                         if !settings.isSimpleMode && folderGroup.filterGroups.count > 1 {
-                                            ForEach(folderGroup.filterGroups, id: \.0) { group, groupEntries in
-                                                let visibleGroupEntries = groupEntries.filter { store.isVisible($0) }
-                                                if !visibleGroupEntries.isEmpty {
-                                                    FolderFilterSubHeader(group: group, count: visibleGroupEntries.count)
-                                                    ForEach(visibleGroupEntries) { entry in
-                                                        thumbnailButton(for: entry)
-                                                    }
+                                            ForEach(section.filterGroups, id: \.group) { group, visibleGroupEntries in
+                                                FolderFilterSubHeader(group: group, count: visibleGroupEntries.count)
+                                                ForEach(visibleGroupEntries) { entry in
+                                                    thumbnailButton(for: entry)
                                                 }
                                             }
                                         } else {
-                                            ForEach(folderGroup.filterGroups.flatMap { $0.1 }.filter { store.isVisible($0) }) { entry in
+                                            ForEach(section.entries) { entry in
                                                 thumbnailButton(for: entry)
                                             }
                                         }
                                     }
                                 } header: {
-                                    let visibleCount = folderGroup.filterGroups
-                                        .flatMap { $0.1 }
-                                        .filter { store.isVisible($0) }
-                                        .count
                                     FolderSectionHeader(
                                         folderGroup: folderGroup,
-                                        visibleCount: visibleCount,
+                                        visibleCount: section.entries.count,
                                         isCollapsed: isCollapsed
                                     ) {
                                         store.toggleFolderCollapsed(folderGroup.folderPath)
