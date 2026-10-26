@@ -3,7 +3,7 @@
 //  FITS Blaster Tests
 //
 //  Tests for per-folder shared stretch clips: GreyClips.median, BayerClips.median,
-//  ImageStretcher.mtfMidtone and computeSTFStatistics.
+//  ImageStretcher.mtfMidtone, computeSTFStatistics and the shared stfStatistics.
 //
 
 import Testing
@@ -136,5 +136,39 @@ struct ClipNormalisationTests {
         #expect(stats.high == clips.highClip)
         #expect(stats.midtone == clips.midtone)
         #expect(abs(stats.background - 0.103) < 0.002)
+    }
+
+    // MARK: - Shared statistics (CODE_AUDIT §9.6)
+
+    @Test("Grey statistics need 11 samples, a Bayer channel 2; fewer give the fallback")
+    func minimumSampleCounts() {
+        var ten: [Float] = (1...10).map { Float($0) * 100 }
+        #expect(ImageStretcher.stfStatistics(of: &ten, minimumCount: ImageStretcher.greyMinimumSamples)
+                == ImageStretcher.stfFallback)
+        var eleven: [Float] = (1...11).map { Float($0) * 100 }
+        #expect(ImageStretcher.stfStatistics(of: &eleven, minimumCount: ImageStretcher.greyMinimumSamples)
+                != ImageStretcher.stfFallback)
+
+        var one: [Float] = [500]
+        #expect(ImageStretcher.stfStatistics(of: &one, minimumCount: ImageStretcher.bayerMinimumSamples)
+                == ImageStretcher.stfFallback)
+        var two: [Float] = [500, 900]
+        let stats = ImageStretcher.stfStatistics(of: &two, minimumCount: ImageStretcher.bayerMinimumSamples)
+        #expect(stats.background == 900)   // the median of two sorted samples is the second
+    }
+
+    @Test("Grey statistics from a buffer equal the shared function on the positive samples")
+    func greyUsesSharedStatistics() {
+        let pixels: [Float] = (0..<5000).map { (i: Int) -> Float in
+            if i % 7 == 0 { return 0 }
+            let level: Int = 1000 + (i * 37) % 900
+            return Float(level)
+        }
+        let viaBuffer = pixels.withUnsafeBufferPointer {
+            ImageStretcher.computeSTFStatistics($0.baseAddress!, count: $0.count)
+        }
+        var positive = pixels.filter { $0 > 0 }
+        let direct = ImageStretcher.stfStatistics(of: &positive, minimumCount: ImageStretcher.greyMinimumSamples)
+        #expect(viaBuffer == direct)
     }
 }

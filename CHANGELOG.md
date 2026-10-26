@@ -4,6 +4,16 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-26 — One stretch-statistics function (step 8b)
+
+### Internal
+- **Grey and colour stretch statistics come from one function** (`ImageStretcher.stfStatistics`, CODE_AUDIT §9.6): high clip at the 99.99th percentile, background = median, shadow clip = median − 2.8 × MAD, and the midtone that puts the background at 25 % grey. Before, the colour path had its own copy inside `estimateBayerPerChannelPercentiles`. Their only differences stay, as explicit values: grey samples skip pixels ≤ 0 and need at least 11 samples (`greyMinimumSamples`), a Bayer channel needs 2 (`bayerMinimumSamples`); fewer give the same fallback (`stfFallback`, now also used by the clip medians). Making grey and colour the same would change renders (decision 10: not planned).
+- **The kernels share one stretch helper** (`stretchByte` in `FITSStretch.metal`): the grey kernel had the MTF formula written out, the colour kernel a copy in `bayerStretchByte`. Same arithmetic.
+- `GreyClips` is `Equatable`. Tests: the two minimum sample counts, and grey statistics from a buffer equal the shared function on its positive samples.
+- Unit tests (301), render tests and the 10 metric baselines pass unchanged (renders byte-identical).
+
+---
+
 ## 2026-10-26 — One Metal context; GPU errors fall back to the CPU (step 8a)
 
 ### Fixed

@@ -24,6 +24,18 @@ struct StretchParams {
     uint  bayerBin;
 };
 
+/// Stretch one value to UInt8: STF normalisation of [lo, hi] to [0, 1], then the MTF
+/// (m−1)·t / ((2m−1)·t − m) with midtone m. Shared by the grey and colour kernels
+/// (CODE_AUDIT §9.6).
+static inline uchar stretchByte(float raw, float lo, float hi, float midtone) {
+    float range = hi - lo;
+    float t = clamp((raw - lo) / range, 0.0f, 1.0f);
+    float m = midtone;
+    float stretched = (t == 0.0f) ? 0.0f
+        : clamp((m - 1.0f) * t / ((2.0f * m - 1.0f) * t - m), 0.0f, 1.0f);
+    return uchar(stretched * 255.0f);
+}
+
 /// Single-pass compute kernel that performs:
 ///   1. Box-filter downsample from full-resolution input to display size
 ///   2. Vertical flip (FITS stores rows bottom-to-top)
@@ -83,13 +95,8 @@ kernel void mtfStretch(
     }
     float raw = sum / float(max(n, 1u));
 
-    // STF normalize to [0, 1], then apply MTF: (m−1)·t / ((2m−1)·t − m)
-    float range = params.highClip - params.shadowClip;
-    float t = clamp((raw - params.shadowClip) / range, 0.0f, 1.0f);
-    float m = params.mtfMidtone;
-    float stretched = (t == 0.0f) ? 0.0f
-        : clamp((m - 1.0f) * t / ((2.0f * m - 1.0f) * t - m), 0.0f, 1.0f);
-    outputPixels[gid.y * params.dstWidth + gid.x] = uchar(stretched * 255.0f);
+    outputPixels[gid.y * params.dstWidth + gid.x] =
+        stretchByte(raw, params.shadowClip, params.highClip, params.mtfMidtone);
 }
 
 // MARK: - Bayer debayer + stretch
@@ -118,16 +125,6 @@ struct BayerStretchParams {
     /// RGGB=0  GRBG=1  GBRG=2  BGGR=3
     uint  rOffset;
 };
-
-/// Stretch a single channel value to UInt8 with STF shadow clip + MTF.
-static inline uchar bayerStretchByte(float raw, float lo, float hi, float midtone) {
-    float range = hi - lo;
-    float t = clamp((raw - lo) / range, 0.0f, 1.0f);
-    float m = midtone;
-    float stretched = (t == 0.0f) ? 0.0f
-        : clamp((m - 1.0f) * t / ((2.0f * m - 1.0f) * t - m), 0.0f, 1.0f);
-    return uchar(stretched * 255.0f);
-}
 
 /// Single-pass kernel:
 ///   1. Box-filter downsample from full-resolution input to display size
@@ -200,9 +197,9 @@ kernel void bayerDebayerAndStretch(
     float G = (nG > 0u) ? sumG / float(nG) : 0.0f;
     float B = (nB > 0u) ? sumB / float(nB) : 0.0f;
 
-    uchar r8 = bayerStretchByte(R, params.shadowClipR, params.highClipR, params.mtfMidtoneR);
-    uchar g8 = bayerStretchByte(G, params.shadowClipG, params.highClipG, params.mtfMidtoneG);
-    uchar b8 = bayerStretchByte(B, params.shadowClipB, params.highClipB, params.mtfMidtoneB);
+    uchar r8 = stretchByte(R, params.shadowClipR, params.highClipR, params.mtfMidtoneR);
+    uchar g8 = stretchByte(G, params.shadowClipG, params.highClipG, params.mtfMidtoneG);
+    uchar b8 = stretchByte(B, params.shadowClipB, params.highClipB, params.mtfMidtoneB);
 
     outputPixels[outY * params.dstWidth + outX] = uchar4(r8, g8, b8, 255);
 }

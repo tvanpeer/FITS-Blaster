@@ -15,7 +15,7 @@ import Accelerate
 /// Percentile clip bounds for a greyscale (mono) image.
 /// Stored on `ImageEntry` during Phase A so the post-batch normalisation step
 /// can compute per-(folder, filter) medians and re-render with shared bounds.
-struct GreyClips: Sendable {
+struct GreyClips: Sendable, Equatable {
     let low: Float
     let high: Float
     let midtone: Float     // MTF midtone parameter derived from STF statistics
@@ -27,7 +27,7 @@ struct GreyClips: Sendable {
     /// the midtone is recomputed from them rather than taken as a median of its own,
     /// because each image's midtone only fits that image's own low/high pair.
     static func median(of clips: [GreyClips]) -> GreyClips {
-        guard !clips.isEmpty else { return GreyClips(low: 0, high: 1, midtone: 0.25, background: 0.1) }
+        guard !clips.isEmpty else { return ImageStretcher.stfFallback }
         let mid         = clips.count / 2
         let low         = clips.map(\.low).sorted()[mid]
         let high        = clips.map(\.high).sorted()[mid]
@@ -60,10 +60,12 @@ struct BayerClips: Sendable {
     /// them (e.g. one frame's high with another frame's midtone) causes colour casts.
     static func median(of clips: [BayerClips]) -> BayerClips {
         guard !clips.isEmpty else {
-            return BayerClips(loR: 0, hiR: 1, midR: 0.25,
-                              loG: 0, hiG: 1, midG: 0.25,
-                              loB: 0, hiB: 1, midB: 0.25,
-                              bgR: 0.1, bgG: 0.1, bgB: 0.1)
+            // The grey fallback for every channel.
+            let f = ImageStretcher.stfFallback
+            return BayerClips(loR: f.low, hiR: f.high, midR: f.midtone,
+                              loG: f.low, hiG: f.high, midG: f.midtone,
+                              loB: f.low, hiB: f.high, midB: f.midtone,
+                              bgR: f.background, bgG: f.background, bgB: f.background)
         }
         let mid = clips.count / 2
         func med(_ kp: KeyPath<BayerClips, Float>) -> Float {
@@ -666,27 +668,14 @@ struct ImageStretcher {
             }
         }
 
-        func stf(_ s: inout [Float]) -> (lo: Float, hi: Float, mid: Float, bg: Float) {
-            guard s.count > 1 else { return (0, 1, 0.25, 0.1) }
-            vDSP.sort(&s, sortOrder: .ascending)
-            let n  = s.count
-            let hi = s[min(n - 1, Int(Float(n - 1) * 0.9999))]
-            let median = s[n / 2]
-            var madArr = s.map { abs($0 - median) }
-            vDSP.sort(&madArr, sortOrder: .ascending)
-            let mad = madArr[madArr.count / 2]
-            let lo  = max(0, median - 2.8 * mad)
-            guard hi > lo else { return (lo, hi, 0.25, median) }
-            return (lo, hi, mtfMidtone(shadowClip: lo, highClip: hi, background: median), median)
-        }
-
-        let (loR, hiR, midR, bgR) = stf(&rSamples)
-        let (loG, hiG, midG, bgG) = stf(&gSamples)
-        let (loB, hiB, midB, bgB) = stf(&bSamples)
-        return BayerClips(loR: loR, hiR: hiR, midR: midR,
-                          loG: loG, hiG: hiG, midG: midG,
-                          loB: loB, hiB: hiB, midB: midB,
-                          bgR: bgR, bgG: bgG, bgB: bgB)
+        // Each channel's statistics as for grey, but from 2 samples on (§9.6).
+        let r = stfStatistics(of: &rSamples, minimumCount: Self.bayerMinimumSamples)
+        let g = stfStatistics(of: &gSamples, minimumCount: Self.bayerMinimumSamples)
+        let b = stfStatistics(of: &bSamples, minimumCount: Self.bayerMinimumSamples)
+        return BayerClips(loR: r.low, hiR: r.high, midR: r.midtone,
+                          loG: g.low, hiG: g.high, midG: g.midtone,
+                          loB: b.low, hiB: b.high, midB: b.midtone,
+                          bgR: r.background, bgG: g.background, bgB: b.background)
     }
 
     /// MTF midtone that maps `background` to 25% grey after clipping to
@@ -713,26 +702,45 @@ struct ImageStretcher {
     /// Same as `computeSTFClips`, but also keeps the sky background (sample median) so
     /// per-group medians can recompute a midtone that matches the shared clip range.
     static func computeSTFStatistics(_ ptr: UnsafePointer<Float>, count: Int) -> GreyClips {
-        let fallback = GreyClips(low: 0, high: 1, midtone: 0.25, background: 0.1)
-        guard count > 0 else { return fallback }
+        guard count > 0 else { return stfFallback }
         let sampleStride = max(1, count / percentileSampleCount)
         var sample = [Float]()
         sample.reserveCapacity(min(count, percentileSampleCount))
         var i = 0
         while i < count {
             let v = ptr[i]
+            // Grey sampling skips empty (≤ 0) pixels, e.g. a registered frame's border.
             if v > 0 { sample.append(v) }
             i += sampleStride
         }
-        guard sample.count > 10 else { return fallback }
-        vDSP.sort(&sample, sortOrder: .ascending)
-        let n        = sample.count
-        let highClip = sample[min(n - 1, Int(Float(n - 1) * 0.9999))]
-        let median   = sample[n / 2]
-        var madArr   = sample.map { abs($0 - median) }
+        return stfStatistics(of: &sample, minimumCount: greyMinimumSamples)
+    }
+
+    /// Clips used when there are too few samples: the whole range, a 25 % midtone.
+    static let stfFallback = GreyClips(low: 0, high: 1, midtone: 0.25, background: 0.1)
+    /// Fewest samples for grey statistics; fewer give `stfFallback`.
+    static let greyMinimumSamples = 11
+    /// Fewest samples per Bayer channel for colour statistics; fewer give `stfFallback`.
+    /// Lower than for grey, as it has always been (CODE_AUDIT §9.6; making them the same
+    /// would change renders, decision 10: not planned).
+    static let bayerMinimumSamples = 2
+
+    /// The STF statistics of a set of samples, the same for grey and every Bayer channel
+    /// (CODE_AUDIT §9.6): high clip at the 99.99th percentile, background = median, shadow
+    /// clip = median − 2.8 × MAD (not below 0), and the MTF midtone that puts the background
+    /// at 25 % grey. Sorts `samples` in place. Fewer than `minimumCount` samples give
+    /// `stfFallback`.
+    static func stfStatistics(of samples: inout [Float], minimumCount: Int) -> GreyClips {
+        guard samples.count >= minimumCount else { return stfFallback }
+        vDSP.sort(&samples, sortOrder: .ascending)
+        let n        = samples.count
+        let highClip = samples[min(n - 1, Int(Float(n - 1) * 0.9999))]
+        let median   = samples[n / 2]
+        var madArr   = samples.map { abs($0 - median) }
         vDSP.sort(&madArr, sortOrder: .ascending)
         let mad        = madArr[madArr.count / 2]
         let shadowClip = max(0, median - 2.8 * mad)
+        // mtfMidtone gives 0.25 when the clip range is empty (highClip ≤ shadowClip).
         let midtone    = mtfMidtone(shadowClip: shadowClip, highClip: highClip, background: median)
         return GreyClips(low: shadowClip, high: highClip, midtone: midtone, background: median)
     }
