@@ -73,7 +73,11 @@ final class LoadPipeline {
     func waitForProcessing() async {
         await dropScanTask?.value
         await processingTask?.value
+        await thumbnailTask?.value
     }
+
+    /// New thumbnails made from the display images in memory (`regenerateThumbnails`).
+    @ObservationIgnored private var thumbnailTask: Task<Void, Never>?
 
     // MARK: - Batch progress counters
     // batchLoadedCount and batchMetricsCount are intentionally absent: updating them
@@ -114,6 +118,8 @@ final class LoadPipeline {
     /// empties the session, so a running load can't add frames to the new one (§3.1).
     func reset() {
         cancelProcessing()
+        thumbnailTask?.cancel()
+        thumbnailTask = nil
         renderGeneration += 1
         batchRestretchTotal = 0
         batchRestretchCount = 0
@@ -265,7 +271,7 @@ final class LoadPipeline {
     func regenerateSizes(settings: AppSettings) {
         let metricsConfig    = settings.effectiveMetricsConfig
         let maxDisplaySize   = settings.maxDisplaySize
-        let maxThumbnailSize = settings.maxThumbnailSize
+        let maxThumbnailSize = settings.thumbnailRenderSize
         let debayer          = settings.debayerColorImages
         enqueueBatch { pipeline, store in
             // The frames when the batch starts, including those a queued load added.
@@ -299,6 +305,58 @@ final class LoadPipeline {
                                                     maxThumbnailSize: maxThumbnailSize)
             }
             return entriesToProcess
+        }
+    }
+
+    // MARK: - Thumbnails only
+
+    /// New thumbnails at the current thumbnail size, made from the display images already
+    /// in memory — no file is read, and no progress is shown. A thumbnail is always made
+    /// from its display image, so this gives the same thumbnails as reloading the frames.
+    /// During a load it is queued behind the load, so the frames still loading get the new
+    /// size too.
+    func regenerateThumbnails(settings: AppSettings) {
+        regenerateThumbnails(size: settings.thumbnailRenderSize)
+    }
+
+    /// `regenerateThumbnails(settings:)` with the pixel size passed in (also for the tests).
+    func regenerateThumbnails(size: Int) {
+        if processingTask != nil {
+            enqueueBatch(showsTiming: false) { pipeline, _ in
+                await pipeline.makeThumbnails(size: size)
+                return nil
+            }
+            return
+        }
+        // Nothing is loading: make them right away, without the batch UI. A newer request
+        // replaces an older one that is still running.
+        thumbnailTask?.cancel()
+        thumbnailTask = Task(priority: .utility) { [weak self] in
+            await self?.makeThumbnails(size: size)
+        }
+    }
+
+    /// Makes the thumbnails of every frame from its display image and its cached grey and
+    /// colour renders, off the main thread. A frame whose image changed meanwhile (a colour
+    /// toggle) keeps the thumbnail that came with the new image.
+    private func makeThumbnails(size: Int) async {
+        guard let store else { return }
+        let frames = store.entries.map {
+            (entry: $0, display: $0.displayImage, grey: $0.cachedGreyscaleDisplay, colour: $0.cachedColourDisplay)
+        }
+        await forEachWithRenderSlot(frames) { frame in
+            let thumb  = frame.display.flatMap { ImageStretcher.createThumbnail(from: $0, maxSize: size) }
+            // A cached render that is the image shown shares its new thumbnail.
+            let grey   = frame.grey === frame.display ? thumb
+                : frame.grey.flatMap { ImageStretcher.createThumbnail(from: $0, maxSize: size) }
+            let colour = frame.colour === frame.display ? thumb
+                : frame.colour.flatMap { ImageStretcher.createThumbnail(from: $0, maxSize: size) }
+            await MainActor.run {
+                let entry = frame.entry
+                if entry.displayImage === frame.display, let thumb { entry.thumbnail = thumb }
+                if entry.cachedGreyscaleDisplay === frame.grey, let grey { entry.cachedGreyscaleThumb = grey }
+                if entry.cachedColourDisplay === frame.colour, let colour { entry.cachedColourThumb = colour }
+            }
         }
     }
 
@@ -567,7 +625,7 @@ final class LoadPipeline {
     func recolorImages(settings: AppSettings) {
         recolorImages(debayer: settings.debayerColorImages,
                       maxDisplaySize: settings.maxDisplaySize,
-                      maxThumbnailSize: settings.maxThumbnailSize)
+                      maxThumbnailSize: settings.thumbnailRenderSize)
     }
 
     /// `recolorImages(settings:)` with the values passed in (also used by the tests, which

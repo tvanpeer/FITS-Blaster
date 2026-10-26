@@ -530,7 +530,7 @@ extension ImageStore {
         pipeline.openFiles(collected, rejectedURLs: includeRejected ? Self.rejectedURLs(in: collected) : [],
                   rootFolderName: folderURL.lastPathComponent,
                   maxDisplaySize: settings.maxDisplaySize,
-                  maxThumbnailSize: settings.maxThumbnailSize,
+                  maxThumbnailSize: settings.thumbnailRenderSize,
                   metricsConfig: settings.effectiveMetricsConfig,
                   debayerColorImages: settings.debayerColorImages)
     }
@@ -596,7 +596,7 @@ extension ImageStore {
 
             pipeline.openFiles(collected, rootFolderName: folderRootName, rootFolderNames: rootNames,
                       maxDisplaySize: settings.maxDisplaySize,
-                      maxThumbnailSize: settings.maxThumbnailSize,
+                      maxThumbnailSize: settings.thumbnailRenderSize,
                       metricsConfig: settings.effectiveMetricsConfig,
                       debayerColorImages: settings.debayerColorImages)
         }

@@ -111,8 +111,32 @@ final class AppSettings {
     var maxDisplaySize: Int = 1024 {
         didSet { UserDefaults.standard.set(maxDisplaySize, forKey: "maxDisplaySize") }
     }
-    var maxThumbnailSize: Int = 120 {
+    /// Thumbnail detail in points: thumbnails are rendered at this size × the screen scale
+    /// (`thumbnailRenderSize`), so they are sharp on Retina screens. Until 2026-10-26 this
+    /// was in pixels (default 120), which left thumbnails soft when the sidebar enlarged them.
+    var maxThumbnailSize: Int = 180 {
         didSet { UserDefaults.standard.set(maxThumbnailSize, forKey: "maxThumbnailSize") }
+    }
+
+    /// The thumbnail setting's range, in points. 320 is about the widest the sidebar ever
+    /// shows a thumbnail; more would only cost memory.
+    nonisolated static let thumbnailSizeRange = 40...320
+
+    /// The pixel size thumbnails are rendered at: `maxThumbnailSize` points × the largest
+    /// scale of the connected screens.
+    var thumbnailRenderSize: Int {
+        Self.thumbnailPixels(points: maxThumbnailSize,
+                             scale: NSScreen.screens.map(\.backingScaleFactor).max() ?? 1)
+    }
+
+    /// `value` brought into `thumbnailSizeRange`.
+    nonisolated static func clampedThumbnailSize(_ value: Int) -> Int {
+        min(max(value, thumbnailSizeRange.lowerBound), thumbnailSizeRange.upperBound)
+    }
+
+    /// `points` × `scale` (at least 1), rounded.
+    nonisolated static func thumbnailPixels(points: Int, scale: CGFloat) -> Int {
+        Int((CGFloat(points) * max(1, scale)).rounded())
     }
 
     // MARK: - UI State
@@ -282,7 +306,9 @@ final class AppSettings {
 
         // Sizes
         maxDisplaySize          = UD.positiveInt("maxDisplaySize",     default: maxDisplaySize)
-        maxThumbnailSize        = UD.positiveInt("maxThumbnailSize",   default: maxThumbnailSize)
+        // A saved value above the range (up to 400 px was allowed) is brought down to it.
+        maxThumbnailSize        = Self.clampedThumbnailSize(UD.positiveInt("maxThumbnailSize",
+                                                                           default: maxThumbnailSize))
 
         // Chart dot brightness
         chartUseBars            = UD.bool(  "chartUseBars",             default: chartUseBars)

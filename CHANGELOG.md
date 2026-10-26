@@ -4,6 +4,24 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-26 — Sharp sidebar thumbnails on Retina screens
+
+### Improved
+- **Sidebar thumbnails are sharp on Retina screens.** They were rendered at the thumbnail setting in pixels (120) but shown across the sidebar's width (about 170 points at its usual width, up to 330), so on a Retina screen they were enlarged 2.5–5× and looked soft. They are now rendered at the setting × the screen's scale.
+
+### Changed
+- **Settings → Display → Sizes → "Max thumbnail size" is in points** (was pixels), with a short explanation under it. The default is **180 pt** instead of 120 px, sharp at the sidebar's usual width; a size you saved yourself is kept and now counts as points. The range is 40–320 pt instead of 40–400 px (320 is about the widest a thumbnail is ever shown); a saved larger value is brought down to 320.
+- Thumbnail memory goes up accordingly: for 355 colour frames about 125 MB at 180 pt on a Retina screen (was about 14 MB at 120 px); grey frames take a quarter of that.
+- **Changing only the thumbnail size no longer reloads every frame.** Apply re-read every file and rendered everything again (all progress bars) for any size change. Now a new thumbnail size makes new thumbnails from the images already in memory, within a second and without progress bars; only a new display size reloads the frames. The main window is also resized only when the display size changes (it was resized on every Apply).
+
+### Internal
+- `AppSettings.thumbnailRenderSize` (the setting × the largest scale of the connected screens) is what Open Folder, drag and drop, the size change and the colour toggle now pass to the pipeline. The CLI and the render tests keep their own 120 px.
+- `LoadPipeline.regenerateThumbnails` makes the thumbnails of every frame (and of its cached grey and colour renders) from the display images, off the main thread with the shared render slots; a frame whose image changed meanwhile keeps the thumbnail that came with it. During a load it is queued behind the load; otherwise it runs at once without the batch UI, owned by the pipeline (Reset cancels it).
+- Tests: `ThumbnailSizeTests` — points × scale at 1, 2 and 3 (and without screen information), the range for saved values, the default; new thumbnails from memory with the files deleted (same pixels as from the display image, no batch), and a new size during a load reaches the frames still loading.
+- Unit tests (313), render tests and the 10 metric baselines pass unchanged; 0 strict warnings. 👤 Checked in the app: the thumbnail-only change is fast, without progress bars, and the thumbnails get sharper. The thumbnails' shown size still follows the sidebar width; the next step makes the setting the shown size.
+
+---
+
 ## 2026-10-26 — Engine files split by what they need (step 8f)
 
 ### Internal

@@ -187,15 +187,16 @@ struct ImageDisplayTab: View {
     @Environment(ImageStore.self) private var store
 
     @State private var displaySize: Int = 1024
-    @State private var thumbnailSize: Int = 120
+    @State private var thumbnailSize: Int = 180
     @State private var displaySizeText: String = "1024"
-    @State private var thumbnailSizeText: String = "120"
+    @State private var thumbnailSizeText: String = "180"
 
     private var parsedDisplaySize: Int {
         Int(displaySizeText).map { max(512, min($0, 8192)) } ?? displaySize
     }
     private var parsedThumbnailSize: Int {
-        Int(thumbnailSizeText).map { max(40, min($0, 400)) } ?? thumbnailSize
+        let range = AppSettings.thumbnailSizeRange
+        return Int(thumbnailSizeText).map { max(range.lowerBound, min($0, range.upperBound)) } ?? thumbnailSize
     }
     private var isDirty: Bool {
         parsedDisplaySize != settings.maxDisplaySize || parsedThumbnailSize != settings.maxThumbnailSize
@@ -208,12 +209,15 @@ struct ImageDisplayTab: View {
             Section("Sizes") {
                 LabeledContent("Max display size") {
                     SizeField(value: $displaySize, text: $displaySizeText,
-                              range: 512...8192, step: 128)
+                              range: 512...8192, step: 128, unit: "px")
                 }
                 LabeledContent("Max thumbnail size") {
                     SizeField(value: $thumbnailSize, text: $thumbnailSizeText,
-                              range: 40...400, step: 20)
+                              range: AppSettings.thumbnailSizeRange, step: 20, unit: "pt")
                 }
+                Text("Thumbnails are rendered at this size times the screen's scale, so they stay sharp on Retina screens.")
+                    .scaledFont(size: 10)
+                    .foregroundStyle(.secondary)
                 HStack {
                     Spacer()
                     Button("Apply") { apply() }
@@ -263,14 +267,19 @@ struct ImageDisplayTab: View {
         displaySize   = clampedDisplay
         thumbnailSize = clampedThumb
 
+        let displayChanged   = clampedDisplay != settings.maxDisplaySize
+        let thumbnailChanged = clampedThumb   != settings.maxThumbnailSize
         settings.maxDisplaySize   = clampedDisplay
         settings.maxThumbnailSize = clampedThumb
 
-        if !store.entries.isEmpty {
-            store.pipeline.regenerateSizes(settings: settings)
+        // A new display size needs every frame rendered again from its file; a new
+        // thumbnail size only needs new thumbnails from the display images in memory.
+        if displayChanged {
+            if !store.entries.isEmpty { store.pipeline.regenerateSizes(settings: settings) }
+            resizeMainWindow(toFit: clampedDisplay)
+        } else if thumbnailChanged, !store.entries.isEmpty {
+            store.pipeline.regenerateThumbnails(settings: settings)
         }
-
-        resizeMainWindow(toFit: clampedDisplay)
     }
 
     private func resizeMainWindow(toFit maxSize: Int) {
@@ -384,6 +393,8 @@ private struct SizeField: View {
     @Binding var text: String
     let range: ClosedRange<Int>
     let step: Int
+    /// "px" or "pt", shown after the field.
+    let unit: String
 
     var body: some View {
         HStack {
@@ -392,7 +403,7 @@ private struct SizeField: View {
                 .multilineTextAlignment(.trailing)
                 .frame(width: 70)
                 .onSubmit { commit() }
-            Text("px")
+            Text(unit)
                 .foregroundStyle(.secondary)
             Stepper("", value: $value, in: range, step: step)
                 .labelsHidden()
