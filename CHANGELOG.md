@@ -4,6 +4,17 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-26 — Drag and drop with `dropDestination` (step 7b)
+
+### Changed
+- **Dropped folders and files are taken in drop order.** Before, they arrived in the order the item providers happened to finish, so with several items the folder that set the session's root name and bookmark could differ from drop to drop (CODE_AUDIT §4.1).
+
+### Internal
+- The drop handler (`ContentSplitLayout`) uses `.dropDestination(for: URL.self)` instead of `onDrop` with `NSItemProvider`, a task group and continuations. This removes the last strict-concurrency warning (§3.3): `SWIFT_STRICT_CONCURRENCY=complete` now builds with 0 warnings.
+- Unit tests (294), render tests and the 10 metric baselines pass unchanged. 👤 Checked in the App Store build (sandbox) on macOS 27.2 in the VM: one folder, two folders at once (a section each), single files, a folder plus a file, reject from a dropped folder (no question) and from a dropped file (access question for its folder, then moved; not asked again when that folder was granted earlier in the same run, also after Reset, as designed in 4c), undo, a non-FITS file (nothing happens). Also checked with the website build on the Mac.
+
+---
+
 ## 2026-10-25 — Swift 6 readiness: three warnings and the pointer escape (step 7a)
 
 ### Internal

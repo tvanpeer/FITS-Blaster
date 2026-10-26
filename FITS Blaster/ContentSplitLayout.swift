@@ -4,7 +4,6 @@
 //
 
 import SwiftUI
-import UniformTypeIdentifiers
 
 /// The main HSplitView layout: thumbnail sidebar, content+toolbar column, and optional inspector.
 ///
@@ -39,27 +38,12 @@ struct ContentSplitLayout: View {
             }
         }
         .overlay { if isDragTarget { DropTargetOverlay() } }
-        .onDrop(of: [.fileURL], isTargeted: $isDragTarget) { providers in
-            Task { @MainActor in
-                var urls: [URL] = []
-                await withTaskGroup(of: URL?.self) { group in
-                    for provider in providers {
-                        group.addTask {
-                            await withCheckedContinuation { continuation in
-                                provider.loadObject(ofClass: NSURL.self) { object, _ in
-                                    continuation.resume(returning: (object as? NSURL) as? URL)
-                                }
-                            }
-                        }
-                    }
-                    for await url in group {
-                        if let url { urls.append(url) }
-                    }
-                }
-                guard !urls.isEmpty else { return }
-                store.openDroppedItems(urls, settings: settings)
-            }
+        // Dropped folders and files arrive as URLs, in drop order; the first one decides
+        // the bookmark and root name. No item providers or continuations (CODE_AUDIT §4.1).
+        .dropDestination(for: URL.self) { urls, _ in
+            guard !urls.isEmpty else { return false }
+            store.openDroppedItems(urls, settings: settings)
             return true
-        }
+        } isTargeted: { isDragTarget = $0 }
     }
 }
