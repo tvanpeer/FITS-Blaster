@@ -4,6 +4,19 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-26 — Sharper Quick Look thumbnails on Retina screens (step 8e)
+
+### Improved
+- **Quick Look thumbnails are sharp on Retina screens** (CODE_AUDIT §7.8). The thumbnail was rendered with as many pixels as the size Finder asked for in points, so on a Retina screen (2 pixels per point) it was enlarged and looked soft. It is now rendered at points × screen scale, still at most 512 pixels, so small and medium thumbnails (list and icon view up to 256 points) get twice the detail; the largest ones stay as they were, and so does the memory used. The size shown is unchanged.
+
+### Internal
+- New `QuickLookRendering`, shared by the preview and thumbnail extensions (Quick Look part of §9.11): reading a file for Quick Look and stretching it on the CPU (grey and RGB), and the thumbnail size rule (`thumbnailBudget`, `thumbnailContextSize`). Compiled into both extensions; in the app target only for the tests.
+- The preview still reads at 2048 and shows at 1024 (decided 2026-10-26): the read takes every Nth pixel, and a read size of 1024 gives an odd N for typical sensors, which turns raw Bayer frames into a checkerboard.
+- Tests: `QuickLookRenderingTests` — the thumbnail budget for list, icon and large sizes at scale 1, 2 and 3, the shown size (also for a FITS file smaller than the thumbnail), and the shared read-and-stretch gives the same image the extensions made before.
+- Unit tests (308), render tests and the 10 metric baselines pass unchanged. 👤 Quick Look preview and thumbnails to be checked on fb-15 and fb-27 at the end of step 8.
+
+---
+
 ## 2026-10-26 — Frames read straight into the GPU buffer (step 8d)
 
 ### Improved

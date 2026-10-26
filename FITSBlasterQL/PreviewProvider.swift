@@ -16,19 +16,10 @@ class PreviewProvider: QLPreviewProvider, QLPreviewingController {
     func providePreview(for request: QLFilePreviewRequest) async throws -> QLPreviewReply {
         let url = request.fileURL
 
-        var fitsImage = try FITSReader.readForPreview(from: url)
-        let nsImage: NSImage?
-        if fitsImage.channels == 3 {
-            nsImage = ImageStretcher.createRGBImage(from: &fitsImage.pixelValues,
-                                                     width: fitsImage.width,
-                                                     height: fitsImage.height,
-                                                     maxDisplaySize: 1024)
-        } else {
-            nsImage = ImageStretcher.createImage(from: &fitsImage.pixelValues,
-                                                  width: fitsImage.width,
-                                                  height: fitsImage.height,
-                                                  maxDisplaySize: 1024)
-        }
+        // Read at 2048 and show at 1024: the read takes every Nth pixel, and a smaller read
+        // size would give odd N for typical sensors, which mixes the colours of a raw Bayer
+        // frame into a checkerboard (decided 2026-10-26, not changed in step 8).
+        let nsImage = try QuickLookRendering.image(of: url, readSize: 2048, displaySize: 1024)
         guard let image = nsImage,
               let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
             throw CocoaError(.fileReadCorruptFile)

@@ -18,8 +18,9 @@ class ThumbnailProvider: QLThumbnailProvider {
     override func provideThumbnail(for request: QLFileThumbnailRequest,
                                    _ handler: @escaping (QLThumbnailReply?, Error?) -> Void) {
         let url = request.fileURL
-        let maxSize = min(512, Int(max(request.maximumSize.width, request.maximumSize.height)))
-        logger.info("provideThumbnail: \(url.lastPathComponent) maxSize=\(maxSize)")
+        // Rendered at points × screen scale (sharp on Retina), at most 512 pixels.
+        let budget = QuickLookRendering.thumbnailBudget(maximumSize: request.maximumSize, scale: request.scale)
+        logger.info("provideThumbnail: \(url.lastPathComponent) points=\(budget.points) pixels=\(budget.pixels)")
 
         do {
             // Bail out early for iCloud stubs that haven't been downloaded yet.
@@ -31,26 +32,12 @@ class ThumbnailProvider: QLThumbnailProvider {
                 return
             }
 
-            // Pass maxSize so readForPreview only subsamples to the needed resolution.
-            // Without this, a 32-px list-view thumbnail would still load a 2048-px
-            // intermediate Float array (~24 MB), and with many concurrent icon-view
-            // requests the QL extension process would hit its memory limit and die,
-            // leaving those files permanently showing the app icon.
-            var fitsImage = try FITSReader.readForPreview(from: url, maxSize: maxSize)
-            logger.info("FITSReader succeeded: \(fitsImage.width)×\(fitsImage.height) ch=\(fitsImage.channels)")
-
-            let nsImage: NSImage?
-            if fitsImage.channels == 3 {
-                nsImage = ImageStretcher.createRGBImage(from: &fitsImage.pixelValues,
-                                                         width: fitsImage.width,
-                                                         height: fitsImage.height,
-                                                         maxDisplaySize: maxSize)
-            } else {
-                nsImage = ImageStretcher.createImage(from: &fitsImage.pixelValues,
-                                                      width: fitsImage.width,
-                                                      height: fitsImage.height,
-                                                      maxDisplaySize: maxSize)
-            }
+            // Read only at the needed resolution. Without this, a 32-px list-view thumbnail
+            // would still load a 2048-px intermediate Float array (~24 MB), and with many
+            // concurrent icon-view requests the QL extension process would hit its memory
+            // limit and die, leaving those files permanently showing the app icon.
+            let nsImage = try QuickLookRendering.image(of: url, readSize: budget.pixels,
+                                                       displaySize: budget.pixels)
 
             guard let image = nsImage else {
                 logger.error("ImageStretcher returned nil")
@@ -58,9 +45,11 @@ class ThumbnailProvider: QLThumbnailProvider {
                 return
             }
 
-            logger.info("Thumbnail ready: \(image.size.width)×\(image.size.height)")
-            let reply = QLThumbnailReply(contextSize: image.size) {
-                image.draw(in: CGRect(origin: .zero, size: image.size))
+            // Shown at the requested size in points; the image has up to `scale` pixels per point.
+            let contextSize = QuickLookRendering.thumbnailContextSize(for: image, budget: budget)
+            logger.info("Thumbnail ready: \(image.size.width)×\(image.size.height) px shown at \(contextSize.width)×\(contextSize.height) pt")
+            let reply = QLThumbnailReply(contextSize: contextSize) {
+                image.draw(in: CGRect(origin: .zero, size: contextSize))
                 return true
             }
             handler(reply, nil)

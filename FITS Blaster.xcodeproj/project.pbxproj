@@ -71,6 +71,7 @@
 				FITSReader.swift,
 				ImageStretcher.swift,
 				MetalContext.swift,
+				QuickLookRendering.swift,
 			);
 			target = 653AE5D72F857C71008BBC9C /* FITSBlasterQL */;
 		};
@@ -95,6 +96,7 @@
 				FITSReader.swift,
 				ImageStretcher.swift,
 				MetalContext.swift,
+				QuickLookRendering.swift,
 			);
 			target = 653AE5F82F859C2B008BBC9C /* FITSBlasterQLThumb */;
 		};
