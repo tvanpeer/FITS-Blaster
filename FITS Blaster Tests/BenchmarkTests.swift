@@ -65,7 +65,7 @@ struct BenchmarkTests {
 
         let config   = MetricsConfig()
         let clock    = ContinuousClock()
-        let device   = ImageStretcher.metalDevice
+        let device   = MetalContext.device
         let pathLabel = device != nil ? "Metal" : "CPU fallback"
 
         // Pipelined load+compute per frame, mirroring loadMetricsOnly.

@@ -77,7 +77,7 @@ enum FrameLoading {
         // GPU path: read into a Metal shared buffer (same path as the initial load),
         // then run the GPU detection kernel. Much faster than the CPU fallback because
         // the Metal kernel uses the full frame, while the CPU path is limited to a crop.
-        if let device = ImageStretcher.metalDevice,
+        if let device = MetalContext.device,
            let bufferResult = try? FITSReader.readIntoBuffer(from: url, device: device) {
             let meta = bufferResult.metadata
             return await MetricsCalculator.compute(metalBuffer: bufferResult.metalBuffer,
@@ -103,7 +103,7 @@ enum FrameLoading {
         let didStart = url.startAccessingSecurityScopedResource()
         defer { if didStart { url.stopAccessingSecurityScopedResource() } }
 
-        guard let device = ImageStretcher.metalDevice,
+        guard let device = MetalContext.device,
               let result = try? FITSReader.readIntoBuffer(from: url, device: device)
         else { return nil }
 
@@ -129,7 +129,7 @@ enum FrameLoading {
         let didStart = url.startAccessingSecurityScopedResource()
         defer { if didStart { url.stopAccessingSecurityScopedResource() } }
 
-        if let device = ImageStretcher.metalDevice,
+        if let device = MetalContext.device,
            let bufferResult = try? FITSReader.readIntoBuffer(from: url, device: device) {
             let meta     = bufferResult.metadata
             let floatPtr = bufferResult.metalBuffer.contents().assumingMemoryBound(to: Float.self)

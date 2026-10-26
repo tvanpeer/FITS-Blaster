@@ -94,23 +94,7 @@ struct ImageStretcher {
     /// Number of random samples used to estimate percentile clip bounds
     private static let percentileSampleCount = 10_000
 
-    // MARK: - Metal State (initialized once, reused for all images)
-
-    static let metalDevice: MTLDevice? = MTLCreateSystemDefaultDevice()
-    private static let commandQueue: MTLCommandQueue? = metalDevice?.makeCommandQueue()
-    private static let pipelineState: MTLComputePipelineState? = {
-        guard let device = metalDevice,
-              let library = device.makeDefaultLibrary(),
-              let function = library.makeFunction(name: "mtfStretch") else { return nil }
-        return try? device.makeComputePipelineState(function: function)
-    }()
-
-    private static let bayerPipelineState: MTLComputePipelineState? = {
-        guard let device = metalDevice,
-              let library = device.makeDefaultLibrary(),
-              let function = library.makeFunction(name: "bayerDebayerAndStretch") else { return nil }
-        return try? device.makeComputePipelineState(function: function)
-    }()
+    // Metal device, queue and pipelines: MetalContext.
 
     /// Parameters struct matching the Metal shader's StretchParams (must stay in sync with FITSStretch.metal)
     private struct StretchParams {
@@ -356,9 +340,9 @@ struct ImageStretcher {
         maxDisplaySize: Int = 0,
         bayerPattern: BayerPattern? = nil
     ) async -> NSImage? {
-        guard let device = metalDevice,
-              let commandQueue = commandQueue,
-              let pipelineState = pipelineState else { return nil }
+        // The input buffer must belong to the shared device the pipelines were built for (§7.9).
+        guard let pipelineState = MetalContext.stretchPipeline,
+              inputBuffer.device === MetalContext.device else { return nil }
 
         // When bayerBin=1, the kernel treats the source as half-resolution so each output
         // pixel covers aligned 2×2 Bayer cells. Use the effective (binned) dimensions
@@ -380,7 +364,8 @@ struct ImageStretcher {
         }
 
         let outputByteCount = dstW * dstH
-        guard let outputBuffer = device.makeBuffer(length: outputByteCount, options: .storageModeShared) else {
+        guard let outputBuffer = inputBuffer.device.makeBuffer(length: outputByteCount,
+                                                               options: .storageModeShared) else {
             return nil
         }
 
@@ -391,61 +376,19 @@ struct ImageStretcher {
             bayerBin: isBayerBin ? 1 : 0
         )
 
-        guard let commandBuffer = commandQueue.makeCommandBuffer(),
-              let encoder = commandBuffer.makeComputeCommandEncoder() else { return nil }
-
-        encoder.setComputePipelineState(pipelineState)
-        encoder.setBuffer(inputBuffer, offset: 0, index: 0)
-        encoder.setBuffer(outputBuffer, offset: 0, index: 1)
-        encoder.setBytes(&params, length: MemoryLayout<StretchParams>.stride, index: 2)
-
-        let threadgroupSize = MTLSize(
-            width: min(16, pipelineState.maxTotalThreadsPerThreadgroup),
-            height: min(16, pipelineState.maxTotalThreadsPerThreadgroup / 16),
-            depth: 1
-        )
         // Dispatch at output size — each thread writes exactly one output pixel.
-        encoder.dispatchThreads(MTLSize(width: dstW, height: dstH, depth: 1),
-                                threadsPerThreadgroup: threadgroupSize)
-        encoder.endEncoding()
-
-        // Non-blocking GPU wait: releases the cooperative thread while the GPU runs
-        // so the thread pool can schedule other tasks (Moffat fitting, other images)
-        // instead of blocking. This is the correct async pattern for Metal on Swift concurrency.
-        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
-            commandBuffer.addCompletedHandler { _ in continuation.resume() }
-            commandBuffer.commit()
+        // A failed pass returns nil, so the caller renders on the CPU instead (§5.17).
+        let completed = await MetalContext.runPass(pipelineState, width: dstW, height: dstH) { encoder in
+            encoder.setBuffer(inputBuffer, offset: 0, index: 0)
+            encoder.setBuffer(outputBuffer, offset: 0, index: 1)
+            encoder.setBytes(&params, length: MemoryLayout<StretchParams>.stride, index: 2)
         }
+        guard completed else { return nil }
 
-        // Zero-copy: CGDataProvider reads directly from the Metal shared buffer.
-        // We pass the MTLBuffer as an Unmanaged retained reference so it stays alive
-        // until the CGImage is deallocated.
-        let colorSpace = CGColorSpaceCreateDeviceGray()
-        let retained = Unmanaged.passRetained(outputBuffer as AnyObject)
-        let dataProvider = CGDataProvider(
-            dataInfo: retained.toOpaque(),
-            data: outputBuffer.contents(),
-            size: outputByteCount
-        ) { info, _, _ in
-            if let info {
-                Unmanaged<AnyObject>.fromOpaque(info).release()
-            }
-        }
-
-        guard let provider = dataProvider else {
-            retained.release()
-            return nil
-        }
-
-        guard let cgImage = CGImage(
-            width: dstW, height: dstH,
-            bitsPerComponent: 8, bitsPerPixel: 8, bytesPerRow: dstW,
-            space: colorSpace,
-            bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.none.rawValue),
-            provider: provider, decode: nil, shouldInterpolate: true, intent: .defaultIntent
-        ) else { return nil }
-
-        return NSImage(cgImage: cgImage, size: NSSize(width: dstW, height: dstH))
+        // Zero-copy: the image reads straight from the Metal shared buffer.
+        return MetalContext.makeImage(from: outputBuffer, width: dstW, height: dstH, bytesPerPixel: 1,
+                                      colorSpace: CGColorSpaceCreateDeviceGray(),
+                                      bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.none.rawValue))
     }
 
     // MARK: - Metal Bayer Path
@@ -502,9 +445,9 @@ struct ImageStretcher {
         rOffset: UInt32, clips: BayerClips,
         maxDisplaySize: Int = 0
     ) async -> NSImage? {
-        guard let device = metalDevice,
-              let commandQueue = commandQueue,
-              let pipelineState = bayerPipelineState else { return nil }
+        // The input buffer must belong to the shared device the pipelines were built for (§7.9).
+        guard let pipelineState = MetalContext.bayerStretchPipeline,
+              inputBuffer.device === MetalContext.device else { return nil }
 
         // Bayer images are always binned 2×2 so each output pixel's footprint covers
         // at least one complete Bayer cell — eliminating the screen-door pattern.
@@ -525,7 +468,8 @@ struct ImageStretcher {
 
         // Output: RGBA UInt8, 4 bytes/pixel, at display size
         let outputByteCount = dstW * dstH * 4
-        guard let outputBuffer = device.makeBuffer(length: outputByteCount, options: .storageModeShared) else {
+        guard let outputBuffer = inputBuffer.device.makeBuffer(length: outputByteCount,
+                                                               options: .storageModeShared) else {
             return nil
         }
 
@@ -538,49 +482,19 @@ struct ImageStretcher {
             rOffset: rOffset
         )
 
-        guard let commandBuffer = commandQueue.makeCommandBuffer(),
-              let encoder = commandBuffer.makeComputeCommandEncoder() else { return nil }
-
-        encoder.setComputePipelineState(pipelineState)
-        encoder.setBuffer(inputBuffer, offset: 0, index: 0)
-        encoder.setBuffer(outputBuffer, offset: 0, index: 1)
-        encoder.setBytes(&params, length: MemoryLayout<BayerStretchParams>.stride, index: 2)
-
-        let threadgroupSize = MTLSize(
-            width: min(16, pipelineState.maxTotalThreadsPerThreadgroup),
-            height: min(16, pipelineState.maxTotalThreadsPerThreadgroup / 16),
-            depth: 1
-        )
-        // Dispatch at output size — each thread writes exactly one output pixel.
-        encoder.dispatchThreads(MTLSize(width: dstW, height: dstH, depth: 1),
-                                threadsPerThreadgroup: threadgroupSize)
-        encoder.endEncoding()
-
-        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
-            commandBuffer.addCompletedHandler { _ in continuation.resume() }
-            commandBuffer.commit()
+        // Dispatch at output size — each thread writes exactly one output pixel. There is no
+        // CPU colour path: after a failed pass the frame keeps its grey render (§5.17).
+        let completed = await MetalContext.runPass(pipelineState, width: dstW, height: dstH) { encoder in
+            encoder.setBuffer(inputBuffer, offset: 0, index: 0)
+            encoder.setBuffer(outputBuffer, offset: 0, index: 1)
+            encoder.setBytes(&params, length: MemoryLayout<BayerStretchParams>.stride, index: 2)
         }
+        guard completed else { return nil }
 
-        let colorSpace = CGColorSpaceCreateDeviceRGB()
-        let bitmapInfo = CGBitmapInfo(rawValue: CGImageAlphaInfo.noneSkipLast.rawValue)
-
-        // Zero-copy path: CGDataProvider reads directly from Metal shared buffer
-        let retained = Unmanaged.passRetained(outputBuffer as AnyObject)
-        let dataProvider = CGDataProvider(
-            dataInfo: retained.toOpaque(),
-            data: outputBuffer.contents(),
-            size: outputByteCount
-        ) { info, _, _ in
-            if let info { Unmanaged<AnyObject>.fromOpaque(info).release() }
-        }
-        guard let provider = dataProvider else { retained.release(); return nil }
-        guard let cgImage = CGImage(
-            width: dstW, height: dstH,
-            bitsPerComponent: 8, bitsPerPixel: 32, bytesPerRow: dstW * 4,
-            space: colorSpace, bitmapInfo: bitmapInfo,
-            provider: provider, decode: nil, shouldInterpolate: true, intent: .defaultIntent
-        ) else { return nil }
-        return NSImage(cgImage: cgImage, size: NSSize(width: dstW, height: dstH))
+        // Zero-copy: the image reads straight from the Metal shared buffer.
+        return MetalContext.makeImage(from: outputBuffer, width: dstW, height: dstH, bytesPerPixel: 4,
+                                      colorSpace: CGColorSpaceCreateDeviceRGB(),
+                                      bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.noneSkipLast.rawValue))
     }
 
     // MARK: - CPU Stretch

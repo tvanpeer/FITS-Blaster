@@ -24,7 +24,7 @@ struct FITSMalformedInputTests {
             case .array:
                 _ = try FITSReader.read(from: url)
             case .metalBuffer:
-                let device = try #require(ImageStretcher.metalDevice)
+                let device = try #require(MetalContext.device)
                 _ = try FITSReader.readIntoBuffer(from: url, device: device)
             case .preview:
                 _ = try FITSReader.readForPreview(from: url)

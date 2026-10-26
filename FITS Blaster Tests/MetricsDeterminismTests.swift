@@ -67,9 +67,9 @@ struct MetricsDeterminismTests {
     /// 625 stars with exactly the same peak value but different widths: which 200 are
     /// measured decides FWHM, eccentricity and SNR, so a random choice shows up at once.
     @Test("Measuring the same image repeatedly on the GPU gives identical metrics",
-          .enabled(if: ImageStretcher.metalDevice != nil, "Requires Metal GPU"))
+          .enabled(if: MetalContext.device != nil, "Requires Metal GPU"))
     func gpuMetricsAreDeterministic() async throws {
-        let device = try #require(ImageStretcher.metalDevice)
+        let device = try #require(MetalContext.device)
         let width = 520, height = 520
         let buffer = try #require(device.makeBuffer(length: width * height * MemoryLayout<Float>.stride,
                                                     options: .storageModeShared))

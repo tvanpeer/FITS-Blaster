@@ -154,13 +154,16 @@ extension MetricsCalculator {
     ///   3. Read back the stored candidates, look up their peak values and sort
     ///      them brightest first.
     ///
-    /// Returns nil if Metal is unavailable, letting the caller fall back to CPU.
+    /// Returns nil if Metal is unavailable or the GPU pass failed, letting the caller fall
+    /// back to CPU.
     @concurrent static func findLocalMaximaGPU(metalBuffer: MTLBuffer,
                                                width: Int, height: Int,
                                                threshold: Float) async -> GPUDetectionResult? {
-        guard let queue    = detectionCommandQueue,
-              let pipeline = detectionPipelineState,
-              let device   = detectionDevice else { return nil }
+        // The frame's buffer must belong to the shared device the pipeline was built for;
+        // the result buffers are made on that same device (§7.9).
+        guard let pipeline = MetalContext.detectionPipeline,
+              metalBuffer.device === MetalContext.device else { return nil }
+        let device = metalBuffer.device
 
         // Compact candidate list: at most maxDetectionCandidates × 8 bytes = 400 KB.
         // Far smaller than the old width×height flag buffer (up to 200 MB for 50 MP),
@@ -183,26 +186,16 @@ extension MetricsCalculator {
                                   height:    UInt32(height),
                                   threshold: threshold)
 
-        guard let commandBuffer = queue.makeCommandBuffer(),
-              let encoder       = commandBuffer.makeComputeCommandEncoder() else { return nil }
-
-        encoder.setComputePipelineState(pipeline)
-        encoder.setBuffer(metalBuffer,      offset: 0, index: 0)  // input: float pixels
-        encoder.setBuffer(candidatesBuffer, offset: 0, index: 1)  // output: compact list
-        encoder.setBuffer(countBuffer,      offset: 0, index: 2)  // output: atomic counter
-        encoder.setBytes(&params, length: MemoryLayout<DetectParams>.stride, index: 3)
-
-        // 16×16 threadgroup (256 threads) — standard sweet spot for memory-bound
-        // 2D kernels on Apple Silicon. Non-uniform dispatch handles any image size.
-        let tgSize = MTLSize(width: 16, height: 16, depth: 1)
-        let grid   = MTLSize(width: width, height: height, depth: 1)
-        encoder.dispatchThreads(grid, threadsPerThreadgroup: tgSize)
-        encoder.endEncoding()
-
-        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
-            commandBuffer.addCompletedHandler { _ in continuation.resume() }
-            commandBuffer.commit()
+        // One thread per pixel, in the shared 16×16 threadgroup clamped to the pipeline's
+        // limit. A failed pass returns nil, so the caller detects on the CPU instead of
+        // reading an unset counter as "no stars" (§5.17).
+        let completed = await MetalContext.runPass(pipeline, width: width, height: height) { encoder in
+            encoder.setBuffer(metalBuffer,      offset: 0, index: 0)  // input: float pixels
+            encoder.setBuffer(candidatesBuffer, offset: 0, index: 1)  // output: compact list
+            encoder.setBuffer(countBuffer,      offset: 0, index: 2)  // output: atomic counter
+            encoder.setBytes(&params, length: MemoryLayout<DetectParams>.stride, index: 3)
         }
+        guard completed else { return nil }
 
         // The atomic counter holds the number of local maxima found, which may exceed
         // the buffer capacity; only the stored ones can be read back.

@@ -13,7 +13,7 @@ import Testing
 
 /// Tests that exercise the Metal compute pipeline.
 /// All tests are gated on GPU availability — they skip cleanly in headless CI.
-@Suite(.enabled(if: ImageStretcher.metalDevice != nil, "Requires Metal GPU"))
+@Suite(.enabled(if: MetalContext.device != nil, "Requires Metal GPU"))
 struct GPUTests {
 
     // MARK: - Helpers
@@ -26,7 +26,7 @@ struct GPUTests {
     private func makeMetalBuffer(width: Int, height: Int,
                                  background: Float = 1000,
                                  stars: [SyntheticStar] = []) throws -> MTLBuffer {
-        let device = try #require(ImageStretcher.metalDevice)
+        let device = try #require(MetalContext.device)
         let count = width * height
         let buffer = try #require(device.makeBuffer(length: count * MemoryLayout<Float>.stride,
                                                      options: .storageModeShared))
@@ -172,7 +172,7 @@ struct GPUTests {
     func fitsReadIntoBuffer() async throws {
         // Write a synthetic FITS file, read it back via the Metal path
         let width = 64, height = 64
-        let device = try #require(ImageStretcher.metalDevice)
+        let device = try #require(MetalContext.device)
 
         // Build a minimal FITS file with known pixel data: all pixels = 1000
         let pixels = TestFITS.bigEndian([Int16](repeating: 1000, count: width * height))

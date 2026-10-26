@@ -651,7 +651,7 @@ final class LoadPipeline {
                     let didStart = url.startAccessingSecurityScopedResource()
                     defer { if didStart { url.stopAccessingSecurityScopedResource() } }
                     guard let pattern = bayerPattern,
-                          let device  = ImageStretcher.metalDevice,
+                          let device  = MetalContext.device,
                           let result  = try? FITSReader.readIntoBuffer(from: url, device: device)
                     else { return nil }
                     let clips = ImageStretcher.computeBayerClips(
@@ -695,7 +695,7 @@ final class LoadPipeline {
                 let url = await entry.url
                 let didStart = url.startAccessingSecurityScopedResource()
                 defer { if didStart { url.stopAccessingSecurityScopedResource() } }
-                guard let device = ImageStretcher.metalDevice,
+                guard let device = MetalContext.device,
                       let result = try? FITSReader.readIntoBuffer(from: url, device: device)
                 else { return }
                 let display = await ImageStretcher.createImage(
@@ -769,7 +769,7 @@ final class LoadPipeline {
             let url = await entry.url
             let didStart = url.startAccessingSecurityScopedResource()
             defer { if didStart { url.stopAccessingSecurityScopedResource() } }
-            guard let device = ImageStretcher.metalDevice,
+            guard let device = MetalContext.device,
                   let result = try? FITSReader.readIntoBuffer(from: url, device: device)
             else { return }
             let display = await ImageStretcher.createImage(

@@ -4,6 +4,20 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-26 — One Metal context; GPU errors fall back to the CPU (step 8a)
+
+### Fixed
+- **A failed GPU pass is no longer taken for a result** (CODE_AUDIT §5.17). The stretch and the star detection now check that the GPU finished without an error. Before, a failed stretch could show a black image, and a failed detection read "no stars" without trying the CPU. Now a failed grey stretch is rendered on the CPU, and a failed detection runs on the CPU. A failed colour render leaves the frame in grey (there is no CPU colour path for raw Bayer frames). In normal use the GPU doesn't fail, so nothing changes.
+
+### Internal
+- New `MetalContext`: the one Metal device, command queue and library, the three compute pipelines, one `runPass` helper (encode, dispatch, commit, wait without blocking a thread, check `commandBuffer.status`) and one zero-copy image wrap. `ImageStretcher` and `MetricsCalculator` no longer each create their own device, queue and library (§9.5, §7.9). Buffers are used on their own `device`, and a buffer from another device takes the CPU path instead of the shared pipelines. `ImageStretcher.metalDevice` is now `MetalContext.device`.
+- The threadgroup is 16 × 16 clamped to the pipeline's limit for all three kernels; detection used a fixed 16 × 16 (§5.17). Same size on every Apple GPU, so results are unchanged. Kernels unchanged.
+- The Quick Look extensions also compile `MetalContext.swift` (they have no Metal library, so they keep the CPU path), until the engine files are split in 8f.
+- Tests: `MetalFallbackTests` — a forced GPU error renders the grey stretch on the CPU (identical to the CPU path), gives no colour image, and detects on the CPU with the same measurement as the CPU path; the threadgroup clamp; and the **CPU vs GPU stretch comparison** (METAL_REVIEW M1) on a synthetic star field, with today's difference as the limit: at full size at most 1 level (mean 0.50, rounding), scaled to 256 px at most 78 levels (mean 1.21, the order of downscale and stretch, mostly in stars). Whether the CPU path should follow the GPU is master-plan step 13. Failures are forced with a task-local switch, so other tests aren't affected.
+- Unit tests (299), render tests and the 10 metric baselines pass unchanged; the website and App Store builds compile without warnings. Measured, alternating with 1.24-beta.2 (CLI, full pipeline): M81 grey 9.7–12.0 s instead of 11.7–13.1 s, M81 colour 23.8–24.3 s instead of 25.2–25.9 s, Rosette large 8.2–8.6 s instead of 8.3–8.5 s, same peak memory.
+
+---
+
 ## 2026-10-26 — 1.24 beta 2: faster network folders, smoother browsing, safer loading
 
 ### Improved

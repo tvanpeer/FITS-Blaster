@@ -59,27 +59,8 @@ struct MetricsCalculator {
     /// centroid window, with one pixel to spare for bilinear interpolation.
     private static let cropHalf = 12
 
-    // Pipeline state is created once per process and reused for every image.
-    // MTLCreateSystemDefaultDevice() is idempotent — it always returns the same
-    // device object, so the buffer created by ImageStretcher (also using the
-    // default device) is accessible to this pipeline without any copy.
-    static let detectionDevice: MTLDevice? = MTLCreateSystemDefaultDevice()
-
-    // A dedicated command queue for detection keeps our GPU work independent
-    // from ImageStretcher's stretch queue. Metal queues are thread-safe so this
-    // can be called from any thread in the cooperative pool.
-    static let detectionCommandQueue: MTLCommandQueue? =
-        detectionDevice?.makeCommandQueue()
-
-    // The compiled pipeline state wraps the detectLocalMaxima kernel defined in
-    // FITSStretch.metal. makeDefaultLibrary() finds all kernels from all .metal
-    // files compiled into the app bundle — no separate library file needed.
-    static let detectionPipelineState: MTLComputePipelineState? = {
-        guard let device   = detectionDevice,
-              let library  = device.makeDefaultLibrary(),
-              let function = library.makeFunction(name: "detectLocalMaxima") else { return nil }
-        return try? device.makeComputePipelineState(function: function)
-    }()
+    // The detection pipeline, device and queue are MetalContext's, shared with the
+    // stretch: the frame's buffer from Phase A is used without a copy.
 
     // MARK: - Internal types shared with extension files
 
