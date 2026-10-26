@@ -150,8 +150,14 @@ struct FITSReader {
     /// Every FITS file is untrusted input (Quick Look parses files from Finder without
     /// the user opening them), so every size and scale value is checked here before
     /// anything is allocated or indexed. Anything invalid throws, never traps.
-    private static func parseHeader(from data: Data, forPreview: Bool = false) throws -> HeaderInfo {
-        guard data.count >= 2880 else {
+    ///
+    /// `data` holds the file from its start, at least up to the END card; `fileSize` is the
+    /// whole file's size when `data` holds only the header (`readIntoBuffer`), so the size
+    /// checks see the real file.
+    private static func parseHeader(from data: Data, fileSize: Int? = nil,
+                                    forPreview: Bool = false) throws -> HeaderInfo {
+        let fileSize = fileSize ?? data.count
+        guard fileSize >= 2880, data.count >= min(fileSize, 2880) else {
             throw FITSError.invalidFormat("File too small to be a valid FITS file.")
         }
 
@@ -269,11 +275,11 @@ struct FITSReader {
             throw FITSError.invalidFormat("Image size \(width) × \(height) is too large.")
         }
 
-        guard offset < data.count else {
+        guard offset < fileSize else {
             throw FITSError.noImageData
         }
 
-        guard dataEnd <= data.count else {
+        guard dataEnd <= fileSize else {
             throw FITSError.invalidFormat("Not enough data for \(totalValues) values at \(bytesPerPixel) bytes each.")
         }
 
@@ -335,14 +341,18 @@ struct FITSReader {
     // MARK: - Read into Metal Buffer (zero-copy GPU path)
 
     /// Parse a FITS file and write the float pixel data directly into a Metal shared buffer.
-    /// This avoids allocating a Swift array that would later be copied into Metal.
+    ///
+    /// The file is read with POSIX `pread` — the header block by block up to its END card,
+    /// then the pixel bytes straight into the back part of the Metal buffer — and the
+    /// pixels are converted to Float in place, front to back, through a small scratch
+    /// buffer. Peak memory per frame is the float buffer itself; before, the whole file
+    /// as `Data`, an integer copy and the float buffer were alive together, about 4× the
+    /// file size (CODE_AUDIT §7.3). The conversion is the same as before (byte swap, then
+    /// integer → Float), so the values are identical.
     static func readIntoBuffer(from url: URL, device: MTLDevice) throws -> FITSBufferResult {
-        // Use direct buffered read (no .mappedIfSafe) so the OS performs sequential
-        // read() syscalls rather than lazy page faults. With multiple concurrent tasks
-        // all reading different files, page-fault-based mmap serialises on the kernel's
-        // fault handler and causes severe latency spikes. Buffered reads pipeline better.
-        let data = try Data(contentsOf: url)
-        let header = try parseHeader(from: data)
+        let file = try OpenFile(url)
+        defer { file.close() }
+        let header = try parseHeader(from: try file.readHeaderBlocks(), fileSize: file.size)
 
         let pixelCount = header.width * header.height
         let floatByteCount = pixelCount * MemoryLayout<Float>.stride
@@ -350,50 +360,45 @@ struct FITSReader {
         guard let metalBuffer = device.makeBuffer(length: floatByteCount, options: .storageModeShared) else {
             throw FITSError.metalBufferAllocationFailed
         }
-
         let destPtr = metalBuffer.contents().assumingMemoryBound(to: Float.self)
 
-        data.withUnsafeBytes { rawPtr in
-            let base = rawPtr.baseAddress!.advanced(by: header.dataOffset)
+        // The raw pixels go to the end of the buffer. Converting front to back, the Float
+        // written for pixel i ends at byte 4(i+1), never past the raw bytes still to be
+        // read (pixel j's raw bytes start at rawOffset + bpp·j ≥ 4j for j > i).
+        let bytesPerPixel = header.bitpix / 8
+        let rawByteCount = pixelCount * bytesPerPixel
+        let rawOffset = floatByteCount - rawByteCount
+        let raw = metalBuffer.contents().advanced(by: rawOffset)
+        try file.read(into: raw, count: rawByteCount, at: header.dataOffset)
 
+        let scratch = UnsafeMutableRawPointer.allocate(byteCount: conversionChunk * 4, alignment: 16)
+        defer { scratch.deallocate() }
+        var start = 0
+        while start < pixelCount {
+            let count = min(conversionChunk, pixelCount - start)
+            memcpy(scratch, raw.advanced(by: start * bytesPerPixel), count * bytesPerPixel)
+            var dest = UnsafeMutableBufferPointer(start: destPtr.advanced(by: start), count: count)
             switch header.bitpix {
             case 8:
-                let src = base.assumingMemoryBound(to: UInt8.self)
-                var destBuf = UnsafeMutableBufferPointer(start: destPtr, count: pixelCount)
-                vDSP.convertElements(
-                    of: UnsafeBufferPointer(start: src, count: pixelCount),
-                    to: &destBuf
-                )
-
+                vDSP.convertElements(of: UnsafeBufferPointer(start: scratch.assumingMemoryBound(to: UInt8.self),
+                                                             count: count),
+                                     to: &dest)
             case 16:
-                // memcpy + vectorized byte-swap + convert Int16→Float
-                let temp16 = UnsafeMutablePointer<UInt16>.allocate(capacity: pixelCount)
-                defer { temp16.deallocate() }
-                memcpy(temp16, base, pixelCount * 2)
-                byteSwap16(temp16, count: pixelCount)
-                let int16Ptr = UnsafeMutableRawPointer(temp16).assumingMemoryBound(to: Int16.self)
-                var destBuf16 = UnsafeMutableBufferPointer(start: destPtr, count: pixelCount)
-                vDSP.convertElements(
-                    of: UnsafeBufferPointer(start: int16Ptr, count: pixelCount),
-                    to: &destBuf16
-                )
-
+                // Vectorised byte swap + convert Int16→Float
+                byteSwap16(scratch.assumingMemoryBound(to: UInt16.self), count: count)
+                vDSP.convertElements(of: UnsafeBufferPointer(start: scratch.assumingMemoryBound(to: Int16.self),
+                                                             count: count),
+                                     to: &dest)
             case 32:
-                // Bulk memcpy + vectorized byte-swap, then convert Int32→Float
-                let temp32 = UnsafeMutablePointer<UInt32>.allocate(capacity: pixelCount)
-                defer { temp32.deallocate() }
-                memcpy(temp32, base, pixelCount * 4)
-                byteSwap32(temp32, count: pixelCount)
-                let intPtr = UnsafeMutableRawPointer(temp32).assumingMemoryBound(to: Int32.self)
-                var destBuf32 = UnsafeMutableBufferPointer(start: destPtr, count: pixelCount)
-                vDSP.convertElements(
-                    of: UnsafeBufferPointer(start: intPtr, count: pixelCount),
-                    to: &destBuf32
-                )
-
+                // Vectorised byte swap, then convert Int32→Float
+                byteSwap32(scratch.assumingMemoryBound(to: UInt32.self), count: count)
+                vDSP.convertElements(of: UnsafeBufferPointer(start: scratch.assumingMemoryBound(to: Int32.self),
+                                                             count: count),
+                                     to: &dest)
             default:
                 break  // unreachable: parseHeader rejects unsupported bitpix values
             }
+            start += count
         }
 
         let range = applyScaleAndRange(destPtr, count: pixelCount,
@@ -410,6 +415,84 @@ struct FITSReader {
         )
 
         return FITSBufferResult(metadata: metadata, metalBuffer: metalBuffer)
+    }
+
+    /// Pixels converted per step in `readIntoBuffer` (at most 256 KB of scratch).
+    private static let conversionChunk = 65_536
+
+    /// A file opened for reading with POSIX calls, for `readIntoBuffer`. Open and read
+    /// errors become the same Cocoa errors `Data(contentsOf:)` gave before.
+    private struct OpenFile {
+        let url: URL
+        let descriptor: Int32
+        let size: Int
+
+        init(_ url: URL) throws {
+            self.url = url
+            let fd = Darwin.open(url.path(percentEncoded: false), O_RDONLY)
+            guard fd >= 0 else { throw Self.error(errno, url) }
+            var info = stat()
+            guard fstat(fd, &info) == 0 else {
+                let code = errno
+                Darwin.close(fd)
+                throw Self.error(code, url)
+            }
+            descriptor = fd
+            size = Int(info.st_size)
+        }
+
+        func close() { Darwin.close(descriptor) }
+
+        /// The header blocks from the start of the file up to and including the one with
+        /// the END card. One block more than `maxHeaderBlocks` at most, so parseHeader
+        /// reports a missing END with the same message as for a whole file.
+        func readHeaderBlocks() throws -> Data {
+            var data = Data()
+            for _ in 0...maxHeaderBlocks {
+                let blockStart = data.count
+                let blockLength = min(2880, size - blockStart)
+                guard blockLength > 0 else { break }
+                data.append(Data(count: blockLength))
+                try data.withUnsafeMutableBytes { bytes in
+                    try read(into: bytes.baseAddress!.advanced(by: blockStart), count: blockLength, at: blockStart)
+                }
+                if Self.containsEndCard(data[blockStart...]) { break }
+            }
+            return data
+        }
+
+        /// Reads exactly `count` bytes at `offset`.
+        func read(into destination: UnsafeMutableRawPointer, count: Int, at offset: Int) throws {
+            var done = 0
+            while done < count {
+                let n = pread(descriptor, destination.advanced(by: done), min(count - done, 1 << 30),
+                              off_t(offset + done))
+                if n < 0 {
+                    if errno == EINTR { continue }
+                    throw Self.error(errno, url)
+                }
+                // The file got shorter after its size was checked.
+                guard n > 0 else { throw CocoaError(.fileReadCorruptFile, userInfo: [NSURLErrorKey: url]) }
+                done += n
+            }
+        }
+
+        private static func containsEndCard(_ block: Data) -> Bool {
+            stride(from: block.startIndex, to: block.endIndex - 79, by: 80).contains { start in
+                guard let card = String(data: block[start..<(start + 80)], encoding: .ascii) else { return false }
+                return parseCard(card).keyword == "END"
+            }
+        }
+
+        private static func error(_ code: Int32, _ url: URL) -> CocoaError {
+            let kind: CocoaError.Code = switch code {
+            case ENOENT, ENOTDIR: .fileReadNoSuchFile
+            case EACCES, EPERM:   .fileReadNoPermission
+            default:              .fileReadUnknown
+            }
+            return CocoaError(kind, userInfo: [NSURLErrorKey: url, NSFilePathErrorKey: url.path(percentEncoded: false),
+                                               NSUnderlyingErrorKey: POSIXError(POSIXErrorCode(rawValue: code) ?? .EIO)])
+        }
     }
 
     // MARK: - Legacy Array-based Read (CPU fallback)

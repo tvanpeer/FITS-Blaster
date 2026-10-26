@@ -243,6 +243,7 @@ Then a scratch build with `SWIFT_STRICT_CONCURRENCY=complete` shows 0 warnings. 
 - **Chart during a load** (performance audit P3): the chart reads its points from a store value refreshed at most every ~250 ms during a batch and once at the end, instead of observing every frame's metrics.
 - **Display-image drawing** (performance audit P6): only if a trace shows main-thread format conversion when switching frames, create display images in the display's native format.
 - **Left over from step 5** (trace 5, 2026-10-25): `ThumbnailCell.body` still runs ≈ 9× per cursor move (≈ 0.9 ms) instead of only for the two cells whose values changed; find out why. The chart's cursor is still part of the chart, which costs ≈ 9 ms of mark collection per move; drawing it on top would change how it looks with bars and on rejected frames, so decide together with the measurements here.
+- **Reads at once below the thread-pool width** (§3.7, moved from step 8 on 2026-10-26): on the internal SSD, Phase A at cores − 2 instead of max(8, cores) was neither clearly faster nor slower (M81 12.7–13.4 s vs 10.2–13.9 s, 1.3 vs 1.5 GB peak). Measure on a network share, where blocked reads can starve the pool, together with `loadFast` over the network (below).
 - **Fewer reads per load** (§7.2): render the normalised grey and colour images without re-reading every file. Two ways, decided with measurements (decision 7: (a), confirmed by measuring):
   - (a) keep a display-size float proxy per frame from Phase A;
   - (b) keep each folder's full buffers until its clips are known.

@@ -4,6 +4,19 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-26 — Frames read straight into the GPU buffer (step 8d)
+
+### Improved
+- **Less memory while loading:** each frame is read straight into its GPU buffer and converted there, instead of holding the whole file, an integer copy and the float buffer at the same time (about 4× the file size per frame being loaded, CODE_AUDIT §7.3). Peak memory loading M81 (355 colour frames, 26 MP): 2.2 GB → 1.5–1.6 GB; Rosette large (464 mono frames): 0.85–0.94 GB → 0.61–0.76 GB. Loading M81 was also faster in every alternated pair (12.0 vs 14.7 s, 13.9 vs 21.2 s, 17.0 vs 22.1 s; the times varied with the disk cache).
+
+### Internal
+- `FITSReader.readIntoBuffer` reads with POSIX `open`/`pread`: the header block by block up to its END card (at most one block more than the 100-block limit), then the pixel bytes into the back part of the Metal buffer, converted front to back through a 256 KB scratch buffer (byte swap, then integer → Float — the same operations as before, so identical values). `parseHeader` checks the sizes against the file size from `fstat`. Open and read errors are the same Cocoa errors as with `Data(contentsOf:)` (no such file, no permission); a missing END or a truncated file gives the same `FITSError` as before. `read` (CPU fallback) and `readForPreview` (Quick Look) are unchanged.
+- Tests: `BufferReadTests` — the buffer read equals the CPU read for BITPIX 8, 16 (with and without BZERO/BSCALE) and 32 over more than one conversion step; truncated file, header without END and missing file give the same errors as before. The malformed-input tests already cover `readIntoBuffer`.
+- **Not changed: the number of reads at once** (§3.7, blocking reads below the thread-pool width). Tried with Phase A at cores − 2 (6 instead of 8 on this Mac): M81 12.7–13.4 s vs 10.2–13.9 s, 1.3 vs 1.5 GB — not clearly faster or slower on the internal SSD. The finding is about slow and network disks, so it moves to master-plan step 9, which measures loading over the network.
+- Unit tests (305), render tests and the 10 metric baselines pass unchanged.
+
+---
+
 ## 2026-10-26 — One star-shape measurement (step 8c)
 
 ### Internal
