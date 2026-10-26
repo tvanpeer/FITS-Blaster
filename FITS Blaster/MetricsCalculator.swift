@@ -51,6 +51,24 @@ struct MetricsCalculator {
         static let fallbackCandidateCount  = 6_000
     }
 
+    /// Tunables of the per-star shape measurement (CODE_AUDIT §9.4).
+    enum Shape {
+        /// A measured FWHM outside this range (pixels) is not a usable star: too small is a
+        /// hot pixel or noise, too large a galaxy, nebula knot or blend.
+        static let acceptedFWHM: ClosedRange<Float> = 0.5...20
+        /// Half-width of the centroid window (2·2+1 = 5×5 pixels).
+        static let centroidHalfWidth = 2
+        /// Steps on each side of the centre along which the Moffat profile is fitted.
+        static let moffatHalfWidth = 10
+        /// Profile samples below this fraction of the peak are left out of the fit.
+        static let moffatMinimumFraction: Float = 0.02
+        /// FWHM = α · 2·√(2^{1/β} − 1) for a Moffat profile with β = 4 (≈ 0.870).
+        static let moffatFWHMFactor: Float = 2 * (pow(Float(2), Float(0.25)) - 1).squareRoot()
+        /// Star-count pre-filter: each of the 4 neighbours must carry at least this
+        /// fraction of the background-subtracted peak (see `measureFWHMOnly`).
+        static let wingFraction: Float = 0.05
+    }
+
     /// Must match MAX_DETECTION_CANDIDATES in FITSStretch.metal.
     static let maxDetectionCandidates = Constants.maxDetectionCandidates
 
@@ -221,7 +239,7 @@ struct MetricsCalculator {
                     let (fwhm, eccRec709, snr, peakVal) = Self.measureShapeFromCrop(
                         crop: rec709Lum, cropHalf: Self.cropHalf,
                         background: background, sigma: sigma)
-                    guard fwhm >= 0.5, fwhm <= 20 else { return nil }
+                    guard Shape.acceptedFWHM.contains(fwhm) else { return nil }
                     let adaptiveLum = Self.debayerCropToLuminance(
                         crop: rawCrop, cropHalf: Self.cropHalf,
                         originX: c.x - Self.cropHalf, originY: c.y - Self.cropHalf,
@@ -235,7 +253,7 @@ struct MetricsCalculator {
                     let (fwhm, ecc, snr, peakVal) = Self.measureShape(
                         pixels: pixels, width: width, height: height,
                         cx: c.x, cy: c.y, background: background, sigma: sigma)
-                    guard fwhm >= 0.5, fwhm <= 20 else { return nil }
+                    guard Shape.acceptedFWHM.contains(fwhm) else { return nil }
                     return (fwhm, ecc, snr, peakVal)
                 }
             }()
@@ -268,7 +286,7 @@ struct MetricsCalculator {
                 let fwhm = Self.measureFWHMOnly(
                     pixels: pixels, width: width, height: height,
                     cx: c.x, cy: c.y, background: background)
-                if fwhm >= 0.5 && fwhm <= 20 { verifiedCount += 1 }
+                if Shape.acceptedFWHM.contains(fwhm) { verifiedCount += 1 }
             }
         }
 

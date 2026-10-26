@@ -4,6 +4,15 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-26 — One star-shape measurement (step 8c)
+
+### Internal
+- **The shape measurement exists once** (CODE_AUDIT §9.4): centroid, the four-direction Moffat fits, the axis reconstruction, eccentricity and SNR were written out twice — once on the whole frame (mono) and once on a star crop (Bayer luminance), about 100 lines. Now one generic `measureShape(in:cx:cy:background:sigma:)` reads its pixels through a `PixelGrid`: `FramePixels` (the frame, in place) or `CropPixels` (a crop). Both had the same edge rule already (pixels outside the grid are skipped in the centroid and give 0 in the interpolation), so nothing changes. `measureShape(pixels:…)` and `measureShapeFromCrop(crop:…)` remain as thin wrappers.
+- **Named constants** (`MetricsCalculator.Shape`): the accepted FWHM range 0.5–20 px (was written out in 3 places), the centroid window, the Moffat fit width and minimum fraction, the β = 4 FWHM factor (was computed in 2 places), and the star-count wing fraction.
+- Unit tests (301), render tests and the 10 metric baselines pass unchanged (every star value byte-identical). `BenchmarkTests` alternated with 8b (3 rounds each): RGB 2.22–2.40 s vs 2.29–2.46 s, mono 0.50–0.56 s vs 0.47–0.55 s — the same.
+
+---
+
 ## 2026-10-26 — One stretch-statistics function (step 8b)
 
 ### Internal
