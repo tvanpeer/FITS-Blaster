@@ -4,6 +4,32 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-26 — 1.24 beta 2: faster network folders, smoother browsing, safer loading
+
+### Improved
+- **Opening folders over the network is much faster:** listing the folder and checking the files went from over a minute to about 15 seconds for 1,147 files on a 1 Gb/s share. While FITS Blaster prepares a load you now see "Scanning…" and "Checking files" with a progress bar instead of an empty window.
+- **Holding an arrow key is smooth again** in large sessions: the sidebar keeps up without stutter (5 short hitches in 5 seconds instead of 39–57 in a 355-frame session). Scrolling a zoomed frame redraws less too.
+- **Much less memory with many folders or filters:** a session of 464 mono frames in 8 folders × 3 filters now peaks at 1 GB instead of 4.4 GB while loading.
+- **Open Folder:** "Include files from subfolders" and "Include REJECTED folder" are back in the folder panel itself, and scanning a large folder no longer freezes the window. Dropped folders are scanned in the background too.
+- **Export:** the header columns follow the order you chose in Settings → Export. Text that a spreadsheet could read as a formula is protected, and a failed export now shows an error.
+
+### Fixed
+- **A second folder during a load** (opened or dropped) now waits for the first one. Before, the progress bars disappeared and Cancel greyed out while the second folder was still loading.
+- **Reset during a load** stops the load; it can no longer add frames to the emptied session.
+- **Colour toggled during a load** now ends correctly: turned on, every frame ends in colour, also the frames that weren't loaded yet; turned off, every frame ends in grey. Toggling quickly ends on the last setting.
+- **Cancel** also stops a colour re-render, and no longer measures the remaining frames one by one.
+- **Several folders dropped at once** each get their own section in the sidebar, in the order you dropped them.
+- The info bar above the chart no longer disappears when you select a frame that is still loading.
+
+### Changed
+- A colour toggle can be cancelled (Cancel is active while it runs), and a display-size change made during a load runs after the load.
+- Files with Finder's "hidden" flag are no longer skipped when a folder is scanned (files whose name starts with a dot still are).
+
+### Under the hood
+- The loading pipeline was rebuilt so batches run one at a time, and the app now compiles in Swift 6 language mode, which turns data races the compiler can detect into errors. Measurements and image rendering are unchanged.
+
+---
+
 ## 2026-10-26 — Swift 6 language mode (step 7c)
 
 ### Internal
