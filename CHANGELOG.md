@@ -15,6 +15,7 @@ All notable changes to FITS Blaster are recorded here.
 - **Engine tunables as named constants** (engine part of §9.14): `highClipPercentile` (99.99 %), `shadowClipMADs` (2.8), `mtfLUTSize` (4096), `Constants.detectionSigmas` (5) and `Constants.cpuDetectionCropSide` (4096). Same values.
 - A few members became internal instead of private because another file now uses them (`parseHeader`, `parseCard`, `HeaderInfo`, the byte-swap and scale helpers, `cpuFallbackOnBuffer`).
 - Unit tests (308), render tests and the 10 metric baselines pass unchanged; the strict build has 0 warnings; the website and App Store builds compile without warnings.
+- **Step 8 checked in the VMs:** smoke test passed on macOS 15.8.1, 26.6.2, 27.0.1 and 27.2 (fb-15 needed a second run: the first one failed copying into the VM, "scp: Connection closed", before any test ran). 👤 Quick Look checked on fb-15 and fb-27: preview, icon view at several sizes, list and column view.
 
 ---
 
