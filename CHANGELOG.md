@@ -4,6 +4,14 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-26 — Step 9 baseline measurements (9a)
+
+### Internal
+- Measured before step 9 (build `efb2ea1`, M81 355 colour frames, recorded in `PERFORMANCE_AUDIT.md`): loading with the chart visible gives 486 hitches = 14.5 s of 31 s, the chart redrawn 278× (performance audit finding 3); switching frames shows no image conversion on the main thread, so finding 6 (display images in the display's format) is not needed and leaves the plan; the app uses 1.4 GB at display size 1024 and 3.5 GB at 4096, almost all display images; CLI M81 grey 12.3–13.0 s, colour 28.2–28.6 s, Rosette large 9.7–9.9 s.
+- Found: a click on a thumbnail redraws the whole sidebar body (its `lastClickedID` state); for step 9c.
+
+---
+
 ## 2026-10-26 — The thumbnail size sets the shown size; the sidebar follows it
 
 ### Changed

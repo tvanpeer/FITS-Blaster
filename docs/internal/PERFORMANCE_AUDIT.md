@@ -198,6 +198,19 @@ To fill in from Release-build traces (SwiftUI template + Time Profiler), before 
 | Switch frames at display size 4096 | main-thread time per switch | 476 colour frames: main thread ≈ 155 ms per switch (image drawing < 0.1 ms; chart ≈ 11 ms); ≈ 40 ms image conversion on a background thread; 5 hitches in 10 switches | | | finding 6; trace 4 run B |
 | Memory after loading ~500 colour frames | peak / resident memory | 476 colour frames: footprint 2.6 GB (peak 4.2 GB) at display size 1024; 16.3 GB (peak 17.7 GB) at 4096 | | | audit §7.1; trace 4 runs A and C |
 
+### Before step 9 (2026-10-26, trace `09a-load-and-switch.trace`, build `efb2ea1`)
+
+Release build, M81 355 colour frames with subfolders, Geek mode, chart visible, Colour on, display size 1024, thumbnails 120 pt.
+
+| Interaction | Result |
+| --- | --- |
+| Load M81 with the chart visible (about 31 s) | **486 hitches = 14.5 s**, longest 217 ms. `SessionChartView.body` 278× (1.1 s), chart mark collection (`CollectContent`) 277× (2.8 s), text layout 1.7 s (13,686 items), `BatchProgressBar` 367×. The chart is redrawn about 9× per second during the load (finding 3). |
+| Switch 10 frames far apart (about 28 s, with scrolling to find them) | 31 hitches = 0.72 s, longest 50 ms; most time in the sidebar's lazy layout while scrolling; chart ≈ 14 ms per switch. No image-format conversion on the main thread: **finding 6 is not needed** (as on 2026-10-18). `ThumbnailSidebar.body` runs once per *click* on a thumbnail (the click sets the sidebar's `lastClickedID` state) — not with the arrow keys. |
+| App memory after the load (`footprint`) | **1,403 MB** at display size 1024 (1,193 MB Metal buffers, i.e. display images); **3,457 MB** at 4096 (3,152 MB Metal). Lower at 4096 than 355 × the colour image size predicts (≈ 9 GB); to be explained in step 9f before relying on it. |
+| CLI, full pipeline (3 runs) | M81 grey 12.3–13.0 s, 1.7–1.8 GB; M81 colour (`--render`) 28.2–28.6 s, 2.5 GB; Rosette large (464 mono) 9.7–9.9 s, 0.8 GB. |
+
+The Time Profiler was in the template but the trace has no time-profile table; the SwiftUI and hitch tables were enough for these conclusions.
+
 ## Next step
 
 👤 Record one trace per row above, in a **Release** build on this Mac:
