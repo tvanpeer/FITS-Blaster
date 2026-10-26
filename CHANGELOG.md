@@ -4,6 +4,15 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-26 — Swift 6 language mode (step 7c)
+
+### Internal
+- **All targets compile in Swift 6 language mode** (`SWIFT_VERSION = 6.0` in the 12 build configurations: the app, both Quick Look extensions and the tests, plus the project level), so data races the compiler can detect are now errors instead of silent (CODE_AUDIT §3.11). No code changes were needed: after 7a and 7b the strict build had no warnings left, and the tests compile as they are.
+- `CLAUDE.md` project facts updated (Swift 6 mode; no concurrency warnings to keep).
+- Unit tests (294), render tests and the 10 metric baselines pass unchanged; the website (beta) and App Store builds compile without warnings. VM smoke test passed on macOS 15.8.1, 26.6.2, 27.0.1 and 27.2 (0 failed, 0 warnings). 👤 Checked in the app: open, arrow keys, drag and drop, Cancel during a load, colour toggle, display-size change, reject, undo, flag, play, CSV export.
+
+---
+
 ## 2026-10-26 — Drag and drop with `dropDestination` (step 7b)
 
 ### Changed
