@@ -37,6 +37,11 @@ final class ImageStore {
         didSet { updateVisibilityFilteredEntries() }
     }
 
+    /// The last thumbnail that got a plain or ⌘-click: the anchor of a ⇧-click range.
+    /// Not observed: only read when clicking, so setting it doesn't redraw the sidebar
+    /// (it was the sidebar's own state, and every click redrew the whole sidebar).
+    @ObservationIgnored var shiftClickAnchorID: UUID?
+
     /// Sub-selection within the Flagged view, built by shift+click.
     /// Used only for batch reject inside that view; cleared on plain click or view switch.
     /// Has no relationship to `flaggedEntryIDs`.

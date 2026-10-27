@@ -10,11 +10,14 @@ import SwiftUI
 /// but only the cells whose values changed are redrawn (CODE_AUDIT §8.1).
 struct ThumbnailRow: View {
     let entry: ImageEntry
+    /// The chart's metric, for the line under the thumbnail.
+    let metric: Metric
     @Environment(ImageStore.self) private var store
 
     var body: some View {
         ThumbnailCell(
             entry: entry,
+            metric: metric,
             isCursor: store.selectedEntry === entry,
             isFlagged: store.flaggedEntryIDs.contains(entry.id),
             isMarkedForRejection: store.markedForRejectionIDs.contains(entry.id),

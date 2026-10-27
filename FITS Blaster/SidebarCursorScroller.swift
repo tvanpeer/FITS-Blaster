@@ -10,8 +10,6 @@ import SwiftUI
 /// key is held down it scrolls without animation, so the animations don't pile up (P5).
 struct SidebarCursorScroller: View {
     let proxy: ScrollViewProxy
-    /// The sidebar's shift-click anchor, seeded when the first frame is auto-selected.
-    @Binding var lastClickedID: UUID?
 
     @Environment(ImageStore.self) private var store
     @Environment(ViewerState.self) private var viewer
@@ -23,7 +21,7 @@ struct SidebarCursorScroller: View {
                 guard let newID else { return }
                 // First image auto-selected at load time (nil → non-nil): seed the
                 // shift-click anchor so shift-click works without a prior click.
-                if oldID == nil { lastClickedID = newID }
+                if oldID == nil { store.shiftClickAnchorID = newID }
                 if viewer.takeKeyRepeat() {
                     proxy.scrollTo(newID, anchor: .center)
                 } else {

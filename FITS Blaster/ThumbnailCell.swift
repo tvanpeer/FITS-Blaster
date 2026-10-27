@@ -10,13 +10,14 @@ import SwiftUI
 /// the cells whose values changed (CODE_AUDIT §8.1).
 struct ThumbnailCell: View {
     let entry: ImageEntry
+    /// The chart's metric, shown under the thumbnail (passed in, not read here: see ThumbnailSidebar).
+    let metric: Metric
     let isCursor: Bool
     let isFlagged: Bool
     let isMarkedForRejection: Bool
     let groupStats: GroupStats?
 
     @Environment(AppSettings.self) private var settings
-    @AppStorage("sessionChartMetric") private var selectedMetric: Metric = .qualityScore
 
     var body: some View {
         VStack(spacing: 4) {
@@ -65,8 +66,8 @@ struct ThumbnailCell: View {
                             .foregroundStyle(.secondary)
                     }
                     Spacer(minLength: 0)
-                    if let value = selectedMetric.value(from: entry.metrics) {
-                        Text("\(selectedMetric.shortLabel) \(selectedMetric.formattedValue(value))")
+                    if let value = metric.value(from: entry.metrics) {
+                        Text("\(metric.shortLabel) \(metric.formattedValue(value))")
                             .scaledFont(size: 9)
                             .foregroundStyle(.secondary)
                     }
@@ -96,7 +97,9 @@ struct ThumbnailCell: View {
             RoundedRectangle(cornerRadius: 4)
                 .fill(.quaternary)
                 .aspectRatio(1, contentMode: .fit)
-                .overlay { ProgressView().scaleEffect(0.6) }
+                // A small spinner, animated by the system: scaling a regular one updated
+                // SwiftUI on every animation frame for every loading thumbnail.
+                .overlay { ProgressView().controlSize(.small) }
         } else if let thumbnail = entry.thumbnail {
             Image(nsImage: thumbnail)
                 .resizable()

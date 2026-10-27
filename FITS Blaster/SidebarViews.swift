@@ -14,8 +14,10 @@ struct ThumbnailSidebar: View {
     @Environment(ImageStore.self) private var store
     @Environment(AppSettings.self) private var settings
 
-    /// The last entry that received a plain or cmd+click — used as the anchor for shift+click range.
-    @State private var lastClickedID: UUID? = nil
+    /// The chart's metric, shown under each thumbnail; read here once and passed to the
+    /// cells as a value — `@AppStorage` in every cell made the lazy list redraw cells
+    /// whenever it placed them.
+    @AppStorage("sessionChartMetric") private var chartMetric: Metric = .qualityScore
 
     /// Ordered list of entries currently rendered in the sidebar, used for shift+click range.
     private var visibleEntries: [ImageEntry] {
@@ -125,7 +127,7 @@ struct ThumbnailSidebar: View {
                 }
                 .scrollIndicators(.hidden)
                 .background(.background)
-                .background { SidebarCursorScroller(proxy: proxy, lastClickedID: $lastClickedID) }
+                .background { SidebarCursorScroller(proxy: proxy) }
             }
 
             Divider()
@@ -155,12 +157,12 @@ struct ThumbnailSidebar: View {
                     if store.selectedEntry.map({ !store.flaggedEntryIDs.contains($0.id) }) == true {
                         store.selectedEntry = store.visibilityFilteredEntries.first
                     }
-                    lastClickedID = store.selectedEntry?.id
+                    store.shiftClickAnchorID = store.selectedEntry?.id
                 } else {
                     store.flaggedEntryIDs.formUnion(targets)
-                    lastClickedID = entry.id
+                    store.shiftClickAnchorID = entry.id
                 }
-            } else if mods.contains(.shift), let lastID = lastClickedID ?? store.selectedEntry?.id {
+            } else if mods.contains(.shift), let lastID = store.shiftClickAnchorID ?? store.selectedEntry?.id {
                 // Shift+click: select a range (orange) in any view. Move cursor.
                 let visible = visibleEntries
                 if let fromIdx = visible.firstIndex(where: { $0.id == lastID }),
@@ -169,15 +171,15 @@ struct ThumbnailSidebar: View {
                     store.markedForRejectionIDs = Set(visible[range].map { $0.id })
                     store.selectedEntry = entry
                 }
-                lastClickedID = entry.id
+                store.shiftClickAnchorID = entry.id
             } else {
                 // Plain click: move cursor, clear range selection.
                 store.markedForRejectionIDs = []
                 store.selectedEntry = entry
-                lastClickedID = entry.id
+                store.shiftClickAnchorID = entry.id
             }
         } label: {
-            ThumbnailRow(entry: entry)
+            ThumbnailRow(entry: entry, metric: chartMetric)
         }
         .buttonStyle(.plain)
         .id(entry.id)

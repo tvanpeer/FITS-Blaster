@@ -4,6 +4,21 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-27 — Fewer sidebar redraws on clicks and while scrolling (step 9c)
+
+### Improved
+- **A click on a thumbnail no longer redraws the whole sidebar**, and the thumbnail cells are redrawn about 20 % less while switching and scrolling (M81, alternated cold-cache traces: cell updates 313–317 → 246–265, sidebar redraws on clicks 10 → 0). The stutter while loading is unchanged by this step (≈ 395 vs ≈ 402 hitches in 30 s); see below.
+- The loading spinner on a thumbnail is the system's small spinner (16 points; it was a regular one scaled to about 19).
+
+### Internal
+- `ThumbnailCell` no longer has its own `@AppStorage` for the chart metric: the lazy list re-evaluated it whenever it placed a cell, which counted as a change and redrew the cell. `ThumbnailSidebar` reads the metric once and passes it through `ThumbnailRow` as a value.
+- The ⇧-click anchor (`lastClickedID`, the sidebar's own state, changed on every click) is now `ImageStore.shiftClickAnchorID`, not observed.
+- The spinner uses `.controlSize(.small)` instead of `.scaleEffect(0.6)`; no measurable effect (the scale animations during a load come mostly from the thumbnails' button style).
+- **Measured** with four traces on 2026-10-27 (`09b2`/`09c2`/`09b3`/`09c3`), alternating 9b and 9c, each after `sudo purge` (cold disk cache) with the same window and layout. A trace of 9c on 2026-10-26 had shown only 22 hitches while loading, but it ran under different conditions (load 22 s instead of 31 s); the alternated cold-cache traces don't confirm it. What is left while loading (≈ 6.8 s of SwiftUI work in 30 s: the chart ≈ 1.3 s, the rest layout and text across the window as frames arrive) is measured again after steps 9d–9f, which change the loading itself.
+- Unit tests (319), render tests and the 10 metric baselines pass unchanged; 0 strict warnings.
+
+---
+
 ## 2026-10-26 — Sidebar and chart lists built once; the chart refreshes during a load (step 9b)
 
 ### Improved
