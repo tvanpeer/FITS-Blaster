@@ -165,21 +165,87 @@ struct OpenFolderTests {
 
     // MARK: - Progress while preparing a load
 
-    @Test("filterItems reports each file and finishes the progress stream")
-    func filterItemsProgress() async throws {
-        let folder = try makeFolder()
-        defer { try? FileManager.default.removeItem(at: folder) }
+    @Test("The candidates are the FITS files not loaded yet, in order; no file is read")
+    func candidates() {
+        let a = URL(fileURLWithPath: "/nowhere/a.fits"), b = URL(fileURLWithPath: "/nowhere/b.FIT")
+        let c = URL(fileURLWithPath: "/nowhere/c.fits")
         let items: [(url: URL, subfolderPath: String)] = [
-            (folder.appending(component: "a.fits"), ""), (folder.appending(component: "b.FIT"), ""),
-            (folder.appending(component: "notes.txt"), ""),
+            (a, ""), (URL(fileURLWithPath: "/nowhere/notes.txt"), ""), (b, ""), (c, ""),
         ]
-        let (stream, continuation) = AsyncStream.makeStream(of: Int.self)
-        let result = await FrameLoading.filterItems(items, existingURLs: [], progress: continuation)
-        var reported: [Int] = []
-        for await done in stream { reported.append(done) }   // ends because the stream is finished
+        // The files don't exist: candidates() only looks at names.
+        let result = FrameLoading.candidates(items, existingURLs: [c])
+        #expect(result.map(\.url) == [a, b])
+    }
 
-        #expect(reported == [1, 2, 3])
-        #expect(result.valid.count == 2)
+    // MARK: - Unsupported files are left out by Phase A
+
+    private func writeFITS(bitpix: Int, name: String, in folder: URL) throws {
+        let pixels: Data
+        switch bitpix {
+        case -32: pixels = TestFITS.bigEndian([Float](repeating: 1000, count: 64 * 48))
+        default:
+            pixels = TestFITS.bigEndian((0..<(64 * 48)).map { i in Int16(bitPattern: UInt16(1000 + (i * 37) % 20000) &- 32768) })
+        }
+        let cards = TestFITS.imageCards(bitpix: bitpix, width: 64, height: 48, bzero: bitpix == 16 ? 32768 : nil)
+        _ = try TestFITS.write(TestFITS.fileData(cards: cards, pixels: pixels), fileName: name, in: folder)
+    }
+
+    @Test("A 16-bit stack with colour planes is left out like a floating-point file")
+    func multiChannelLeftOut() async throws {
+        let folder = FileManager.default.temporaryDirectory.appending(component: UUID().uuidString)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        try writeFITS(bitpix: 16, name: "frame.fits", in: folder)
+        let planes: [Int16] = (0..<(64 * 48 * 3)).map { (i: Int) -> Int16 in
+            let level: Int = 1000 + (i * 37) % 20000
+            return Int16(bitPattern: UInt16(level) &- 32768)
+        }
+        var cards = TestFITS.imageCards(bitpix: 16, width: 64, height: 48, bzero: 32768)
+        cards[2] = TestFITS.card("NAXIS", int: 3)
+        cards.insert(TestFITS.card("NAXIS3", int: 3), at: 5)
+        _ = try TestFITS.write(TestFITS.fileData(cards: cards, pixels: TestFITS.bigEndian(planes)),
+                               fileName: "stack-rgb.fits", in: folder)
+        let store = ImageStore()
+        await store.openFolder(at: folder, includeSubfolders: false, includeRejected: false, settings: AppSettings())
+        await store.pipeline.waitForProcessing()
+        #expect(store.entries.map(\.fileName) == ["frame.fits"])
+        #expect(store.errorMessage == "Skipped 1 file FITS Blaster doesn't load (floating-point or multi-channel stacks): stack-rgb.fits")
+    }
+
+    @Test("After Reset during a load no message about skipped files is shown")
+    func noSkippedMessageAfterReset() async throws {
+        let folder = FileManager.default.temporaryDirectory.appending(component: UUID().uuidString)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        for i in 0..<6 { try writeFITS(bitpix: i % 2 == 0 ? -32 : 16, name: "f\(i).fits", in: folder) }
+        let store = ImageStore()
+        await store.openFolder(at: folder, includeSubfolders: false, includeRejected: false, settings: AppSettings())
+        let load = store.pipeline.processingTask
+        store.reset()
+        await load?.value
+        #expect(store.entries.isEmpty)
+        #expect(store.errorMessage == nil)
+    }
+
+    @Test("Floating-point files are left out during the load and named in one message")
+    func floatFilesLeftOut() async throws {
+        let folder = FileManager.default.temporaryDirectory.appending(component: UUID().uuidString)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        try writeFITS(bitpix: -32, name: "a-float.fits", in: folder)   // first: the cursor starts here
+        try writeFITS(bitpix: 16, name: "b.fits", in: folder)
+        try writeFITS(bitpix: -32, name: "c-float.fits", in: folder)
+        try writeFITS(bitpix: 16, name: "d.fits", in: folder)
+        let store = ImageStore()
+        await store.openFolder(at: folder, includeSubfolders: false, includeRejected: false, settings: AppSettings())
+        await store.pipeline.waitForProcessing()
+
+        #expect(store.entries.map(\.fileName).sorted() == ["b.fits", "d.fits"])
+        #expect(store.errorMessage == "Skipped 2 files FITS Blaster doesn't load (floating-point or multi-channel stacks): a-float.fits, c-float.fits"
+                || store.errorMessage == "Skipped 2 files FITS Blaster doesn't load (floating-point or multi-channel stacks): c-float.fits, a-float.fits")
+        #expect(store.selectedEntry.map { selected in store.entries.contains { $0 === selected } } == true)
+        #expect(store.pipeline.batchImageCount == 2)
+        #expect(store.entries.allSatisfy { $0.displayImage != nil })
     }
 
     @Test("No preparation status is left after a load")

@@ -12,6 +12,8 @@ enum FITSError: LocalizedError {
     case cannotOpenFile
     case invalidFormat(String)
     case unsupportedBitpix(Int)
+    /// A stack with colour planes (NAXIS3 > 1): the app loads single frames only.
+    case multiChannel(naxis: Int, planes: Int)
     case noImageData
     case metalBufferAllocationFailed
 
@@ -26,6 +28,8 @@ enum FITSError: LocalizedError {
                 return "Unsupported image format: floating-point FITS files (BITPIX=\(value)) are not supported. Only integer formats (8, 16, 32-bit) are supported."
             }
             return "Unsupported BITPIX value: \(value). Supported values are 8, 16, and 32."
+        case .multiChannel(let naxis, let planes):
+            return "Multi-channel FITS files (NAXIS=\(naxis), NAXIS3=\(planes)) are not supported. Load the raw single-frame sub-exposures instead."
         case .noImageData:
             return "No image data found in the FITS file."
         case .metalBufferAllocationFailed:

@@ -13,61 +13,15 @@ import Metal
 
 enum FrameLoading {
 
-    /// Filters a list of candidate URLs off the main thread: strips unsupported
-    /// extensions, removes duplicates, and reads the first header block of each
-    /// remaining file to detect and reject floating-point FITS.
-    ///
-    /// This function is `nonisolated` so Swift runs it on the cooperative thread
-    /// pool rather than the main actor, keeping the UI responsive even when files
-    /// are stored on iCloud Drive, SMB mounts, or a loaded SSD.
-    /// `progress` receives the number of files done so far, and is finished at the end.
-    /// The headers are read `headerChecksAtOnce` at a time: each costs a round trip on a
-    /// network share (8 at once: about 6× faster than one by one, measured 2026-10-25).
-    /// The result keeps the input order.
-    @concurrent static func filterItems(
-        _ items: [(url: URL, subfolderPath: String)],
-        existingURLs: Set<URL>,
-        progress: AsyncStream<Int>.Continuation? = nil
-    ) async -> (valid: [(url: URL, subfolderPath: String)], skippedFloat: [String]) {
-        defer { progress?.finish() }
-        let candidates = items.filter { FITSFile.hasFITSExtension($0.url) && !existingURLs.contains($0.url) }
-        var done = items.count - candidates.count   // skipped without reading
-        if done > 0 { progress?.yield(done) }
-
-        var bitpix = [Int?](repeating: nil, count: candidates.count)
-        await withTaskGroup(of: (Int, Int?).self) { group in
-            var next = 0
-            while next < min(headerChecksAtOnce, candidates.count) {
-                let i = next
-                group.addTask { (i, FITSReader.peekBitpix(url: candidates[i].url)) }
-                next += 1
-            }
-            for await (i, value) in group {
-                bitpix[i] = value
-                done += 1
-                progress?.yield(done)
-                if next < candidates.count {
-                    let j = next
-                    group.addTask { (j, FITSReader.peekBitpix(url: candidates[j].url)) }
-                    next += 1
-                }
-            }
-        }
-
-        var valid: [(url: URL, subfolderPath: String)] = []
-        var skippedFloat: [String] = []
-        for (item, value) in zip(candidates, bitpix) {
-            if let value, ![8, 16, 32].contains(value) {
-                skippedFloat.append(item.url.lastPathComponent)
-            } else {
-                valid.append(item)
-            }
-        }
-        return (valid, skippedFloat)
+    /// The items to load: FITS files that aren't in the session yet, in input order. No
+    /// file is read here: a file with an unsupported format (floating-point FITS) is
+    /// recognised by Phase A, which reads the header anyway, and then left out — so the
+    /// first frames start loading right after the scan (decided 2026-10-27; the separate
+    /// header check before the load cost up to 13 s over a network).
+    static func candidates(_ items: [(url: URL, subfolderPath: String)],
+                           existingURLs: Set<URL>) -> [(url: URL, subfolderPath: String)] {
+        items.filter { FITSFile.hasFITSExtension($0.url) && !existingURLs.contains($0.url) }
     }
-
-    /// How many file headers `filterItems` reads at the same time.
-    nonisolated static let headerChecksAtOnce = 8
 
     @concurrent static func loadMetricsOnly(url: URL,
                                             config: MetricsConfig) async -> FrameMetrics? {
@@ -129,8 +83,20 @@ enum FrameLoading {
         let didStart = url.startAccessingSecurityScopedResource()
         defer { if didStart { url.stopAccessingSecurityScopedResource() } }
 
-        if let device = MetalContext.device,
-           let bufferResult = try? FITSReader.readIntoBuffer(from: url, device: device) {
+        // An unsupported format (floating-point FITS, or a stack with colour planes) is
+        // reported as such, so the load
+        // leaves the frame out; it is recognised from the header, before the pixels are read.
+        var bufferResult: FITSBufferResult?
+        if let device = MetalContext.device {
+            do {
+                bufferResult = try FITSReader.readIntoBuffer(from: url, device: device)
+            } catch FITSError.unsupportedBitpix, FITSError.multiChannel {
+                return .unsupported
+            } catch {
+                bufferResult = nil   // the CPU read below reports the error
+            }
+        }
+        if let bufferResult {
             let meta     = bufferResult.metadata
             let floatPtr = bufferResult.metalBuffer.contents().assumingMemoryBound(to: Float.self)
             let histogram = MetricsCalculator.computeHistogram(ptr: floatPtr,
@@ -194,6 +160,8 @@ enum FrameLoading {
                                   metalBuffer: nil, bayerPattern: fits.bayerPattern,
                                   width: w, height: h,
                                   bayerClips: nil, greyClips: nil)
+        } catch FITSError.unsupportedBitpix, FITSError.multiChannel {
+            return .unsupported
         } catch {
             return FastLoadResult(display: nil, thumb: nil, info: "", error: error.localizedDescription,
                                   histogram: nil, headers: [:],
@@ -227,4 +195,15 @@ struct FastLoadResult {
     let bayerClips:  BayerClips?
     /// Greyscale clip bounds for non-Bayer images, used by the post-batch normalisation pass.
     let greyClips:   GreyClips?
+    /// The file has a format FITS Blaster doesn't load (floating-point FITS, or a stack with
+    /// colour planes): the load
+    /// leaves the frame out and lists it as skipped.
+    var isUnsupported = false
+
+    /// The result for a file in an unsupported format.
+    static var unsupported: FastLoadResult { FastLoadResult(display: nil, thumb: nil, info: "", error: nil,
+                                            histogram: nil, headers: [:],
+                                            metalBuffer: nil, bayerPattern: nil,
+                                            width: 0, height: 0,
+                                            bayerClips: nil, greyClips: nil, isUnsupported: true) }
 }

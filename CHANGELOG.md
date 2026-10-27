@@ -4,6 +4,21 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-27 — Frames start loading right after the folder scan (step 9d)
+
+### Changed
+- **The first frames appear right after the folder scan.** FITS Blaster no longer reads every file's header first to find unsupported (floating-point) files — that took up to 13 s over a network for a large folder ("Checking files"). A file FITS Blaster doesn't load now shows briefly as loading and is then left out; the message about them comes at the end of the load instead of before it (requested by Tom, option B). After Cancel it names the ones found so far; after Reset it is not shown.
+- **Stacks with colour planes are left out too** (NAXIS3 > 1, e.g. a 16-bit RGB master in a POST folder). Before, a 16-bit one passed the old check and stayed in the list as an empty frame with an error; floating-point ones were already skipped. The message now reads "Skipped N files FITS Blaster doesn't load (floating-point or multi-channel stacks): …".
+
+### Internal
+- `openFiles` takes `FrameLoading.candidates` (FITS extension, not loaded yet; no file read) and starts Phase A at once. `loadFast` reports a file whose header has an unsupported BITPIX or colour planes (new `FITSError.multiChannel`, which was a generic `invalidFormat`) as `isUnsupported` (recognised from the header, before the pixels are read); Phase A then takes the frame out of the session (`leaveOut`: entries, selection, lists) and collects its name; it still counts as done for its folder's colour render and gets no Phase B. `filterItems`, `headerChecksAtOnce`, `peekBitpix`, `readFirstBlock` and the "Checking files" progress (`LoadPreparation.checking`) are gone.
+- **Network measurements** (1 Gb/s wired to the Mac Studio share, M81 folders of ≈ 140 frames / 7 GB not read before, the CLI's full pipeline): loading runs at 85–93 MB/s, close to the link's limit, with little CPU and 0.35 GB peak memory — no Foundation overhead is left in `loadFast` since step 8d. Six instead of eight reads at once (CODE_AUDIT §3.7) made no difference on the network (85–93 vs 88–90 MB/s, alternated) nor on the SSD (step 8d), so §3.7 is closed and Phase A keeps max(8, cores). The header check cost 2.8 ms per file (0.4 s for 140 files), against ≈ 0.5 s per frame to load over the network.
+- In the app over the cable the share was read at 984 Mb/s (Activity Monitor). A first app test over Wi-Fi had stalled at under 1 Mbit/s with the threads waiting in `pread` and almost no traffic arriving; after Wi-Fi was turned off and the share reconnected, the CLI read 7 GB through the cable at ≈ 110 MB/s and the app ran at full speed — the stall was the connection, not this change.
+- Tests: `candidates` (extension and duplicates, no file read), Reset during a load shows no skipped-files message, a 16-bit stack with colour planes is left out, and a folder with floating-point files (first and third of four): they are left out, named in one message, the cursor ends on a loaded frame, the timing counts only the loaded frames. The tests of `filterItems` and `peekBitpix` are removed with them.
+- Unit tests (325), render tests and the 10 metric baselines pass unchanged; 0 strict warnings. 👤 Checked in the app: the network folder starts loading right after the scan; a folder with normal and floating-point files (POST 5) loads the normal ones and names the others (the 16-bit RGB stack there led to the multi-channel change; after it only the one 2D 16-bit frame of POST 5 remains, no empty frames).
+
+---
+
 ## 2026-10-27 — ⌘-click selects or deselects a single frame
 
 ### Changed

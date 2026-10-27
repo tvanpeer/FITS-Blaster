@@ -3,7 +3,7 @@
 //  FITS Blaster Tests
 //
 //  Unit tests for FITSReader: header parsing, byte-swap, BZERO application,
-//  and peekBitpix. Each test that needs pixel data builds a minimal valid
+//  Each test that needs pixel data builds a minimal valid
 //  FITS file in the system temp directory and removes it on teardown.
 //
 
@@ -38,26 +38,6 @@ struct FITSReaderTests {
     ])
     func cleanHeaderStringHandlesEmpty(input: String, expected: String) {
         #expect(FITSReader.cleanHeaderString(input) == expected)
-    }
-
-    // MARK: - peekBitpix
-
-    @Test("peekBitpix returns correct value", arguments: [
-        (8,   "Int8"),
-        (16,  "Int16"),
-        (32,  "Int32"),
-        (-32, "Float32"),
-    ])
-    func peekBitpixReturnsCorrectValue(bitpix: Int, label: String) throws {
-        let url = try makeFITSFile(bitpix: bitpix, width: 4, height: 4)
-        defer { try? FileManager.default.removeItem(at: url) }
-        #expect(FITSReader.peekBitpix(url: url) == bitpix, "Expected BITPIX \(bitpix) for \(label)")
-    }
-
-    @Test("peekBitpix returns nil for missing file")
-    func peekBitpixReturnsNilForMissingFile() {
-        let url = URL(fileURLWithPath: "/tmp/no-such-file-\(UUID().uuidString).fits")
-        #expect(FITSReader.peekBitpix(url: url) == nil)
     }
 
     // MARK: - read(from:) — header parsing

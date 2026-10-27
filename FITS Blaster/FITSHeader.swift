@@ -2,46 +2,12 @@
 //  FITSHeader.swift
 //  FITS Blaster
 //
-//  The FITS header: the cheap BITPIX check and the validating header parser,
-//  shared by every read path. Every file is untrusted input (CODE_AUDIT §5.2).
+//  The FITS header: the validating header parser, shared by every read path. Every file is untrusted input (CODE_AUDIT §5.2).
 //
 
 import Foundation
 
 extension FITSReader {
-
-    // MARK: - BITPIX Peek (cheap format check)
-
-    /// Reads only the first FITS header block (2880 bytes) and returns the BITPIX value.
-    /// Used to skip unsupported formats before creating an entry. Returns nil on any error.
-    static func peekBitpix(url: URL) -> Int? {
-        guard let block = readFirstBlock(of: url), block.count >= 80 else { return nil }
-        for i in stride(from: 0, to: block.count, by: 80) {
-            let end = min(i + 80, block.count)
-            guard let cardString = String(data: block[i..<end], encoding: .ascii) else { continue }
-            let card = parseCard(cardString)
-            guard card.keyword == "BITPIX" else { continue }
-            return card.value.flatMap { Int($0) }
-        }
-        return nil
-    }
-
-    /// The first 2880-byte block of a file (less if the file is shorter), read with POSIX
-    /// open/read: on an SMB share FileHandle took about 4 times as long per file (100 ms
-    /// against 27 ms, measured 2026-10-25), and this runs for every file of a folder.
-    private static func readFirstBlock(of url: URL) -> Data? {
-        let fd = Darwin.open(url.path(percentEncoded: false), O_RDONLY)
-        guard fd >= 0 else { return nil }
-        defer { Darwin.close(fd) }
-        var block = Data(count: 2880)
-        var filled = 0
-        while filled < 2880 {
-            let n = block.withUnsafeMutableBytes { Darwin.read(fd, $0.baseAddress?.advanced(by: filled), 2880 - filled) }
-            if n <= 0 { break }   // end of file, or an error
-            filled += n
-        }
-        return block.prefix(filled)
-    }
 
     // MARK: - Header Parsing (shared between both read paths)
 
@@ -158,10 +124,7 @@ extension FITSReader {
             if forPreview && naxis3 == 3 {
                 channels = 3
             } else {
-                throw FITSError.invalidFormat(
-                    "Multi-channel FITS files (NAXIS=\(naxis), NAXIS3=\(naxis3)) are not supported. " +
-                    "Load the raw single-frame sub-exposures instead."
-                )
+                throw FITSError.multiChannel(naxis: naxis, planes: naxis3)
             }
         } else {
             channels = 1

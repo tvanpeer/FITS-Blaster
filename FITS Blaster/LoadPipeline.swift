@@ -196,25 +196,10 @@ final class LoadPipeline {
             // scans the former (CODE_AUDIT §5.8).
             let existingURLs = Set(store.entries.flatMap { [$0.url, $0.originalURL] })
 
-            // Phase 0: validate files off the main thread.
-            //
-            // peekBitpix does a synchronous file read — moving it here via a
-            // nonisolated function ensures the main thread is never blocked by slow
-            // I/O (iCloud materialisation, SMB mounts, heavy disk pressure, etc.).
-            // Over a network this reads hundreds of files, so its progress is shown.
-            let total = urlsWithPaths.count
-            pipeline.preparation = .checking(done: 0, total: total)
-            let (progress, progressContinuation) = AsyncStream.makeStream(of: Int.self,
-                                                                          bufferingPolicy: .bufferingNewest(1))
-            async let filtered = FrameLoading.filterItems(urlsWithPaths, existingURLs: existingURLs,
-                                                          progress: progressContinuation)
-            for await done in progress {
-                pipeline.preparation = .checking(done: done, total: total)
-            }
-            let (validItems, skippedFloat) = await filtered
-            // Reset or Cancel during the check: add nothing to the (new) session.
-            guard !Task.isCancelled else { return nil }
-            pipeline.preparation = nil
+            // FITS files not loaded yet. No header is read here: Phase A leaves out files
+            // in an unsupported format, so the first frames start loading at once.
+            let validItems = FrameLoading.candidates(urlsWithPaths, existingURLs: existingURLs)
+            pipeline.skippedUnsupported = []
 
             // Add entries on the main actor so the sidebar shows loading spinners.
             var newEntries: [ImageEntry] = []
@@ -237,11 +222,6 @@ final class LoadPipeline {
                 store.entries.append(entry)
                 newEntries.append(entry)
             }
-            if !skippedFloat.isEmpty {
-                let preview = skippedFloat.prefix(5).joined(separator: ", ")
-                let suffix  = skippedFloat.count > 5 ? " and \(skippedFloat.count - 5) more" : ""
-                store.errorMessage = "Skipped \(skippedFloat.count) floating-point FITS file\(skippedFloat.count == 1 ? "" : "s") (not supported): \(preview)\(suffix)"
-            }
             guard !newEntries.isEmpty else { return nil }
 
             if selectFirst { store.selectedEntry = newEntries[0] }
@@ -255,12 +235,40 @@ final class LoadPipeline {
                                            maxThumbnailSize: maxThumbnailSize,
                                            metricsConfig: metricsConfig,
                                            debayerColorImages: debayerColorImages)
+            // Frames Phase A left out (unsupported format), named in one message — also after
+            // Cancel (the ones found so far), but not after Reset: then none of this load's
+            // frames are in the session any more and the message would be about nothing shown.
+            let skipped = pipeline.skippedUnsupported
+            let stillShown = newEntries.contains { entry in store.entries.contains { $0 === entry } }
+            if !skipped.isEmpty, stillShown {
+                let names   = skipped.map(\.url.lastPathComponent)
+                let preview = names.prefix(5).joined(separator: ", ")
+                let suffix  = names.count > 5 ? " and \(names.count - 5) more" : ""
+                store.errorMessage = "Skipped \(names.count) file\(names.count == 1 ? "" : "s") FITS Blaster doesn't load (floating-point or multi-channel stacks): \(preview)\(suffix)"
+            }
+            let loaded = newEntries.filter { entry in !skipped.contains { $0 === entry } }
             if !Task.isCancelled {
-                await pipeline.normalizeGreyStretch(newEntries, maxDisplaySize: maxDisplaySize,
+                await pipeline.normalizeGreyStretch(loaded, maxDisplaySize: maxDisplaySize,
                                                     maxThumbnailSize: maxThumbnailSize)
             }
-            return newEntries
+            return loaded.isEmpty ? nil : loaded
         }
+    }
+
+    /// Frames of the running load that Phase A left out (unsupported format).
+    @ObservationIgnored var skippedUnsupported: [ImageEntry] = []
+
+    /// Takes a frame in an unsupported format out of the session (Phase A found out).
+    private func leaveOut(_ entry: ImageEntry) {
+        skippedUnsupported.append(entry)
+        guard let store else { return }
+        store.entries.removeAll { $0 === entry }
+        store.rejectedEntryIDs.remove(entry.id)
+        if store.selectedEntry === entry {
+            store.selectedEntry = store.entries.first { !$0.isProcessing } ?? store.entries.first
+        }
+        store.updateActiveFilterGroups()
+        store.updateCachedSort()
     }
 
     /// Re-renders display images and thumbnails at new sizes without touching metrics.
@@ -533,7 +541,12 @@ final class LoadPipeline {
                     let headers    = fast.headers
                     let bayerClips = fast.bayerClips
                     let greyClips  = fast.greyClips
-                    await MainActor.run { [weak self] in
+                    // A file in an unsupported format leaves the session; it still counts
+                    // as done for its folder's colour render below, but gets no Phase B.
+                    let unsupported = fast.isUnsupported
+                    if unsupported {
+                        await MainActor.run { [weak self] in self?.leaveOut(entry) }
+                    } else { await MainActor.run { [weak self] in
                         entry.displayImage = display
                         entry.thumbnail    = thumb
                         entry.imageInfo    = info
@@ -552,7 +565,7 @@ final class LoadPipeline {
                         if selectFirst, entry === entriesToProcess.first, display != nil {
                             self?.store?.selectedEntry = entry
                         }
-                    }
+                    } }
 
                     // ── Per-folder colour normalisation (streaming) ───────────
                     // When every entry in a folder has finished Phase A the per-channel
@@ -575,7 +588,7 @@ final class LoadPipeline {
                     // This bounds the number of live MTLBuffers to phaseBSemaphore.count
                     // while still freeing this group slot immediately after.
                     // A cancelled load gets no slot, so no new detection starts (§3.4).
-                    guard metricsConfig.needsStarDetection else { return (entry, nil, colourTask) }
+                    guard metricsConfig.needsStarDetection, !unsupported else { return (entry, nil, colourTask) }
                     guard await phaseBSemaphore.wait() else { return (entry, nil, colourTask) }
                     let phaseB = Task(priority: .utility) {
                         defer { Task { await phaseBSemaphore.signal() } }

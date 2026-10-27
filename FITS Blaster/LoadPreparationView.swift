@@ -2,7 +2,7 @@
 //  LoadPreparationView.swift
 //  FITS Blaster
 //
-//  Spinner while a folder is scanned, progress bar while the files are checked.
+//  Spinner while a folder is scanned.
 //  Shown in the empty window on a first load, and in the info bar otherwise.
 //
 
@@ -19,18 +19,6 @@ struct LoadPreparationView: View {
                 Text("Scanning \(folder)…")
                     .scaledFont(size: 10)
                     .foregroundStyle(.secondary)
-            }
-        case .checking(let done, let total):
-            HStack(spacing: 6) {
-                Text("Checking files")
-                    .scaledFont(size: 10)
-                    .foregroundStyle(.secondary)
-                ProgressView(value: Double(done), total: Double(max(total, 1)))
-                    .frame(minWidth: 120)
-                Text("\(done) / \(total)")
-                    .scaledFont(size: 10, monospaced: true)
-                    .foregroundStyle(.secondary)
-                    .fixedSize()
             }
         }
     }
