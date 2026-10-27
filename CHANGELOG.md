@@ -4,6 +4,19 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-27 — ⌘-click selects or deselects a single frame
+
+### Changed
+- **⌘-click on a thumbnail now adds that one frame to the orange selection or takes it out**, as in Finder, in the All, Flagged and Rejected views alike. Adding moves the cursor to the clicked frame; taking it out leaves the cursor where it is. Without a selection yet, ⌘-click starts one with the frame under the cursor and the clicked frame. Before, ⌘-click flagged the whole selection and cleared it (and in the Flagged view unflagged it), and didn't move the cursor.
+- **Flagging is its own action:** the flag key (F) and the "(De)flag" button flag or unflag the whole selection (or the cursor frame without a selection), as before.
+
+### Internal
+- `ImageStore.toggleInSelection(_:)` holds the rule; the sidebar calls it and sets the ⇧-click anchor to the clicked frame. Tests: `CommandClickTests` (start a selection, take one frame out, add one, the Flagged view, flagging stays separate).
+- The FAQ on the site still describes the old ⌘-click; it is updated with the stable 1.24 release, so stable users don't read about behaviour their version doesn't have yet.
+- Unit tests (324) pass; 0 strict warnings. 👤 Checked in the app: taking one frame out of a range, adding one (the cursor follows), starting a selection, F flags the selection, and the same in the Flagged view.
+
+---
+
 ## 2026-10-27 — Fewer sidebar redraws on clicks and while scrolling (step 9c)
 
 ### Improved

@@ -417,7 +417,23 @@ final class ImageStore {
         visibilityFilteredEntries = []
     }
 
-    // MARK: - Range selection helpers (Cmd+A / Cmd+D / Cmd+I)
+    // MARK: - Range selection helpers (⌘-click, Cmd+A / Cmd+D / Cmd+I)
+
+    /// ⌘-click on a thumbnail: takes `entry` out of the range selection when it is in it
+    /// (the cursor stays), and otherwise adds it and moves the cursor to it. Without a
+    /// selection yet, the new selection starts with the cursor frame and `entry`, as in
+    /// Finder. Nothing is flagged: flagging is the flag key or the "(De)flag" button.
+    func toggleInSelection(_ entry: ImageEntry) {
+        if markedForRejectionIDs.contains(entry.id) {
+            markedForRejectionIDs.remove(entry.id)
+            return
+        }
+        if markedForRejectionIDs.isEmpty, let cursor = selectedEntry {
+            markedForRejectionIDs.insert(cursor.id)
+        }
+        markedForRejectionIDs.insert(entry.id)
+        selectedEntry = entry
+    }
 
     /// Selects all currently-visible entries as the orange range. Cursor is unchanged.
     func selectAllVisible() {

@@ -146,22 +146,11 @@ struct ThumbnailSidebar: View {
         Button {
             let mods = NSEvent.modifierFlags
             if mods.contains(.command) {
-                // Cmd+click: flag/unflag the range selection (or this single entry if no range).
-                // In All view → add to Flagged; in Flagged view → remove from Flagged.
-                let targets: Set<UUID> = store.markedForRejectionIDs.isEmpty
-                    ? [entry.id]
-                    : store.markedForRejectionIDs
-                store.markedForRejectionIDs = []
-                if store.rejectionVisibility == .active {
-                    store.unflagEntries(targets)
-                    if store.selectedEntry.map({ !store.flaggedEntryIDs.contains($0.id) }) == true {
-                        store.selectedEntry = store.visibilityFilteredEntries.first
-                    }
-                    store.shiftClickAnchorID = store.selectedEntry?.id
-                } else {
-                    store.flaggedEntryIDs.formUnion(targets)
-                    store.shiftClickAnchorID = entry.id
-                }
+                // ⌘-click: add this frame to the (orange) selection or take it out, as in
+                // Finder, in every view. Flagging is a separate action: the flag key or
+                // the "(De)flag" button, which work on the whole selection.
+                store.toggleInSelection(entry)
+                store.shiftClickAnchorID = entry.id
             } else if mods.contains(.shift), let lastID = store.shiftClickAnchorID ?? store.selectedEntry?.id {
                 // Shift+click: select a range (orange) in any view. Move cursor.
                 let visible = visibleEntries
