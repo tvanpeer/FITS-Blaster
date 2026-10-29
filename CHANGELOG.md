@@ -4,6 +4,18 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-28 — Test VMs on macOS 27.2, 26.7.2 and 15.8.2
+
+### Internal
+- **All four test VMs run the macOS versions released on 2026-10-26:** `fb-27` and `fb-27-beta` 27.2 (26B123), rebuilt from Apple's VM installer (no clicks); `fb-26` 26.7.2 (25G332) and `fb-15` 15.8.2 (24H232), upgraded with Apple's full installers. `fb-27-beta` stays on the 27.2 release until the first 27.3 beta (Tom's choice). The old VMs (27.0.1, 27.2 RC, 26.6.2, 15.8.1) were deleted after their replacements had passed the smoke test with 1.24-beta.2; all four pass, metric baselines included.
+- **The App Store build 1.23.1 (208) passes on the new releases too** (`vm-test-all.sh --dev-build --appstore` with the archive submitted on 2026-10-22, signed for development as archives are): installs, sandboxed without Sparkle, launches and stays up without crashes, exceptions or faults, and both Quick Look extensions register and make a thumbnail on 15.8.2, 26.7.2 and 27.2. The command line, rendering and metric baselines don't apply to App Store builds. Checked because an App Store build has broken on a new macOS before (build 199 on 27.2 beta 1) while the direct build was fine.
+- **New `scripts/tart-resize-base.sh`:** gives a copy of a base VM a larger disk in 1–2 minutes, keeping all its settings. It uses Packer with Cirrus Labs' Tart plugin (`scripts/tart-resize.pkr.hcl`), which moves the recovery partition to the end of the disk so the system can grow and macOS updates keep working. `fb-26` and `fb-15` went from 50 to 120 GB this way instead of being rebuilt with Setup Assistant. Packer is a tool on this Mac only; nothing changes in the app.
+- **New `scripts/tart-upgrade-base.sh`:** upgrades a 15 or 26 base VM with Apple's full installer (`InstallAssistant.pkg`, shared read-only into the VM) through `startosinstall`, waits for the new version, removes the installer app, turns every automatic update off again (the 26.7.2 upgrade had removed `AutomaticCheckEnabled`), waits until macOS is quiet and shuts down properly.
+- **Base VMs get 120 GB disks** (`tart-create-base.sh`, was 80): the full installer needs about 67 GB in the system container, and 26.6.2 → 26.7.2 refused on 80 GB ("An additional 10.06 GB of space is needed"). The disks are sparse, so the size costs nothing until macOS writes. The two 27 VMs stay at 80 GB, since 27 VMs are rebuilt from new IPSWs.
+- The installers (27.2 IPSW, both full installers; ≈ 58 GB) are kept on the SSD in `Tart/ipsw/`, checked against the SHA-256 on ipsw.me and with `pkgutil --check-signature`. `docs/internal/testing.md` describes the new update and resize routes.
+
+---
+
 ## 2026-10-27 — Frames start loading right after the folder scan (step 9d)
 
 ### Changed

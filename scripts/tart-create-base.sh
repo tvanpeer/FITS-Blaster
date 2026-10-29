@@ -52,11 +52,11 @@ chmod 700 "$WORK/askpass"
 step() { echo "$(date +%T)  $*"; }
 
 step "Creating $VM from $IPSW (about 6 minutes)"
-# 80 GB: macOS updates need about 22 GB free inside the VM (26.7.1 refused to install on
-# Tart's default 50 GB). The disk is sparse; on this Mac it only takes what macOS writes.
-# Enlarging a disk later is impractical: the recovery partition sits behind the system
-# container, and deleting it breaks softwareupdate.
-tart create "$VM" --from-ipsw "$IPSW" --disk-size 80 > "$WORK/create.log" 2>&1 || { cat "$WORK/create.log" >&2; exit 1; }
+# 120 GB: an upgrade with Apple's full installer (tart-upgrade-base.sh) needs about 67 GB
+# in the system container (26.6.2 → 26.7.2 refused on 80 GB: "An additional 10.06 GB of
+# space is needed"). The disk is sparse; on this Mac it only takes what macOS writes.
+# Older, smaller VMs can be enlarged with tart-resize-base.sh.
+tart create "$VM" --from-ipsw "$IPSW" --disk-size 120 > "$WORK/create.log" 2>&1 || { cat "$WORK/create.log" >&2; exit 1; }
 
 # The first boot gets a window: without one, Setup Assistant waits on screens nobody sees.
 if [[ $MANUAL == 1 ]]; then

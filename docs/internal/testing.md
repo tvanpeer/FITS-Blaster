@@ -100,8 +100,8 @@ Tart base VM (see [VMs](#vms)); every test runs on a fresh clone of it.
 
 | Level | macOS | Base VM | Tests |
 |---|---|---|---|
-| **Fully tested** | Newest 27 release (27.0.1 on 2026-10-15) | `fb-27` | Automatic smoke test, metric baselines, render check **and** 👤 the manual checks below |
-| **Fully tested** | Current 27 beta or RC (27.2 RC) | `fb-27-beta` | Same |
+| **Fully tested** | Newest 27 release (27.2 on 2026-10-28) | `fb-27` | Automatic smoke test, metric baselines, render check **and** 👤 the manual checks below |
+| **Fully tested** | Current 27 beta or RC; between betas the newest release (27.2 on 2026-10-28) | `fb-27-beta` | Same |
 | **Automatically tested** | Latest 26 release | `fb-26` | Automatic smoke test, metric baselines, render check — no person needed |
 | **Automatically tested** | Latest 15 release | `fb-15` | Same |
 | Supported, not tested | Everything else from 15.6 (the app's minimum) | — | — |
@@ -519,18 +519,20 @@ from scripts: clone, start, stop and delete.
 
 | Base VM | macOS | Level | Created with |
 |---|---|---|---|
-| `fb-27-beta` | 27.2 RC (26B118) | Fully tested | `tart-create-base.sh` (2026-10-22, no clicks needed, 6 minutes), 80 GB disk; replaced the 27.2 beta 3 VM (26B5101f, 2026-10-15) |
-| `fb-27` | 27.0.1 (26A434) | Fully tested | `tart-create-base.sh` (2026-10-20, no clicks needed, 8 minutes), 80 GB disk; first built 2026-10-15 and deleted for space |
-| `fb-26` | **26.6.2** (25G83) — not yet 26.7.1, see below | Automatically tested | `--manual` (2026-10-15), 50 GB disk |
-| `fb-15` | 15.8.1 (24H32) | Automatically tested | `--manual` from 15.6.1, updated to 15.8.1 (2026-10-15), 50 GB disk |
+| `fb-27-beta` | 27.2 (26B123) | Fully tested | `tart-create-base.sh` (2026-10-28, no clicks needed), 80 GB disk; the 27.2 release, until the first 27.3 beta (Tom's choice). Replaced the 27.2 RC VM (26B118, 2026-10-22) |
+| `fb-27` | 27.2 (26B123) | Fully tested | `tart-create-base.sh` (2026-10-28, no clicks needed, 6 minutes + 17 to settle), 80 GB disk; replaced the 27.0.1 VM (26A434, 2026-10-20) |
+| `fb-26` | 26.7.2 (25G332) | Automatically tested | `--manual` from 26.6.2 (2026-10-15); resized to 120 GB and upgraded with the full installer (2026-10-28, no clicks needed) |
+| `fb-15` | 15.8.2 (24H232) | Automatically tested | `--manual` from 15.6.1 (2026-10-15), updated to 15.8.1 (2026-10-15); resized to 120 GB and upgraded with the full installer (2026-10-28, no clicks needed) |
 
-**To do when the VM disk arrives (about 2026-10-22):** rebuild `fb-26` with the
-script's 80 GB disk and update `fb-26` to the latest 26. The
-26.7.1 update refused to install on the 50 GB disk: "Not enough free disk
-space: a total of 21.55 GB is required". Enlarging a VM disk afterwards is
-impractical (the recovery partition sits behind the system container, and
-deleting it breaks `softwareupdate`), so new base VMs get 80 GB from the start.
-It is sparse: on this Mac a VM only takes what macOS writes (about 30 GB).
+**Disk size: 120 GB** (since 2026-10-28; `tart-create-base.sh` uses it). An
+upgrade with Apple's full installer needs about 67 GB in the system container:
+the installer app (about 18 GB) plus the upgrade. On 80 GB, 26.6.2 → 26.7.2
+refused: "An additional 10.06 GB of space is needed to install on this disk".
+On Tart's default 50 GB, even the smaller Software Update download of 26.7.1
+refused ("a total of 21.55 GB is required"). The disk is sparse: on this Mac a
+VM only takes what macOS writes (about 30 GB). The two 27 VMs stay at 80 GB:
+27 gets new VM installers, so they are rebuilt rather than upgraded. A smaller
+VM can be enlarged afterwards (*Resize a base VM*).
 
 Every base VM: user `fitstester` (password in the Keychain, item `fb-test-vm`),
 automatic login, FileVault off, Remote Login on, **all automatic updates off**
@@ -599,7 +601,13 @@ scripts/tart-create-base.sh fb-26 <ipsw-file-or-url> --manual
 
 Apple only publishes VM installers up to the last release before the next
 major: **15.6.1** and **26.6.2**. List: `curl -s 'https://api.ipsw.me/v4/device/VirtualMac2,1?type=ipsw'`.
-Later 15.x and 26.x come through Software Update in the VM.
+Later 15.x and 26.x come from Apple's full installer (*Update a base VM*).
+
+The installers are kept on the SSD in `Tart/ipsw/` (2026-10-28: 27.2 IPSW,
+26.7.2 and 15.8.2 full installers; about 58 GB), so a VM can be rebuilt or
+upgraded without waiting for a download. Check an IPSW against the SHA-256 on
+ipsw.me, a full installer with `pkgutil --check-signature` ("signed Apple
+Software") and its version in Apple's software catalog.
 
 👤 **YOU:**
 - **macOS 27+ beta installers:** watch the VM window. About 4 minutes in,
@@ -621,23 +629,54 @@ Later 15.x and 26.x come through Software Update in the VM.
 
 ### Update a base VM
 
-For a new beta, build a new base VM from its installer and delete the old one
-(`TART_HOME="/Volumes/FITS Blaster/Tart" tart delete fb-27-beta`, then
-`TART_HOME="/Volumes/FITS Blaster/Tart" scripts/tart-create-base.sh fb-27-beta <ipsw>`,
-so it stays on the internal volume). For 26 and 15 (done this way for 15.8.1 on
-2026-10-15): start the base VM (`tart run fb-15`), list the updates over SSH
-with `softwareupdate --list`, and install **only the macOS update for that
-major** (not the offered upgrade to 27, not Safari):
+**macOS 27 (release or beta):** build a new base VM from the new installer
+(IPSW), smoke-test it, then delete the old one and rename the new one. For
+`fb-27-beta` keep the internal home:
+
+```
+TART_HOME="/Volumes/FITS Blaster/Tart" scripts/tart-create-base.sh fb-27-beta-new <ipsw>
+scripts/vm-smoke.sh --tart fb-27-beta-new --tag <latest release tag> --quit
+TART_HOME="/Volumes/FITS Blaster/Tart" tart delete fb-27-beta
+TART_HOME="/Volumes/FITS Blaster/Tart" tart rename fb-27-beta-new fb-27-beta
+```
+
+**macOS 15 and 26** (no new IPSWs): upgrade with Apple's full installer,
+`InstallAssistant.pkg` (about 15–18 GB, from swcdn.apple.com; Tom found the
+links for 26.7.2 and 15.8.2, and their version was checked in Apple's software
+catalog, `swscan.apple.com/content/catalogs/others/index-26-…merged-1.sucatalog`). Done this
+way for 26.7.2 and 15.8.2 on 2026-10-28, without clicks (prepare 22–25 minutes, then about 10 to settle):
+
+```
+export TART_HOME="/Volumes/FITS Blaster External/Tart"
+scripts/tart-resize-base.sh fb-26 fb-26-new 120        # disk smaller than 120 GB
+tart clone fb-26 fb-26-new                             # or this, if it is 120 GB already
+scripts/tart-upgrade-base.sh fb-26-new "$TART_HOME/ipsw/InstallAssistant_26.7.2_25G332.pkg" 26.7.2
+scripts/vm-smoke.sh --tart fb-26-new --tag <latest release tag> --quit
+tart delete fb-26; tart rename fb-26-new fb-26
+```
+
+The upgrade runs on a copy, so the base stays usable if it fails.
+
+`tart-upgrade-base.sh` starts the VM with a window and the installer's folder
+shared read-only, installs the "Install macOS" app from the pkg, runs its
+`startosinstall` (prepare about 20 minutes, then the VM restarts and
+installs), waits for the new version, removes the installer app, turns every
+automatic update off again (the upgrade had removed `AutomaticCheckEnabled`),
+waits until the VM is quiet and shuts it down properly. Without a 120 GB disk
+`startosinstall` stops with "The target volume does not have enough free
+space"; the script then stops too and leaves the VM running.
+
+The earlier way, used for 15.8.1 on a 50 GB disk (2026-10-15), is Software
+Update over SSH: `softwareupdate --list`, then install **only the
+macOS update for that major** (not the upgrade to 27, not Safari):
 
 ```
 sudo softwareupdate --install 'macOS Sequoia 15.8.1-24H32' --restart --agree-to-license --user fitstester --stdinpass
 ```
 
 (`sudo` and `--stdinpass` each read the password on stdin; pipe it in twice from
-the Keychain.) The VM downloads in the background (the window shows nothing),
-restarts and installs. Then check the version, **wait until the VM is quiet**
-(below), and shut down properly with `sudo shutdown -h now` over SSH. Update
-the table above.
+the Keychain.) Then wait until the VM is quiet and shut down with `sudo
+shutdown -h now` over SSH. Update the table above either way.
 
 **Let a base VM settle before shutting it down.** After its first boot or an
 update, macOS downloads and unpacks components (Apple Intelligence, widgets,
@@ -651,11 +690,35 @@ waits for this itself (`tart_wait_quiet` in `tart-lib.sh`: load under 1.5 for
 5 minutes); after an update, watch `sysctl -n vm.loadavg` over SSH until it
 stays low.
 
-Known oddity: after an update, `softwareupdate --schedule` reports "Automatic
-checking for updates is turned on" even when the setting is off, and on 15.8.1
-the check setting itself could not be switched off from the command line. It
-only *checks*; downloading and installing stay off. Switch it off in System
-Settings next time the VM is open, if it matters.
+Known oddity: `softwareupdate --schedule` reports "Automatic checking for
+updates is turned on" even when the setting is off (seen on 15.8.1 and
+26.7.2). Check the settings themselves with `defaults read
+/Library/Preferences/com.apple.SoftwareUpdate` instead: `AutomaticCheckEnabled`,
+`AutomaticDownload`, `AutomaticallyInstallMacOSUpdates`, `ConfigDataInstall`
+and `CriticalUpdateInstall` all 0.
+
+### Resize a base VM
+
+`scripts/tart-resize-base.sh <base> <new-name> <GB>` makes a copy of a base VM
+with a larger disk, in 1–2 minutes and without clicks; the base itself is not
+changed. It runs [Packer](https://developer.hashicorp.com/packer) with the
+[Tart plugin](https://github.com/cirruslabs/packer-plugin-tart)
+(`scripts/tart-resize.pkr.hcl`, `recovery_partition = "relocate"`):
+
+1. `tart set --disk-size` makes the disk file larger.
+2. On the host, the plugin moves the recovery partition from just behind the
+   system container to the end of the disk (it copies it out, rewrites the
+   partition table and copies it back). That partition is what stopped the
+   container from growing, and deleting it instead breaks macOS updates.
+3. Over SSH, `diskutil repairDisk` and `diskutil apfs resizeContainer … 0` give
+   the new space to macOS (an APFS check runs first).
+
+Checked 2026-10-28: `fb-26` 50 → 80 → 120 GB and `fb-15` 50 → 120 GB; the
+container grew to 114 GB, the recovery partition sits at the end, and the
+upgrade to 26.7.2 installed afterwards — so updates still work. Packer 1.16.2
+is in `~/.local/bin/packer` (from releases.hashicorp.com, checksum and
+HashiCorp's Developer ID signature checked); `packer init` installs the plugin
+(1.21.0) in `~/.config/packer/plugins`.
 
 ### Clean up
 
@@ -678,7 +741,8 @@ Checked 2026-10-14/15 (Tart 2.41.0, macOS 27.0 host):
 - On first boot, Setup Assistant needs a window: without one it waits on the
   licence screen where nobody can see it.
 - Renders and metrics of the sample set are byte-identical on macOS 15.8.1,
-  26.6.2, 27.0.1 and 27.2 beta 3 (2026-10-15).
+  26.6.2, 27.0.1 and 27.2 beta 3 (2026-10-15); the metric baselines also pass
+  on 15.8.2, 26.7.2 and 27.2 (2026-10-28).
 - `vm-test-all.sh` on three base VMs takes about 7 minutes.
 
 ### VirtualBuddy: removed
