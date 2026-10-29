@@ -129,16 +129,17 @@ enum CLIRunner {
         // The same rule as Open Folder in the app.
         let rejectedURLs: Set<URL> = options.includeRejected ? ImageStore.rejectedURLs(in: collected) : []
 
-        // Load + compute metrics (full pipeline; display images are unused and discarded on exit)
+        // Load + compute metrics. Without --render nothing is shown, so the pipeline makes no
+        // display images or thumbnails and skips the grey normalisation re-read (§7.7).
         let store = ImageStore()
         #if BETA || DEBUG
-        // --render needs the colour renders the app makes with Colour on.
-        let debayer = options.renderURL != nil
+        // --render needs the images, with the colour renders the app makes with Colour on.
+        let render = options.renderURL != nil
         #else
-        let debayer = false
+        let render = false
         #endif
         store.pipeline.openFiles(collected, rejectedURLs: rejectedURLs, rootFolderName: folderURL.lastPathComponent,
-                        debayerColorImages: debayer)
+                        debayerColorImages: render, rendersImages: render)
         await store.pipeline.waitForProcessing()
         fputs("Done.\n", stderr)
 

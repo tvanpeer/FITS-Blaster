@@ -4,6 +4,20 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-29 — The command line measures without making images (step 9e)
+
+### Changed
+- **The command line is faster when it renders nothing:** without `--render` it no longer makes display images, thumbnails, histograms or stretch clip bounds it never shows, and so no longer reads every mono frame a second time for the grey normalisation (CODE_AUDIT §7.7). The CSV is the same. On this Mac's SSD (warm cache, before and after alternated, best of 2): mono sets about twice as fast (Rosette R/G/B 0.35 → 0.18 s, ASI294MM SHO 0.66 → 0.34 s), colour sets 13–24 % faster (California 2.33 → 1.77 s, M81 345 frames 13.1 → 10.9 s). Over the 1 Gb/s network the time stays the same (M81 night, 142 frames: 63.7 vs 63.8 s; Rosette 9.0 vs 8.6 s), because there the load waits for the link (≈ 110 MB/s), and the second read of a mono file came from this Mac's memory anyway. `--render` and the app are unchanged.
+
+### Internal
+- `loadFast(…, rendersImages:)`, passed through `openFiles` and `processParallel`: with `false` Phase A keeps only the headers, image info and the pixel buffer for Phase B. Without grey clips the grey normalisation has nothing to re-read, without `--render` the CLI already passed no colour render. No Metal change: this only removes work.
+- **CSVs byte-identical** between the builds before and after on all 10 baseline sets and M81 (unfiltered and filtered, 2 rounds each), with one exception that is not caused by this change: in m31-night the star count of frame #0026 is 3371, 3372 or 3373 from run to run, **with the build before this change as well** (6 runs each; the same three CSVs from both builds). That contradicts testing.md ("results are now reproducible" since 1.23.1); noted to find the cause later. The metric baselines allow it (stars ±3).
+- `--render` output (8 PNGs and `backgrounds.csv` of the sample set) byte-identical before and after (beta builds).
+- New `MetricsOnlyLoadTests`: without images the same headers, image info, filter group, metrics and group medians as a normal load, and no display image, thumbnail, histogram or clips; a normal load still makes them.
+- Unit tests (328), render tests (`--full`) and the 10 metric baselines pass; 0 compiler warnings.
+
+---
+
 ## 2026-10-28 — Test VMs on macOS 27.2, 26.7.2 and 15.8.2
 
 ### Internal

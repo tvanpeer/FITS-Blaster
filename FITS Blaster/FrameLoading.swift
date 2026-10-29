@@ -76,10 +76,16 @@ enum FrameLoading {
     ///
     /// The returned `FastLoadResult.metalBuffer` is retained so Phase B can run
     /// GPU star-detection on the same buffer without a second file read.
+    ///
+    /// With `rendersImages` false (the command line without `--render`, CODE_AUDIT §7.7)
+    /// only the header and pixels are read: no display image, thumbnail, histogram or clip
+    /// bounds. The metrics come from the same buffer, so they are the same; without grey
+    /// clips the grey normalisation pass has nothing to re-read.
     @concurrent static func loadFast(url: URL,
                                      maxDisplaySize: Int = 1024,
                                      maxThumbnailSize: Int = 120,
-                                     debayerColorImages: Bool = false) async -> FastLoadResult {
+                                     debayerColorImages: Bool = false,
+                                     rendersImages: Bool = true) async -> FastLoadResult {
         let didStart = url.startAccessingSecurityScopedResource()
         defer { if didStart { url.stopAccessingSecurityScopedResource() } }
 
@@ -95,6 +101,16 @@ enum FrameLoading {
             } catch {
                 bufferResult = nil   // the CPU read below reports the error
             }
+        }
+        if let bufferResult, !rendersImages {
+            let meta = bufferResult.metadata
+            return FastLoadResult(
+                display: nil, thumb: nil,
+                info: "\(meta.width) × \(meta.height)  |  BITPIX: \(meta.bitpix)",
+                error: nil, histogram: nil, headers: meta.headers,
+                metalBuffer: bufferResult.metalBuffer, bayerPattern: meta.bayerPattern,
+                width: meta.width, height: meta.height,
+                bayerClips: nil, greyClips: nil)
         }
         if let bufferResult {
             let meta     = bufferResult.metadata
@@ -145,12 +161,20 @@ enum FrameLoading {
 
         do {
             var fits  = try FITSReader.read(from: url)
+            let info  = "\(fits.width) × \(fits.height)  |  BITPIX: \(fits.bitpix)"
+            guard rendersImages else {
+                // Phase B reads the file again on this path (no Metal buffer).
+                return FastLoadResult(display: nil, thumb: nil, info: info, error: nil,
+                                      histogram: nil, headers: fits.headers,
+                                      metalBuffer: nil, bayerPattern: fits.bayerPattern,
+                                      width: fits.width, height: fits.height,
+                                      bayerClips: nil, greyClips: nil)
+            }
             let histogram = MetricsCalculator.computeHistogram(pixels: fits.pixelValues,
                                                                minVal: fits.minValue, maxVal: fits.maxValue)
             let display = ImageStretcher.createImage(from: &fits.pixelValues,
                                                      width: fits.width, height: fits.height,
                                                      maxDisplaySize: maxDisplaySize)
-            let info    = "\(fits.width) × \(fits.height)  |  BITPIX: \(fits.bitpix)"
             let headers = fits.headers
             let w = fits.width, h = fits.height
             fits.pixelValues = []

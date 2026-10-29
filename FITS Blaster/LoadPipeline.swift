@@ -186,7 +186,8 @@ final class LoadPipeline {
                    rootFolderNames: [URL: String] = [:],
                    maxDisplaySize: Int = 1024, maxThumbnailSize: Int = 120,
                    metricsConfig: MetricsConfig = MetricsConfig(),
-                   debayerColorImages: Bool = false) {
+                   debayerColorImages: Bool = false,
+                   rendersImages: Bool = true) {
         enqueueBatch { pipeline, store in
             // Taken when the batch starts, not when it was queued: an earlier batch may
             // still have added frames, so the same folder dropped twice loads once.
@@ -234,7 +235,8 @@ final class LoadPipeline {
                                            maxDisplaySize: maxDisplaySize,
                                            maxThumbnailSize: maxThumbnailSize,
                                            metricsConfig: metricsConfig,
-                                           debayerColorImages: debayerColorImages)
+                                           debayerColorImages: debayerColorImages,
+                                           rendersImages: rendersImages)
             // Frames Phase A left out (unsupported format), named in one message — also after
             // Cancel (the ones found so far), but not after Reset: then none of this load's
             // frames are in the session any more and the message would be about nothing shown.
@@ -486,7 +488,8 @@ final class LoadPipeline {
     func processParallel(_ entriesToProcess: [ImageEntry], selectFirst: Bool,
                          maxDisplaySize: Int = 1024, maxThumbnailSize: Int = 120,
                          metricsConfig: MetricsConfig = MetricsConfig(),
-                         debayerColorImages: Bool = false) async {
+                         debayerColorImages: Bool = false,
+                         rendersImages: Bool = true) async {
 
         // Reset colour counters for this pass so a grey-mode pass never shows a stale
         // Restretching bar from a previous session. When debayering, set the total
@@ -530,7 +533,8 @@ final class LoadPipeline {
                     let fast = await FrameLoading.loadFast(url: url,
                                                    maxDisplaySize: maxDisplaySize,
                                                    maxThumbnailSize: maxThumbnailSize,
-                                                   debayerColorImages: debayerColorImages)
+                                                   debayerColorImages: debayerColorImages,
+                                                   rendersImages: rendersImages)
                     // Only these values go to the main actor; `fast` itself, with its
                     // Metal buffer, stays with Phase B below (CODE_AUDIT §3.3).
                     let display    = fast.display
