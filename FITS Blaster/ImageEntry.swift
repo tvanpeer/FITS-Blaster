@@ -15,7 +15,16 @@ final class ImageEntry: Identifiable {
     let originalURL: URL
     let fileName: String
 
-    var displayImage: NSImage?
+    var displayImage: NSImage? {
+        didSet {
+            // A new image ends a drop, and a failed redraw with it.
+            if displayImage != nil {
+                droppedDisplay = nil
+                redrawFailed = false
+            }
+            displayMemory?.imagesChanged(self)
+        }
+    }
     var thumbnail: NSImage?
     var imageInfo: String = ""
     var isProcessing: Bool = true
@@ -54,9 +63,13 @@ final class ImageEntry: Identifiable {
     /// Per-channel clip bounds computed during the grey-pass for Bayer images.
     var bayerClips: BayerClips?
 
-    var cachedGreyscaleDisplay: NSImage?
+    var cachedGreyscaleDisplay: NSImage? {
+        didSet { displayMemory?.imagesChanged(self) }
+    }
     var cachedGreyscaleThumb: NSImage?
-    var cachedColourDisplay: NSImage?
+    var cachedColourDisplay: NSImage? {
+        didSet { displayMemory?.imagesChanged(self) }
+    }
     var cachedColourThumb: NSImage?
 
     /// How the grey render was made (the display image of a mono frame, the
@@ -64,6 +77,69 @@ final class ImageEntry: Identifiable {
     var greyRecipe: DisplayRecipe?
     /// How `cachedColourDisplay` was made.
     var colourRecipe: DisplayRecipe?
+
+    /// Set while the display images are dropped to stay within the memory budget.
+    private(set) var droppedDisplay: DroppedDisplay?
+    /// Drawing the dropped image again couldn't read the file; the next visit tries again.
+    var redrawFailed = false
+    /// Told when a display image comes or goes, so it can keep to its budget.
+    @ObservationIgnored weak var displayMemory: DisplayMemoryBudget?
+    @ObservationIgnored private var dropCount = 0
+
+    /// The recipe of the image shown: the colour render's, or the grey render's.
+    var shownRecipe: DisplayRecipe? {
+        guard let displayImage else { return nil }
+        if let colour = cachedColourDisplay, displayImage === colour { return colourRecipe }
+        return greyRecipe
+    }
+
+    /// A display image was dropped and isn't being made by a batch: it can be drawn again.
+    var needsRedraw: Bool { droppedDisplay != nil && displayImage == nil && !isProcessing }
+
+    /// The bytes of the display images held (each image once).
+    var displayBytes: Int {
+        var seen: [NSImage] = []
+        var bytes = 0
+        for image in [displayImage, cachedGreyscaleDisplay, cachedColourDisplay].compactMap(\.self)
+        where !seen.contains(where: { $0 === image }) {
+            seen.append(image)
+            if let cg = image.cgImage(forProposedRect: nil, context: nil, hints: nil) {
+                bytes += cg.bytesPerRow * cg.height
+            }
+        }
+        return bytes
+    }
+
+    /// Drops the display image and the cached grey and colour renders. Thumbnails, recipes,
+    /// metrics and headers stay; `redraw` brings the shown image back from the file.
+    func dropDisplayImages() {
+        guard let image = displayImage, let recipe = shownRecipe else { return }
+        let isColour = cachedColourDisplay.map { $0 === image } ?? false
+        let placeholder = thumbnail?.cgImage(forProposedRect: nil, context: nil, hints: nil)
+            .map { NSImage(cgImage: $0, size: image.size) }
+        dropCount += 1
+        displayImage = nil
+        cachedGreyscaleDisplay = nil
+        cachedColourDisplay = nil
+        droppedDisplay = DroppedDisplay(recipe: recipe, isColour: isColour,
+                                        placeholder: placeholder, token: dropCount)
+    }
+
+    /// Forgets a drop: a batch makes the images again (a new display size).
+    func forgetDrop() {
+        droppedDisplay = nil
+        redrawFailed = false
+    }
+
+    /// Shows a dropped image drawn again, in the cache it came from.
+    func restoreDisplay(_ image: NSImage, isColour: Bool) {
+        if isColour {
+            cachedColourDisplay = image
+        } else if isBayer {
+            cachedGreyscaleDisplay = image
+        }
+        displayImage = image
+    }
 
     /// Relative path from the opened root folder to this file's parent directory.
     var subfolderPath: String = ""

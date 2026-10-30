@@ -50,6 +50,10 @@ struct ContentView: View {
             .onChange(of: store.rejectionVisibility) { _, _ in
                 viewer.stopPlayback()
             }
+            .onChange(of: settings.displayMemoryPercent, initial: true) { _, percent in
+                // Only the app limits the display images; the command line keeps them all.
+                store.displayMemory.limitBytes = AppSettings.displayMemoryBytes(percent: percent)
+            }
             .onChange(of: settings.debayerColorImages) { _, _ in
                 guard !store.entries.isEmpty else { return }
                 store.pipeline.recolorImages(settings: settings)

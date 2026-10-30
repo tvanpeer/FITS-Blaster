@@ -4,6 +4,23 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-30 — Display images within a memory limit (step 9f, part 1b)
+
+### Added
+- **Settings → Image Display → Memory → "Memory for display images":** a slider from 10 to 90 % of the Mac's memory in steps of 10, default 50 %, shown with the amount (for example "50 % — 8 GB of 16 GB"). Above it, the frames looked at least recently give up their display images; thumbnails, metrics and headers always stay. A change applies at once: lowering it drops images, raising it draws nothing. At the default display size this rarely matters (M81, 355 colour frames: 1.3 GB); at large display sizes it keeps FITS Blaster from taking most of the Mac's memory (M81 in colour at 4096: 11 GB without a limit).
+- **A frame without its display image is drawn again from its file when you go to it**, exactly as before (same bytes). Until it is ready the viewer shows the frame's thumbnail at the image's size, so it looks blurry for a moment; zoom and position stay. While you move with the arrow keys or playback, the 8 frames ahead in the direction you move and the 2 behind are kept and drawn in advance, two at a time (on M81 at 4096 from the SSD about 32 frames per second, three times the key repeat). If a file can't be read (moved outside FITS Blaster, or a disconnected share), the thumbnail stays dimmed with "Couldn't read the file again" in the info bar; going to the frame again tries again.
+
+### Internal
+- New `DisplayMemoryBudget` (owned by `ImageStore`, no limit by default: the command line, `--render`, the render tests and the unit tests keep every image): counts each frame's display images (each image once), and when they exceed the limit drops the least recently viewed frames — a frame never viewed counts from when its first image came — never the cursor, the frames around it, or frames a batch is making. Trims are coalesced per main-actor turn.
+- `ImageEntry.dropDisplayImages()` keeps a `DroppedDisplay` (the shown image's recipe, colour or grey, the thumbnail at the image's size, a token); `LoadPipeline.redrawDropped` draws dropped frames again with `FrameLoading.renderAgain`, the cursor first, `redrawConcurrency` (2) at a time; a result for a frame that was drawn or dropped again meanwhile is not used. `ImageStore.cursorMoved(from:isSimpleMode:)`, called by `MainContent` when the cursor moves, marks the cursor viewed and picks the frames around it in sidebar order.
+- Redraw speed measured on M81 2025-04-04 at 4096 from the SSD with the file cache flushed (frames/s for 1, 2, 4, 8 at a time): colour 16.6, 32.4, 26.8, 17.5; grey 22.2, 32.4, 35.5, 35.3; one colour frame from the file cache takes about 50 ms, so at this size the drawing costs more than the reading.
+- Measured on M81 (355 frames, colour, SSD, this 16 GB Mac): at 4096 with the 50 % limit the display images take 8.0 GB instead of 11 GB (91 frames dropped), the process 8.3 GB (peak 9.1 GB); load times alternated with and without the limit 38.2/29.9 s against 34.0/33.2 s, no consistent difference. At 1024 nothing is dropped and the load takes the same time (23.7/23.2 s against 23.7/23.1 s).
+- Still to do in 1c: a thumbnail-size change, the colour toggle and the grey path of the toggle for frames whose images were dropped.
+- New `DisplayMemoryBudgetTests` (8). Unit tests (345), render tests (`--full`) and the 10 metric baselines pass; 0 compiler warnings. One render-test run before the commit reported TEST FAILED after a single suite (23.8 s, no crash report, no fault in the log; only the last lines of its output were kept, so the cause is unknown); the two full runs after it passed all 3 tests. The render-test output is kept in full from now on.
+- Tried by Tom in the app with a test build: the slider, jumping, arrow keys both ways, playback and a file moved away and back all work; the redraw delay is hardly noticeable.
+
+---
+
 ## 2026-10-30 — Colour images follow a new display size
 
 ### Fixed

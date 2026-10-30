@@ -7,6 +7,20 @@ import SwiftUI
 
 struct MainContent: View {
     let store: ImageStore
+    @Environment(AppSettings.self) private var settings
+
+    var body: some View {
+        MainContentBody(store: store)
+            .onChange(of: store.selectedEntry?.id) { previousID, _ in
+                // Keeps the frames around the cursor and draws dropped ones again (9f).
+                let previous = previousID.flatMap { id in store.entries.first { $0.id == id } }
+                store.cursorMoved(from: previous, isSimpleMode: settings.isSimpleMode)
+            }
+    }
+}
+
+private struct MainContentBody: View {
+    let store: ImageStore
 
     var body: some View {
         if let entry = store.selectedEntry {
@@ -19,24 +33,14 @@ struct MainContent: View {
                     InfoBar(store: store, entry: entry)
                 }
             } else if let displayImage = entry.displayImage {
-                VStack(spacing: 0) {
-                    Text(entry.fileName)
-                        .scaledFont(size: 10)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                        .padding(.horizontal)
-                        .padding(.vertical, 4)
-                    Divider()
-                    ImageViewer(entryID: entry.id, displayImage: displayImage, isFlipped: entry.isFlipped)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-                    Divider()
-                    ImageAdjustControls()
-
-                    Divider()
-                    InfoBar(store: store, entry: entry)
-                }
+                FrameDetail(store: store, entry: entry, image: displayImage, isDimmed: false)
+            } else if let placeholder = entry.droppedDisplay?.placeholder {
+                // A dropped display image being drawn again: its thumbnail at the image's
+                // size, dimmed when the file couldn't be read.
+                FrameDetail(store: store, entry: entry, image: placeholder, isDimmed: entry.redrawFailed)
+            } else if entry.droppedDisplay != nil {
+                ProgressView()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if let error = entry.errorMessage {
                 VStack {
                     Image(systemName: "exclamationmark.triangle")
@@ -82,6 +86,38 @@ struct MainContent: View {
     }
 }
 
+// MARK: - Frame
+
+/// The file name, the image, the display controls and the info bar of the cursor frame.
+private struct FrameDetail: View {
+    let store: ImageStore
+    let entry: ImageEntry
+    let image: NSImage
+    let isDimmed: Bool
+
+    var body: some View {
+        VStack(spacing: 0) {
+            Text(entry.fileName)
+                .scaledFont(size: 10)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .padding(.horizontal)
+                .padding(.vertical, 4)
+            Divider()
+            ImageViewer(entryID: entry.id, displayImage: image, isFlipped: entry.isFlipped)
+                .opacity(isDimmed ? 0.4 : 1)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+            Divider()
+            ImageAdjustControls()
+
+            Divider()
+            InfoBar(store: store, entry: entry)
+        }
+    }
+}
+
 // MARK: - Info Bar
 
 private struct InfoBar: View {
@@ -119,6 +155,12 @@ private struct InfoBar: View {
                         }
                     }
                 }
+            }
+
+            if entry.redrawFailed {
+                Text("Couldn't read the file again")
+                    .scaledFont(size: 10)
+                    .foregroundStyle(.secondary)
             }
 
             if !entry.imageInfo.isEmpty {

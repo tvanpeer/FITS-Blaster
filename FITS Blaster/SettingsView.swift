@@ -226,6 +226,10 @@ struct ImageDisplayTab: View {
                 }
             }
 
+            Section("Memory") {
+                DisplayMemorySlider()
+            }
+
             Section("Colour Images") {
                 Toggle("Debayer colour FITS images", isOn: $settings.debayerColorImages)
                 Text("When enabled, images with a Bayer CFA pattern (BAYERPAT/COLORTYP/CFA_PAT header) are displayed in colour, debayered on the GPU. Images that are already loaded are re-rendered when you change this.")
@@ -477,6 +481,40 @@ private struct OpacitySlider: View {
                 .foregroundStyle(.secondary)
                 .frame(width: 36, alignment: .trailing)
         }
+    }
+}
+
+// MARK: - Display memory
+
+/// The share of the Mac's memory the display images may use, with what that is in bytes.
+private struct DisplayMemorySlider: View {
+    @Environment(AppSettings.self) private var settings
+
+    private let physicalMemory = ProcessInfo.processInfo.physicalMemory
+
+    var body: some View {
+        @Bindable var settings = settings
+        let percent = Binding<Double>(
+            get: { Double(settings.displayMemoryPercent) },
+            set: { settings.displayMemoryPercent = AppSettings.clampedDisplayMemoryPercent(Int($0.rounded())) })
+        let bytes = Int64(AppSettings.displayMemoryBytes(percent: settings.displayMemoryPercent,
+                                                         physicalMemory: physicalMemory))
+
+        LabeledContent("Memory for display images") {
+            HStack {
+                Slider(value: percent,
+                       in: Double(AppSettings.displayMemoryRange.lowerBound)...Double(AppSettings.displayMemoryRange.upperBound),
+                       step: Double(AppSettings.displayMemoryStep))
+                    .frame(maxWidth: 200)
+                Text("\(settings.displayMemoryPercent) % — \(bytes.formatted(.byteCount(style: .memory))) of \(Int64(physicalMemory).formatted(.byteCount(style: .memory)))")
+                    .scaledFont(size: 10, monospaced: true)
+                    .foregroundStyle(.secondary)
+                    .fixedSize()
+            }
+        }
+        Text("Above this, the frames you looked at least recently give up their display images and are drawn again from their files when you return to them. Thumbnails and metrics always stay.")
+            .scaledFont(size: 10)
+            .foregroundStyle(.secondary)
     }
 }
 

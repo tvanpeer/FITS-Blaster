@@ -74,6 +74,7 @@ final class LoadPipeline {
         await dropScanTask?.value
         await processingTask?.value
         await thumbnailTask?.value
+        await redrawTask?.value
     }
 
     /// New thumbnails made from the display images in memory (`regenerateThumbnails`).
@@ -120,6 +121,9 @@ final class LoadPipeline {
         cancelProcessing()
         thumbnailTask?.cancel()
         thumbnailTask = nil
+        redrawTask?.cancel()
+        redrawTask = nil
+        redrawQueue = []
         renderGeneration += 1
         batchRestretchTotal = 0
         batchRestretchCount = 0
@@ -220,6 +224,7 @@ final class LoadPipeline {
                     entry.isRejected = true
                     store.rejectedEntryIDs.insert(entry.id)
                 }
+                entry.displayMemory = store.displayMemory
                 store.entries.append(entry)
                 newEntries.append(entry)
             }
@@ -306,6 +311,7 @@ final class LoadPipeline {
                 entry.cachedColourThumb      = nil
                 entry.greyRecipe   = nil
                 entry.colourRecipe = nil
+                entry.forgetDrop()
                 // Intentionally leave entry.metrics and entry.cachedMetrics intact.
             }
 
@@ -383,6 +389,71 @@ final class LoadPipeline {
                 if entry.cachedColourDisplay === frame.colour, let colour { entry.cachedColourThumb = colour }
             }
         }
+    }
+
+    // MARK: - Dropped display images
+
+    /// Draws dropped display images again (9f part 1); the cursor first.
+    @ObservationIgnored private var redrawTask: Task<Void, Never>?
+    /// The frames still to draw, in order; a newer request replaces them.
+    @ObservationIgnored private var redrawQueue: [ImageEntry] = []
+    @ObservationIgnored private var redrawing: Set<UUID> = []
+
+    /// Redraws at a time. On M81 at 4096 from the SSD, colour: 1 → 16.6, 2 → 32.4,
+    /// 4 → 26.8, 8 → 17.5 frames/s; grey levels off at about 35 from 4.
+    static let redrawConcurrency = 2
+
+    /// Draws the dropped display images of `entries` again from their files, in this order.
+    /// Replaces the frames still waiting from an earlier request; redraws already running finish.
+    func redrawDropped(_ entries: [ImageEntry]) {
+        redrawQueue = entries.filter(\.needsRedraw)
+        guard redrawTask == nil, !redrawQueue.isEmpty else { return }
+        redrawTask = Task { [weak self] in
+            await self?.runRedraws()
+            self?.redrawTask = nil
+        }
+    }
+
+    private func runRedraws() async {
+        await withTaskGroup(of: Void.self) { group in
+            var running = 0
+            while !Task.isCancelled {
+                while running < Self.redrawConcurrency, let entry = nextRedraw() {
+                    running += 1
+                    group.addTask { [weak self] in await self?.redraw(entry) }
+                }
+                guard running > 0 else { break }
+                await group.next()
+                running -= 1
+            }
+        }
+    }
+
+    private func nextRedraw() -> ImageEntry? {
+        while !redrawQueue.isEmpty {
+            let entry = redrawQueue.removeFirst()
+            if entry.needsRedraw, !redrawing.contains(entry.id) { return entry }
+        }
+        return nil
+    }
+
+    /// Draws one dropped display image again. A frame that was drawn or dropped again
+    /// meanwhile keeps what it has; a file that can't be read marks the frame, and the
+    /// next visit tries again.
+    private func redraw(_ entry: ImageEntry) async {
+        guard let dropped = entry.droppedDisplay, let store else { return }
+        redrawing.insert(entry.id)
+        defer { redrawing.remove(entry.id) }
+        let folders = store.accessFolders(for: [entry])
+        defer { for folder in folders { folder.stopAccessingSecurityScopedResource() } }
+        // The current URL: the frame may have been rejected (moved) since (§3.9).
+        let image = await FrameLoading.renderAgain(url: entry.url, recipe: dropped.recipe)
+        guard entry.droppedDisplay?.token == dropped.token, entry.displayImage == nil else { return }
+        guard let image else {
+            entry.redrawFailed = true
+            return
+        }
+        entry.restoreDisplay(image, isColour: dropped.isColour)
     }
 
     // MARK: - Metrics-only recompute

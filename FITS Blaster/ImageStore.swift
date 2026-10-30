@@ -26,8 +26,37 @@ final class ImageStore {
     /// Loads and re-renders the entries; holds the batch state the progress UI shows.
     let pipeline = LoadPipeline()
 
+    /// Keeps the display images within the memory budget; without a limit (the default,
+    /// and the command line and tests) every image stays.
+    @ObservationIgnored private(set) lazy var displayMemory = DisplayMemoryBudget(store: self)
+
+    /// Frames read ahead of the cursor in the direction it moves, and behind it, when display
+    /// images can be dropped (9f part 1). Measured on M81 at 4096: two redraws at a time
+    /// give about 32 frames/s from the SSD, three times the key repeat (≈ 11 frames/s).
+    static let readAhead = 8
+    static let readBehind = 2
+
     init() {
         pipeline.store = self
+    }
+
+    /// The cursor moved from `previous`: it counts as viewed, and the frames around it in
+    /// sidebar order are kept and drawn again if they were dropped — mostly ahead, in the
+    /// direction of travel. Only with a memory limit.
+    func cursorMoved(from previous: ImageEntry?, isSimpleMode: Bool) {
+        guard displayMemory.limitBytes != nil, let cursor = selectedEntry else { return }
+        displayMemory.viewed(cursor)
+        let order = sidebarNavigationEntries(isSimpleMode: isSimpleMode)
+        var window = [cursor]
+        if let index = order.firstIndex(where: { $0 === cursor }) {
+            let previousIndex = previous.flatMap { previous in order.firstIndex { $0 === previous } }
+            let forward = previousIndex.map { $0 <= index } ?? true
+            let after = order[(index + 1)...], before = order[..<index].reversed()
+            window += forward ? Array(after.prefix(Self.readAhead)) + before.prefix(Self.readBehind)
+                              : Array(before.prefix(Self.readAhead)) + after.prefix(Self.readBehind)
+        }
+        displayMemory.protectedIDs = Set(window.map(\.id))
+        pipeline.redrawDropped(window)
     }
 
     /// IDs of entries flagged for batch operations and the "Flagged" sidebar filter.
@@ -396,6 +425,7 @@ final class ImageStore {
     func reset() {
         // Stop all work first, so a running load can't add frames to the new session (§3.1).
         pipeline.reset()
+        displayMemory.reset()
         entries = []
         rejectionVisibility = .all
         selectedEntry = nil

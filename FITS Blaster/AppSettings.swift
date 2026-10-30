@@ -130,6 +130,29 @@ final class AppSettings {
                              scale: NSScreen.screens.map(\.backingScaleFactor).max() ?? 1)
     }
 
+    /// The share of the Mac's memory the display images may use, in percent (9f part 1).
+    /// Above it the frames viewed least recently lose their display images and are drawn
+    /// again from their files when shown.
+    var displayMemoryPercent: Int = 50 {
+        didSet { UserDefaults.standard.set(displayMemoryPercent, forKey: "displayMemoryPercent") }
+    }
+
+    /// The memory setting's range and step, in percent.
+    nonisolated static let displayMemoryRange = 10...90
+    nonisolated static let displayMemoryStep = 10
+
+    /// `value` brought into `displayMemoryRange`, on a step.
+    nonisolated static func clampedDisplayMemoryPercent(_ value: Int) -> Int {
+        let clamped = min(max(value, displayMemoryRange.lowerBound), displayMemoryRange.upperBound)
+        return Int((Double(clamped) / Double(displayMemoryStep)).rounded()) * displayMemoryStep
+    }
+
+    /// The bytes `percent` of `physicalMemory` allows.
+    nonisolated static func displayMemoryBytes(percent: Int,
+                                               physicalMemory: UInt64 = ProcessInfo.processInfo.physicalMemory) -> Int {
+        Int(physicalMemory * UInt64(clampedDisplayMemoryPercent(percent)) / 100)
+    }
+
     /// `value` brought into `thumbnailSizeRange`.
     nonisolated static func clampedThumbnailSize(_ value: Int) -> Int {
         min(max(value, thumbnailSizeRange.lowerBound), thumbnailSizeRange.upperBound)
@@ -310,6 +333,8 @@ final class AppSettings {
         // A saved value above the range (up to 400 px was allowed) is brought down to it.
         maxThumbnailSize        = Self.clampedThumbnailSize(UD.positiveInt("maxThumbnailSize",
                                                                            default: maxThumbnailSize))
+        displayMemoryPercent    = Self.clampedDisplayMemoryPercent(UD.positiveInt("displayMemoryPercent",
+                                                                                  default: displayMemoryPercent))
 
         // Chart dot brightness
         chartUseBars            = UD.bool(  "chartUseBars",             default: chartUseBars)

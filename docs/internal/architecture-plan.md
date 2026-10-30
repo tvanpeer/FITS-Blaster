@@ -334,7 +334,8 @@ otherwise (b) with the reason written down.
    typically start at "at least 32 GB"), so a budget mainly matters on small machines,
    which are not typical. Tom (2026-10-30): a **slider** for the share of the Mac's memory,
    **default 50 %**, range 10–90 % in steps of 10 %, shown with the size in GB, next to the
-   display size in Settings (agreed 2026-10-30). Later, beside the slider: a small
+   display size in Settings (agreed 2026-10-30); in its own "Memory" section, since it applies at
+   once and the size fields' Apply button doesn't cover it (Tom, 2026-10-30). Later, beside the slider: a small
    calculator showing how many frames fit, by display size and memory setting, colour and grey.
 3. While a frame is re-rendered: (a), the enlarged thumbnail.
 4. The delay above the budget is acceptable.
