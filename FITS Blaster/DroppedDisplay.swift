@@ -13,6 +13,8 @@ struct DroppedDisplay {
     let recipe: DisplayRecipe
     /// The colour render was shown (a Bayer frame with Colour on), not the grey one.
     let isColour: Bool
+    /// The size of the dropped image.
+    let displaySize: NSSize
     /// The thumbnail at the display image's size: blurry, but the zoom and fit stay the same.
     let placeholder: NSImage?
     /// Changes with every drop, so a redraw started for an earlier drop is recognised.

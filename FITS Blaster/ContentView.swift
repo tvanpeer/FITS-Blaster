@@ -50,6 +50,10 @@ struct ContentView: View {
             .onChange(of: store.rejectionVisibility) { _, _ in
                 viewer.stopPlayback()
             }
+            .onChange(of: settings.isSimpleMode, initial: true) { _, isSimple in
+                // The order the cursor's neighbours are kept and drawn in (9f part 1).
+                store.navigationIsSimpleMode = isSimple
+            }
             .onChange(of: settings.displayMemoryPercent, initial: true) { _, percent in
                 // Only the app limits the display images; the command line keeps them all.
                 store.displayMemory.limitBytes = AppSettings.displayMemoryBytes(percent: percent)

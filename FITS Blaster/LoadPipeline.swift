@@ -373,9 +373,28 @@ final class LoadPipeline {
     private func makeThumbnails(size: Int) async {
         guard let store else { return }
         let frames = store.entries.map {
-            (entry: $0, display: $0.displayImage, grey: $0.cachedGreyscaleDisplay, colour: $0.cachedColourDisplay)
+            (entry: $0, display: $0.displayImage, grey: $0.cachedGreyscaleDisplay, colour: $0.cachedColourDisplay,
+             dropped: $0.droppedDisplay.map { (recipe: $0.recipe, token: $0.token) })
         }
+        // A frame whose display image was dropped (9f part 1) is drawn once from its file
+        // for its thumbnail; the image itself isn't kept, so it pushes no other frame out.
+        let droppedEntries = frames.filter { $0.display == nil && $0.dropped != nil }.map(\.entry)
+        let folders = store.accessFolders(for: droppedEntries)
+        defer { for folder in folders { folder.stopAccessingSecurityScopedResource() } }
         await forEachWithRenderSlot(frames) { frame in
+            if frame.display == nil, let dropped = frame.dropped {
+                // The current URL: the frame may have been rejected (moved) since (§3.9).
+                let url = await frame.entry.url
+                guard let image = await FrameLoading.renderAgain(url: url, recipe: dropped.recipe),
+                      let thumb = ImageStretcher.createThumbnail(from: image, maxSize: size) else { return }
+                await MainActor.run {
+                    let entry = frame.entry
+                    // Still dropped by the same drop: drawn again meanwhile, it has a new thumbnail.
+                    guard entry.droppedDisplay?.token == dropped.token, entry.displayImage == nil else { return }
+                    entry.replaceDroppedThumbnail(thumb)
+                }
+                return
+            }
             let thumb  = frame.display.flatMap { ImageStretcher.createThumbnail(from: $0, maxSize: size) }
             // A cached render that is the image shown shares its new thumbnail.
             let grey   = frame.grey === frame.display ? thumb
@@ -856,23 +875,18 @@ final class LoadPipeline {
                 let pipeline = self
                 // The current URL: the frame may have been rejected (moved) since (§3.9).
                 let url = await entry.url
-                let didStart = url.startAccessingSecurityScopedResource()
-                defer { if didStart { url.stopAccessingSecurityScopedResource() } }
-                guard let device = MetalContext.device,
-                      let result = try? FITSReader.readIntoBuffer(from: url, device: device)
-                else { return }
-                let display = await ImageStretcher.createImage(
-                    inputBuffer: result.metalBuffer,
-                    width: result.metadata.width, height: result.metadata.height,
-                    maxDisplaySize: maxDisplaySize)
+                // Binned 2×2 with the Bayer pattern, as Phase A renders it, so the grey image
+                // is the load's (before 9f part 1c this path rendered without binning).
+                let recipe = DisplayRecipe.grey(bayerPattern: await entry.bayerPattern,
+                                                maxDisplaySize: maxDisplaySize)
+                let display = await FrameLoading.renderAgain(url: url, recipe: recipe)
                 let thumb = display.flatMap {
                     ImageStretcher.createThumbnail(from: $0, maxSize: maxThumbnailSize)
                 }
                 await MainActor.run {
                     entry.cachedGreyscaleDisplay = display
                     entry.cachedGreyscaleThumb   = thumb
-                    // This render is made without the Bayer pattern (no 2×2 binning).
-                    entry.greyRecipe = display == nil ? nil : .grey(bayerPattern: nil, maxDisplaySize: maxDisplaySize)
+                    entry.greyRecipe = display == nil ? nil : recipe
                     guard pipeline?.renderGeneration == generation else { return }
                     if let d = display { entry.displayImage = d }
                     if let t = thumb   { entry.thumbnail    = t }

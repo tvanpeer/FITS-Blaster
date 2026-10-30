@@ -463,6 +463,14 @@ at 50 %) and the VM run.
 
 Go-ahead for 1a: 2026-10-30.
 
+**Status (2026-10-30):** 1a committed (bba3672), with a separate fix found on the way:
+colour images now follow a new display size (08cb6c2). 1b committed (4588e8b; slider in its own
+"Memory" section, Tom tested a build). 1c built: thumbnails of dropped frames from their files,
+the grey toggle path binned via its recipe, the read-ahead triggered by `ImageStore.selectedEntry`
+so playback is covered. Part 1 measured: M81 colour at 4096 with the 50 % limit holds 8.0 GB of
+display images instead of 11 GB; no consistent load-time difference; at 1024 nothing changes.
+Redraw at 4096 from the SSD: 2 at a time ≈ 32 frames/s (colour), so 8 ahead / 2 behind.
+
 **Tests**: memory and time with `BenchmarkTests` before and after; render tests (use "keep all"); a test that the LRU re-renders on selection.
 
 **Performance and Metal**: this step is about performance; target numbers are set at the start from a baseline measurement. No kernel changes.

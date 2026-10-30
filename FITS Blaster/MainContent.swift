@@ -7,20 +7,6 @@ import SwiftUI
 
 struct MainContent: View {
     let store: ImageStore
-    @Environment(AppSettings.self) private var settings
-
-    var body: some View {
-        MainContentBody(store: store)
-            .onChange(of: store.selectedEntry?.id) { previousID, _ in
-                // Keeps the frames around the cursor and draws dropped ones again (9f).
-                let previous = previousID.flatMap { id in store.entries.first { $0.id == id } }
-                store.cursorMoved(from: previous, isSimpleMode: settings.isSimpleMode)
-            }
-    }
-}
-
-private struct MainContentBody: View {
-    let store: ImageStore
 
     var body: some View {
         if let entry = store.selectedEntry {

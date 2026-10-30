@@ -21,7 +21,13 @@ import UniformTypeIdentifiers
 @MainActor
 final class ImageStore {
     var entries: [ImageEntry] = []
-    var selectedEntry: ImageEntry?
+    var selectedEntry: ImageEntry? {
+        didSet { cursorMoved(from: oldValue) }
+    }
+
+    /// Simple mode, for the sidebar order the cursor moves in (`cursorMoved`); kept equal
+    /// to the setting by `ContentView`.
+    @ObservationIgnored var navigationIsSimpleMode = false
 
     /// Loads and re-renders the entries; holds the batch state the progress UI shows.
     let pipeline = LoadPipeline()
@@ -40,13 +46,13 @@ final class ImageStore {
         pipeline.store = self
     }
 
-    /// The cursor moved from `previous`: it counts as viewed, and the frames around it in
-    /// sidebar order are kept and drawn again if they were dropped — mostly ahead, in the
-    /// direction of travel. Only with a memory limit.
-    func cursorMoved(from previous: ImageEntry?, isSimpleMode: Bool) {
+    /// The cursor moved from `previous` (arrow keys, a click, playback): it counts as
+    /// viewed, and the frames around it in sidebar order are kept and drawn again if they
+    /// were dropped — mostly ahead, in the direction of travel. Only with a memory limit.
+    private func cursorMoved(from previous: ImageEntry?) {
         guard displayMemory.limitBytes != nil, let cursor = selectedEntry else { return }
         displayMemory.viewed(cursor)
-        let order = sidebarNavigationEntries(isSimpleMode: isSimpleMode)
+        let order = sidebarNavigationEntries(isSimpleMode: navigationIsSimpleMode)
         var window = [cursor]
         if let index = order.firstIndex(where: { $0 === cursor }) {
             let previousIndex = previous.flatMap { previous in order.firstIndex { $0 === previous } }

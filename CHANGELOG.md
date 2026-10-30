@@ -4,6 +4,20 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-30 — Thumbnails, colour toggle and playback with dropped frames (step 9f, part 1c)
+
+### Changed
+- **A new thumbnail size also reaches frames whose display images were dropped** (1b): such a frame is drawn once from its file for its new thumbnail, which the sidebar and the blurry stand-in in the viewer then use; the image itself isn't kept, so it pushes no other frame out. Below the memory limit nothing changes (the thumbnails are still made from the images in memory).
+- **Turning Colour off draws a Bayer frame that has no grey image left the way the load does, binned 2×2.** Before, this path drew it without binning — with the "screen-door" pattern and up to twice the size of the load's grey image. It hardly ever ran (the load always keeps a grey image); with dropped frames it does. Turning Colour on already drew such frames as a colour load does.
+
+### Internal
+- `makeThumbnails` draws dropped frames with `FrameLoading.renderAgain` and `ImageEntry.replaceDroppedThumbnail` sets the thumbnail, the cached thumbnail of the render shown and the stand-in (`DroppedDisplay` now keeps the image's size); a frame drawn or dropped again meanwhile keeps its own. `renderBayerEntriesInGrey` renders with the binned grey recipe.
+- The cursor's neighbours are now kept and drawn from `ImageStore.selectedEntry` itself (`didSet`) instead of from `MainContent`, so playback, arrow keys and clicks go the same way and can be tested; `ImageStore.navigationIsSimpleMode` follows the setting for the sidebar order. No behaviour change.
+- 4 more `DisplayMemoryBudgetTests` (12): thumbnails of dropped frames are byte-identical to those of a store that kept its images, the frames stay dropped; Colour off gives the load's binned grey images byte for byte (the test fails with the old unbinned path); Colour on gives a colour load's images; playback reads ahead.
+- Unit tests (349), render tests (`--full`, full output kept) and the 10 metric baselines pass; 0 compiler warnings. Tried by Tom in the app with a test build: thumbnail-size change, Colour off and on, and playback with dropped frames all work.
+
+---
+
 ## 2026-10-30 — Display images within a memory limit (step 9f, part 1b)
 
 ### Added

@@ -6,7 +6,8 @@
 //  limit nothing is dropped; over it the frames viewed least recently go first, never the
 //  cursor or the frames around it; a dropped frame is drawn again when the cursor comes,
 //  byte-identical, with its thumbnail at the image's size meanwhile; a file that can't be
-//  read marks the frame, and the next visit tries again.
+//  read marks the frame, and the next visit tries again. A thumbnail-size change, the
+//  colour toggle and playback work with dropped frames too (1c).
 //
 
 import AppKit
@@ -62,9 +63,7 @@ struct DisplayMemoryBudgetTests {
 
     /// Moves the cursor like the arrow keys do and waits for the redraws it starts.
     private func move(_ store: ImageStore, to entry: ImageEntry) async {
-        let previous = store.selectedEntry
         store.selectedEntry = entry
-        store.cursorMoved(from: previous, isSimpleMode: false)
         await store.pipeline.waitForProcessing()
     }
 
@@ -202,6 +201,101 @@ struct DisplayMemoryBudgetTests {
         await move(store, to: store.entries[0])
         await move(store, to: target)
         #expect(!target.redrawFailed && target.displayImage != nil)
+    }
+
+    // MARK: - Features that used the images in memory (1c)
+
+    @Test("A thumbnail-size change makes the dropped frames' thumbnails from their files, as a normal store does")
+    func thumbnailsOfDroppedFrames() async throws {
+        let folder = try makeFolder()
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let files = try writeFiles(4, bayer: true, in: folder)
+        let store = await load(files, colour: true)
+        let reference = await load(files, colour: true)
+        store.selectedEntry = store.entries[0]
+        for entry in store.entries.dropFirst() { entry.dropDisplayImages() }
+        store.displayMemory.limitBytes = 100 * Self.greyBytes
+
+        store.pipeline.regenerateThumbnails(size: 60)
+        reference.pipeline.regenerateThumbnails(size: 60)
+        await store.pipeline.waitForProcessing()
+        await reference.pipeline.waitForProcessing()
+
+        for (entry, expected) in zip(store.entries, reference.entries) {
+            #expect(try pixels(entry.thumbnail).bytes == pixels(expected.thumbnail).bytes)
+        }
+        for entry in store.entries.dropFirst() {
+            // Still dropped: the image drawn for the thumbnail isn't kept.
+            #expect(entry.displayImage == nil && entry.cachedColourDisplay == nil)
+            #expect(entry.cachedColourThumb === entry.thumbnail)
+            let placeholder = try #require(entry.droppedDisplay?.placeholder)
+            #expect(placeholder.size == entry.droppedDisplay?.displaySize)
+            #expect(try pixels(placeholder).width == 60)
+        }
+    }
+
+    @Test("Colour off with dropped frames: their grey image is the load's, binned 2×2")
+    func greyToggleOfDroppedFrames() async throws {
+        let folder = try makeFolder()
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let store = await load(try writeFiles(3, bayer: true, in: folder), colour: true)
+        let loadGrey = try store.entries.map { try pixels($0.cachedGreyscaleDisplay) }
+        store.selectedEntry = store.entries[0]
+        for entry in store.entries.dropFirst() { entry.dropDisplayImages() }
+
+        store.pipeline.recolorImages(debayer: false, maxDisplaySize: 1024, maxThumbnailSize: 120)
+        await store.pipeline.waitForProcessing()
+
+        for (entry, expected) in zip(store.entries, loadGrey) {
+            #expect(entry.displayImage === entry.cachedGreyscaleDisplay)
+            let grey = try pixels(entry.displayImage)
+            #expect(grey.width == expected.width && grey.height == expected.height)
+            #expect(grey.bytes == expected.bytes)
+            guard case .grey(.rggb, 1024) = entry.greyRecipe else {
+                Issue.record("Expected the binned grey recipe, got \(String(describing: entry.greyRecipe))")
+                continue
+            }
+        }
+    }
+
+    @Test("Colour on with dropped frames: their colour images are a colour load's")
+    func colourToggleOfDroppedFrames() async throws {
+        let folder = try makeFolder()
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let files = try writeFiles(3, bayer: true, in: folder)
+        let store = await load(files, colour: false)
+        let reference = await load(files, colour: true)
+        store.selectedEntry = store.entries[0]
+        for entry in store.entries.dropFirst() { entry.dropDisplayImages() }
+
+        store.pipeline.recolorImages(debayer: true, maxDisplaySize: 1024, maxThumbnailSize: 120)
+        await store.pipeline.waitForProcessing()
+
+        for (entry, expected) in zip(store.entries, reference.entries) {
+            #expect(entry.displayImage === entry.cachedColourDisplay)
+            #expect(try pixels(entry.displayImage).bytes == pixels(expected.cachedColourDisplay).bytes)
+            #expect(entry.droppedDisplay == nil)
+        }
+    }
+
+    @Test("Playback reads ahead like the arrow keys")
+    func playbackReadsAhead() async throws {
+        let folder = try makeFolder()
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let store = await load(try writeFiles(12, in: folder))
+        let order = store.sidebarNavigationEntries(isSimpleMode: false)
+        store.selectedEntry = order[0]
+        for entry in order.dropFirst() { entry.dropDisplayImages() }
+        store.displayMemory.limitBytes = 100 * Self.greyBytes
+
+        let viewer = ViewerState()
+        #expect(viewer.advancePlayback(store: store, settings: AppSettings()))
+        await store.pipeline.waitForProcessing()
+
+        #expect(store.selectedEntry === order[1])
+        // 1 + eight ahead (2…9) + one behind (0, which wasn't dropped).
+        #expect((1...9).allSatisfy { order[$0].displayImage != nil })
+        #expect([10, 11].allSatisfy { order[$0].droppedDisplay != nil })
     }
 
     @Test("The setting is a share of the memory, 10–90 % in steps of 10")

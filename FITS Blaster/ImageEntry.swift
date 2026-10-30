@@ -121,8 +121,26 @@ final class ImageEntry: Identifiable {
         displayImage = nil
         cachedGreyscaleDisplay = nil
         cachedColourDisplay = nil
-        droppedDisplay = DroppedDisplay(recipe: recipe, isColour: isColour,
+        droppedDisplay = DroppedDisplay(recipe: recipe, isColour: isColour, displaySize: image.size,
                                         placeholder: placeholder, token: dropCount)
+    }
+
+    /// A new thumbnail for a frame whose display images are dropped (a thumbnail-size change):
+    /// it is shown in the sidebar, and at the display image's size while the frame is drawn again.
+    func replaceDroppedThumbnail(_ thumb: NSImage) {
+        guard let dropped = droppedDisplay else { return }
+        thumbnail = thumb
+        // The cached thumbnail of the render shown, as the toggle uses it.
+        if dropped.isColour {
+            cachedColourThumb = thumb
+        } else if isBayer {
+            cachedGreyscaleThumb = thumb
+        }
+        droppedDisplay = DroppedDisplay(
+            recipe: dropped.recipe, isColour: dropped.isColour, displaySize: dropped.displaySize,
+            placeholder: thumb.cgImage(forProposedRect: nil, context: nil, hints: nil)
+                .map { NSImage(cgImage: $0, size: dropped.displaySize) },
+            token: dropped.token)
     }
 
     /// Forgets a drop: a batch makes the images again (a new display size).
