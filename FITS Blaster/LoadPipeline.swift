@@ -279,10 +279,16 @@ final class LoadPipeline {
     /// completes, each entry's `metrics` is restored from its `cachedMetrics` so the
     /// displayed values remain unchanged throughout. Queued behind a running load.
     func regenerateSizes(settings: AppSettings) {
-        let metricsConfig    = settings.effectiveMetricsConfig
-        let maxDisplaySize   = settings.maxDisplaySize
-        let maxThumbnailSize = settings.thumbnailRenderSize
-        let debayer          = settings.debayerColorImages
+        regenerateSizes(maxDisplaySize: settings.maxDisplaySize,
+                        maxThumbnailSize: settings.thumbnailRenderSize,
+                        metricsConfig: settings.effectiveMetricsConfig,
+                        debayer: settings.debayerColorImages)
+    }
+
+    /// `regenerateSizes(settings:)` with the values passed in (also used by the tests, which
+    /// mustn't change the app's saved settings).
+    func regenerateSizes(maxDisplaySize: Int, maxThumbnailSize: Int,
+                         metricsConfig: MetricsConfig, debayer: Bool) {
         enqueueBatch { pipeline, store in
             // The frames when the batch starts, including those a queued load added.
             let entriesToProcess = store.entries
@@ -291,6 +297,15 @@ final class LoadPipeline {
                 entry.displayImage = nil
                 entry.thumbnail    = nil
                 entry.histogram    = nil
+                // The cached grey and colour renders have the old size too: without them the
+                // colour render below makes new ones instead of showing the old colour images,
+                // and a later colour toggle renders at the new size.
+                entry.cachedGreyscaleDisplay = nil
+                entry.cachedGreyscaleThumb   = nil
+                entry.cachedColourDisplay    = nil
+                entry.cachedColourThumb      = nil
+                entry.greyRecipe   = nil
+                entry.colourRecipe = nil
                 // Intentionally leave entry.metrics and entry.cachedMetrics intact.
             }
 

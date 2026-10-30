@@ -4,6 +4,17 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-30 — Colour images follow a new display size
+
+### Fixed
+- **After changing the display size with Colour on, the colour images kept the old size**; only the grey ones were rendered at the new size. A display-size change now also drops the cached grey and colour renders, so every frame is rendered again at the new size, in colour too, and a later colour toggle renders at the new size as well. Found while preparing step 9f.
+
+### Internal
+- `regenerateSizes(maxDisplaySize:maxThumbnailSize:metricsConfig:debayer:)` takes the values directly (as `recolorImages` and `regenerateThumbnails` do), so tests don't change the app's saved settings; `regenerateSizes(settings:)` calls it.
+- New `DisplaySizeChangeTests` (2): in colour mode the colour images, grey renders, thumbnails and recipes get the new size; in grey mode, colour turned on afterwards renders at the new size. Both fail without the fix.
+
+---
+
 ## 2026-10-30 — Every display image records how it was made (step 9f, part 1a)
 
 ### Internal
