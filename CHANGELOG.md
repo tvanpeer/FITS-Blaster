@@ -4,6 +4,16 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-30 — Every display image records how it was made (step 9f, part 1a)
+
+### Internal
+- **Step 0 of 9f measured** (results in `docs/internal/architecture-plan.md`, step 9, "9f"). M81 (355 frames) takes 353 MB in grey and 1.3 GB in colour at the default display size 1024, and 2.3 GB / 11 GB at 4096; almost all of it is the display images in Metal memory. The earlier "3.15 GB at 4096" is not reproduced. A second read of every file during a load comes from the file cache for one night (≈ 7 GB), but for three nights (17.6 GB) nearly every file is read twice: 1.93× from the SSD (24 s instead of 9.4 s metrics only) and 1.88× over the network (283 s instead of 157 s), because a folder's colour render runs alongside the next folder's first pass. The 9f plan (memory budget with a slider, then fewer reads) is in the master plan with Tom's answers.
+- **New `DisplayRecipe`:** each display image stores how it was made — Phase A's grey stretch (with or without 2×2 Bayer binning), the shared clips of a (folder, filter) group, the folder's shared colour clips, or the CPU stretch — with the display size. `FrameLoading.renderAgain(url:recipe:)` makes the image again from its file with the same kernel and values. Nothing uses it yet; in 1b it lets a display image be dropped to stay within a memory budget. No behaviour change, no Metal change.
+- New `DisplayRecipeTests` (6): for mono on its own, mono in a group, Bayer in grey, Bayer in colour, and colour after a toggle, the image made again is byte-identical to the one the load made; an unreadable file gives no image.
+- Unit tests (336), render tests (`--full`) and the 10 metric baselines pass; 0 compiler warnings. `--render` PNGs byte-identical before and after for Rosette R/G/B, ASI294MM SHO, M31 and California; the M31 CSV differs only in the star count of #0026 (3373 vs 3374), the known run-to-run variation (the build before gives 3371–3373 too).
+
+---
+
 ## 2026-10-29 — The command line measures without making images (step 9e)
 
 ### Changed

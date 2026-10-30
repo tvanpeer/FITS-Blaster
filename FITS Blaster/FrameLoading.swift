@@ -71,6 +71,40 @@ enum FrameLoading {
         return (display, thumb)
     }
 
+    /// Makes a display image again from its file with the recipe it was made with: the
+    /// same kernel and stretch values give the same bytes (master-plan 9f part 1). Pass the
+    /// entry's current URL: the frame may have been rejected (moved) since (§3.9).
+    @concurrent static func renderAgain(url: URL, recipe: DisplayRecipe) async -> NSImage? {
+        let didStart = url.startAccessingSecurityScopedResource()
+        defer { if didStart { url.stopAccessingSecurityScopedResource() } }
+
+        if case .cpuGrey(let maxDisplaySize) = recipe {
+            guard var fits = try? FITSReader.read(from: url) else { return nil }
+            return ImageStretcher.createImage(from: &fits.pixelValues, width: fits.width, height: fits.height,
+                                              maxDisplaySize: maxDisplaySize)
+        }
+        guard let device = MetalContext.device,
+              let result = try? FITSReader.readIntoBuffer(from: url, device: device)
+        else { return nil }
+        let width = result.metadata.width, height = result.metadata.height
+
+        switch recipe {
+        case .grey(let bayerPattern, let maxDisplaySize):
+            return await ImageStretcher.createImage(inputBuffer: result.metalBuffer, width: width, height: height,
+                                                    maxDisplaySize: maxDisplaySize, bayerPattern: bayerPattern)
+        case .sharedGrey(let clips, let bayerPattern, let maxDisplaySize):
+            return await ImageStretcher.createImage(inputBuffer: result.metalBuffer, width: width, height: height,
+                                                    clips: clips, maxDisplaySize: maxDisplaySize,
+                                                    bayerPattern: bayerPattern)
+        case .colour(let rOffset, let clips, let maxDisplaySize):
+            return await ImageStretcher.createBayerImage(inputBuffer: result.metalBuffer, width: width, height: height,
+                                                         rOffset: rOffset, clips: clips,
+                                                         maxDisplaySize: maxDisplaySize)
+        case .cpuGrey:
+            return nil   // handled above, without a Metal buffer
+        }
+    }
+
     /// Phase A of the loading pipeline: read the FITS file, compute the histogram,
     /// and GPU-stretch to produce the display image and thumbnail.
     ///
@@ -156,7 +190,9 @@ enum FrameLoading {
                 error: nil, histogram: histogram, headers: meta.headers,
                 metalBuffer: bufferResult.metalBuffer, bayerPattern: meta.bayerPattern,
                 width: meta.width, height: meta.height,
-                bayerClips: bayerClips, greyClips: greyClips)
+                bayerClips: bayerClips, greyClips: greyClips,
+                recipe: display == nil ? nil : .grey(bayerPattern: meta.bayerPattern,
+                                                     maxDisplaySize: maxDisplaySize))
         }
 
         do {
@@ -183,7 +219,8 @@ enum FrameLoading {
                                   histogram: histogram, headers: headers,
                                   metalBuffer: nil, bayerPattern: fits.bayerPattern,
                                   width: w, height: h,
-                                  bayerClips: nil, greyClips: nil)
+                                  bayerClips: nil, greyClips: nil,
+                                  recipe: display == nil ? nil : .cpuGrey(maxDisplaySize: maxDisplaySize))
         } catch FITSError.unsupportedBitpix, FITSError.multiChannel {
             return .unsupported
         } catch {
@@ -219,6 +256,8 @@ struct FastLoadResult {
     let bayerClips:  BayerClips?
     /// Greyscale clip bounds for non-Bayer images, used by the post-batch normalisation pass.
     let greyClips:   GreyClips?
+    /// How `display` was made, so it can be made again from the file (9f part 1).
+    var recipe: DisplayRecipe?
     /// The file has a format FITS Blaster doesn't load (floating-point FITS, or a stack with
     /// colour planes): the load
     /// leaves the frame out and lists it as skipped.

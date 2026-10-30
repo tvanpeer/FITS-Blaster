@@ -545,6 +545,7 @@ final class LoadPipeline {
                     let headers    = fast.headers
                     let bayerClips = fast.bayerClips
                     let greyClips  = fast.greyClips
+                    let recipe     = fast.recipe
                     // A file in an unsupported format leaves the session; it still counts
                     // as done for its folder's colour render below, but gets no Phase B.
                     let unsupported = fast.isUnsupported
@@ -559,6 +560,7 @@ final class LoadPipeline {
                         entry.headers      = headers
                         entry.bayerClips   = bayerClips
                         entry.greyClips    = greyClips
+                        entry.greyRecipe   = recipe
                         // Pre-populate the greyscale cache so any toggle to grey is instant.
                         if entry.isBayer {
                             entry.cachedGreyscaleDisplay = display
@@ -783,6 +785,8 @@ final class LoadPipeline {
                 await MainActor.run {
                     entry.cachedGreyscaleDisplay = display
                     entry.cachedGreyscaleThumb   = thumb
+                    // This render is made without the Bayer pattern (no 2×2 binning).
+                    entry.greyRecipe = display == nil ? nil : .grey(bayerPattern: nil, maxDisplaySize: maxDisplaySize)
                     guard pipeline?.renderGeneration == generation else { return }
                     if let d = display { entry.displayImage = d }
                     if let t = thumb   { entry.thumbnail    = t }
@@ -856,7 +860,11 @@ final class LoadPipeline {
                 ImageStretcher.createThumbnail(from: $0, maxSize: maxThumbnailSize)
             }
             await MainActor.run {
-                if let d = display { entry.displayImage = d }
+                if let d = display {
+                    entry.displayImage = d
+                    entry.greyRecipe   = .sharedGrey(clips: clips, bayerPattern: item.bayerPattern,
+                                                     maxDisplaySize: maxDisplaySize)
+                }
                 if let t = thumb   { entry.thumbnail    = t }
             }
         }
@@ -895,6 +903,8 @@ final class LoadPipeline {
                maxDisplaySize: maxDisplaySize, maxThumbnailSize: maxThumbnailSize) {
             selected.cachedColourDisplay = display
             selected.cachedColourThumb   = thumb
+            selected.colourRecipe = .colour(rOffset: pattern.rOffset, clips: sharedClips,
+                                            maxDisplaySize: maxDisplaySize)
             if renderGeneration == generation {
                 selected.displayImage    = display
                 selected.thumbnail       = thumb
@@ -932,6 +942,8 @@ final class LoadPipeline {
             await MainActor.run {
                 entry.cachedColourDisplay = display
                 entry.cachedColourThumb   = thumb
+                entry.colourRecipe = .colour(rOffset: pattern.rOffset, clips: sharedClips,
+                                             maxDisplaySize: maxDisplaySize)
                 if pipeline?.renderGeneration == generation {
                     entry.displayImage    = display
                     entry.thumbnail       = thumb

@@ -59,6 +59,12 @@ final class ImageEntry: Identifiable {
     var cachedColourDisplay: NSImage?
     var cachedColourThumb: NSImage?
 
+    /// How the grey render was made (the display image of a mono frame, the
+    /// `cachedGreyscaleDisplay` of a Bayer frame), so it can be made again from the file.
+    var greyRecipe: DisplayRecipe?
+    /// How `cachedColourDisplay` was made.
+    var colourRecipe: DisplayRecipe?
+
     /// Relative path from the opened root folder to this file's parent directory.
     var subfolderPath: String = ""
 

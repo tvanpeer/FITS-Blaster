@@ -252,6 +252,216 @@ Then a scratch build with `SWIFT_STRICT_CONCURRENCY=complete` shows 0 warnings. 
 - **CLI without display work** (§7.7) — **done 2026-10-29 (9e)**: without `--render` the CLI loads with `rendersImages` false (no display images, thumbnails, histograms or clips, so no grey re-read). CSVs byte-identical (apart from the pre-existing star-count variation in m31-night, noted for later). SSD: mono sets ≈ 2× faster, colour 13–24 %; network (1 Gb/s): unchanged, the link is the limit.
 - **Start loading while checking** — **done 2026-10-27 as option (b)**, the separate check removed; `loadFast` over the network measured at 85–93 MB/s (network-bound). (Tom's request, 2026-10-25): the first frames should start loading as soon as their header check is done, instead of after all files are checked (over a network the check of 1147 files took 13 s, after the speed-up of 2026-10-25). Options, decided with measurements: feed checked files into the loading pipeline as they come, or drop the separate check and test the bit depth during Phase A (the header is read there anyway; float files would then appear briefly before being dropped, a behaviour change). Also measure here whether `loadFast` (whole-file reads) has the same Foundation overhead on a network share as the scan and header read had.
 
+### 9f proposal (2026-10-29) — display memory (§7.1) and fewer reads (§7.2)
+
+Proposed to Tom on 2026-10-29; answered 2026-10-30 (see Answers); **not started.** It replaces the
+two bullets "Fewer reads per load" and "Display images in memory" above where they differ.
+
+**Findings that change the earlier plan**
+- **The float proxy of decision 7 (a) costs more memory than the display image it
+  replaces.** A colour proxy needs three floats per display pixel (12 bytes), against
+  5 bytes for the colour image plus its grey copy. Kept for every frame, it works against §7.1.
+- **Renders from such a proxy can be byte-identical.** Both stretch kernels
+  (`mtfStretch`, `bayerDebayerAndStretch`) first box-average the source pixels in
+  Float32 and only then apply the stretch, so a proxy of exactly those averages gives the
+  same bytes.
+
+**Where we are** (M81, IMX571, binned 2×2 for display; colour image + grey copy per frame):
+
+| Display size | Per frame | 355 frames |
+|---|---|---|
+| 1024 (default) | 3.5 MB | 1.2 GB (measured 1.19 GB Metal) |
+| 2048 | 14 MB | 5 GB |
+| 4096 and up | 33 MB (binned frame is 3124 px wide) | 11.6 GB (measured only 3.15 GB) |
+
+Every file is read twice per load: mono in Phase A and the grey normalisation, colour in
+Phase A and the colour render. Locally the second read usually comes from the file
+cache; for large folders and over a network it costs a second full read.
+
+**Step 0 — measure first (no app change; Claude runs it headless, through the test setup)**
+1. Memory of M81 at 1024, 2048 and 4096, compressed and uncompressed. Hypothesis (not
+   checked): macOS compresses the dark star-field images, which would explain 3.15 GB
+   instead of 11.6 GB at 4096 (the "to be explained" in PERFORMANCE_AUDIT.md).
+2. Cost of the second reads: M81 colour and Rosette mono, locally and over the network,
+   with the file cache flushed — read or render work?
+
+**Part 1 — display images within a memory budget (§7.1)**
+- Display images and their grey/colour copies are kept within a memory budget instead of
+  for every frame: the cursor frame and its neighbours always stay; the least recently
+  viewed go first.
+- Kept for every frame: thumbnails, metrics, headers and the stretch values. The shared
+  clips per folder (grey per folder+filter, colour per folder) must be stored first, so a
+  re-render is byte-identical.
+- A frame without an image is rendered again from its file when it is shown (about
+  20–50 ms on the SSD, about 0.5 s per frame over a network); with the arrow keys the
+  next frames are prepared ahead.
+- At the default 1024, a 2 GB budget holds about 600 colour frames, so normal sessions
+  behave as now; re-rendering starts only at large display sizes or very large sessions.
+- The CLI, `--render`, `CLIRenderer` and the render tests use a "keep all" mode.
+- Side effects above the budget: jumping far shows the frame a moment later (more over a
+  network); a thumbnail-size change must re-read the files of frames without a display
+  image (today it uses the images in memory); playback meets the same delay.
+- Metal: existing kernels, no new ones. Memory drops sharply at large display sizes;
+  time unchanged while everything fits the budget.
+
+**Part 2 — fewer reads (§7.2), decided with the step 0 numbers**
+
+| Option | What | Memory | Reads |
+|---|---|---|---|
+| (a′) temporary proxy | Phase A keeps the averaged proxy until its folder's shared stretch is known, renders from it, then drops it | Briefly frames in folder × 8.4 MB (colour at 1024): ≈ 1.2 GB for 140 frames; at 4096 ≈ 11 GB, too much | 1 |
+| (a′ with budget) | (a′) while the proxies fit a budget, otherwise re-read as now | within the budget | 1 at normal sizes, 2 at large ones |
+| (b) leave as is | close §7.2 if step 0 shows the re-reads are cheap | — | 2 |
+
+(a′) needs a kernel split ("average only" and "stretch from the average"); render tests
+must stay byte-identical. The colour toggle and part-1 re-renders still read the file.
+
+**Recommendation:** step 0; then part 1 with a memory budget; part 2 (a′ with budget)
+if the second read is a large share of the load time (especially over a network),
+otherwise (b) with the reason written down.
+
+**Open questions for Tom**
+1. Order: step 0, then part 1, then part 2 decided with the step 0 numbers?
+2. Budget: fixed (e.g. 2 GB), a share of the Mac's memory (e.g. 1/8: 2 GB on 16 GB,
+   1 GB on 8 GB), or a setting? Proposed: share of memory, no setting.
+3. While a frame is re-rendered: (a) the thumbnail enlarged (blurry for a moment),
+   (b) the previous frame until ready, or (c) a small spinner? Proposed: (a).
+4. Is the delay above the budget (thumbnail-size change, playback) acceptable? At the
+   default size it doesn't occur.
+
+**Answers (Tom, 2026-10-30)**
+1. Order agreed: step 0, then part 1, then part 2 decided with the step 0 numbers.
+2. The budget is a **setting**. Most astrophotography Macs have plenty of memory (forums
+   typically start at "at least 32 GB"), so a budget mainly matters on small machines,
+   which are not typical. Tom (2026-10-30): a **slider** for the share of the Mac's memory,
+   **default 50 %**, range 10–90 % in steps of 10 %, shown with the size in GB, next to the
+   display size in Settings (agreed 2026-10-30). Later, beside the slider: a small
+   calculator showing how many frames fit, by display size and memory setting, colour and grey.
+3. While a frame is re-rendered: (a), the enlarged thumbnail.
+4. The delay above the budget is acceptable.
+
+**Step 0 results (2026-10-30)** — temporary test target file, not committed; Release build.
+
+Memory of M81 (355 frames, binned 3124×2088), `footprint` of the loaded process:
+
+| Display size | Grey mode | Colour mode |
+|---|---|---|
+| 1024 | 353 MB | 1.3 GB |
+| 2048 | 1.1 GB | 4.9 GB |
+| 4096 | 2.3 GB | 11 GB |
+
+Almost all of it is Metal memory for the display images (1 byte/pixel grey; colour 4 + its
+grey copy 1). The load briefly peaks 1.3–1.4 GB above the end value. The earlier "3.15 GB
+at 4096" is not reproduced and memory compression plays no visible part; the 11.6 GB
+estimate holds.
+
+Second reads, file cache flushed first (17 GB of other files read), 1024:
+
+| Set | With images | Metrics only | Read |
+|---|---|---|---|
+| Rosette large mono, SSD (464, 7.4 GB) | 5.7–5.8 s | 2.8–2.9 s | 1.0× the files from disk |
+| M81 2025-04-04 colour, SSD (141, 7.0 GB) | 5.5–5.8 s | 2.7 s | 1.0× from disk |
+| same, grey mode | 2.9 s | 2.7–2.8 s | 1.0× from disk |
+| M81 2025-04-06 colour, share, cable (142, 7.0 GB) | 70.6–72.7 s | 63.0–63.7 s | 1.17–1.21× vs 1.05× over the network |
+
+Locally the second read always comes from the file cache; making the images (second read +
+display, thumbnail, histogram) adds about 2.8 s. A cached single-threaded re-read of the
+same files takes 1.1–1.3 s. Over the network about 1 GB of the 7 GB is fetched again, which
+adds 7–9 s (11–14 %). The mono set on the share (Rosette, 930 MB) stayed in the file cache
+despite the flush, so it has only one cold run (9.4 s with images) and no comparison.
+Larger than memory: the three M81 nights 2025-03-26/04-03/04-04 on the share (355 frames,
+17.6 GB, colour, cable), 2 rounds: with images 282.5–282.8 s, metrics only 156.9–157.3 s,
+plain read 172.8–175.2 s; network read 1.88× the files with images against 1.05× metrics
+only. Here the second read almost entirely misses the cache and adds about 125 s (+80 %).
+The same 17.6 GB from the SSD, 2 rounds: with images 24.0–24.7 s, metrics only 9.1–9.7 s,
+plain read 5.8 s; disk read 1.93× the files with images against 1.00×.
+
+Timeline of one such SSD load (per 0.5 s: disk MB/s, file cache size, per night the frames
+past Phase A and the frames in colour): the file cache stays at 7.6–8.7 GB on this 16 GB
+Mac. Night 1 (71 frames, 3.4 GB) finishes Phase A at 2.7 s; its colour render then runs
+from 3.3 to 12.2 s, at the same time as Phase A of night 2, and the disk keeps reading at
+about 1.0–1.4 GB/s throughout, more than night 2's Phase A alone needs. Night 2's colour
+render overlaps night 3's Phase A in the same way; only night 3's colour render runs
+after all Phase A work (19.7–26 s). One night on its own (above) re-reads from the cache.
+
+
+### 9f part 1 plan (2026-10-30) — display images within a memory budget
+
+Proposed to Tom on 2026-10-30; answered and 1a started the same day.
+
+**What is kept per frame today:** `displayImage` plus, for Bayer frames, `cachedGreyscaleDisplay`
+and `cachedColourDisplay` (the shown image is one of them), and the four thumbnails.
+The display images are the memory (step 0); the thumbnails are small (13 MB for M81).
+
+**How a frame is drawn again from its file, byte-identical** (a "recipe" stored on the entry
+when its display image is made; the kernels are unchanged):
+- mono in a (folder, filter) group of two or more: `createImage` with the group's shared
+  `GreyClips` (the median, computed in `normalizeGreyStretch`; today not stored);
+- mono on its own, or before the grey pass ran: `createImage` without clips, as in Phase A;
+- Bayer in grey: `createImage` with the Bayer pattern, as in Phase A;
+- Bayer in colour: `createBayerImage` with the folder's shared `BayerClips` (today not stored);
+- without Metal: the CPU path, as in Phase A.
+The display pixel size is stored too (in 1b, with the placeholder that uses it), so the
+viewer's zoom and fit stay the same.
+
+**Sub-steps (one commit each, checks before each):**
+- **1a — recipes and re-render, no behaviour change.** Store the recipe per entry; a
+  function (`FrameLoading.renderAgain`) that renders one frame again from its file with its
+  recipe. Tests: for every recipe the re-render is byte-identical to the image made by the
+  load (RGBA bytes). Nothing is evicted yet. The 9f plan text is committed with 1a.
+- **1b — budget, eviction, placeholder, slider.**
+  - `AppSettings.displayMemoryPercent` (10–90, step 10, default 50). Settings → Image
+    Display → Sizes, under "Max display size": a slider with "50 % — 8 GB of 16 GB"
+    (`ProcessInfo.physicalMemory`) and one line of explanation. A change applies at once:
+    lowering it drops images, raising it renders nothing.
+  - A budget object owned by `ImageStore` counts the bytes of each entry's display images
+    (each image once). Over the budget it drops the least recently viewed frames' display
+    images (all three); never viewed counts as viewed at load time. The cursor frame and
+    the two before and after it in sidebar order are never dropped. Thumbnails, metrics,
+    headers and recipes stay.
+  - `ImageStore()` defaults to "keep all"; only the app sets the budget from the setting. So
+    the CLI, `--render`, `CLIRenderer`, the render tests and the existing unit tests behave
+    as now.
+  - Viewing a frame without a display image: `MainContent` shows its thumbnail enlarged to
+    the display size (blurry for a moment, answer 3a) and the pipeline renders it again.
+    The cursor's neighbours (±2) are rendered ahead. One owned task with a generation check:
+    a result for a frame that was rendered meanwhile, or whose recipe changed, is dropped;
+    frames being processed by a batch are skipped.
+- **1c — features that use the images in memory.**
+  - Thumbnail-size change: frames without a display image are read and rendered again for
+    their new thumbnail (the image is then subject to the budget like any other).
+  - Colour toggle: frames whose other render was dropped are rendered from their files, as
+    for frames that never had one (the existing paths already do that). Found in 1a: the
+    grey path of the toggle (`renderBayerEntriesInGrey`) renders a frame without a cached grey
+    image *without* the Bayer pattern: unbinned, so up to twice the size of the load's grey image.
+    Today it hardly runs (Phase A always caches the grey image); with dropped images it would,
+    so 1c renders such frames from their stored grey recipe instead.
+  - Playback: the frame ahead is rendered ahead; above the budget a frame can show the
+    placeholder briefly (answer 4).
+
+**Behaviour changes, only above the budget** (at 50 % on 16 GB: only M81 colour at 4096 of
+the step 0 sets): placeholder when jumping to a dropped frame; a thumbnail-size change and a
+colour toggle read files; playback can show a placeholder. Below the budget nothing changes.
+Not covered by the budget: the brief load peak (1.3–1.4 GB above the end value for M81).
+
+**Performance / Metal:** existing kernels, no new ones. Memory: at most the budget for display
+images. Time: unchanged below the budget; above it, one file read + render per frame shown
+(to measure in 1b: SSD and network). Checks per commit: unit tests, render tests --full,
+10 metric baselines, strict build; after 1b/1c a step-0 style memory run (M81 colour 4096
+at 50 %) and the VM run.
+
+**Answers (Tom, 2026-10-30)**
+1. A dropped frame that can't be read again (file moved outside the app, share disconnected)
+   keeps its enlarged thumbnail, **dimmed**, with "Couldn't read the file again" in the info
+   bar; the next visit tries again.
+2. Read ahead **in the direction of travel** (for example 8 ahead and 2 behind, within the
+   budget) instead of two on each side. The depth is set in 1b from measurements: redraw
+   throughput at 4096 from the SSD and over the network, and the cursor rate with key repeat
+   held (Tom: about 11 fps, so ≈ 91 ms per frame). Over the network (≈ 110 MB/s, ≈ 49 MB per
+   M81 frame, ≈ 2 frames/s) no depth keeps up with sustained key repeat; there the (undimmed) enlarged
+   thumbnail shows until the frame arrives.
+
+Go-ahead for 1a: 2026-10-30.
+
 **Tests**: memory and time with `BenchmarkTests` before and after; render tests (use "keep all"); a test that the LRU re-renders on selection.
 
 **Performance and Metal**: this step is about performance; target numbers are set at the start from a baseline measurement. No kernel changes.
@@ -382,7 +592,7 @@ Answered by Tom on 2026-10-20 (the earlier open questions, same numbers):
 4. **§5.4** frames with no stars: yes, star count 0 and score 0, so they can be rejected (step 13, with the "score ignores cloudy frames" investigation).
 5. **§5.16** small groups: true median for even counts, and relative checks skipped for groups under 3 frames (absolute checks still apply) (step 13).
 6. **§5.11** CLI when no frame passes: write a CSV with only the header row and exit with its own exit code, documented in `--help` (step 12).
-7. **§7.2** fewer reads: (a), a display-size proxy per frame; confirmed with a measurement at the start of step 9.
+7. **§7.2** fewer reads: (a), a display-size proxy per frame; confirmed with a measurement at the start of step 9. **Reopened 2026-10-29:** a proxy kept per frame costs more memory than the display image; see the 9f proposal in step 9.
 8. **§4.5** colour spaces: switch to named sRGB / grey spaces (step 13, render targets updated and checked by eye).
 9. **§9.11** export column order: the order chosen in Settings → Export, also in the Export sheet (step 4).
 10. **§9.6** grey and colour statistics: keep their current differences as explicit parameters; no render change (step 8). Making them the same is not planned.
