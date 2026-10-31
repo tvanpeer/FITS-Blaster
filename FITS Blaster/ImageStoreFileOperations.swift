@@ -610,6 +610,9 @@ extension ImageStore {
             }
         }
         guard !items.isEmpty else { return }
+        // Two dropped folders with the same name (two nights' LIGHT) get their parent in the
+        // section name; before, they shared one section and one stretch.
+        let names = Self.sectionNames(for: items.filter(\.isFolder).map(\.url))
 
         // A drop that arrives while the previous one is still scanning waits for it.
         let previous = pipeline.dropScanTask
@@ -629,7 +632,7 @@ extension ImageStore {
                     self?.pipeline.preparation = nil
                     guard !Task.isCancelled else { return }
                     collected.append(contentsOf: found)
-                    for frame in found { rootNames[frame.url] = item.url.lastPathComponent }
+                    for frame in found { rootNames[frame.url] = names[item.url] ?? item.url.lastPathComponent }
                 } else {
                     collected.append((item.url, ""))
                     rootNames[item.url] = item.url.deletingLastPathComponent().lastPathComponent

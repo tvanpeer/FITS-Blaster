@@ -217,6 +217,20 @@ struct OpenFolderTests {
         #expect(store.groupedByFolderAndFilter.map(\.folderDisplayName).sorted() == ["Night 1", "Night 2"])
     }
 
+    @Test("Two dropped folders with the same name: sections named with their parent folder")
+    func droppedSameNamedFolders() async throws {
+        let (parent, folders) = try makeFolders(["2025-03-26/LIGHT", "2025-04-03/LIGHT"])
+        defer { try? FileManager.default.removeItem(at: parent) }
+        let store = ImageStore()
+
+        store.openDroppedItems(folders, settings: AppSettings())
+        await store.pipeline.waitForProcessing()
+
+        #expect(store.entries.count == 4)
+        #expect(store.groupedByFolderAndFilter.map(\.folderDisplayName).sorted()
+                == ["2025-03-26/LIGHT", "2025-04-03/LIGHT"])
+    }
+
     @Test("Files dropped from one folder take that folder's name")
     func droppedFilesTakeParentName() async throws {
         let folder = try makeFolder()

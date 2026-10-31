@@ -4,6 +4,16 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-31 — Dropped folders with the same name stay apart
+
+### Fixed
+- **Two dragged-in folders with the same name** (for example two nights' `LIGHT` folders) **now get a section each**, named with their parent folder (`2025-03-26/LIGHT`), as Open Folder does since the previous entry. Before, they shared one section and therefore one colour and grey stretch: the median of both nights.
+
+### Internal
+- `openDroppedItems` uses `ImageStore.sectionNames(for:)` for the dropped folders. New `OpenFolderTests` case (fails without the fix: one section "LIGHT"). Unit tests (377), render tests (`--full`) and the 10 metric baselines pass; 0 compiler warnings. Tried by Tom in the app with a test build.
+
+---
+
 ## 2026-10-31 — Open several folders at once
 
 ### Added
