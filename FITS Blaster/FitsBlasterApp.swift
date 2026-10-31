@@ -94,6 +94,8 @@ struct FitsBlasterApp: App {
                 Divider()
                 SimpleModeCommand()
                 DebayerColourCommand()
+                Divider()
+                ZoomCommands()
             }
             CommandMenu("Select") {
                 SelectAllCommand()

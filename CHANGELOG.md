@@ -4,6 +4,20 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-31 — Zoom and pan with the keyboard
+
+### Added
+- **Zoom shortcuts:** `=` (and `+`) zooms in, `-` zooms out, in steps of ×1.25 within the slider's 0.25–4× range, centred on the zoom anchor when one is set and otherwise on the middle of the view, as the slider does. `0` zooms to fit, `9` shows the image at 1×. All four can be changed in Settings → Interface → Zoom and Pan; a key already used for something else is shown as a conflict, as for the other keys.
+- **Pan with ⌥ + arrow keys** when the image is larger than the view: a tap moves a quarter of the visible area; holding the key scrolls in small steps (a twentieth per press and repeat) from the start, without a jump. The plain arrow keys still step through the frames.
+- **View menu:** Zoom In, Zoom Out, Zoom to Fit, Actual Size and a Pan submenu, with their keys.
+
+### Internal
+- **Zooming without a zoom anchor keeps the point in the middle of the view in place**, also with the slider and pinch. It drifted: the middle was worked out from the scroll geometry, which can already have the new size while the scroll offset is still the old one; now from the image's size at the old zoom. One handler on the shown zoom (slider × pinch) replaces the two separate ones.
+- New `ViewerZoom` (zoom steps, fit, pan offset within the image), used by the shortcuts, the slider's pinch and the fit button. `ViewerState.panKeyDown`/`panKeyUp` turn key presses into `PanRequest`s for `ImageViewer`, which owns the scroll position: a small step at once, the rest of a quarter when a tap is released (a second monitor for key-up). `ContentView`'s key monitor handles ⌥ + arrow before the plain keys (which never see ⌥). The View menu gets its actions and keys through one focused value, `ViewerCommandSet`.
+- New `ViewerZoomTests` (5) and `PanKeysTests` (4). Unit tests (371), render tests (`--full`) and the 10 metric baselines pass; 0 compiler warnings. One render-test run stopped early ("The test runner exited with code 0") because the test app was quit during the run; the run after it passed. Tried by Tom in the app with a test build: the zoom keys with and without an anchor, pan taps and held keys, his own keys, the View menu, Settings with conflicts.
+
+---
+
 ## 2026-10-31 — The Settings window follows the theme setting
 
 ### Fixed

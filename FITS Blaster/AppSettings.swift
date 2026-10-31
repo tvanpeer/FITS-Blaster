@@ -60,6 +60,22 @@ final class AppSettings {
         didSet { UserDefaults.standard.set(flipKey, forKey: "flipKey") }
     }
 
+    // MARK: - Zoom Key Bindings (plain keys; pan is ⌥ + arrow keys)
+
+    /// With "=" (the default) the "+" key zooms in too: on a US keyboard it's the same key.
+    var zoomInKey: String = "=" {
+        didSet { UserDefaults.standard.set(zoomInKey, forKey: "zoomInKey") }
+    }
+    var zoomOutKey: String = "-" {
+        didSet { UserDefaults.standard.set(zoomOutKey, forKey: "zoomOutKey") }
+    }
+    var zoomToFitKey: String = "0" {
+        didSet { UserDefaults.standard.set(zoomToFitKey, forKey: "zoomToFitKey") }
+    }
+    var zoomActualSizeKey: String = "9" {
+        didSet { UserDefaults.standard.set(zoomActualSizeKey, forKey: "zoomActualSizeKey") }
+    }
+
     // MARK: - Selection Key Bindings (combined with ⌘ ± ⇧)
 
     var selectAllKey: String = "a" {
@@ -317,6 +333,10 @@ final class AppSettings {
         deflagAllKey            = UD.string("deflagAllKey",            default: deflagAllKey)
         playPauseKey            = UD.string("playPauseKey",            default: playPauseKey)
         flipKey                 = UD.string("flipKey",                 default: flipKey)
+        zoomInKey               = UD.string("zoomInKey",               default: zoomInKey)
+        zoomOutKey              = UD.string("zoomOutKey",              default: zoomOutKey)
+        zoomToFitKey            = UD.string("zoomToFitKey",            default: zoomToFitKey)
+        zoomActualSizeKey       = UD.string("zoomActualSizeKey",       default: zoomActualSizeKey)
 
         // Selection key bindings
         selectAllKey            = UD.string("selectAllKey",            default: selectAllKey)

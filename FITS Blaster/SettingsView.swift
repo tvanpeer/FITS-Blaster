@@ -55,6 +55,10 @@ struct UISettingsTab: View {
             ("Toggle Colour Images",    $settings.debayerKey),
             ("Play / Pause",            $settings.playPauseKey),
             ("Flip 180\u{00B0}",            $settings.flipKey),
+            ("Zoom In",                 $settings.zoomInKey),
+            ("Zoom Out",                $settings.zoomOutKey),
+            ("Zoom to Fit",             $settings.zoomToFitKey),
+            ("Actual Size",             $settings.zoomActualSizeKey),
         ]
         // Cmd keys — only conflict with each other.
         let cmdKeys: [(label: String, key: Binding<String>)] = [
@@ -120,6 +124,29 @@ struct UISettingsTab: View {
                 LabeledContent("Flip 180\u{00B0}") {
                     KeyRecorderButton(keyString: $settings.flipKey,
                                       conflictingKeys: plainKeys.filter { $0.label != "Flip 180\u{00B0}" }.map(\.key))
+                }
+            }
+
+            Section("Zoom and Pan") {
+                LabeledContent("Zoom In") {
+                    KeyRecorderButton(keyString: $settings.zoomInKey,
+                                      conflictingKeys: plainKeys.filter { $0.label != "Zoom In" }.map(\.key))
+                }
+                LabeledContent("Zoom Out") {
+                    KeyRecorderButton(keyString: $settings.zoomOutKey,
+                                      conflictingKeys: plainKeys.filter { $0.label != "Zoom Out" }.map(\.key))
+                }
+                LabeledContent("Zoom to Fit") {
+                    KeyRecorderButton(keyString: $settings.zoomToFitKey,
+                                      conflictingKeys: plainKeys.filter { $0.label != "Zoom to Fit" }.map(\.key))
+                }
+                LabeledContent("Actual Size (1×)") {
+                    KeyRecorderButton(keyString: $settings.zoomActualSizeKey,
+                                      conflictingKeys: plainKeys.filter { $0.label != "Actual Size" }.map(\.key))
+                }
+                LabeledContent("Pan") {
+                    Text("⌥ + arrow keys")
+                        .foregroundStyle(.secondary)
                 }
             }
 

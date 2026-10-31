@@ -17,6 +17,8 @@ struct ContentView: View {
 
     @State private var hostingWindow: NSWindow?
     @State private var keyMonitor: Any?
+    /// Watches the arrow keys being released, for pan taps (`ViewerState.panKeyUp`).
+    @State private var keyUpMonitor: Any?
     /// The running folder-access question (sandbox); one at a time.
     @State private var folderAccessTask: Task<Void, Never>?
 
@@ -108,6 +110,7 @@ struct ContentView: View {
         case flag, deflagAll
         case toggleMode, remove, debayer
         case playPause, flip
+        case zoomIn, zoomOut, zoomToFit, zoomActualSize
     }
 
     /// ⌘(⇧)+key bindings: KeyPath to the key string, KeyPath to the shift flag, action.
@@ -137,6 +140,10 @@ struct ContentView: View {
         (\.toggleModeKey,  .toggleMode),
         (\.removeKey,      .remove),
         (\.debayerKey,     .debayer),
+        (\.zoomInKey,         .zoomIn),
+        (\.zoomOutKey,        .zoomOut),
+        (\.zoomToFitKey,      .zoomToFit),
+        (\.zoomActualSizeKey, .zoomActualSize),
     ]
 
     /// Executes a `NavAction` against the current store/settings state.
@@ -179,6 +186,10 @@ struct ContentView: View {
             }
         case .flip:
             store.toggleFlipSelected()
+        case .zoomIn:         settings.zoomScale = ViewerZoom.zoomedIn(from: settings.zoomScale)
+        case .zoomOut:        settings.zoomScale = ViewerZoom.zoomedOut(from: settings.zoomScale)
+        case .zoomToFit:      viewer.fitToContainerTrigger.toggle()
+        case .zoomActualSize: settings.zoomScale = 1.0
         }
         return true
     }
@@ -252,6 +263,13 @@ struct ContentView: View {
                     }
                 }
 
+                // ⌥ + arrow key — pan the image (the plain arrows navigate frames).
+                if mods.intersection([.command, .option, .control, .shift]) == .option,
+                   let direction = Self.panDirection(of: event) {
+                    self.viewer.panKeyDown(direction, isRepeat: event.isARepeat)
+                    return false
+                }
+
                 // Don't intercept events with command/option/control modifiers.
                 guard mods.intersection([.command, .option, .control]).isEmpty else { return true }
                 guard let key = Self.keyString(from: event) else { return true }
@@ -259,12 +277,37 @@ struct ContentView: View {
             }
             return passThrough ? event : nil
         }
+        keyUpMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyUp) { event in
+            MainActor.assumeIsolated {
+                // The release of an arrow key in this window ends a pan, with or without ⌥
+                // still down (it may be let go first).
+                if event.window === hostingWindow, let direction = Self.panDirection(of: event) {
+                    self.viewer.panKeyUp(direction)
+                }
+            }
+            return event
+        }
     }
 
     private func removeKeyMonitor() {
         if let monitor = keyMonitor {
             NSEvent.removeMonitor(monitor)
             keyMonitor = nil
+        }
+        if let monitor = keyUpMonitor {
+            NSEvent.removeMonitor(monitor)
+            keyUpMonitor = nil
+        }
+    }
+
+    /// The pan direction of an arrow key; nil for every other key.
+    private static func panDirection(of event: NSEvent) -> PanDirection? {
+        switch event.specialKey {
+        case .leftArrow:  .left
+        case .rightArrow: .right
+        case .upArrow:    .up
+        case .downArrow:  .down
+        default:          nil
         }
     }
 
@@ -288,10 +331,14 @@ struct ContentView: View {
     /// Returns true if a binding matched and the event should be consumed.
     @discardableResult
     private func handleKey(_ key: String) -> Bool {
-        guard let binding = Self.plainKeyBindings.first(where: { settings[keyPath: $0.key] == key }) else {
-            return false
+        if let binding = Self.plainKeyBindings.first(where: { settings[keyPath: $0.key] == key }) {
+            return dispatch(binding.action)
         }
-        return dispatch(binding.action)
+        // "+" is ⇧= on a US keyboard: with Zoom In on "=" it zooms in too, unless it has a key of its own.
+        if key == "+", settings.zoomInKey == "=" {
+            return dispatch(.zoomIn)
+        }
+        return false
     }
 
 }

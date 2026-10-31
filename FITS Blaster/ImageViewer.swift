@@ -26,16 +26,23 @@ struct ImageViewer: View {
 
     private var effectiveZoom: Double { settings.zoomScale * gestureScale }
 
-    private func adjustScroll(to newZoom: Double, geo: ViewportGeometry) {
+    /// Scrolls so the zoom anchor, or else the point in the middle of the view, stays where
+    /// it is when the shown zoom goes from `oldZoom` to `newZoom`.
+    private func adjustScroll(to newZoom: Double, from oldZoom: Double, geo: ViewportGeometry) {
         let fx: Double
         let fy: Double
         if let anchor = viewer.zoomAnchor {
             fx = anchor.x
             fy = anchor.y
         } else {
-            guard geo.contentSize.width > 0 else { return }
-            fx = (geo.contentOffset.x + geo.containerSize.width  / 2) / geo.contentSize.width
-            fy = (geo.contentOffset.y + geo.containerSize.height / 2) / geo.contentSize.height
+            // The image's size at the old zoom, not the geometry's content size: the geometry
+            // can already have the new size while the scroll offset is still the old one, and
+            // then the middle of the view moved on every zoom step (Tom, 2026-10-31).
+            let oldW = displayImage.size.width  * oldZoom
+            let oldH = displayImage.size.height * oldZoom
+            guard oldW > 0, oldH > 0 else { return }
+            fx = (geo.contentOffset.x + geo.containerSize.width  / 2) / oldW
+            fy = (geo.contentOffset.y + geo.containerSize.height / 2) / oldH
         }
         let newCW = displayImage.size.width  * newZoom
         let newCH = displayImage.size.height * newZoom
@@ -97,12 +104,9 @@ struct ImageViewer: View {
             viewer.updateViewport(geo)
             if pendingFitToContainer {
                 pendingFitToContainer = false
-                let imgW = displayImage.size.width
-                let imgH = displayImage.size.height
-                guard imgW > 0, imgH > 0,
-                      geo.containerSize.width > 0, geo.containerSize.height > 0 else { return }
-                let fitScale = min(geo.containerSize.width / imgW, geo.containerSize.height / imgH)
-                settings.zoomScale = max(0.25, min(4.0, fitScale))
+                if let fit = ViewerZoom.fitScale(image: displayImage.size, container: geo.containerSize) {
+                    settings.zoomScale = fit
+                }
             }
         }
         .onChange(of: entryID) { _, _ in
@@ -113,26 +117,27 @@ struct ImageViewer: View {
             let y = viewer.viewportCenter.y * ch - geo.containerSize.height / 2
             scrollPos.scrollTo(x: max(0, x), y: max(0, y))
         }
-        .onChange(of: gestureScale) { _, newGestureScale in
+        // The shown zoom (slider, keys and pinch): at the end of a pinch the slider takes
+        // over the gesture's zoom in the same update, so nothing moves then.
+        .onChange(of: effectiveZoom) { oldZoom, newZoom in
             guard let geo = lastGeo, geo.containerSize.width > 0 else { return }
-            let zoom = newGestureScale != 1.0 ? settings.zoomScale * newGestureScale : settings.zoomScale
-            adjustScroll(to: zoom, geo: geo)
-        }
-        .onChange(of: settings.zoomScale) { _, newZoom in
-            guard let geo = lastGeo, geo.containerSize.width > 0 else { return }
-            adjustScroll(to: newZoom, geo: geo)
+            adjustScroll(to: newZoom, from: oldZoom, geo: geo)
         }
         .onChange(of: viewer.centerOnAnchorTrigger) { _, _ in
             guard let geo = lastGeo, geo.containerSize.width > 0 else { return }
-            adjustScroll(to: settings.zoomScale, geo: geo)
+            adjustScroll(to: settings.zoomScale, from: settings.zoomScale, geo: geo)
         }
         .onChange(of: viewer.fitToContainerTrigger) { _, _ in
             guard let geo = lastGeo,
-                  geo.containerSize.width > 0, geo.containerSize.height > 0,
-                  displayImage.size.width > 0, displayImage.size.height > 0 else { return }
-            let fitScale = min(geo.containerSize.width  / displayImage.size.width,
-                               geo.containerSize.height / displayImage.size.height)
-            settings.zoomScale = max(0.25, min(4.0, fitScale))
+                  let fit = ViewerZoom.fitScale(image: displayImage.size, container: geo.containerSize) else { return }
+            settings.zoomScale = fit
+        }
+        .onChange(of: viewer.panRequest) { _, request in
+            guard let request, let geo = lastGeo else { return }
+            let offset = ViewerZoom.pannedOffset(geo.contentOffset, contentSize: geo.contentSize,
+                                                 containerSize: geo.containerSize,
+                                                 direction: request.direction, share: request.share)
+            scrollPos.scrollTo(x: offset.x, y: offset.y)
         }
         .onChange(of: settings.isSimpleMode) { _, _ in pendingFitToContainer = true }
         .onChange(of: settings.showInspector) { _, _ in pendingFitToContainer = true }
@@ -140,7 +145,7 @@ struct ImageViewer: View {
             MagnificationGesture()
                 .updating($gestureScale) { value, state, _ in state = value }
                 .onEnded { value in
-                    settings.zoomScale = max(0.25, min(4.0, settings.zoomScale * value))
+                    settings.zoomScale = ViewerZoom.clamped(settings.zoomScale * value)
                 }
         )
     }

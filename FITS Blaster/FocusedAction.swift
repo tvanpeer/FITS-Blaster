@@ -38,6 +38,9 @@ extension FocusedValues {
     /// display the correct user-configured shortcut.
     @Entry var debayerKeyString: String? = nil
 
+    /// Zoom and pan of the active window's image viewer, with their keys (View menu).
+    @Entry var viewerCommands: ViewerCommandSet? = nil
+
     /// Action for opening a folder, wired to the active window's ImageStore.
     @Entry var openFolderAction: FocusedAction? = nil
 

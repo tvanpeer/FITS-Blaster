@@ -135,6 +135,46 @@ final class ViewerState {
     /// Toggled by the "Fit" button to ask ImageViewer to scale the image to fill the container.
     var fitToContainerTrigger: Bool = false
 
+    // MARK: - Pan
+
+    /// The last pan movement (⌥ + arrow key, or the View menu), for ImageViewer, which
+    /// owns the scroll position.
+    private(set) var panRequest: PanRequest?
+
+    /// The pan key that is down, and how many repeats it has sent. Not observed.
+    @ObservationIgnored private var heldPan: (direction: PanDirection, repeats: Int)?
+
+    /// A pan key went down, or repeats while held: one small step at once, so holding the key
+    /// scrolls without a jump first (Tom, 2026-10-31).
+    func panKeyDown(_ direction: PanDirection, isRepeat: Bool) {
+        if isRepeat, let held = heldPan, held.direction == direction {
+            heldPan = (direction, held.repeats + 1)
+        } else {
+            heldPan = (direction, 0)
+        }
+        move(direction, share: ViewerZoom.panRepeatStep)
+    }
+
+    /// The pan key was released. A tap (released before it repeated) gets the rest of a
+    /// full step, so a tap moves a quarter of the view.
+    func panKeyUp(_ direction: PanDirection) {
+        guard let held = heldPan, held.direction == direction else { return }
+        heldPan = nil
+        if held.repeats == 0 {
+            move(direction, share: ViewerZoom.panStep - ViewerZoom.panRepeatStep)
+        }
+    }
+
+    /// One full pan step (the View menu's Pan items).
+    func pan(_ direction: PanDirection) {
+        move(direction, share: ViewerZoom.panStep)
+    }
+
+    private func move(_ direction: PanDirection, share: CGFloat) {
+        panRequest = PanRequest(direction: direction, share: share,
+                                serial: (panRequest?.serial ?? 0) + 1)
+    }
+
     // MARK: - Reset
 
     /// Restores the defaults; called together with `ImageStore.reset()`.

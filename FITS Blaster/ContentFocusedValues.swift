@@ -11,6 +11,7 @@ import SwiftUI
 struct ContentFocusedValues: ViewModifier {
     @Environment(ImageStore.self) private var store
     @Environment(AppSettings.self) private var settings
+    @Environment(ViewerState.self) private var viewer
 
     func body(content: Content) -> some View {
         @Bindable var bindableSettings = settings
@@ -21,6 +22,14 @@ struct ContentFocusedValues: ViewModifier {
             .focusedSceneValue(\.toggleModeKeyString,   settings.toggleModeKey)
             .focusedSceneValue(\.debayerKeyString,      settings.debayerKey)
             .focusedSceneValue(\.openFolderAction,      FocusedAction { store.openFolderRequested = true })
+            .focusedSceneValue(\.viewerCommands, ViewerCommandSet(
+                zoomIn:     { settings.zoomScale = ViewerZoom.zoomedIn(from: settings.zoomScale) },
+                zoomOut:    { settings.zoomScale = ViewerZoom.zoomedOut(from: settings.zoomScale) },
+                zoomToFit:  { viewer.fitToContainerTrigger.toggle() },
+                actualSize: { settings.zoomScale = 1.0 },
+                pan:        { viewer.pan($0) },
+                zoomInKey: settings.zoomInKey, zoomOutKey: settings.zoomOutKey,
+                zoomToFitKey: settings.zoomToFitKey, actualSizeKey: settings.zoomActualSizeKey))
             // Selection actions
             .focusedSceneValue(\.selectAllAction,             FocusedAction { store.selectAllVisible() })
             .focusedSceneValue(\.deselectAllAction,           FocusedAction { store.deselectAll() })
