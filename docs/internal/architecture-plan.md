@@ -592,6 +592,81 @@ the temporary switch removed in 2a, `Step0MemoryTests.swift` deleted after 2b.
 
 ---
 
+## Before 1.24-beta.3 (2026-10-31) — four items from the notes
+
+Chosen by Tom from the later-items list. Each its own commit, in this order.
+
+**B1 — star counts reproducible again (investigation first)**
+- m31-night frame `…#0026.fits` gives 3371–3373 stars over identical runs (found during 9e,
+  also with the 9d build); 1.23.1 fixed this (random tie order in the star sort).
+- Bisect the 51 commits since v1.23.1 in a separate worktree, so the working tree stays free:
+  first confirm v1.23.1 gives one value in 10 CLI runs and HEAD doesn't, then about 6 bisect steps,
+  10 runs per build (a CLI run of m31-night takes a few seconds).
+- Then a fix plan with the cause, and its own go-ahead: a metric change only if the values
+  themselves change (they should not: the goal is the same value every run). `testing.md`
+  corrected in the same commit.
+
+**B1 findings (2026-10-31).** Not a regression: v1.23.1 varies too (3372/3373 over 10 runs;
+HEAD 3371–3373), so no bisect. Cause: the GPU detection kernel stores at most 50,000 candidates
+(`maxDetectionCandidates`); #0026 has 50,455 local maxima above the threshold, and which 50,000 are
+stored depends on the GPU's thread order (10 runs: 9 different sets). All other baseline frames stay
+under the cap; the densest: ASI294MM SHO 46,213, M42 36,917, California 24,706. Dense or noisy frames
+of other sessions can pass it, so users can meet this too.
+
+**B1 fix (proposed):** when the counter says more maxima were found than stored, run the kernel once
+more with room for exactly that many (the count is the same: same data, same threshold). Frames
+under the cap: no change, no extra cost. Over it: one extra pass (a few ms) and 8 bytes per
+candidate, and every candidate is used, so the result is the same every run. Metrics change only
+for frames over the cap (in the baselines: #0026, within its tolerance). The CPU path has no cap.
+Tests: a synthetic frame with more maxima than a test cap gives the same candidates every run
+(the cap made injectable for the test); 10 CLI runs of m31-night identical; render tests; baselines.
+`testing.md` corrected (results reproducible again, and why they weren't); the baselines script's
+tolerance note ("stars vary slightly between identical runs") updated. Whether to tighten the
+stars/PSF·S tolerances afterwards: a question for Tom, not part of the fix.
+Done 2026-10-31 (Tom: build it; update the m31-night baseline, 3373 → 3389, the only value that
+changed across the 10 sets; tighten the tolerances afterwards as a separate step).
+
+**B2 — Settings window follows the appearance setting**
+- `Window("Settings")` (`FitsBlasterApp.swift:143`) lacks the `.preferredColorScheme` the main
+  window has (`ContentView.swift:30`). Add it there.
+- Check by eye (Light, Dark, System with the Mac in both), also in the App Store build where it
+  was seen. No test: SwiftUI scene modifier.
+
+**B3 — zoom and pan shortcuts**
+- Zoom in / zoom out in steps of ×1.25 (the slider's range 0.25–4× stays), centred on the zoom
+  anchor if set, otherwise on the view's centre (`adjustScroll`, as the slider does). Zoom to fit
+  and 1× (actual size).
+- Pan: moves the view by a quarter of the visible area per press; key repeat keeps it moving;
+  nothing happens when the image fits.
+- Proposed default keys, following Preview: ⌘+ (also ⌘=) zoom in, ⌘− zoom out, ⌘9 zoom to fit,
+  ⌘0 1×; pan with ⌥ + arrow keys (the plain arrows stay for frame navigation).
+- Configurable in Settings → Interface like the other ⌘ shortcuts (`cmdKeyBindings`), and listed
+  in a View menu group with their keys, so they can be found.
+- `ImageViewer` keeps its scroll position as view state; the shortcuts send requests through
+  `ViewerState` (as `fitToContainerTrigger` does now). The zoom maths (next step, clamp, pan
+  offset within the image) in a small tested helper.
+- Tests: the helper (steps, clamps, pan limits at the edges, no pan when the image fits); a
+  key-dispatch test for the new bindings; by eye in the app.
+
+**B4 — Open Folder with several folders**
+- `NSOpenPanel.allowsMultipleSelection = true`; the two checkboxes apply to every folder chosen.
+- One folder: exactly as now. Several: the drag-and-drop path (a sidebar section per folder),
+  extended with the REJECTED checkbox (drops never include REJECTED today).
+- Folders already in the session: one question naming them ("Open Anyway" / "Skip those").
+- Tests: opening two folders gives two sections with the right root names; with REJECTED on,
+  the rejected frames of each folder are marked; an already-open folder is asked about once.
+
+**Questions for Tom**
+1. B3 keys: the proposed defaults (⌘+/⌘−/⌘9/⌘0, ⌥+arrows), configurable, in a View menu — fine?
+2. B3 pan step: a quarter of the visible area per press — fine, or another amount?
+3. B4: several folders where some are already open — one question for all of them, as proposed?
+
+Answers (2026-10-31): 1. plain keys, no ⌘: `=` (and `+`) zoom in, `-` zoom out, `0` zoom to fit,
+`9` 1×; ⌥ + arrow keys pan. None of them is bound by default (checked; ⌥ keys never reach the plain
+bindings). Configurable, conflicts shown in Settings as for the other keys. 2. A single press pans
+a quarter of the visible area; held down (key repeat) much smaller steps, proposed 1/20 of the view
+per repeat (about half a view per second at the default repeat), tuned by eye. 3. Yes, one question.
+
 ## Step 10 — View logic into tested helpers; accessibility
 
 **Changes**

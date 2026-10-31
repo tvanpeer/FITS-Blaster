@@ -4,6 +4,20 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-31 — Star counts are the same on every run, also on dense frames
+
+### Fixed
+- **A frame with more than 50,000 star candidates gives the same metrics on every run.** The star detection on the GPU kept a list of at most 50,000 candidates (local maxima above the noise threshold); on a frame with more, which ones fitted depended on the GPU's thread order, so the star count varied slightly between identical runs. In the test data only one frame had that many (m31-night `#0026`, 50,455 candidates: 3371–3373 stars, in 1.23.1 too); dense or noisy frames of other sessions can as well. Now such a frame gets a second pass with room for all of them, and every candidate is used: `#0026` gives 3389 stars on every run. Other frames are unchanged and cost nothing extra; across all 10 baseline sets this is the only value that changes.
+
+### Internal
+- `detectLocalMaxima` takes its list's capacity from `DetectParams.capacity` instead of a compile-time constant; `MetricsCalculator.findLocalMaximaGPU` runs `detectionPass` with room for 50,000, and again with room for exactly the number counted when that was more (`capacity` is a parameter for the tests).
+- New `DetectionCapacityTests` (2): a synthetic frame with 10,000 maxima and room for 1,000 gives all 10,000, the same on every run, the same set as the CPU scan (fails without the second pass); exactly enough room gives the same candidates as more room.
+- `testing.md` corrected ("results are reproducible", with this exception and its fix); the baselines script's tolerance note updated. The m31-night baseline for `#0026` is updated (3373 → 3389 stars); the PixInsight comparison on M31 (FWHM, eccentricity, SNR) is unchanged.
+- The search for a regression since 1.23.1 found none: v1.23.1 varies on this frame as well.
+- Unit tests (362), render tests (`--full`) and the 10 metric baselines pass; 0 compiler warnings. 10 CLI runs of m31-night are identical.
+
+---
+
 ## 2026-10-31 — Colour folders are read once (step 9f, part 2b)
 
 ### Changed

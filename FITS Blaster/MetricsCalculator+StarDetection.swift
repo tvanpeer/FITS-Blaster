@@ -149,59 +149,35 @@ extension MetricsCalculator {
     /// counter.
     ///
     /// Pipeline:
-    ///   1. Allocate the candidate list (`maxDetectionCandidates` entries) and the counter.
-    ///   2. Encode and commit the compute pass; await its completion handler.
+    ///   1. A pass with room for `capacity` candidates (`maxDetectionCandidates`).
+    ///   2. If the counter found more, a second pass with room for all of them: which ones
+    ///      fit in the first list depends on the GPU's thread order, so the metrics varied
+    ///      between runs on the same file (m31-night #0026: 50,455 maxima). The same data and
+    ///      threshold find the same number, so the second list holds every one of them.
     ///   3. Read back the stored candidates, look up their peak values and sort
     ///      them brightest first.
     ///
-    /// Returns nil if Metal is unavailable or the GPU pass failed, letting the caller fall
-    /// back to CPU.
+    /// Returns nil if Metal is unavailable or a GPU pass failed, letting the caller fall
+    /// back to CPU. `capacity` is a parameter for the tests.
     @concurrent static func findLocalMaximaGPU(metalBuffer: MTLBuffer,
                                                width: Int, height: Int,
-                                               threshold: Float) async -> GPUDetectionResult? {
+                                               threshold: Float,
+                                               capacity: Int = maxDetectionCandidates) async -> GPUDetectionResult? {
         // The frame's buffer must belong to the shared device the pipeline was built for;
         // the result buffers are made on that same device (§7.9).
         guard let pipeline = MetalContext.detectionPipeline,
               metalBuffer.device === MetalContext.device else { return nil }
-        let device = metalBuffer.device
 
-        // Compact candidate list: at most maxDetectionCandidates × 8 bytes = 400 KB.
-        // Far smaller than the old width×height flag buffer (up to 200 MB for 50 MP),
-        // and the CPU reads only the slots actually written — no full-frame scan.
-        let candidateBytes = maxDetectionCandidates * MemoryLayout<DetectCandidate>.stride
-        guard let candidatesBuffer = device.makeBuffer(length: candidateBytes,
-                                                       options: .storageModeShared) else {
-            return nil
+        guard var pass = await detectionPass(pipeline, metalBuffer: metalBuffer, width: width, height: height,
+                                             threshold: threshold, capacity: capacity) else { return nil }
+        if pass.found > capacity {
+            guard let all = await detectionPass(pipeline, metalBuffer: metalBuffer, width: width, height: height,
+                                                threshold: threshold, capacity: pass.found) else { return nil }
+            pass = all
         }
-
-        // Single UInt32 atomic counter. Must be zeroed before each dispatch so
-        // the kernel starts counting from 0.
-        guard let countBuffer = device.makeBuffer(length: MemoryLayout<UInt32>.size,
-                                                  options: .storageModeShared) else {
-            return nil
-        }
-        countBuffer.contents().storeBytes(of: UInt32(0), as: UInt32.self)
-
-        var params = DetectParams(width:     UInt32(width),
-                                  height:    UInt32(height),
-                                  threshold: threshold)
-
-        // One thread per pixel, in the shared 16×16 threadgroup clamped to the pipeline's
-        // limit. A failed pass returns nil, so the caller detects on the CPU instead of
-        // reading an unset counter as "no stars" (§5.17).
-        let completed = await MetalContext.runPass(pipeline, width: width, height: height) { encoder in
-            encoder.setBuffer(metalBuffer,      offset: 0, index: 0)  // input: float pixels
-            encoder.setBuffer(candidatesBuffer, offset: 0, index: 1)  // output: compact list
-            encoder.setBuffer(countBuffer,      offset: 0, index: 2)  // output: atomic counter
-            encoder.setBytes(&params, length: MemoryLayout<DetectParams>.stride, index: 3)
-        }
-        guard completed else { return nil }
-
-        // The atomic counter holds the number of local maxima found, which may exceed
-        // the buffer capacity; only the stored ones can be read back.
-        let found       = Int(countBuffer.contents().load(as: UInt32.self))
-        let storedCount = min(found, maxDetectionCandidates)
+        let storedCount = min(pass.found, pass.capacity)
         guard storedCount > 0 else { return GPUDetectionResult(candidates: []) }
+        let candidatesBuffer = pass.candidates
 
         // Convert the compact DetectCandidate list to StarCandidates, looking up
         // peak values from the input buffer. This is O(storedCount) — typically
@@ -220,5 +196,41 @@ extension MetricsCalculator {
 
         candidates.sort(by: StarCandidate.brighterFirst)
         return GPUDetectionResult(candidates: candidates)
+    }
+
+    /// One `detectLocalMaxima` pass with room for `capacity` candidates: the list, and how many
+    /// local maxima the counter found (more than `capacity` when the list was too small).
+    private static func detectionPass(_ pipeline: MTLComputePipelineState, metalBuffer: MTLBuffer,
+                                      width: Int, height: Int, threshold: Float,
+                                      capacity: Int) async -> (candidates: MTLBuffer, found: Int, capacity: Int)? {
+        let device = metalBuffer.device
+        // Compact candidate list: capacity × 8 bytes (400 KB for the first pass).
+        // Far smaller than the old width×height flag buffer (up to 200 MB for 50 MP),
+        // and the CPU reads only the slots actually written — no full-frame scan.
+        guard capacity > 0,
+              let candidatesBuffer = device.makeBuffer(length: capacity * MemoryLayout<DetectCandidate>.stride,
+                                                       options: .storageModeShared),
+              // Single UInt32 atomic counter, zeroed so the kernel starts counting from 0.
+              let countBuffer = device.makeBuffer(length: MemoryLayout<UInt32>.size,
+                                                  options: .storageModeShared) else { return nil }
+        countBuffer.contents().storeBytes(of: UInt32(0), as: UInt32.self)
+
+        var params = DetectParams(width:     UInt32(width),
+                                  height:    UInt32(height),
+                                  threshold: threshold,
+                                  capacity:  UInt32(capacity))
+
+        // One thread per pixel, in the shared 16×16 threadgroup clamped to the pipeline's
+        // limit. A failed pass returns nil, so the caller detects on the CPU instead of
+        // reading an unset counter as "no stars" (§5.17).
+        let completed = await MetalContext.runPass(pipeline, width: width, height: height) { encoder in
+            encoder.setBuffer(metalBuffer,      offset: 0, index: 0)  // input: float pixels
+            encoder.setBuffer(candidatesBuffer, offset: 0, index: 1)  // output: compact list
+            encoder.setBuffer(countBuffer,      offset: 0, index: 2)  // output: atomic counter
+            encoder.setBytes(&params, length: MemoryLayout<DetectParams>.stride, index: 3)
+        }
+        guard completed else { return nil }
+        // The counter holds the number of local maxima found, which may exceed the capacity.
+        return (candidatesBuffer, Int(countBuffer.contents().load(as: UInt32.self)), capacity)
     }
 }

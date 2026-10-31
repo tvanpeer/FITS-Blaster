@@ -57,8 +57,9 @@ def allowed(metric, baseline):
     """Largest allowed difference for a metric, measured 2026-10-13 (see testing.md).
 
     FWHM, eccentricity and SNR: one step in the last digit the CSV writes, since a
-    value on a rounding edge can flip. Stars and PSF·S vary slightly between identical
-    runs (stars by up to 2, PSF·S by up to 0.1%), so they get 0.5% with a floor.
+    value on a rounding edge can flip. Stars and PSF·S got 0.5% with a floor because
+    they varied slightly between identical runs (stars by up to 2, PSF·S by up to 0.1%);
+    since 2026-10-31 (star candidates over the GPU list's capacity) they no longer do.
     Score: whole numbers, relative to the folder.
     """
     return {

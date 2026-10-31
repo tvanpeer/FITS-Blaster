@@ -419,7 +419,7 @@ And with the standard filter (`-f 1.5 -e 0.5 -p 0.5`, as in the VM smoke test)
 values next to the folder medians, so you can see how close to the limit it was.
 Frames missing from or added to a folder also fail.
 
-### Background: results are now reproducible
+### Background: results are reproducible
 
 When this was built (2026-10-13), identical runs on the same Mac gave slightly
 different numbers: star counts ±2 everywhere, and on Gamma Cygni SNR up to
@@ -427,9 +427,15 @@ different numbers: star counts ±2 everywhere, and on Gamma Cygni SNR up to
 candidates in a random order, and stars with exactly the same peak value
 (common in 16-bit data, especially saturated stars) kept that random order, so
 different stars were picked and measured. Fixed in 1.23.1 by breaking ties on
-position and combining parallel measurements in a fixed order. Since then,
-repeated runs — on this Mac and in the 27.2 beta 3 VM — give byte-identical
-results. `MetricsDeterminismTests` guard this.
+position and combining parallel measurements in a fixed order. After that, repeated
+runs gave byte-identical results — except on frames with more than 50,000 star
+candidates (local maxima above the detection threshold): the GPU kernel stored the
+first 50,000 to arrive, so the GPU's thread order still decided which ones were
+used. In the baselines only m31-night `#0026` (50,455 candidates) was affected:
+3371–3373 stars over identical runs, in 1.23.1 too (found 2026-10-29, fixed
+2026-10-31). The detection now runs a second pass with room for every candidate
+when the first list is too small, and that frame gives 3389 stars on every run.
+`MetricsDeterminismTests` and `DetectionCapacityTests` guard this.
 
 Builds before the fix (beta 10, App Store build 202) still vary, so they can
 fail on Gamma Cygni against these baselines. That is expected.

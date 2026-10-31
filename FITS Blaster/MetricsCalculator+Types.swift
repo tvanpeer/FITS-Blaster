@@ -18,6 +18,7 @@ extension MetricsCalculator {
         var width:     UInt32   // image width in pixels
         var height:    UInt32   // image height in pixels
         var threshold: Float    // background + 5σ detection threshold
+        var capacity:  UInt32   // candidates the output list can hold
     }
 
     /// CPU-side mirror of the Metal DetectCandidate struct.
@@ -31,7 +32,8 @@ extension MetricsCalculator {
 
     /// Controls star detection and measurement limits.
     enum Constants {
-        /// Must match MAX_DETECTION_CANDIDATES in FITSStretch.metal.
+        /// Room for this many candidates in the first detection pass; a frame with more gets a
+        /// second pass with room for all of them.
         static let maxDetectionCandidates  = 50_000
         /// Number of stratified samples for background estimation.
         static let backgroundSampleCount   = 5_000

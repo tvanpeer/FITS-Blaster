@@ -22,7 +22,7 @@ import Metal
 /// from the cooperative thread pool.
 struct MetricsCalculator {
 
-    /// Must match MAX_DETECTION_CANDIDATES in FITSStretch.metal.
+    /// Room for this many candidates in the first GPU detection pass.
     static let maxDetectionCandidates = Constants.maxDetectionCandidates
 
     /// Half-width of the pixel crop extracted around each star candidate.

@@ -294,6 +294,7 @@ struct DetectParams {
     uint  width;      // image width in pixels
     uint  height;     // image height in pixels
     float threshold;  // background + 5σ — pixels below this level are sky
+    uint  capacity;   // candidates the output list can hold
 };
 
 /// Output record written by the detection kernel for each candidate.
@@ -303,11 +304,10 @@ struct DetectCandidate {
     uint y;     // pixel row
 };
 
-/// Maximum number of candidates the output buffer can hold.
-/// 50 000 × 8 bytes = 400 KB — large enough for very dense star fields.
-/// The atomic counter keeps counting past the cap, but only the stored candidates
-/// are read back. Shape metrics use the 200 brightest; the star count checks the 6,200 brightest.
-#define MAX_DETECTION_CANDIDATES 50000
+/// The output list holds `p.capacity` candidates (50 000 × 8 bytes = 400 KB first). The atomic
+/// counter keeps counting past it, so the caller knows when the list was too small and runs the
+/// pass again with room for all of them: which ones fit depends on the GPU's thread order.
+/// Shape metrics use the 200 brightest; the star count checks the 6,200 brightest.
 
 /// Detect strict 8-neighbour local maxima above a noise threshold.
 ///
@@ -361,7 +361,7 @@ kernel void detectLocalMaxima(
     // memory_order_relaxed is sufficient: we only need atomicity of the counter
     // itself, not ordering relative to the candidate writes.
     uint slot = atomic_fetch_add_explicit(count, 1u, memory_order_relaxed);
-    if (slot < MAX_DETECTION_CANDIDATES) {
+    if (slot < p.capacity) {
         candidates[slot] = DetectCandidate{x, y};
     }
 }
