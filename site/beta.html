@@ -310,7 +310,7 @@
     <div class="beta-badge">Beta</div>
     <p>Test the latest features before they ship. Beta builds may contain bugs.</p>
     <!-- beta-button-start -->
-    <a class="download-btn" href="https://github.com/tvanpeer/FITS-Blaster/releases/download/v1.24-beta.2/FITS-Blaster-1.24-beta.2.dmg">Download Beta 1.24-beta.2</a>
+    <a class="download-btn" href="https://github.com/tvanpeer/FITS-Blaster/releases/download/v1.24-beta.3/FITS-Blaster-1.24-beta.3.dmg">Download Beta 1.24-beta.3</a>
     <p class="download-sub">macOS 15.6 or later &nbsp;&middot;&nbsp; Free</p>
     <!-- beta-button-end -->
 </header>
@@ -327,6 +327,56 @@
     <h2>Beta release notes</h2>
     <p class="list-note">All betas since the last stable release, newest first.</p>
     <!-- beta-entry-start -->
+    <!-- v1.24-beta.3 -->
+    <div class="entry">
+        <div class="entry-header">
+            <div class="entry-title">1.24 beta 3: folders read once, memory under control, zoom and pan keys — v1.24-beta.3</div>
+            <div class="entry-date">2026-10-31 &nbsp;&middot;&nbsp; <a class="entry-link" href="https://github.com/tvanpeer/FITS-Blaster/releases/tag/v1.24-beta.3">GitHub release &#8599;</a></div>
+        </div>
+        <div class="section">
+            <span class="section-label label-improved">Improved</span>
+            <ul>
+                <li><strong>Loading reads each file once:</strong> colour folders keep a small intermediate image from the first read, so their colour render no longer reads every file a second time, and mono folders get their shared stretch while the next folder loads. Over a network that is much faster: 355 colour frames (17.6 GB) from a 1 Gb/s share in 160 s instead of 287 s, 464 mono frames in 67–72 s instead of 108 s. From an SSD colour loads take about 30 % less time. The images are exactly the same.</li>
+                <li><strong>The first frames appear right after the folder scan</strong>, without first checking every file (that took up to 13 s over a network).</li>
+                <li><strong>Smoother sidebar and chart:</strong> a click on a thumbnail no longer redraws the whole sidebar, and the chart redraws at most four times a second while loading instead of for every frame.</li>
+                <li><strong>Less memory while loading:</strong> each frame is read straight into its GPU buffer.</li>
+                <li><strong>Sharp thumbnails on Retina screens</strong>, in the sidebar and in Quick Look.</li>
+            </ul>
+        </div>
+        <div class="section">
+            <span class="section-label label-added">Added</span>
+            <ul>
+                <li><strong>Memory for display images</strong> (Settings → Display → Memory): a slider from 10 to 90 % of the Mac's memory, 50 % by default. Above it, the frames you looked at least recently give up their display images and are drawn again from their file when you go back to them (blurry for a moment). At the default display size this rarely matters; at large sizes it keeps FITS Blaster from taking most of the Mac's memory.</li>
+                <li><strong>Zoom and pan keys:</strong> <code>=</code> / <code>+</code> zoom in, <code>-</code> zoom out, <code>0</code> zoom to fit, <code>9</code> shows 1×; ⌥ + arrow keys pan a zoomed frame (a tap moves a quarter of the view, holding it scrolls). The zoom keys can be changed in Settings → Interface, and all of them are in the View menu.</li>
+                <li><strong>Open several folders at once:</strong> ⌘-click them in the Open Folder panel; each gets its own sidebar section, and the two options apply to all of them.</li>
+            </ul>
+        </div>
+        <div class="section">
+            <span class="section-label label-changed">Changed</span>
+            <ul>
+                <li><strong>⌘-click selects or deselects a single frame</strong>, as in Finder; flagging is the flag key or the (De)flag button only.</li>
+                <li><strong>"Max thumbnail size" is the width the sidebar shows</strong>, in points (80–400, default 180), and the sidebar follows it. Changing only the thumbnail size no longer reloads every frame.</li>
+                <li><strong>Files FITS Blaster doesn't load</strong> (floating-point FITS, stacks with colour planes) are left out during the load and named in one message.</li>
+                <li>Two folders with the same name (two nights' <code>LIGHT</code>), opened or dragged in together, get their parent folder in the section name, so they stay apart with their own stretch.</li>
+            </ul>
+        </div>
+        <div class="section">
+            <span class="section-label label-fixed">Fixed</span>
+            <ul>
+                <li><strong>Star counts are the same on every run</strong>, also on very dense or noisy frames (more than 50,000 candidates): before, the count could differ by a few stars between runs. On such frames the count is now the complete one (in the test data one frame: 3389 stars on every run instead of 3371–3373).</li>
+                <li><strong>The Settings window follows the theme setting</strong>; it could be light beside a dark main window.</li>
+                <li><strong>Colour images follow a new display size</strong>; with Colour on they kept the old size.</li>
+                <li><strong>A failed GPU pass is no longer shown as a black image</strong> or read as "no stars": the app falls back to the CPU.</li>
+            </ul>
+        </div>
+        <div class="section">
+            <span class="section-label label-under the hood">Under the hood</span>
+            <ul>
+                <li>The command line measures without making images when it doesn't render, and the test baselines are stricter. Measurements are unchanged apart from the star-count fix above.</li>
+            </ul>
+        </div>
+    </div>
+
     <!-- v1.24-beta.2 -->
     <div class="entry">
         <div class="entry-header">

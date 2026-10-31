@@ -6,6 +6,54 @@
         <description>Beta release notes for FITS Blaster</description>
         <language>en-us</language>
         <item>
+            <title>FITS Blaster 1.24-beta.3</title>
+            <pubDate>Sat, 31 Oct 2026 22:30:40 +0000</pubDate>
+            <sparkle:version>212</sparkle:version>
+            <sparkle:shortVersionString>1.24-beta.3</sparkle:shortVersionString>
+            <description><![CDATA[
+<h2>2026-10-31 — 1.24 beta 3: folders read once, memory under control, zoom and pan keys</h2>
+<h3>Improved</h3>
+<ul>
+  <li><b>Loading reads each file once:</b> colour folders keep a small intermediate image from the first read, so their colour render no longer reads every file a second time, and mono folders get their shared stretch while the next folder loads. Over a network that is much faster: 355 colour frames (17.6 GB) from a 1 Gb/s share in 160 s instead of 287 s, 464 mono frames in 67–72 s instead of 108 s. From an SSD colour loads take about 30 % less time. The images are exactly the same.</li>
+  <li><b>The first frames appear right after the folder scan</b>, without first checking every file (that took up to 13 s over a network).</li>
+  <li><b>Smoother sidebar and chart:</b> a click on a thumbnail no longer redraws the whole sidebar, and the chart redraws at most four times a second while loading instead of for every frame.</li>
+  <li><b>Less memory while loading:</b> each frame is read straight into its GPU buffer.</li>
+  <li><b>Sharp thumbnails on Retina screens</b>, in the sidebar and in Quick Look.</li>
+</ul>
+<h3>Added</h3>
+<ul>
+  <li><b>Memory for display images</b> (Settings → Display → Memory): a slider from 10 to 90 % of the Mac&#x27;s memory, 50 % by default. Above it, the frames you looked at least recently give up their display images and are drawn again from their file when you go back to them (blurry for a moment). At the default display size this rarely matters; at large sizes it keeps FITS Blaster from taking most of the Mac&#x27;s memory.</li>
+  <li><b>Zoom and pan keys:</b> `=` / `+` zoom in, `-` zoom out, `0` zoom to fit, `9` shows 1×; ⌥ + arrow keys pan a zoomed frame (a tap moves a quarter of the view, holding it scrolls). The zoom keys can be changed in Settings → Interface, and all of them are in the View menu.</li>
+  <li><b>Open several folders at once:</b> ⌘-click them in the Open Folder panel; each gets its own sidebar section, and the two options apply to all of them.</li>
+</ul>
+<h3>Changed</h3>
+<ul>
+  <li><b>⌘-click selects or deselects a single frame</b>, as in Finder; flagging is the flag key or the (De)flag button only.</li>
+  <li><b>&quot;Max thumbnail size&quot; is the width the sidebar shows</b>, in points (80–400, default 180), and the sidebar follows it. Changing only the thumbnail size no longer reloads every frame.</li>
+  <li><b>Files FITS Blaster doesn&#x27;t load</b> (floating-point FITS, stacks with colour planes) are left out during the load and named in one message.</li>
+  <li>Two folders with the same name (two nights&#x27; `LIGHT`), opened or dragged in together, get their parent folder in the section name, so they stay apart with their own stretch.</li>
+</ul>
+<h3>Fixed</h3>
+<ul>
+  <li><b>Star counts are the same on every run</b>, also on very dense or noisy frames (more than 50,000 candidates): before, the count could differ by a few stars between runs. On such frames the count is now the complete one (in the test data one frame: 3389 stars on every run instead of 3371–3373).</li>
+  <li><b>The Settings window follows the theme setting</b>; it could be light beside a dark main window.</li>
+  <li><b>Colour images follow a new display size</b>; with Colour on they kept the old size.</li>
+  <li><b>A failed GPU pass is no longer shown as a black image</b> or read as &quot;no stars&quot;: the app falls back to the CPU.</li>
+</ul>
+<h3>Under the hood</h3>
+<ul>
+  <li>The command line measures without making images when it doesn&#x27;t render, and the test baselines are stricter. Measurements are unchanged apart from the star-count fix above.</li>
+</ul>
+<p>---</p>
+<p>**[Full changelog](https://astrophoto-app.com/changelog.html)**</p>
+            ]]></description>
+            <enclosure
+                url="https://github.com/tvanpeer/FITS-Blaster/releases/download/v1.24-beta.3/FITS-Blaster-1.24-beta.3.dmg"
+                length="8883036"
+                type="application/octet-stream"
+                sparkle:edSignature="5Y/UbUGoNN1SBFKgia0mtaho3uMpxPqUG2FbyeXRSHwVPXfmpRQsr0bCucunCIeG+aA387CQuQz6ymahQgLsDg==" />
+        </item>
+        <item>
             <title>FITS Blaster 1.24-beta.2</title>
             <pubDate>Mon, 26 Oct 2026 14:37:05 +0000</pubDate>
             <sparkle:version>211</sparkle:version>
