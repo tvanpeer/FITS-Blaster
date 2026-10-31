@@ -410,8 +410,8 @@ Per frame, the new value must be within this distance of the baseline:
 | FWHM | ± 0.01 px | one step in the last digit the CSV writes (a value on a rounding edge can flip) |
 | Eccentricity | ± 0.001 | same |
 | SNR | ± 0.1 | same |
-| Stars | ± 0.5%, at least 3 | margin for small differences between machines |
-| PSF·S | ± 0.5% | same |
+| Stars | ± 1 | one step in the last digit (until 2026-10-31 ± 0.5%, at least 3: star counts varied slightly between runs) |
+| PSF·S | ± 0.1 | same |
 | Score | ± 1 | whole numbers, relative to the folder |
 
 And with the standard filter (`-f 1.5 -e 0.5 -p 0.5`, as in the VM smoke test)

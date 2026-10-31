@@ -4,6 +4,14 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-31 — Tighter metric baselines for stars and PSF·S
+
+### Internal
+- `scripts/metric-baselines.py`: stars and PSF·S now get one step in the last digit the CSV writes (± 1 star, ± 0.1), like FWHM, eccentricity and SNR. They had ± 0.5 % (stars at least 3) because they varied slightly between identical runs, which they no longer do (previous entry). `testing.md` updated.
+- Checked with the tighter limits: all 10 sets pass on this Mac, and this afternoon's VM results (sample set on macOS 15.8.2, 26.7.2, 27.2 and the 27.2 beta, plus the two manual runs) pass too; the four automatic VM runs are identical to the baseline in every value.
+
+---
+
 ## 2026-10-31 — Star counts are the same on every run, also on dense frames
 
 ### Fixed

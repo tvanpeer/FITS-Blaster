@@ -54,20 +54,20 @@ METRICS = ["fwhm", "eccentricity", "snr", "stars", "psf_signal_weight", "score"]
 
 
 def allowed(metric, baseline):
-    """Largest allowed difference for a metric, measured 2026-10-13 (see testing.md).
+    """Largest allowed difference for a metric (see testing.md).
 
-    FWHM, eccentricity and SNR: one step in the last digit the CSV writes, since a
-    value on a rounding edge can flip. Stars and PSF·S got 0.5% with a floor because
-    they varied slightly between identical runs (stars by up to 2, PSF·S by up to 0.1%);
-    since 2026-10-31 (star candidates over the GPU list's capacity) they no longer do.
+    One step in the last digit the CSV writes, for every metric: identical runs give
+    identical values (since 2026-10-31), but a value on a rounding edge can flip, for
+    example in a VM on another macOS version. Until then stars and PSF·S got 0.5% (stars
+    at least 3), because they varied slightly between identical runs.
     Score: whole numbers, relative to the folder.
     """
     return {
         "fwhm": 0.01,
         "eccentricity": 0.001,
         "snr": 0.1,
-        "stars": max(3.0, abs(baseline) * 0.005),
-        "psf_signal_weight": abs(baseline) * 0.005,
+        "stars": 1.0,
+        "psf_signal_weight": 0.1,
         "score": 1.0,
     }[metric] + 1e-9
 
