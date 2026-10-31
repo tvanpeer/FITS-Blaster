@@ -4,6 +4,37 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-31 — 1.24 beta 3: folders read once, memory under control, zoom and pan keys
+
+### Improved
+- **Loading reads each file once:** colour folders keep a small intermediate image from the first read, so their colour render no longer reads every file a second time, and mono folders get their shared stretch while the next folder loads. Over a network that is much faster: 355 colour frames (17.6 GB) from a 1 Gb/s share in 160 s instead of 287 s, 464 mono frames in 67–72 s instead of 108 s. From an SSD colour loads take about 30 % less time. The images are exactly the same.
+- **The first frames appear right after the folder scan**, without first checking every file (that took up to 13 s over a network).
+- **Smoother sidebar and chart:** a click on a thumbnail no longer redraws the whole sidebar, and the chart redraws at most four times a second while loading instead of for every frame.
+- **Less memory while loading:** each frame is read straight into its GPU buffer.
+- **Sharp thumbnails on Retina screens**, in the sidebar and in Quick Look.
+
+### Added
+- **Memory for display images** (Settings → Display → Memory): a slider from 10 to 90 % of the Mac's memory, 50 % by default. Above it, the frames you looked at least recently give up their display images and are drawn again from their file when you go back to them (blurry for a moment). At the default display size this rarely matters; at large sizes it keeps FITS Blaster from taking most of the Mac's memory.
+- **Zoom and pan keys:** `=` / `+` zoom in, `-` zoom out, `0` zoom to fit, `9` shows 1×; ⌥ + arrow keys pan a zoomed frame (a tap moves a quarter of the view, holding it scrolls). The zoom keys can be changed in Settings → Interface, and all of them are in the View menu.
+- **Open several folders at once:** ⌘-click them in the Open Folder panel; each gets its own sidebar section, and the two options apply to all of them.
+
+### Changed
+- **⌘-click selects or deselects a single frame**, as in Finder; flagging is the flag key or the (De)flag button only.
+- **"Max thumbnail size" is the width the sidebar shows**, in points (80–400, default 180), and the sidebar follows it. Changing only the thumbnail size no longer reloads every frame.
+- **Files FITS Blaster doesn't load** (floating-point FITS, stacks with colour planes) are left out during the load and named in one message.
+- Two folders with the same name (two nights' `LIGHT`), opened or dragged in together, get their parent folder in the section name, so they stay apart with their own stretch.
+
+### Fixed
+- **Star counts are the same on every run**, also on very dense or noisy frames (more than 50,000 candidates): before, the count could differ by a few stars between runs. On such frames the count is now the complete one (in the test data one frame: 3389 stars on every run instead of 3371–3373).
+- **The Settings window follows the theme setting**; it could be light beside a dark main window.
+- **Colour images follow a new display size**; with Colour on they kept the old size.
+- **A failed GPU pass is no longer shown as a black image** or read as "no stars": the app falls back to the CPU.
+
+### Under the hood
+- The command line measures without making images when it doesn't render, and the test baselines are stricter. Measurements are unchanged apart from the star-count fix above.
+
+---
+
 ## 2026-10-31 — Dropped folders with the same name stay apart
 
 ### Fixed
