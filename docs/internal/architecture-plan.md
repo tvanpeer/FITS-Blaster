@@ -563,6 +563,14 @@ before: 9.2/9.2 s and 0.96/1.01× read, against 9.5/9.8 s and 1.60/1.57×. Share
 2b-0 (2026-10-31): kernels `bayerAverage` and `bayerStretchFromAverage` added (the fused kernel
 unchanged); `ColourProxyIdentityTests`: 640 renders of the 160 render-test colour frames (1024, 2048,
 4096 with the folder's clips; 1024 with their own) byte-identical. 2b can go ahead as planned.
+2b (2026-10-31): built as planned, with one change: the proxy is a `Sendable` copy in memory of its
+own (`mmap`), not an `MTLBuffer` (not `Sendable`) and not a Swift array (the allocator kept the freed
+blocks: 514 MB after an M81 load at 1024). M81 colour from the SSD: 16.9–17.1 s and 1.00× read
+against 24.0–24.7 s and 1.86× (2a); peak memory at 1024 3.5 GB against 2.6 GB, the same after the load.
+Share, wired: 159.3/162.7 s and 1.06× against 286.6/286.5 s and 1.91× (plain read: 157 s).
+2b committed after Tom's test. On the way a separate bug was found and fixed (8046657): a Reset kept
+every frame alive through the stored sidebar lists of 9b (M81 at 4096: 11 GB after a Reset, now 111 MB).
+Part 2 is complete; `Step0MemoryTests.swift` (temporary, never committed) can be deleted.
 
 **Order:** 2a, then 2b-0; 2b only if 2b-0 shows identical bytes. Each with its own commit,
 the temporary switch removed in 2a, `Step0MemoryTests.swift` deleted after 2b.

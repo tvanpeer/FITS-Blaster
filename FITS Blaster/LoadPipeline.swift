@@ -38,6 +38,11 @@ final class LoadPipeline {
 
     @ObservationIgnored private let renderSlots = AsyncSemaphore(count: LoadPipeline.renderConcurrency)
 
+    /// The colour proxies a load keeps from Phase A for its folders' colour renders, within
+    /// a quarter of the Mac's memory (master-plan 9f part 2b). Replaced by tests that need a
+    /// smaller budget.
+    @ObservationIgnored var colourProxies = ColourProxies()
+
     // MARK: - Batch state
 
     var batchElapsed: Double?
@@ -588,9 +593,11 @@ final class LoadPipeline {
     /// After Cancel no new Phase B starts (CODE_AUDIT §3.4).
     ///
     /// **Colour normalisation** — fires per folder as soon as all entries in
-    /// that folder complete Phase A, while their FITS pages are still warm in
-    /// the OS file cache. Runs concurrently with Phase B and Phase A for other
-    /// folders, rather than waiting for the entire batch to finish.
+    /// that folder complete Phase A. Runs concurrently with Phase B and Phase A for
+    /// other folders, rather than waiting for the entire batch to finish. A frame
+    /// whose colour proxy (the averages before the stretch) Phase A could keep within
+    /// `colourProxies`' budget is rendered from it; the others read their file again
+    /// (master-plan 9f part 2b).
     ///
     /// **Grey normalisation** — a mono folder gets its shared grey stretch as soon as
     /// it is read, before the next folder's Phase A starts, while its files are still
@@ -630,6 +637,7 @@ final class LoadPipeline {
         // Mono folders whose grey normalisation ran during the load.
         var normalizedFolders: Set<String> = []
         var folderEntries: [ImageEntry] = []
+        let proxies = colourProxies
 
         await withTaskGroup(of: (ImageEntry, Task<Void, Never>?, Task<Void, Never>?).self) { group in
             var activeCount = 0
@@ -667,6 +675,7 @@ final class LoadPipeline {
                 }
                 let url  = entry.url
                 let path = entry.qualifiedFolderPath
+                let entryID = entry.id
                 group.addTask { [weak self] in
                     // ── Phase A: I/O + histogram + GPU stretch ────────────────
                     let fast = await FrameLoading.loadFast(url: url,
@@ -711,6 +720,27 @@ final class LoadPipeline {
                             self?.store?.selectedEntry = entry
                         }
                     } }
+
+                    // ── Colour proxy (9f part 2b) ─────────────────────────────
+                    // While the frame is still in its Metal buffer, keep the first half of its
+                    // colour render if it fits the budget: the folder's colour render then
+                    // needs no second read of the file (a 7 GB night doesn't stay in the
+                    // file cache). Without room the frame is read again, as before.
+                    if debayerColorImages, bayerClips != nil, let buffer = fast.metalBuffer,
+                       let pattern = fast.bayerPattern {
+                        let (w, h) = ImageStretcher.bayerDisplaySize(width: fast.width, height: fast.height,
+                                                                     maxDisplaySize: maxDisplaySize)
+                        let bytes = ColourProxy.byteCount(width: w, height: h)
+                        if await proxies.reserve(bytes) {
+                            if let proxy = await ImageStretcher.averageBayer(
+                                inputBuffer: buffer, width: fast.width, height: fast.height,
+                                rOffset: pattern.rOffset, maxDisplaySize: maxDisplaySize) {
+                                await proxies.store(proxy, for: entryID)
+                            } else {
+                                await proxies.cancelReservation(bytes)
+                            }
+                        }
+                    }
 
                     // ── Per-folder colour normalisation (streaming) ───────────
                     // When every entry in a folder has finished Phase A the per-channel
@@ -767,6 +797,8 @@ final class LoadPipeline {
         }
 
         await waitForSpawned(phaseB: phaseBTasks, colour: colourTasks)
+        // Proxies the colour renders didn't use (Cancel, a colour toggle meanwhile) go now.
+        await proxies.discardAll()
 
         store?.updateGroupStatistics()
         return entriesToProcess.filter { !normalizedFolders.contains($0.qualifiedFolderPath) }
@@ -1030,7 +1062,8 @@ final class LoadPipeline {
     /// the individual `bayerClips` already computed during Phase A or sampling.
     ///
     /// Called from `processParallel` and `recolorImages` as soon as all entries in a
-    /// folder complete their clip computation, while FITS pages are still warm in cache.
+    /// folder complete their clip computation. Frames with a colour proxy from Phase A are
+    /// rendered from it, without reading their file again.
     /// Updates `batchRestretchCount` so the Restretching bar advances smoothly.
     /// `batchRestretchTotal` must be set to the full entry count by the caller upfront.
     /// The renders are shown only while `generation` is current; they are cached either way.
@@ -1056,7 +1089,8 @@ final class LoadPipeline {
            let pattern = selected.bayerPattern,
            let (display, thumb) = await FrameLoading.recolorBayerEntry(
                url: selected.url, rOffset: pattern.rOffset, clips: sharedClips,
-               maxDisplaySize: maxDisplaySize, maxThumbnailSize: maxThumbnailSize) {
+               maxDisplaySize: maxDisplaySize, maxThumbnailSize: maxThumbnailSize,
+               proxy: await colourProxies.take(selected.id)) {
             selected.cachedColourDisplay = display
             selected.cachedColourThumb   = thumb
             selected.colourRecipe = .colour(rOffset: pattern.rOffset, clips: sharedClips,
@@ -1069,7 +1103,7 @@ final class LoadPipeline {
         }
 
         // Apply cached colour renders (e.g. the priority pass above) without a task.
-        var toRender: [(entry: ImageEntry, bayerPattern: BayerPattern?)] = []
+        var toRender: [(entry: ImageEntry, id: UUID, bayerPattern: BayerPattern?)] = []
         for entry in bayerEntries {
             if entry.cachedColourDisplay != nil {
                 if renderGeneration == generation {
@@ -1078,10 +1112,11 @@ final class LoadPipeline {
                 }
                 batchRestretchCount += 1
             } else {
-                toRender.append((entry, entry.bayerPattern))
+                toRender.append((entry, entry.id, entry.bayerPattern))
             }
         }
 
+        let proxies = colourProxies
         await forEachWithRenderSlot(toRender) { [weak self] item in
             let pipeline = self
             let entry = item.entry
@@ -1090,7 +1125,8 @@ final class LoadPipeline {
             guard let pattern = item.bayerPattern,
                   let (display, thumb) = await FrameLoading.recolorBayerEntry(
                       url: url, rOffset: pattern.rOffset, clips: sharedClips,
-                      maxDisplaySize: maxDisplaySize, maxThumbnailSize: maxThumbnailSize
+                      maxDisplaySize: maxDisplaySize, maxThumbnailSize: maxThumbnailSize,
+                      proxy: await proxies.take(item.id)
                   ) else {
                 await MainActor.run { pipeline?.batchRestretchCount += 1 }
                 return

@@ -4,6 +4,20 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-31 — Colour folders are read once (step 9f, part 2b)
+
+### Changed
+- **A colour load reads each file once instead of twice.** While a frame is still in memory from its first read, the first half of its colour render (the averaged colours at display size, before the stretch) is kept; when the folder's shared stretch is known, the colour image is made from that instead of reading the file again. The images are byte for byte the same. Before, the second read found most files gone from the file cache: a 7 GB night doesn't stay in it. M81 (355 colour frames, 17.6 GB) from the SSD, alternated with the previous build, sleep blocked: 16.9–17.1 s instead of 24.0–24.7 s, 1.00× instead of 1.86× the files read. From the share over a wired network: 159.3/162.7 s instead of 286.6/286.5 s, 1.06× instead of 1.91× the files downloaded — about as long as a plain read of the files (157 s).
+- These kept averages use at most a quarter of the Mac's memory (4 GB on 16 GB; 8.4 MB per frame at a display size of 1024, so a 140-frame night takes 1.2 GB). A frame whose averages don't fit is read again, as before; at very large display sizes that happens for part of a folder. Memory during a load rises by up to that amount (M81 at 1024: peak 3.5 GB instead of 2.6 GB); after the load it is the same as before (1.3 GB at 1024, 11 GB at 4096). Turning Colour on later still reads the files.
+
+### Internal
+- New `ColourProxies` actor (owned by `LoadPipeline`, budget `physicalMemory / 4`): `reserve`, `store`, `take`, `discardAll`. Phase A of a Bayer frame with Colour on reserves room and keeps `ImageStretcher.averageBayer`'s `ColourProxy`; `renderFolderInColour` takes it (`FrameLoading.recolorBayerEntry(…, proxy:)`) and stretches it with `createBayerImage(from:clips:)`, or reads the file when there is none. `processParallel` discards the proxies left when the load ends (Cancel, a colour change meanwhile).
+- `ColourProxy` keeps the averages in `Data` over memory of its own (`mmap`, given back with `munmap`), so it is `Sendable` and its memory goes back to the system with it. Kept as a Swift array, the allocator kept the freed blocks after the load (M81 at 1024: 514 MB in 64 empty blocks; at 4096: 2.2 GB), and `malloc_zone_pressure_relief` didn't give them back.
+- Unit tests (361, with the Reset fix), render tests (`--full`, full output kept), the 10 metric baselines and `ColourProxyIdentityTests` pass; 0 compiler warnings. Tried by Tom in the app with a test build: colour loads, 4096, Cancel, Reset (memory back to 160 MB after M81, 201 MB after Rosette mixed), Colour off and on, mono and mixed folders.
+- New `ColourProxyPipelineTests` (5): all frames from proxies give the same bytes as reading every file again; a budget for two proxies uses two and reads the rest, same bytes; two folders; a grey load keeps none; none is left after Cancel. `ColourProxyIdentityTests` still finds all 640 renders identical.
+
+---
+
 ## 2026-10-31 — A Reset lets go of the old session's images
 
 ### Fixed

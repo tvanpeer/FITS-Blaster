@@ -226,7 +226,7 @@ extension ImageStretcher {
     /// The colour display size of a `width` × `height` Bayer frame: always binned 2×2, so
     /// each output pixel's footprint covers at least one complete Bayer cell (no screen-door
     /// pattern), then scaled to fit `maxDisplaySize` (0: no limit).
-    private static func bayerDisplaySize(width: Int, height: Int, maxDisplaySize: Int) -> (Int, Int) {
+    static func bayerDisplaySize(width: Int, height: Int, maxDisplaySize: Int) -> (Int, Int) {
         let effectiveW = width  / 2
         let effectiveH = height / 2
         guard maxDisplaySize > 0 && max(effectiveW, effectiveH) > maxDisplaySize else {
@@ -263,7 +263,7 @@ extension ImageStretcher {
             encoder.setBytes(&params, length: MemoryLayout<BayerStretchParams>.stride, index: 2)
         }
         guard completed else { return nil }
-        return ColourProxy(averages: averages, width: dstW, height: dstH)
+        return ColourProxy(copying: averages.contents(), width: dstW, height: dstH)
     }
 
     /// The second half of the colour render: `proxy` stretched per channel with `clips`
@@ -271,7 +271,11 @@ extension ImageStretcher {
     @concurrent static func createBayerImage(from proxy: ColourProxy, clips: BayerClips) async -> NSImage? {
         guard clips.isValid,
               let pipelineState = MetalContext.bayerStretchFromAveragePipeline,
-              let device = MetalContext.device, proxy.averages.device === device,
+              let device = MetalContext.device,
+              proxy.averages.count == ColourProxy.byteCount(width: proxy.width, height: proxy.height),
+              let averages = proxy.averages.withUnsafeBytes({ bytes in
+                  bytes.baseAddress.flatMap { device.makeBuffer(bytes: $0, length: bytes.count, options: .storageModeShared) }
+              }),
               let outputBuffer = device.makeBuffer(length: proxy.width * proxy.height * 4,
                                                    options: .storageModeShared) else { return nil }
         var params = BayerStretchParams(
@@ -283,7 +287,7 @@ extension ImageStretcher {
             rOffset: 0
         )
         let completed = await MetalContext.runPass(pipelineState, width: proxy.width, height: proxy.height) { encoder in
-            encoder.setBuffer(proxy.averages, offset: 0, index: 0)
+            encoder.setBuffer(averages, offset: 0, index: 0)
             encoder.setBuffer(outputBuffer, offset: 0, index: 1)
             encoder.setBytes(&params, length: MemoryLayout<BayerStretchParams>.stride, index: 2)
         }

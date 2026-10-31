@@ -48,12 +48,17 @@ enum FrameLoading {
                                                bayerPattern: fits.bayerPattern)
     }
 
-    /// Re-reads a single FITS file and renders it in colour with the given shared clip bounds.
-    /// Called by `LoadPipeline.renderFolderInColour`.
+    /// Renders a single frame in colour with the given shared clip bounds: from `proxy`, the
+    /// averages kept from Phase A (no file read, the same bytes), or else by reading the
+    /// file again. Called by `LoadPipeline.renderFolderInColour`.
     @concurrent static func recolorBayerEntry(
         url: URL, rOffset: UInt32, clips: BayerClips,
-        maxDisplaySize: Int, maxThumbnailSize: Int
+        maxDisplaySize: Int, maxThumbnailSize: Int,
+        proxy: ColourProxy? = nil
     ) async -> (display: NSImage, thumb: NSImage?)? {
+        if let proxy, let display = await ImageStretcher.createBayerImage(from: proxy, clips: clips) {
+            return (display, ImageStretcher.createThumbnail(from: display, maxSize: maxThumbnailSize))
+        }
         let didStart = url.startAccessingSecurityScopedResource()
         defer { if didStart { url.stopAccessingSecurityScopedResource() } }
 
