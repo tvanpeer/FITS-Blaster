@@ -4,6 +4,17 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-31 — The Settings window follows the theme setting
+
+### Fixed
+- **Settings → Interface → Theme now applies to the Settings window too.** It followed the system's appearance instead, so with the default Dark theme on a Mac in Light mode it was light beside the dark main window (seen in the App Store screenshots of 1.23.1).
+
+### Internal
+- `Window("Settings")` in `FitsBlasterApp` gets `.preferredColorScheme(settings.preferredColorScheme)`, as the main window has; the sheets (Export, Auto-Flag) belong to the main window and already followed it.
+- Unit tests (362), render tests (`--full`) and the 10 metric baselines pass; 0 compiler warnings. Tried by Tom in a normal and an App Store test build: Dark and Light theme against the other system appearance, System following the Mac, and a change while Settings is open.
+
+---
+
 ## 2026-10-31 — Tighter metric baselines for stars and PSF·S
 
 ### Internal

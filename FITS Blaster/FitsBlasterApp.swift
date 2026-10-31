@@ -146,6 +146,9 @@ struct FitsBlasterApp: App {
                 .environment(store)
                 .environment(viewer)
                 .environment(\.dynamicTypeSize, settings.dynamicTypeSize)
+                // The theme setting, as in the main window: without it this window followed
+                // the system and could be light beside a dark main window.
+                .preferredColorScheme(settings.preferredColorScheme)
         }
     }
 }
