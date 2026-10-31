@@ -190,22 +190,7 @@ extension ImageStretcher {
         guard let pipelineState = MetalContext.bayerStretchPipeline,
               inputBuffer.device === MetalContext.device else { return nil }
 
-        // Bayer images are always binned 2×2 so each output pixel's footprint covers
-        // at least one complete Bayer cell — eliminating the screen-door pattern.
-        let effectiveW = width  / 2
-        let effectiveH = height / 2
-
-        // Compute output dimensions from the effective (binned) source size.
-        let dstW: Int
-        let dstH: Int
-        if maxDisplaySize > 0 && max(effectiveW, effectiveH) > maxDisplaySize {
-            let scale = Float(maxDisplaySize) / Float(max(effectiveW, effectiveH))
-            dstW = max(1, Int(Float(effectiveW) * scale))
-            dstH = max(1, Int(Float(effectiveH) * scale))
-        } else {
-            dstW = effectiveW
-            dstH = effectiveH
-        }
+        let (dstW, dstH) = bayerDisplaySize(width: width, height: height, maxDisplaySize: maxDisplaySize)
 
         // Output: RGBA UInt8, 4 bytes/pixel, at display size
         let outputByteCount = dstW * dstH * 4
@@ -234,6 +219,76 @@ extension ImageStretcher {
 
         // Zero-copy: the image reads straight from the Metal shared buffer.
         return MetalContext.makeImage(from: outputBuffer, width: dstW, height: dstH, bytesPerPixel: 4,
+                                      colorSpace: CGColorSpaceCreateDeviceRGB(),
+                                      bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.noneSkipLast.rawValue))
+    }
+
+    /// The colour display size of a `width` × `height` Bayer frame: always binned 2×2, so
+    /// each output pixel's footprint covers at least one complete Bayer cell (no screen-door
+    /// pattern), then scaled to fit `maxDisplaySize` (0: no limit).
+    private static func bayerDisplaySize(width: Int, height: Int, maxDisplaySize: Int) -> (Int, Int) {
+        let effectiveW = width  / 2
+        let effectiveH = height / 2
+        guard maxDisplaySize > 0 && max(effectiveW, effectiveH) > maxDisplaySize else {
+            return (effectiveW, effectiveH)
+        }
+        let scale = Float(maxDisplaySize) / Float(max(effectiveW, effectiveH))
+        return (max(1, Int(Float(effectiveW) * scale)), max(1, Int(Float(effectiveH) * scale)))
+    }
+
+    // MARK: - Colour in two passes (master-plan 9f part 2b)
+
+    /// The first half of the colour render: the per-channel averages at display size, before
+    /// any stretch (`bayerAverage`). `createBayerImage(from:clips:)` makes the same image from
+    /// them that `createBayerImage(inputBuffer:…)` makes from the frame. Nil without Metal or
+    /// when the pass fails.
+    @concurrent static func averageBayer(inputBuffer: MTLBuffer, width: Int, height: Int,
+                                         rOffset: UInt32, maxDisplaySize: Int = 0) async -> ColourProxy? {
+        guard let pipelineState = MetalContext.bayerAveragePipeline,
+              inputBuffer.device === MetalContext.device else { return nil }
+        let (dstW, dstH) = bayerDisplaySize(width: width, height: height, maxDisplaySize: maxDisplaySize)
+        guard let averages = inputBuffer.device.makeBuffer(length: dstW * dstH * 3 * MemoryLayout<Float>.stride,
+                                                           options: .storageModeShared) else { return nil }
+        var params = BayerStretchParams(
+            shadowClipR: 0, highClipR: 0, mtfMidtoneR: 0,
+            shadowClipG: 0, highClipG: 0, mtfMidtoneG: 0,
+            shadowClipB: 0, highClipB: 0, mtfMidtoneB: 0,
+            srcWidth: UInt32(width), srcHeight: UInt32(height),
+            dstWidth: UInt32(dstW), dstHeight: UInt32(dstH),
+            rOffset: rOffset
+        )
+        let completed = await MetalContext.runPass(pipelineState, width: dstW, height: dstH) { encoder in
+            encoder.setBuffer(inputBuffer, offset: 0, index: 0)
+            encoder.setBuffer(averages, offset: 0, index: 1)
+            encoder.setBytes(&params, length: MemoryLayout<BayerStretchParams>.stride, index: 2)
+        }
+        guard completed else { return nil }
+        return ColourProxy(averages: averages, width: dstW, height: dstH)
+    }
+
+    /// The second half of the colour render: `proxy` stretched per channel with `clips`
+    /// (`bayerStretchFromAverage`).
+    @concurrent static func createBayerImage(from proxy: ColourProxy, clips: BayerClips) async -> NSImage? {
+        guard clips.isValid,
+              let pipelineState = MetalContext.bayerStretchFromAveragePipeline,
+              let device = MetalContext.device, proxy.averages.device === device,
+              let outputBuffer = device.makeBuffer(length: proxy.width * proxy.height * 4,
+                                                   options: .storageModeShared) else { return nil }
+        var params = BayerStretchParams(
+            shadowClipR: clips.loR, highClipR: clips.hiR, mtfMidtoneR: clips.midR,
+            shadowClipG: clips.loG, highClipG: clips.hiG, mtfMidtoneG: clips.midG,
+            shadowClipB: clips.loB, highClipB: clips.hiB, mtfMidtoneB: clips.midB,
+            srcWidth: 0, srcHeight: 0,
+            dstWidth: UInt32(proxy.width), dstHeight: UInt32(proxy.height),
+            rOffset: 0
+        )
+        let completed = await MetalContext.runPass(pipelineState, width: proxy.width, height: proxy.height) { encoder in
+            encoder.setBuffer(proxy.averages, offset: 0, index: 0)
+            encoder.setBuffer(outputBuffer, offset: 0, index: 1)
+            encoder.setBytes(&params, length: MemoryLayout<BayerStretchParams>.stride, index: 2)
+        }
+        guard completed else { return nil }
+        return MetalContext.makeImage(from: outputBuffer, width: proxy.width, height: proxy.height, bytesPerPixel: 4,
                                       colorSpace: CGColorSpaceCreateDeviceRGB(),
                                       bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.noneSkipLast.rawValue))
     }

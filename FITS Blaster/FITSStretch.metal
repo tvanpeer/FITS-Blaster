@@ -204,6 +204,88 @@ kernel void bayerDebayerAndStretch(
     outputPixels[outY * params.dstWidth + outX] = uchar4(r8, g8, b8, 255);
 }
 
+// MARK: - Bayer colour in two passes (master-plan 9f part 2b)
+
+/// `bayerDebayerAndStretch` split in two, so the averages can be kept from the first read
+/// of a frame and stretched later with the folder's shared clips, without reading the file
+/// again: `bayerAverage` is its first half (steps 1–3), `bayerStretchFromAverage` its
+/// second (step 4). The arithmetic is the same, line for line, so the bytes must be too;
+/// `ColourProxyIdentityTests` checks that on real frames.
+
+/// Output: three float32 per output pixel (R, G, B), packed row-major.
+kernel void bayerAverage(
+    device const float*           inputPixels  [[ buffer(0) ]],
+    device       float*           averages     [[ buffer(1) ]],
+    constant BayerStretchParams&  params       [[ buffer(2) ]],
+    uint2 gid [[ thread_position_in_grid ]]
+) {
+    uint outX = gid.x;
+    uint outY = gid.y;
+    if (outX >= params.dstWidth || outY >= params.dstHeight) return;
+
+    uint W  = params.srcWidth;
+    uint H  = params.srcHeight;
+    uint ro = params.rOffset;
+    uint rx = ro & 1u;
+    uint ry = (ro >> 1u) & 1u;
+
+    uint logW = W / 2u;
+    uint logH = H / 2u;
+
+    float scaleX = float(logW) / float(params.dstWidth);
+    float scaleY = float(logH) / float(params.dstHeight);
+
+    uint lxStart   = uint(float(outX)        * scaleX);
+    uint lxEndExcl = uint(float(outX + 1u)   * scaleX);
+    uint lxEnd     = min(lxEndExcl > lxStart ? lxEndExcl - 1u : lxStart, logW - 1u);
+
+    uint flippedY  = params.dstHeight - 1u - outY;
+    uint lyStart   = uint(float(flippedY)      * scaleY);
+    uint lyEndExcl = uint(float(flippedY + 1u) * scaleY);
+    uint lyEnd     = min(lyEndExcl > lyStart ? lyEndExcl - 1u : lyStart, logH - 1u);
+
+    uint sxStart = lxStart * 2u;
+    uint sxEnd   = min(lxEnd * 2u + 1u, W - 1u);
+    uint syStart = lyStart * 2u;
+    uint syEnd   = min(lyEnd * 2u + 1u, H - 1u);
+
+    float sumR = 0.0f, sumG = 0.0f, sumB = 0.0f;
+    uint  nR   = 0u,   nG   = 0u,   nB   = 0u;
+    for (uint sy = syStart; sy <= syEnd; sy++) {
+        for (uint sx = sxStart; sx <= sxEnd; sx++) {
+            float v  = inputPixels[sy * W + sx];
+            uint  cx = (sx & 1u) ^ rx;
+            uint  cy = (sy & 1u) ^ ry;
+            if      (cx == 0u && cy == 0u) { sumR += v; nR++; }
+            else if (cx == 1u && cy == 1u) { sumB += v; nB++; }
+            else                           { sumG += v; nG++; }
+        }
+    }
+    uint i = (outY * params.dstWidth + outX) * 3u;
+    averages[i]      = (nR > 0u) ? sumR / float(nR) : 0.0f;
+    averages[i + 1u] = (nG > 0u) ? sumG / float(nG) : 0.0f;
+    averages[i + 2u] = (nB > 0u) ? sumB / float(nB) : 0.0f;
+}
+
+/// Stretches the averages of `bayerAverage` per channel. Only the clips, midtones and
+/// dstWidth/dstHeight of `params` are used. Output: RGBA UInt8, as `bayerDebayerAndStretch`.
+kernel void bayerStretchFromAverage(
+    device const float*           averages     [[ buffer(0) ]],
+    device       uchar4*          outputPixels [[ buffer(1) ]],
+    constant BayerStretchParams&  params       [[ buffer(2) ]],
+    uint2 gid [[ thread_position_in_grid ]]
+) {
+    if (gid.x >= params.dstWidth || gid.y >= params.dstHeight) return;
+    uint p = gid.y * params.dstWidth + gid.x;
+    uint i = p * 3u;
+
+    uchar r8 = stretchByte(averages[i],      params.shadowClipR, params.highClipR, params.mtfMidtoneR);
+    uchar g8 = stretchByte(averages[i + 1u], params.shadowClipG, params.highClipG, params.mtfMidtoneG);
+    uchar b8 = stretchByte(averages[i + 2u], params.shadowClipB, params.highClipB, params.mtfMidtoneB);
+
+    outputPixels[p] = uchar4(r8, g8, b8, 255);
+}
+
 // MARK: - Local-maximum detection
 
 /// CPU-side parameters for the detection kernel. Must match the Swift

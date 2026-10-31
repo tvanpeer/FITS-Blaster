@@ -4,6 +4,15 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-31 — The colour render in two passes gives the same bytes (step 9f, part 2b-0)
+
+### Internal
+- Two new kernels in `FITSStretch.metal`, the halves of `bayerDebayerAndStretch` (which is unchanged): `bayerAverage` writes the per-channel averages at display size as float32 (12 bytes per pixel), `bayerStretchFromAverage` stretches them with a frame's or folder's clips. Swift: `ImageStretcher.averageBayer(inputBuffer:…)` gives a `ColourProxy`, `ImageStretcher.createBayerImage(from:clips:)` the image; the display size comes from one shared `bayerDisplaySize` for both paths. Nothing in the app uses them yet: part 2b keeps the proxies from the first read so the folder's colour render needs no second one.
+- New `ColourProxyIdentityTests` (with `FB_TEST_DATA` and `FB_TEST_DATA_FULL=1`): every frame of the three render-test colour folders rendered in one pass and in two, at 1024, 2048 and 4096 with the folder's median clips and at 1024 with its own clips. All 640 renders (160 frames) are byte-identical, although the shaders are compiled with fast math.
+- Unit tests (355; the new suite is skipped without the test data), render tests (`--full`, full output kept) and the 10 metric baselines pass; 0 compiler warnings.
+
+---
+
 ## 2026-10-31 — Mono folders get their shared stretch as soon as they are read (step 9f, part 2a)
 
 ### Changed

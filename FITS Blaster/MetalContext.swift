@@ -25,6 +25,10 @@ enum MetalContext {
     static let stretchPipeline = makePipeline("mtfStretch")
     /// Bayer demosaic + per-channel stretch (`bayerDebayerAndStretch`).
     static let bayerStretchPipeline = makePipeline("bayerDebayerAndStretch")
+    /// Its two halves: the per-channel averages only (`bayerAverage`), and the stretch of
+    /// those averages (`bayerStretchFromAverage`), for a colour render from a kept proxy.
+    static let bayerAveragePipeline = makePipeline("bayerAverage")
+    static let bayerStretchFromAveragePipeline = makePipeline("bayerStretchFromAverage")
     /// Full-frame local-maximum star detection (`detectLocalMaxima`).
     static let detectionPipeline = makePipeline("detectLocalMaxima")
 

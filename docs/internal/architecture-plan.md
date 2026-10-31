@@ -560,6 +560,10 @@ boundary; the last folder and undecided ones keep the pass after the load. SSD a
 before: 9.2/9.2 s and 0.96/1.01× read, against 9.5/9.8 s and 1.60/1.57×. Share, wired: 67.0/72.2 s and
 0.98/1.06×, against 107.7/108.5 s and 1.69×.
 
+2b-0 (2026-10-31): kernels `bayerAverage` and `bayerStretchFromAverage` added (the fused kernel
+unchanged); `ColourProxyIdentityTests`: 640 renders of the 160 render-test colour frames (1024, 2048,
+4096 with the folder's clips; 1024 with their own) byte-identical. 2b can go ahead as planned.
+
 **Order:** 2a, then 2b-0; 2b only if 2b-0 shows identical bytes. Each with its own commit,
 the temporary switch removed in 2a, `Step0MemoryTests.swift` deleted after 2b.
 
