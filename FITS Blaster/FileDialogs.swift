@@ -28,21 +28,23 @@ enum FileDialogs {
 
     // MARK: - Open Folder
 
-    /// The folder and options chosen in the open panel.
+    /// The folders and options chosen in the open panel.
     struct FolderChoice {
-        let url: URL
+        /// One or more folders (⌘-click in the panel).
+        let urls: [URL]
         let includeSubfolders: Bool
         let includeRejected: Bool
     }
 
-    /// Asks for a folder, with the two options as checkboxes in the panel; they start
-    /// from the defaults in Settings. Nil when the user cancels.
+    /// Asks for one or more folders, with the two options as checkboxes in the panel; they
+    /// start from the defaults in Settings and apply to every folder chosen. Nil when the
+    /// user cancels.
     static func chooseFolder(includeSubfolders: Bool, includeRejected: Bool) async -> FolderChoice? {
         let panel = NSOpenPanel()
         panel.canChooseDirectories = true
         panel.canChooseFiles = false
-        panel.allowsMultipleSelection = false
-        panel.message = "Select a folder containing FITS files"
+        panel.allowsMultipleSelection = true
+        panel.message = "Select one or more folders containing FITS files"
         panel.prompt = "Open"
 
         let subfolders = NSButton(checkboxWithTitle: "Include files from subfolders", target: nil, action: nil)
@@ -58,8 +60,8 @@ enum FileDialogs {
         panel.accessoryView = options
         panel.isAccessoryViewDisclosed = true
 
-        guard await panel.begin() == .OK, let url = panel.url else { return nil }
-        return FolderChoice(url: url,
+        guard await panel.begin() == .OK, !panel.urls.isEmpty else { return nil }
+        return FolderChoice(urls: panel.urls,
                             includeSubfolders: subfolders.state == .on,
                             includeRejected: rejected.state == .on)
     }
@@ -82,10 +84,37 @@ enum FileDialogs {
     static func openFolder(store: ImageStore, settings: AppSettings) async {
         guard let choice = await chooseFolder(includeSubfolders: settings.includeSubfolders,
                                               includeRejected: settings.includeRejectedFolder) else { return }
-        if store.isAlreadyLoaded(choice.url),
-           await !confirmOpenAgain(folderName: choice.url.lastPathComponent) { return }
-        await store.openFolder(at: choice.url, includeSubfolders: choice.includeSubfolders,
-                               includeRejected: choice.includeRejected, settings: settings)
+        var urls = choice.urls
+        let loaded = urls.filter { store.isAlreadyLoaded($0) }
+        if urls.count == 1, let folder = loaded.first {
+            guard await confirmOpenAgain(folderName: folder.lastPathComponent) else { return }
+        } else if !loaded.isEmpty,
+                  await !confirmOpenAgain(folderNames: loaded.map(\.lastPathComponent)) {
+            urls.removeAll { loaded.contains($0) }
+        }
+        guard !urls.isEmpty else { return }
+        if urls.count == 1 {
+            await store.openFolder(at: urls[0], includeSubfolders: choice.includeSubfolders,
+                                   includeRejected: choice.includeRejected, settings: settings)
+        } else {
+            await store.openFolders(urls, includeSubfolders: choice.includeSubfolders,
+                                    includeRejected: choice.includeRejected, settings: settings)
+        }
+    }
+
+    /// Asks, once, about the chosen folders that are already in the session: true to open
+    /// them again too ("Open Anyway"), false to skip them and open the others.
+    static func confirmOpenAgain(folderNames: [String]) async -> Bool {
+        let alert = NSAlert()
+        alert.messageText = folderNames.count == 1 ? "A Folder Is Already Loaded" : "Some Folders Are Already Loaded"
+        let list = folderNames.map { "\"\($0)\"" }.joined(separator: ", ")
+        alert.informativeText = "\(list) \(folderNames.count == 1 ? "is" : "are") already in your session. Any duplicate files will be skipped automatically."
+        alert.addButton(withTitle: "Open Anyway")
+        alert.addButton(withTitle: folderNames.count == 1 ? "Skip It" : "Skip Those")
+        if let window = NSApp.mainWindow {
+            return await alert.beginSheetModal(for: window) == .alertFirstButtonReturn
+        }
+        return alert.runModal() == .alertFirstButtonReturn
     }
 
     // MARK: - Folder access (sandbox)

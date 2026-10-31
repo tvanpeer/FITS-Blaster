@@ -2,8 +2,8 @@
 //  OpenFolderTests.swift
 //  FITS Blaster Tests
 //
-//  ImageStore.openFolder(at:): the folder scan off the main thread, REJECTED
-//  handling, "already loaded", an empty folder; and the shared helpers
+//  ImageStore.openFolder(at:) and openFolders: the folder scan off the main thread, REJECTED
+//  handling, "already loaded", an empty folder, several folders at once; and the shared helpers
 //  rejectedURLs(in:), isDirectory and FITSFile.
 //
 
@@ -108,6 +108,89 @@ struct OpenFolderTests {
         #expect(FITSFile.hasFITSExtension(URL(fileURLWithPath: "/x/a.fts")))
         #expect(!FITSFile.hasFITSExtension(URL(fileURLWithPath: "/x/a.xisf")))
         #expect(!FITSFile.hasFITSExtension(URL(fileURLWithPath: "/x/fits")))
+    }
+
+    // MARK: - Several folders from the open panel
+
+    /// `makeFolder()` contents copied into `parent/<path>` for each path.
+    private func makeFolders(_ paths: [String]) throws -> (parent: URL, folders: [URL]) {
+        let parent = FileManager.default.temporaryDirectory.appending(component: UUID().uuidString)
+        let source = try makeFolder()
+        defer { try? FileManager.default.removeItem(at: source) }
+        var folders: [URL] = []
+        for path in paths {
+            let folder = parent.appending(path: path)
+            try FileManager.default.createDirectory(at: folder.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try FileManager.default.copyItem(at: source, to: folder)
+            folders.append(folder)
+        }
+        return (parent, folders)
+    }
+
+    @Test("Two folders opened together: each its own sidebar section, both 'already loaded'")
+    func openTwoFolders() async throws {
+        let (parent, folders) = try makeFolders(["Night 1", "Night 2"])
+        defer { try? FileManager.default.removeItem(at: parent) }
+        let store = ImageStore()
+
+        await store.openFolders(folders, includeSubfolders: false, includeRejected: false, settings: AppSettings())
+        await store.pipeline.waitForProcessing()
+
+        #expect(store.entries.count == 4)
+        #expect(store.entries.allSatisfy { !$0.isRejected })
+        #expect(store.groupedByFolderAndFilter.map(\.folderDisplayName).sorted() == ["Night 1", "Night 2"])
+        #expect(folders.allSatisfy { store.isAlreadyLoaded($0) })
+        #expect(store.rootFolderName == "")
+    }
+
+    @Test("Two folders with REJECTED on: each folder's rejected frame is marked rejected")
+    func openTwoFoldersWithRejected() async throws {
+        let (parent, folders) = try makeFolders(["Night 1", "Night 2"])
+        defer { try? FileManager.default.removeItem(at: parent) }
+        let store = ImageStore()
+
+        await store.openFolders(folders, includeSubfolders: false, includeRejected: true, settings: AppSettings())
+        await store.pipeline.waitForProcessing()
+
+        #expect(store.entries.count == 6)
+        let rejected = store.entries.filter(\.isRejected)
+        #expect(rejected.map(\.fileName) == ["c.fits", "c.fits"])
+        #expect(Set(rejected.map(\.rootFolderName)) == ["Night 1", "Night 2"])
+    }
+
+    @Test("Two folders with the same name: sections named with their parent folder")
+    func openSameNamedFolders() async throws {
+        let (parent, folders) = try makeFolders(["2025-03-26/LIGHT", "2025-04-03/LIGHT"])
+        defer { try? FileManager.default.removeItem(at: parent) }
+        let store = ImageStore()
+
+        await store.openFolders(folders, includeSubfolders: false, includeRejected: false, settings: AppSettings())
+        await store.pipeline.waitForProcessing()
+
+        #expect(store.groupedByFolderAndFilter.map(\.folderDisplayName).sorted()
+                == ["2025-03-26/LIGHT", "2025-04-03/LIGHT"])
+    }
+
+    @Test("Section names: own name, or parent/name only for names that occur twice")
+    func sectionNames() {
+        let a = URL(filePath: "/x/2025-03-26/LIGHT"), b = URL(filePath: "/x/2025-04-03/LIGHT")
+        let c = URL(filePath: "/x/M31")
+        #expect(ImageStore.sectionNames(for: [a, b, c])
+                == [a: "2025-03-26/LIGHT", b: "2025-04-03/LIGHT", c: "M31"])
+    }
+
+    @Test("Several folders without FITS files set an error and load nothing")
+    func openEmptyFolders() async throws {
+        let parent = FileManager.default.temporaryDirectory.appending(component: UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: parent) }
+        let folders = [parent.appending(component: "A"), parent.appending(component: "B")]
+        for folder in folders { try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true) }
+        let store = ImageStore()
+
+        await store.openFolders(folders, includeSubfolders: false, includeRejected: false, settings: AppSettings())
+        #expect(store.entries.isEmpty)
+        #expect(store.errorMessage == "No FITS files found in the selected folders.")
+        #expect(!folders.contains { store.isAlreadyLoaded($0) })
     }
 
     // MARK: - Dropped folders in the sidebar

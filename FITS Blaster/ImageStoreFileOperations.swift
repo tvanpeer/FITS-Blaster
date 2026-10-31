@@ -535,6 +535,60 @@ extension ImageStore {
                   debayerColorImages: settings.debayerColorImages)
     }
 
+    /// Scans several folders chosen together in the open panel and loads them as one batch,
+    /// each with its own sidebar section (as several dropped folders). The two options apply
+    /// to every folder.
+    func openFolders(_ folders: [URL], includeSubfolders: Bool, includeRejected: Bool,
+                     settings: AppSettings) async {
+        let excludedSet = Set(settings.excludedSubfolderNames.map { $0.lowercased() })
+        let names = Self.sectionNames(for: folders)
+        var collected: [(url: URL, subfolderPath: String)] = []
+        var rootNames: [URL: String] = [:]
+        var foldersWithFiles: [URL] = []
+        for folder in folders {
+            let didAccess = folder.startAccessingSecurityScopedResource()
+            registerFolder(folder)
+            pipeline.preparation = .scanning(folder: folder.lastPathComponent)
+            let found = await Self.scanFolder(folder, excludedNames: excludedSet,
+                                              includeSubfolders: includeSubfolders,
+                                              includeRejected: includeRejected)
+            pipeline.preparation = nil
+            if didAccess { folder.stopAccessingSecurityScopedResource() }
+            guard !found.isEmpty else { continue }
+            foldersWithFiles.append(folder)
+            collected.append(contentsOf: found)
+            for frame in found { rootNames[frame.url] = names[folder] }
+        }
+        guard !collected.isEmpty else {
+            errorMessage = "No FITS files found in the selected folders."
+            return
+        }
+        for folder in foldersWithFiles { knownRootURLs.insert(folder) }
+        // One folder with files (the others empty) is also the session's root name, as when
+        // a single folder is opened.
+        let distinctNames = Set(rootNames.values)
+        let folderRootName = distinctNames.count == 1 ? distinctNames.first ?? "" : ""
+        if !folderRootName.isEmpty { rootFolderName = folderRootName }
+        pipeline.openFiles(collected, rejectedURLs: includeRejected ? Self.rejectedURLs(in: collected) : [],
+                           rootFolderName: folderRootName, rootFolderNames: rootNames,
+                           maxDisplaySize: settings.maxDisplaySize,
+                           maxThumbnailSize: settings.thumbnailRenderSize,
+                           metricsConfig: settings.effectiveMetricsConfig,
+                           debayerColorImages: settings.debayerColorImages)
+    }
+
+    /// The sidebar section name of each folder: its own name, or "parent/name" when another
+    /// of the folders has the same name (two nights' LIGHT folders), so they don't end up in
+    /// one section with one shared stretch.
+    nonisolated static func sectionNames(for folders: [URL]) -> [URL: String] {
+        let counts = Dictionary(folders.map { ($0.lastPathComponent, 1) }, uniquingKeysWith: +)
+        return Dictionary(folders.map { folder in
+            let name = folder.lastPathComponent
+            guard counts[name, default: 0] > 1 else { return (folder, name) }
+            return (folder, folder.deletingLastPathComponent().lastPathComponent + "/" + name)
+        }, uniquingKeysWith: { first, _ in first })
+    }
+
     /// Opens dropped URLs (folders and/or individual FITS files) from a drag & drop operation.
     ///
     /// Folders are scanned according to `settings.includeSubfolders`. Individual FITS files

@@ -4,6 +4,19 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-31 — Open several folders at once
+
+### Added
+- **Open Folder… takes several folders:** ⌘-click (or ⇧-click) them in the panel. Each gets its own sidebar section, as when several folders are dragged in, and the panel's two options (subfolders, REJECTED) apply to all of them; with REJECTED on, each folder's rejected frames are marked rejected. One folder opens exactly as before.
+- If some of the chosen folders are already in the session, one question names them: "Open Anyway" or "Skip Those".
+- Two chosen folders with the same name (for example two nights' `LIGHT` folders) get their parent folder in the section name (`2025-03-26/LIGHT`), so they stay apart, each with its own shared stretch.
+
+### Internal
+- `FileDialogs.FolderChoice` holds the panel's URLs (`allowsMultipleSelection`); `FileDialogs.openFolder` asks once (`confirmOpenAgain(folderNames:)`) and calls `ImageStore.openFolder(at:)` for one folder or the new `ImageStore.openFolders(_:…)` for several: each folder scanned with its own access and bookmark, one batch with a root name per folder (`sectionNames(for:)`), REJECTED frames marked as with a single folder.
+- 5 new `OpenFolderTests`: two folders get two sections and are "already loaded"; REJECTED per folder; same-named folders; the name rule; empty folders. Unit tests (376), render tests (`--full`) and the 10 metric baselines pass; 0 compiler warnings. Tried by Tom in the app with a test build (together with the next entry).
+
+---
+
 ## 2026-10-31 — Zoom and pan with the keyboard
 
 ### Added
