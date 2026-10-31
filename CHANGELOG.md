@@ -4,6 +4,22 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-31 — Mono folders get their shared stretch as soon as they are read (step 9f, part 2a)
+
+### Changed
+- **A mono folder gets its shared grey stretch while the next folder loads**, instead of every frame at the end of the load. The images are the same as before (the folder's median clips, the same kernel), but the files are read once instead of almost twice: the end-of-load pass found most of them gone from the file cache. Measured with a temporary switch on Rosette large (464 mono frames, 7.4 GB, cache flushed): from the share over a wired network 66.3/71.1 s instead of 111.7/109.7 s, with 0.97/1.05× instead of 1.71× the files downloaded; from the SSD the same time (10.6/9.7 s against 11.6/9.5 s), with 1.0× instead of 1.7× read. The same goes for a display-size change.
+- Colour folders don't wait for each other: on M81 (355 colour frames, 17.6 GB) the same order saved hardly any reads (1.8× instead of 1.95×), because a 7 GB night doesn't stay in the file cache anyway. Colour is part 2b.
+
+### Internal
+- `LoadPipeline.processParallel` reads the frames folder by folder (`groupedByFolder`: a folder scan lists files and subfolders by name, so a folder's files could come before and after a subfolder's). At a folder boundary, a folder of at least two frames with a mono frame among those already read finishes its Phase A and runs `normalizeGreyStretch` before the next folder starts. It returns the frames whose grey pass is still due (the last folder, and folders not yet known to be mono), which `openFiles` and `regenerateSizes` normalise after the load as before.
+- New `GreyPassPerFolderTests` (5): the grouping; a folder is stretched before the next is read and the last one is left to the caller; every folder gets its own median clips, byte for byte as its recipe makes them, also when the scan mixes the folders; colour folders don't wait; a display-size change.
+- The real code measured from the SSD against the build before it, alternated, cache flushed: 9.2/9.2 s with 0.96/1.01× the files read, against 9.5/9.8 s with 1.60/1.57×.
+  From the share over a wired network: 67.0/72.2 s with 0.98/1.06× the files downloaded, against 107.7/108.5 s with 1.69×.
+- The part 2 plan with the experiment's numbers is in `docs/internal/architecture-plan.md`.
+- Unit tests (354), render tests (`--full`, full output kept) and the 10 metric baselines pass; 0 compiler warnings. Tried by Tom in the app with a test build.
+
+---
+
 ## 2026-10-30 — Thumbnails, colour toggle and playback with dropped frames (step 9f, part 1c)
 
 ### Changed

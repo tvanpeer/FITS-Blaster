@@ -236,7 +236,7 @@ final class LoadPipeline {
             store.updateActiveFilterGroups()
             store.updateCachedSort()
 
-            await pipeline.processParallel(newEntries, selectFirst: selectFirst,
+            let greyPending = await pipeline.processParallel(newEntries, selectFirst: selectFirst,
                                            maxDisplaySize: maxDisplaySize,
                                            maxThumbnailSize: maxThumbnailSize,
                                            metricsConfig: metricsConfig,
@@ -255,7 +255,8 @@ final class LoadPipeline {
             }
             let loaded = newEntries.filter { entry in !skipped.contains { $0 === entry } }
             if !Task.isCancelled {
-                await pipeline.normalizeGreyStretch(loaded, maxDisplaySize: maxDisplaySize,
+                let pending = greyPending.filter { entry in !skipped.contains { $0 === entry } }
+                await pipeline.normalizeGreyStretch(pending, maxDisplaySize: maxDisplaySize,
                                                     maxThumbnailSize: maxThumbnailSize)
             }
             return loaded.isEmpty ? nil : loaded
@@ -319,7 +320,7 @@ final class LoadPipeline {
             defer { for folder in folders { folder.stopAccessingSecurityScopedResource() } }
 
             // Pass an all-disabled MetricsConfig so processParallel skips Phase B entirely.
-            await pipeline.processParallel(entriesToProcess, selectFirst: false,
+            let greyPending = await pipeline.processParallel(entriesToProcess, selectFirst: false,
                                            maxDisplaySize: maxDisplaySize,
                                            maxThumbnailSize: maxThumbnailSize,
                                            metricsConfig: .off,
@@ -331,7 +332,7 @@ final class LoadPipeline {
                 }
             }
             if !Task.isCancelled {
-                await pipeline.normalizeGreyStretch(entriesToProcess,
+                await pipeline.normalizeGreyStretch(greyPending,
                                                     maxDisplaySize: maxDisplaySize,
                                                     maxThumbnailSize: maxThumbnailSize)
             }
@@ -590,11 +591,17 @@ final class LoadPipeline {
     /// that folder complete Phase A, while their FITS pages are still warm in
     /// the OS file cache. Runs concurrently with Phase B and Phase A for other
     /// folders, rather than waiting for the entire batch to finish.
+    ///
+    /// **Grey normalisation** — a mono folder gets its shared grey stretch as soon as
+    /// it is read, before the next folder's Phase A starts, while its files are still
+    /// in the file cache (master-plan 9f part 2a). Returns the entries whose grey
+    /// normalisation is still due: the caller runs it after the load, as before.
+    @discardableResult
     func processParallel(_ entriesToProcess: [ImageEntry], selectFirst: Bool,
                          maxDisplaySize: Int = 1024, maxThumbnailSize: Int = 120,
                          metricsConfig: MetricsConfig = MetricsConfig(),
                          debayerColorImages: Bool = false,
-                         rendersImages: Bool = true) async {
+                         rendersImages: Bool = true) async -> [ImageEntry] {
 
         // Reset colour counters for this pass so a grey-mode pass never shows a stale
         // Restretching bar from a previous session. When debayering, set the total
@@ -618,11 +625,38 @@ final class LoadPipeline {
             ? Dictionary(grouping: entriesToProcess, by: \.qualifiedFolderPath)
             : [:]
         let folderTracker = FolderTracker(grouping: entriesToProcess)
+        // Folder by folder, so each folder is read completely before the next one starts.
+        let ordered = Self.groupedByFolder(entriesToProcess)
+        // Mono folders whose grey normalisation ran during the load.
+        var normalizedFolders: Set<String> = []
+        var folderEntries: [ImageEntry] = []
 
         await withTaskGroup(of: (ImageEntry, Task<Void, Never>?, Task<Void, Never>?).self) { group in
             var activeCount = 0
-            for entry in entriesToProcess {
+            for entry in ordered {
                 if Task.isCancelled { break }
+
+                // At a folder boundary a mono folder (one of its frames already read is mono)
+                // finishes its Phase A and gets its shared grey stretch before the next folder
+                // is read. Run after the whole load, most files had left the file cache: a
+                // 7.4 GB mono set was read 1.7 times. Other folders don't wait; a folder not
+                // known to be mono yet, and the last one, are normalised after the load.
+                if let last = folderEntries.last, last.qualifiedFolderPath != entry.qualifiedFolderPath {
+                    if Self.isMonoFolder(folderEntries) {
+                        while let (_, phaseB, colour) = await group.next() {
+                            if let t = phaseB  { phaseBTasks.append(t) }
+                            if let t = colour  { colourTasks.append(t) }
+                        }
+                        activeCount = 0
+                        if !Task.isCancelled {
+                            await normalizeGreyStretch(folderEntries, maxDisplaySize: maxDisplaySize,
+                                                       maxThumbnailSize: maxThumbnailSize)
+                            normalizedFolders.insert(last.qualifiedFolderPath)
+                        }
+                    }
+                    folderEntries = []
+                }
+                folderEntries.append(entry)
 
                 if activeCount >= ioConcurrency {
                     if let (_, phaseB, colour) = await group.next() {
@@ -735,6 +769,28 @@ final class LoadPipeline {
         await waitForSpawned(phaseB: phaseBTasks, colour: colourTasks)
 
         store?.updateGroupStatistics()
+        return entriesToProcess.filter { !normalizedFolders.contains($0.qualifiedFolderPath) }
+    }
+
+    /// The entries grouped by folder: the folders in the order they first appear, each
+    /// folder's frames in their order. Input that is already grouped stays as it is.
+    /// (A folder scan lists files and subfolders by name, so a folder's files can come
+    /// before and after a subfolder's.)
+    static func groupedByFolder(_ entries: [ImageEntry]) -> [ImageEntry] {
+        var folderOrder: [String] = []
+        var byFolder: [String: [ImageEntry]] = [:]
+        for entry in entries {
+            let path = entry.qualifiedFolderPath
+            if byFolder[path] == nil { folderOrder.append(path) }
+            byFolder[path, default: []].append(entry)
+        }
+        return folderOrder.flatMap { byFolder[$0] ?? [] }
+    }
+
+    /// A folder whose grey normalisation can run as soon as it is read: at least two frames
+    /// (a single frame has no shared stretch) and a mono frame among those already read.
+    private static func isMonoFolder(_ entries: [ImageEntry]) -> Bool {
+        entries.count >= 2 && entries.contains { !$0.isBayer && $0.greyClips != nil }
     }
 
     /// Re-renders only display images and thumbnails for Bayer frames when the

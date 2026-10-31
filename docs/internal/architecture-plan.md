@@ -465,11 +465,112 @@ Go-ahead for 1a: 2026-10-30.
 
 **Status (2026-10-30):** 1a committed (bba3672), with a separate fix found on the way:
 colour images now follow a new display size (08cb6c2). 1b committed (4588e8b; slider in its own
-"Memory" section, Tom tested a build). 1c built: thumbnails of dropped frames from their files,
+"Memory" section, Tom tested a build). 1c committed (98006fd): thumbnails of dropped frames from their files,
 the grey toggle path binned via its recipe, the read-ahead triggered by `ImageStore.selectedEntry`
 so playback is covered. Part 1 measured: M81 colour at 4096 with the 50 % limit holds 8.0 GB of
 display images instead of 11 GB; no consistent load-time difference; at 1024 nothing changes.
 Redraw at 4096 from the SSD: 2 at a time ≈ 32 frames/s (colour), so 8 ahead / 2 behind.
+Part 1 is complete. Part 2 started 2026-10-31 with the cache/order experiment (a temporary
+switch, not committed): the next folder's Phase A waits for the previous folder's colour render
+and grey normalisation.
+
+### 9f part 2 plan (2026-10-31) — fewer reads
+
+**Experiment results (2026-10-31).** Temporary switch: a folder's Phase A starts only after the
+previous folder's Phase A, colour render and grey normalisation are done. Cache flushed before
+every run, the two orders alternated, 2 rounds each.
+
+| Set | Order | Load time | Read |
+|---|---|---|---|
+| M81, 3 nights, 355 colour frames, 17.6 GB, SSD | current | 16.9 / 15.5 s | 1.98× / 1.95× |
+| | folder by folder | 16.4 / 15.7 s | 1.81× / 1.80× |
+| Rosette large, 464 mono frames, 7.4 GB, SSD (8 folders) | current | 11.6 / 9.5 s | 1.71× / 1.67× |
+| | folder by folder | 10.6 / 9.7 s | 1.00× / 1.02× |
+| Rosette large, share, wired (24 folders, R/G/B subfolders) | current | 111.7 / 109.7 s | 1.71× / 1.71× |
+| | folder by folder | 66.3 / 71.1 s | 0.97× / 1.05× |
+
+- Mono: the grey pass runs after the whole load today, when about 70 % of the files have left
+  the file cache. Per folder, each folder is still cached: one read, −37 % load time over the
+  network, the same time on the SSD.
+- Colour: the order hardly matters. In the timeline the 3.4 GB night renders in colour without
+  disk reads, the 6.9 and 6.8 GB nights read again at about 2.5 GB/s although nothing else ran
+  meanwhile. On this 16 GB Mac (file cache ≈ 7.5 GB) a folder of ≈ 7 GB read once does not stay
+  cached; the exact limit is not known. Typical nights are that size, so colour needs (a′).
+- The files are read with plain `pread` (no `F_NOCACHE`), so the cache is not bypassed.
+- Mono folders the size of a colour night (≈ 7 GB) would miss the cache too; 2a helps folders
+  that fit, (a′) for grey (question 3) would cover the rest.
+
+**2a — grey normalisation per folder (behaviour change, small)**
+- In `processParallel`, at each folder boundary (to check first: entries arrive grouped by folder
+  from every open path; if not, group them in sidebar order before Phase A): wait until
+  the folder's Phase A is done, then run `normalizeGreyStretch` for that folder before the next
+  folder's Phase A starts, as measured. The pass after the whole load goes.
+- Colour folders (Colour on) keep today's order: their colour render stays a separate task, the
+  next folder does not wait for it (the experiment showed no gain).
+- Phase B (star detection) keeps running across folders; it does not read files.
+- What Tom sees: a mono folder gets its shared stretch while the next folder loads, instead of
+  every frame at the end. Final images byte-identical (same clips, same kernel), metrics untouched.
+- Cancel: no grey pass starts after Cancel (as now); a folder already in its pass finishes.
+- Tests: a unit test that a two-folder mono load gives every frame the shared-grey recipe and the
+  same pixels as today's end-of-load pass; render tests --full; metric baselines; the SSD and
+  network measurement above repeated with the real code.
+
+**2b — colour from a kept proxy within a budget (a′ with budget)**
+- Kernel split in `FITSStretch.metal`:
+  - `bayerAverage`: the first half of `bayerDebayerAndStretch` (footprint, flip, per-channel box
+    average), writes R, G, B as float32 per output pixel (12 B/px: 8.4 MB at 1024, 134 MB at 4096).
+  - `bayerStretchFromAverage`: reads the floats, `stretchByte` per channel with the shared clips,
+    writes RGBA as now.
+  - The fused kernel stays for the paths that still read the file (colour toggle, part-1
+    redraws, `renderAgain`), so those don't change.
+- **2b-0, first: prove byte identity.** `MTL_FAST_MATH = YES`, so the compiler may reorder the
+  arithmetic across the point where the kernel is split. A test renders every Bayer frame of the
+  render-test sets both ways at 1024, 2048 and 4096 and compares the bytes. If they differ:
+  stop and come back with the options (for example `stretchByte` made non-reorderable in both
+  kernels, which would change today's renders and needs agreement).
+- Phase A (Colour on, Bayer frame): after the grey render, while the frame is still in its Metal
+  buffer, `bayerAverage` runs if the proxy fits the budget; the proxy is kept off the main actor in
+  a small `ColourProxies` actor (key: entry ID, with the display size and Bayer pattern), not on
+  `ImageEntry`.
+- Folder colour render: a frame with a proxy is stretched from it (no file read) and its proxy
+  is dropped at once; a frame without one is read as today.
+- Budget: the sum of all proxies kept (several folders may overlap). A frame whose proxy doesn't
+  fit gets none; it is re-read, as now. See question 2 for the size.
+- Proxies are dropped on Cancel, Reset, a display-size or colour change during the load, and
+  when the batch ends, so none outlive the load. A rejected frame (file moved) keeps its proxy:
+  the pixels are the same.
+- CPU fallback: there is no CPU colour path today (§5.17); without Metal no proxies are made
+  and nothing changes.
+- Tests: byte identity (2b-0); budget accounting (fits, doesn't fit, released on Cancel/Reset and
+  at the end); a load with a too-small budget gives the same images as with a large one; render
+  tests --full; metric baselines; memory peak (step-0 style run) at 1024 and 4096; reads and
+  time, alternated with today's build: M81 17.6 GB from the SSD and from the share.
+- Performance and Metal: Phase A gets one extra small dispatch per colour frame (the averaging
+  that the second pass does today, now without the read); the folder colour render becomes a
+  cheap pass over the proxies. Expected: the second read goes for frames whose proxy fits; the
+  gain is largest over a network (step 0: 283 s for the 17.6 GB set against 157 s for a plain
+  read). To be measured, not promised. Memory: temporarily up to the budget during a load.
+
+Answers (2026-10-31): 1 yes; 2 (a), a fixed share (¼ of the Mac's memory), no setting; 3 later.
+Go-ahead for 2a: 2026-10-31.
+
+**Status (2026-10-31):** 2a committed (Tom tested a build): frames grouped by folder first (a scan can mix a
+folder's files with a subfolder's), mono folders decided from the frames already read at the
+boundary; the last folder and undecided ones keep the pass after the load. SSD against the build
+before: 9.2/9.2 s and 0.96/1.01× read, against 9.5/9.8 s and 1.60/1.57×. Share, wired: 67.0/72.2 s and
+0.98/1.06×, against 107.7/108.5 s and 1.69×.
+
+**Order:** 2a, then 2b-0; 2b only if 2b-0 shows identical bytes. Each with its own commit,
+the temporary switch removed in 2a, `Step0MemoryTests.swift` deleted after 2b.
+
+**Questions for Tom**
+1. 2a: is the per-folder stretch during the load (instead of at the end) fine as a behaviour change?
+2. 2b budget: (a) a fixed share of the Mac's memory, e.g. 1/4 (4 GB on 16 GB: 1.2 GB per
+   140-frame night at 1024, ≈ 120 frames at 2048), no setting; or (b) inside the memory slider's
+   limit together with the display images (one number, but proxies and display images then
+   compete). Proposed: (a).
+3. Grey proxies for mono folders too large for the cache (same mechanism with `mtfStretch`):
+   now in 2b, or later only if a real mono session shows the second read? Proposed: later.
 
 **Tests**: memory and time with `BenchmarkTests` before and after; render tests (use "keep all"); a test that the LRU re-renders on selection.
 
