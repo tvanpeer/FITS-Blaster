@@ -450,7 +450,10 @@ final class ImageStore {
         activeFolderPaths = []
         groupedByFolderAndFilter = []
         collapsedFolderPaths = []
-        visibilityFilteredEntries = []
+        // The stored sidebar and chart lists from the emptied inputs: left as they were,
+        // they kept every frame and its display images alive after a Reset (M81 at 4096:
+        // 8 GB of display images).
+        updateVisibilityFilteredEntries()
     }
 
     // MARK: - Range selection helpers (⌘-click, Cmd+A / Cmd+D / Cmd+I)

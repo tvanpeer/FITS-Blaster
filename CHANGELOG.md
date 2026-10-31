@@ -4,6 +4,17 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-10-31 — A Reset lets go of the old session's images
+
+### Fixed
+- **After a Reset the memory of the frames is given back.** The stored lists behind the sidebar and the chart (since step 9b, not in a release) weren't emptied by a Reset and kept every frame alive with its display images; the sidebar itself was empty. M81 (355 colour frames) at a display size of 4096: 11 GB after a Reset before, 111 MB now.
+
+### Internal
+- `ImageStore.reset()` rebuilds the lists from the emptied inputs (`updateVisibilityFilteredEntries()`, which also raises `listRevision` for the chart). Found with `heap` and `leaks -traceTree` on Tom's test build: all 355 `ImageEntry` objects were still alive, held by `ImageStore.visibleFolderSections`.
+- New `ResetReleasesFramesTests` (fails without the fix: the sections stay filled and the frames alive). Unit tests (355), render tests (`--full`) and the 10 metric baselines pass on the fix alone; 0 compiler warnings.
+
+---
+
 ## 2026-10-31 — The colour render in two passes gives the same bytes (step 9f, part 2b-0)
 
 ### Internal
