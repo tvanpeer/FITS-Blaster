@@ -4,6 +4,13 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-11-01 — Release workflows on Node 24
+
+### Under the hood
+- The release and site workflows use `actions/checkout@v7` and `softprops/action-gh-release@v3`, which run on Node 24; the Node 20 versions gave a deprecation warning on every release. No change to the app.
+
+---
+
 ## 2026-10-31 — 1.24 beta 3: folders read once, memory under control, zoom and pan keys
 
 ### Improved
