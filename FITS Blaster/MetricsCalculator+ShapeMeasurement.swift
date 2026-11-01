@@ -20,16 +20,25 @@ extension MetricsCalculator {
     /// Roughly 10× cheaper than the full `measureShape`, so it can be called on
     /// thousands of sampled candidates without noticeable latency.
     ///
+    /// Every pixel is compared after subtracting the background of its own position in the
+    /// 2×2 Bayer cell (`sky`): on a raw colour frame the neighbours and the profile along X
+    /// are pixels of other colours with another sky level (master-plan step 13a). Mono
+    /// frames have one background, as before.
+    ///
     /// Returns the estimated FWHM in pixels, or 0 on fit failure.
     static func measureFWHMOnly(pixels: UnsafeBufferPointer<Float>,
                                 width: Int, height: Int,
                                 cx: Int, cy: Int,
-                                background: Float) -> Float {
+                                sky: SkyLevels) -> Float {
         let rowStart = cy * width
         guard cy >= 0 && cy < height,
               cx >= 0 && cx < width,
               rowStart + cx < pixels.count else { return 0 }
 
+        let cell = SkyLevels.cellIndex(x: cx, y: cy)
+        let background = sky.background[cell]
+        let rowNeighbourBackground = sky.background[cell ^ 1]       // left, right
+        let columnNeighbourBackground = sky.background[cell ^ 2]    // above, below
         let peak = pixels[rowStart + cx] - background
         guard peak > 0 else { return 0 }
 
@@ -46,10 +55,10 @@ extension MetricsCalculator {
         // cost. 15% was too aggressive: off-centre stars with FWHM ≈ 2 px had Y-neighbours
         // at ~10% of detected peak, causing ~38% of real stars to be incorrectly rejected.
         let minWing = peak * Shape.wingFraction
-        let l = cx > 0          ? pixels[rowStart + cx - 1]      - background : -1
-        let r = cx + 1 < width  ? pixels[rowStart + cx + 1]      - background : -1
-        let u = cy > 0          ? pixels[(cy - 1) * width + cx]  - background : -1
-        let d = cy + 1 < height ? pixels[(cy + 1) * width + cx]  - background : -1
+        let l = cx > 0          ? pixels[rowStart + cx - 1]      - rowNeighbourBackground : -1
+        let r = cx + 1 < width  ? pixels[rowStart + cx + 1]      - rowNeighbourBackground : -1
+        let u = cy > 0          ? pixels[(cy - 1) * width + cx]  - columnNeighbourBackground : -1
+        let d = cy + 1 < height ? pixels[(cy + 1) * width + cx]  - columnNeighbourBackground : -1
         guard l > minWing, r > minWing, u > minWing, d > minWing else { return 0 }
 
         let halfW    = Shape.moffatHalfWidth
@@ -59,7 +68,7 @@ extension MetricsCalculator {
         for offset in -halfW...halfW where offset != 0 {
             let px = cx + offset
             guard px >= 0, px < width else { continue }
-            let val = pixels[rowStart + px] - background
+            let val = pixels[rowStart + px] - (offset & 1 == 0 ? background : rowNeighbourBackground)
             guard val > peak * minFrac, val < peak else { continue }
             // Linearised Moffat β=4: z = (A/I)^{1/4} − 1 = sqrt(sqrt(A/I)) − 1
             let ratio = peak / val

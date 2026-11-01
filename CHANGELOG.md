@@ -4,6 +4,18 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-11-01 — Colour cameras: sky background and noise per colour channel
+
+### Changed
+- **Metrics of colour-camera (OSC) frames change.** On a raw colour frame the red, green and blue pixels see a different sky level. FITS Blaster used to take one background and one noise level over all of them, so the sky colour counted as noise: the detection threshold was too high (on 180 s M42 frames up to 3.6 ×), and SNR and PSF·S came out too low, more so the longer the exposure. Background and noise are now measured per colour channel. Compared with PixInsight's ImageAnalysis on a broadband M81 night, PSF·S now ranks the frames almost the same (Spearman +0.68 → +0.94), and star count and SNR clearly better.
+- **Saturated stars on colour frames** are counted as one star each and left out of FWHM, eccentricity, SNR and PSF·S.
+- Scores and metrics of colour frames from earlier versions can't be compared with the new ones; on the test sets the median score moved by −2 to +8. Mono frames are unchanged.
+
+### Under the hood
+- The baselines of the six colour test sets are regenerated; the four mono sets give identical values. The plan and results are in `docs/internal/architecture-plan.md` (step 13a) and `docs/internal/FWHM-comparison.md` (set 5).
+
+---
+
 ## 2026-11-01 — FWHM comparison with PixInsight ImageAnalysis
 
 ### Under the hood

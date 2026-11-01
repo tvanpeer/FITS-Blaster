@@ -83,7 +83,8 @@ extension MetricsCalculator {
         let wB: Float
         switch weights {
         case .rec709:
-            wR = 0.2126; wG = 0.7152; wB = 0.0722
+            let w = BayerLuminanceWeights.rec709Weights
+            wR = w.r; wG = w.g; wB = w.b
         case .adaptive:
             // Estimate per-channel sky brightness from the outer border of the crop
             // (purely background — no star flux at 8+ px from a sub-5-px FWHM star).

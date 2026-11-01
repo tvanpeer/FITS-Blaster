@@ -21,6 +21,40 @@ extension MetricsCalculator {
 
         var samples = [Float](repeating: 0, count: sampleCount)
         for i in 0..<sampleCount { samples[i] = pixels[i * stride] }
+        return medianAndSigma(&samples)
+    }
+
+    /// Background and σ per position of the 2×2 Bayer cell, for a raw colour frame
+    /// (master-plan step 13a): `backgroundSampleCount` evenly spread samples from each
+    /// position, each with the same median and MAD as `estimateBackground`.
+    static func estimateChannelLevels(_ pixels: UnsafeBufferPointer<Float>, width: Int, height: Int) -> SkyLevels {
+        var background = SIMD4<Float>.zero
+        var sigma = SIMD4<Float>.zero
+        for cell in 0..<4 {
+            let dx = cell & 1, dy = cell >> 1
+            // The pixels of this position form a grid of channelW × channelH.
+            let channelW = (width - dx + 1) / 2
+            let channelH = (height - dy + 1) / 2
+            let n = channelW * channelH
+            guard n > 0 else { continue }
+            let sampleCount = min(n, Constants.backgroundSampleCount)
+            let stride = max(1, n / sampleCount)
+            var samples = [Float](repeating: 0, count: sampleCount)
+            for i in 0..<sampleCount {
+                let k = i * stride
+                samples[i] = pixels[(2 * (k / channelW) + dy) * width + 2 * (k % channelW) + dx]
+            }
+            let (median, s) = medianAndSigma(&samples)
+            background[cell] = median
+            sigma[cell] = s
+        }
+        return SkyLevels(background: background, sigma: sigma, isPerChannel: true)
+    }
+
+    /// Median and σ = 1.4826 × MAD of `samples` (sorted in place), with a σ floor of
+    /// 0.01 % of the sampled range.
+    private static func medianAndSigma(_ samples: inout [Float]) -> (median: Float, sigma: Float) {
+        let sampleCount = samples.count
         vDSP.sort(&samples, sortOrder: .ascending)
         let med = samples[sampleCount / 2]
 
@@ -99,12 +133,26 @@ extension MetricsCalculator {
     static func findLocalMaxima(pixels: UnsafeBufferPointer<Float>, width: Int, height: Int,
                                 cropX: Int, cropY: Int, cropW: Int, cropH: Int,
                                 threshold: Float) -> [StarCandidate] {
+        findLocalMaxima(pixels: pixels, width: width, height: height,
+                        cropX: cropX, cropY: cropY, cropW: cropW, cropH: cropH,
+                        levels: .uniform(threshold: threshold))
+    }
+
+    /// `findLocalMaxima` with levels per position of the 2×2 Bayer cell: a pixel minus its
+    /// position's offset must reach its threshold and beat every neighbour minus that
+    /// neighbour's offset. A candidate's `peak` is its value minus its offset. With
+    /// `.uniform(threshold:)` (mono) this is the single-threshold test on the raw values.
+    static func findLocalMaxima(pixels: UnsafeBufferPointer<Float>, width: Int, height: Int,
+                                cropX: Int, cropY: Int, cropW: Int, cropH: Int,
+                                levels: DetectionLevels) -> [StarCandidate] {
         // A local maximum needs a neighbour on every side, so crops under 3 × 3 have none.
         guard let base = pixels.baseAddress, cropW >= 3, cropH >= 3 else { return [] }
         var candidates: [StarCandidate] = []
         candidates.reserveCapacity(200)
 
         let innerLen = vDSP_Length(cropW - 2)   // columns excluding the 1-pixel border
+        let rowMinimum = levels.lowestCandidateValue
+        let offsets = levels.offsets, thresholds = levels.thresholds
 
         for y in 1..<(cropH - 1) {
             let origY  = cropY + y
@@ -113,23 +161,27 @@ extension MetricsCalculator {
             // Vectorized row-max: skip the entire row if nothing exceeds the threshold.
             var rowMax: Float = 0
             vDSP_maxv(base + rowOff + 1, 1, &rowMax, innerLen)
-            guard rowMax >= threshold else { continue }
+            guard rowMax >= rowMinimum else { continue }
 
             // At least one above-threshold pixel exists — check each for local maximum.
             for x in 1..<(cropW - 1) {
                 let origX = cropX + x
                 let idx   = origY * width + origX
-                let val   = pixels[idx]
-                guard val >= threshold else { continue }
+                // Neighbours left/right flip the column bit of the cell index, above/below
+                // the row bit, diagonals both.
+                let cell  = SkyLevels.cellIndex(x: origX, y: origY)
+                let val   = pixels[idx] - offsets[cell]
+                guard val >= thresholds[cell] else { continue }
+                let horizontal = offsets[cell ^ 1], vertical = offsets[cell ^ 2], diagonal = offsets[cell ^ 3]
 
-                if val > pixels[idx - width - 1] &&
-                   val > pixels[idx - width    ] &&
-                   val > pixels[idx - width + 1] &&
-                   val > pixels[idx         - 1] &&
-                   val > pixels[idx         + 1] &&
-                   val > pixels[idx + width - 1] &&
-                   val > pixels[idx + width    ] &&
-                   val > pixels[idx + width + 1] {
+                if val > pixels[idx - width - 1] - diagonal &&
+                   val > pixels[idx - width    ] - vertical &&
+                   val > pixels[idx - width + 1] - diagonal &&
+                   val > pixels[idx         - 1] - horizontal &&
+                   val > pixels[idx         + 1] - horizontal &&
+                   val > pixels[idx + width - 1] - diagonal &&
+                   val > pixels[idx + width    ] - vertical &&
+                   val > pixels[idx + width + 1] - diagonal {
                     candidates.append(StarCandidate(x: origX, y: origY, peak: val))
                 }
             }
@@ -163,16 +215,26 @@ extension MetricsCalculator {
                                                width: Int, height: Int,
                                                threshold: Float,
                                                capacity: Int = maxDetectionCandidates) async -> GPUDetectionResult? {
+        await findLocalMaximaGPU(metalBuffer: metalBuffer, width: width, height: height,
+                                 levels: .uniform(threshold: threshold), capacity: capacity)
+    }
+
+    /// `findLocalMaximaGPU` with levels per position of the 2×2 Bayer cell, as in the CPU
+    /// `findLocalMaxima(…levels:)`. A candidate's `peak` is its value minus its offset.
+    @concurrent static func findLocalMaximaGPU(metalBuffer: MTLBuffer,
+                                               width: Int, height: Int,
+                                               levels: DetectionLevels,
+                                               capacity: Int = maxDetectionCandidates) async -> GPUDetectionResult? {
         // The frame's buffer must belong to the shared device the pipeline was built for;
         // the result buffers are made on that same device (§7.9).
         guard let pipeline = MetalContext.detectionPipeline,
               metalBuffer.device === MetalContext.device else { return nil }
 
         guard var pass = await detectionPass(pipeline, metalBuffer: metalBuffer, width: width, height: height,
-                                             threshold: threshold, capacity: capacity) else { return nil }
+                                             levels: levels, capacity: capacity) else { return nil }
         if pass.found > capacity {
             guard let all = await detectionPass(pipeline, metalBuffer: metalBuffer, width: width, height: height,
-                                                threshold: threshold, capacity: pass.found) else { return nil }
+                                                levels: levels, capacity: pass.found) else { return nil }
             pass = all
         }
         let storedCount = min(pass.found, pass.capacity)
@@ -191,7 +253,8 @@ extension MetricsCalculator {
         for i in 0..<storedCount {
             let e = gpuEntries[i]
             let x = Int(e.x), y = Int(e.y)
-            candidates.append(StarCandidate(x: x, y: y, peak: floatPtr[y * width + x]))
+            let offset = levels.offsets[SkyLevels.cellIndex(x: x, y: y)]
+            candidates.append(StarCandidate(x: x, y: y, peak: floatPtr[y * width + x] - offset))
         }
 
         candidates.sort(by: StarCandidate.brighterFirst)
@@ -201,7 +264,7 @@ extension MetricsCalculator {
     /// One `detectLocalMaxima` pass with room for `capacity` candidates: the list, and how many
     /// local maxima the counter found (more than `capacity` when the list was too small).
     private static func detectionPass(_ pipeline: MTLComputePipelineState, metalBuffer: MTLBuffer,
-                                      width: Int, height: Int, threshold: Float,
+                                      width: Int, height: Int, levels: DetectionLevels,
                                       capacity: Int) async -> (candidates: MTLBuffer, found: Int, capacity: Int)? {
         let device = metalBuffer.device
         // Compact candidate list: capacity × 8 bytes (400 KB for the first pass).
@@ -215,10 +278,12 @@ extension MetricsCalculator {
                                                   options: .storageModeShared) else { return nil }
         countBuffer.contents().storeBytes(of: UInt32(0), as: UInt32.self)
 
-        var params = DetectParams(width:     UInt32(width),
-                                  height:    UInt32(height),
-                                  threshold: threshold,
-                                  capacity:  UInt32(capacity))
+        var params = DetectParams(width:      UInt32(width),
+                                  height:     UInt32(height),
+                                  capacity:   UInt32(capacity),
+                                  padding:    0,
+                                  offsets:    levels.offsets,
+                                  thresholds: levels.thresholds)
 
         // One thread per pixel, in the shared 16×16 threadgroup clamped to the pipeline's
         // limit. A failed pass returns nil, so the caller detects on the CPU instead of

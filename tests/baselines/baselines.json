@@ -6,34 +6,34 @@
     "updated": "2026-10-21T19:27:40"
   },
   "california": {
-    "app": "FITS Blaster.app 1.23-beta.10 (203)",
-    "commit": "0f5c953 (with uncommitted changes)",
-    "macOS": "27.0",
-    "updated": "2026-10-13T22:06:59"
+    "app": "FITS Blaster.app 1.24-beta.3 (212)",
+    "commit": "51f5001 (with uncommitted changes)",
+    "macOS": "27.0.1",
+    "updated": "2026-11-01T11:16:27"
   },
   "gamma-cygni-0304": {
-    "app": "FITS Blaster.app 1.23-beta.10 (203)",
-    "commit": "0f5c953 (with uncommitted changes)",
-    "macOS": "27.0",
-    "updated": "2026-10-13T22:06:59"
+    "app": "FITS Blaster.app 1.24-beta.3 (212)",
+    "commit": "51f5001 (with uncommitted changes)",
+    "macOS": "27.0.1",
+    "updated": "2026-11-01T11:16:27"
   },
   "m31-night": {
-    "app": "FITS Blaster.app 1.24-beta.2 (211)",
-    "commit": "8e28532 (with uncommitted changes)",
+    "app": "FITS Blaster.app 1.24-beta.3 (212)",
+    "commit": "51f5001 (with uncommitted changes)",
     "macOS": "27.0.1",
-    "updated": "2026-10-31T21:24:12"
+    "updated": "2026-11-01T11:16:27"
   },
   "m42-10": {
-    "app": "FITS Blaster.app 1.24-beta.1 (210)",
-    "commit": "318b540 (with uncommitted changes)",
+    "app": "FITS Blaster.app 1.24-beta.3 (212)",
+    "commit": "51f5001 (with uncommitted changes)",
     "macOS": "27.0.1",
-    "updated": "2026-10-25T09:38:41"
+    "updated": "2026-11-01T11:16:27"
   },
   "m42-180": {
-    "app": "FITS Blaster.app 1.24-beta.1 (210)",
-    "commit": "318b540 (with uncommitted changes)",
+    "app": "FITS Blaster.app 1.24-beta.3 (212)",
+    "commit": "51f5001 (with uncommitted changes)",
     "macOS": "27.0.1",
-    "updated": "2026-10-25T09:38:41"
+    "updated": "2026-11-01T11:16:27"
   },
   "rosette-b": {
     "app": "FITS Blaster.app 1.23-beta.10 (203)",
@@ -54,9 +54,9 @@
     "updated": "2026-10-13T22:06:59"
   },
   "sample-m31": {
-    "app": "FITS Blaster.app 1.23-beta.10 (203)",
-    "commit": "0f5c953 (with uncommitted changes)",
-    "macOS": "27.0",
-    "updated": "2026-10-13T22:06:59"
+    "app": "FITS Blaster.app 1.24-beta.3 (212)",
+    "commit": "51f5001 (with uncommitted changes)",
+    "macOS": "27.0.1",
+    "updated": "2026-11-01T11:16:27"
   }
 }

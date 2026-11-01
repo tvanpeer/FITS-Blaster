@@ -281,10 +281,29 @@ Frame **#0089** shows the same effect at its extreme: in run B PixInsight gives 
 - **PSF·S is FITS Blaster's best signal metric** against PixInsight's PSF Signal Weight (+0.68). The score follows PSF Signal Weight only weakly (+0.40), because it is driven by FWHM and SNR and hardly by the star count.
 - **For comparisons with ImageAnalysis on OSC data:** debayer first (with signal and noise evaluation), and compare FWHM with Maximum PSF fits = 200.
 
+### Set 5: California OSC dual-band vs ImageAnalysis, and step 13a (2026-11-01)
+
+Data: `California Nebula IMX571/2026-02-25_Antlia ALP-T/LIGHT` — the IMX571 OSC camera of sets 3 and 4, Antlia ALP-T dual-band (Hα/OIII), 180 s, 87 frames, a field full of nebula. ImageAnalysis on frames debayered as in set 4 (VNG, signal and noise evaluation), Maximum PSF fits 200. PixInsight medians: FWHM 3.42 px, eccentricity 0.45, stars 2,993.
+
+Master-plan step 13a measures the sky background and noise per Bayer channel on colour frames (detection, star count, σ of SNR and PSF·S) and leaves saturated stars out of the measurements. Ranking against ImageAnalysis (Spearman r), before → after 13a:
+
+| FITS Blaster | ImageAnalysis | Set 5 California (87) | Set 4 M81 (59) |
+|---|---|---|---|
+| FWHM | FWHM (200 fits) | +0.65 → +0.52 | +0.94 → +0.95 |
+| Eccentricity | Eccentricity (200 fits) | +0.84 → +0.82 | +0.68 → +0.68 |
+| Stars | Stars | +0.97 → +0.98 | +0.58 → +0.75 |
+| SNR | SNR | +0.88 → +0.89 | +0.06 → +0.44 |
+| PSF·S | PSF Signal Weight | +0.97 → +0.99 | +0.68 → +0.94 |
+| Score | PSF Signal Weight | +0.69 → +0.89 | +0.40 → +0.46 |
+
+- On the dual-band set nearly everything already ranked like PixInsight; on the broadband M81 night 13a lifts stars, SNR and PSF·S clearly. The score follows PSF Signal Weight better on both.
+- Subtracting the channel backgrounds under the star fits as well (planned, then dropped) made California's eccentricity rank the frames the opposite way (−0.47) and its FWHM worse (+0.43); the fits keep the frame's single background.
+- California's FWHM ranks less well after 13a (+0.52), because a different set of 200 stars is measured. FITS Blaster's star count stays far below PixInsight's on both sets (429 against 2,993; 1,976 against 3,494), although it ranks the frames well.
+
 ### Open questions (behaviour changes, master-plan step 13 at the earliest)
 
 1. ~~Why FWHM reads 18–22 % high on small stars (about 2 px), and whether that should be corrected.~~ Largely answered (set 4): mostly which stars are measured. On the 200 brightest stars FITS Blaster reads 14 % above ImageAnalysis; the rest (1D against 2D fit, median against biweight) is not measured. No correction proposed.
-2. Whether FITS Blaster's SNR should track image quality within a filter, as PixInsight's does, given its weight in the score. On both sets it doesn't. Set 4 shows why: it is peak ÷ sky σ of the brightest stars, so it mostly repeats the FWHM (−0.76), while PixInsight's SNR is a whole-image statistic that follows the sky background. Decide what FITS Blaster's SNR should measure (step 13).
+2. Whether FITS Blaster's SNR should track image quality within a filter, as PixInsight's does, given its weight in the score. On both sets it doesn't. Set 4 shows why: it is peak ÷ sky σ of the brightest stars, so it mostly repeats the FWHM (−0.76), while PixInsight's SNR is a whole-image statistic that follows the sky background. Decide what FITS Blaster's SNR should measure (step 13). After step 13a (σ per Bayer channel) SNR ranks M81 better against PixInsight's SNR (+0.06 → +0.44, set 5).
 3. ~~Why FITS Blaster finds half as many stars, and a lower SNR, on 180 s frames than on 10 s frames~~ Answered (set 3, star positions): the background σ of OSC frames includes the R/G/B sky spread, and saturated stars aren't detected (M3). Decide on the fixes in step 13.
 4. What the ~1,250 unexplained extra detections on the 10 s frame are (set 3), and whether candidates in bright nebula should be rejected.
 

@@ -724,6 +724,74 @@ All decided on 2026-10-20 (see "Decisions").
 
 **Tests**: updated baselines and render targets, reviewed by eye before committing.
 
+### 13a plan (2026-11-01) — background and noise per Bayer channel
+
+Agreed by Tom on 2026-11-01 (after [FWHM-comparison set 4](FWHM-comparison.md)). Colour (Bayer) frames only; mono frames stay byte-identical.
+
+**Problem**: `estimateBackground` takes one median and one σ (MAD) over the raw mosaic. In broadband light the R/G/B sky levels differ, and that spread counts as noise. The single σ sets the detection threshold (background + 5σ) and divides SNR and PSF·S. The single background also goes into the star fits and into the star-count check (`measureFWHMOnly`), whose 4 neighbours of a peak are pixels of another colour.
+
+**Changes**
+1. Background and σ (MAD × 1.4826) for each of the four positions of the 2×2 pattern, 5,000 samples each.
+2. Detection: pixel minus its channel's background against 5 × its channel's σ; the local-maximum test and the brightness order of the candidates use background-subtracted values. Mono frames get offset 0 and the current threshold, so their arithmetic is unchanged.
+3. Star-count check: each neighbour minus its own channel's background.
+4. ~~Star fits on the luminance crops: the matching luminance background (channel backgrounds with the crop's weights, Rec. 709 or adaptive). Tom: yes, although FWHM on colour frames changes too.~~ **Dropped** (Tom, 2026-11-01) after measuring: it made FWHM and eccentricity agree less with PixInsight (see the results below). The star fits keep the single background.
+5. SNR and PSF·S: σ = the luminance noise (channel σ's with the same weights). What SNR should measure is decided separately (open question 2).
+6. Unchanged: the sky-background value (Sky BG filter), mono frames, rendered images.
+7. **Added during (b)** (Tom, 2026-11-01): saturated stars on colour frames. With the channel backgrounds subtracted, a saturated R or B pixel beats its saturated G neighbours, so saturated stars are now detected and filled the 200 measured stars (M42 180 s: all 200; FWHM 9.9 px). A candidate with a pixel at ≥ 98 % of the frame's highest value in its 3×3 neighbourhood is saturated: left out of FWHM, eccentricity, SNR and PSF·S and counted as a star. A large saturated star has several such candidates (M42 180 s: 243 candidates on 122 stars), so each saturated area (pixels at most 2 px apart) counts once (`SaturatedStars`). Mono frames: unchanged until M3 itself.
+
+**Checks**: (a) measure first, no code change; (b) the change, compared with M81 set 4 (ImageAnalysis, debayered; FWHM with 200 fits), M42 10 s against 180 s (180 s should get more stars), mono sets byte-identical. Unit tests: per-channel background on a synthetic mosaic, detection with a coloured sky, mono unchanged. Baselines of the colour sets (sample-m31, m31-night, california, gamma-cygni-0304, m42-10, m42-180) regenerated in the same commit, old and new shown to Tom first.
+
+**Release**: all step 13 metric changes ship together in one beta (Tom, 2026-11-01).
+
+**Performance**: four small sorts instead of one, one subtraction per pixel in the detection kernel. No new GPU work.
+
+**(a) Results (2026-11-01)**: first and middle frame of each colour set, plus M81 2025-03-26. σ(MAD) per channel agrees with the pixel-to-pixel noise within about 20 %, so it is a fair noise estimate.
+
+| Set | Exposure | Sky R / G / B (ADU) | σ now | σ R / G / B | σ now ÷ σ G |
+|---|---|---|---|---|---|
+| sample-m31 | 120 s | 485 / 528 / 340 | 49 | 37 / 42 / 27 | 1.12–1.16 |
+| m31-night | 120 s | 489 / 532 / 342 | 47 | 39 / 42 / 28 | 1.12–1.18 |
+| california (ALP-T) | 180 s | 294 / 324 / 271 | 30 | 24 / 24 / 18 | 1.19–1.25 |
+| gamma-cygni (ALP-T) | 180 s | 273 / 342 / 282 | 52 | 19 / 25 / 19 | 1.74–2.06 |
+| m42-10 | 10 s | 250 / 278 / 256 | 25 | 16 / 19 / 18 | 1.08–1.31 |
+| m42-180 | 180 s | 1,020 / 1,432 / 1,052 | 320 | 71 / 88 / 68 | 2.86–3.63 |
+| M81 2025-03-26 | 180 s | 437 / 486 / 343 | 43 | 31 / 36 / 25 | 1.21–1.42 |
+
+The σ inflation is large on M42 180 s and Gamma Cygni, and modest (1.1–1.4) on the other sets. But the channel backgrounds differ by several σ on most sets: B sky is 140–190 ADU (5–7 × σ B) below G on M31, M81 and the sample. With one shared background a B or R neighbour of a faint G peak lies below that background, so the star-count check (change 3) and the local-maximum test (change 2) are probably affected more than the threshold. Measured in (b).
+
+**(b) Results (2026-11-01)**: changes 1–3, 5 and 7; change 4 dropped. Mono sets byte-identical (Rosette R/G/B, ASI294MM); unit tests 383 (6 new in `BayerSkyLevelsTests`); render tests full pass; the six colour baselines regenerated.
+
+Change 4 measured against PixInsight ImageAnalysis (debayered, 200 PSF fits; Spearman r over the frames, old → with change 4 → without it):
+
+| | California (87) | M81 2025-03-26 (59) |
+|---|---|---|
+| Eccentricity | +0.84 → −0.47 → +0.82 | +0.68 → +0.63 → +0.68 |
+| FWHM | +0.65 → +0.43 → +0.52 | +0.94 → +0.94 → +0.95 |
+
+Final, against PixInsight (old → new):
+
+| | California (87) | M81 (59) |
+|---|---|---|
+| FWHM | +0.65 → +0.52 | +0.94 → +0.95 |
+| Eccentricity | +0.84 → +0.82 | +0.68 → +0.68 |
+| Stars | +0.97 → +0.98 | +0.58 → +0.75 |
+| SNR vs SNR | +0.88 → +0.89 | +0.06 → +0.44 |
+| PSF·S vs PSF Signal Weight | +0.97 → +0.99 | +0.68 → +0.94 |
+| Score vs PSF Signal Weight | +0.69 → +0.89 | +0.40 → +0.46 |
+
+Colour baselines, medians old → new (standard filter: frames kept):
+
+| Set | FWHM | Ecc. | SNR | Stars | PSF·S | Score | Kept |
+|---|---|---|---|---|---|---|---|
+| sample-m31 | 3.23 → 3.24 | 0.514 → 0.514 | 532 → 558 | 3,290 → 3,855 | 626 → 623 | 56 → 56 | 2 → 2 of 8 |
+| m31-night | 3.28 → 3.28 | 0.487 → 0.483 | 499 → 518 | 3,255 → 3,704 | 594 → 584 | 56 → 57 | 27 → 26 of 39 |
+| california | 3.90 → 4.06 | 0.343 → 0.362 | 63 → 70 | 447 → 429 | 148 → 127 | 48 → 46 | 87 → 75 of 87 |
+| gamma-cygni-0304 | 3.29 → 3.33 | 0.463 → 0.480 | 197 → 327 | 1,302 → 1,264 | 286 → 443 | 57 → 57 | 33 → 30 of 34 |
+| m42-10 | 3.99 → 4.00 | 0.520 → 0.516 | 249 → 271 | 2,769 → 2,974 | 476 → 480 | 51 → 51 | 10 → 10 of 39 |
+| m42-180 | 4.28 → 4.27 | 0.504 → 0.507 | 127 → 359 | 1,312 → 1,462 | 138 → 390 | 41 → 49 | 3 → 3 of 9 |
+
+Open after 13a: California's FWHM orders the frames less like PixInsight (+0.65 → +0.52; median 3.90 → 4.06), from the different choice of the 200 measured stars (ranked on background-subtracted values, saturated ones left out). The absolute star count stays far below PixInsight's (M81 1,976 against 3,494; California 429 against 2,993), and M42 180 s still has fewer stars than 10 s; a likely next suspect is the detection itself (5σ on single raw pixels, where PixInsight detects on smoothed luminance).
+
 ---
 
 ## Step 14 — Configuration, security and release tooling

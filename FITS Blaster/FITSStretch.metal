@@ -291,10 +291,14 @@ kernel void bayerStretchFromAverage(
 /// CPU-side parameters for the detection kernel. Must match the Swift
 /// DetectParams struct exactly (same field order, same types).
 struct DetectParams {
-    uint  width;      // image width in pixels
-    uint  height;     // image height in pixels
-    float threshold;  // background + 5σ — pixels below this level are sky
-    uint  capacity;   // candidates the output list can hold
+    uint   width;      // image width in pixels
+    uint   height;     // image height in pixels
+    uint   capacity;   // candidates the output list can hold
+    uint   padding;    // aligns the float4 fields to 16 bytes, as in Swift
+    float4 offsets;    // per 2×2 cell position ((y&1)*2 + (x&1)): subtracted from each pixel;
+                       // the channel's sky background on a raw colour frame, 0 on mono
+    float4 thresholds; // per position: pixel − offset must reach this (background + 5σ on
+                       // mono, 5σ of the channel on colour) — below it is sky
 };
 
 /// Output record written by the detection kernel for each candidate.
@@ -337,23 +341,30 @@ kernel void detectLocalMaxima(
     // Border pixels: the 8-neighbourhood would extend outside the image.
     if (x == 0 || x >= p.width - 1 || y == 0 || y >= p.height - 1) return;
 
-    uint  idx = y * p.width + x;
-    float val = pixels[idx];
+    uint  idx  = y * p.width + x;
+    // Position in the 2×2 Bayer cell; left/right neighbours flip the column bit, above/below
+    // the row bit, diagonals both. Mono frames have all offsets 0, so these are the raw values.
+    uint  cell = ((y & 1u) << 1) | (x & 1u);
+    float val  = pixels[idx] - p.offsets[cell];
 
     // Fast exit: below threshold → not a star candidate.
-    if (val < p.threshold) return;
+    if (val < p.thresholds[cell]) return;
 
-    // Strict 8-neighbour local-maximum test expressed as a single predicate so
-    // the compiler can emit branchless, fully-vectorised instructions.
+    float oH = p.offsets[cell ^ 1u];
+    float oV = p.offsets[cell ^ 2u];
+    float oD = p.offsets[cell ^ 3u];
+
+    // Strict 8-neighbour local-maximum test on sky-subtracted values, expressed as a single
+    // predicate so the compiler can emit branchless, fully-vectorised instructions.
     bool isMax =
-        val > pixels[idx - p.width - 1] &&   // top-left
-        val > pixels[idx - p.width    ] &&   // top-centre
-        val > pixels[idx - p.width + 1] &&   // top-right
-        val > pixels[idx           - 1] &&   // left
-        val > pixels[idx           + 1] &&   // right
-        val > pixels[idx + p.width - 1] &&   // bottom-left
-        val > pixels[idx + p.width    ] &&   // bottom-centre
-        val > pixels[idx + p.width + 1];     // bottom-right
+        val > pixels[idx - p.width - 1] - oD &&   // top-left
+        val > pixels[idx - p.width    ] - oV &&   // top-centre
+        val > pixels[idx - p.width + 1] - oD &&   // top-right
+        val > pixels[idx           - 1] - oH &&   // left
+        val > pixels[idx           + 1] - oH &&   // right
+        val > pixels[idx + p.width - 1] - oD &&   // bottom-left
+        val > pixels[idx + p.width    ] - oV &&   // bottom-centre
+        val > pixels[idx + p.width + 1] - oD;     // bottom-right
 
     if (!isMax) return;
 

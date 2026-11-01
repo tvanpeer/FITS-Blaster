@@ -16,6 +16,9 @@ enum BayerLuminanceWeights {
     /// each crop. Correctly normalises Ha vs OIII contributions in narrowband images,
     /// producing an axis-ratio that reflects true PSF elongation. Use for eccentricity.
     case adaptive
+
+    /// The Rec. 709 weights of `.rec709`.
+    static let rec709Weights: (r: Float, g: Float, b: Float) = (0.2126, 0.7152, 0.0722)
 }
 
 /// The four standard Bayer colour filter array patterns found in colour FITS images.

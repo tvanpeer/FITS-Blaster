@@ -15,10 +15,12 @@ extension MetricsCalculator {
     /// CPU-side mirror of the Metal DetectParams struct in FITSStretch.metal.
     /// Field order and types must match exactly so setBytes() copies the right bytes.
     struct DetectParams {
-        var width:     UInt32   // image width in pixels
-        var height:    UInt32   // image height in pixels
-        var threshold: Float    // background + 5σ detection threshold
-        var capacity:  UInt32   // candidates the output list can hold
+        var width:      UInt32         // image width in pixels
+        var height:     UInt32         // image height in pixels
+        var capacity:   UInt32         // candidates the output list can hold
+        var padding:    UInt32         // keeps the float4 fields 16-byte aligned, as in Metal
+        var offsets:    SIMD4<Float>   // per 2×2 cell position: subtracted from each pixel
+        var thresholds: SIMD4<Float>   // per position: pixel − offset must reach this
     }
 
     /// CPU-side mirror of the Metal DetectCandidate struct.
@@ -46,6 +48,9 @@ extension MetricsCalculator {
         /// The CPU detection scans at most this centre crop (pixels per side), which keeps
         /// it fast when Metal is unavailable; the GPU scans the whole frame.
         static let cpuDetectionCropSide    = 4096
+        /// Colour frames: a candidate with a pixel at this fraction of the frame's highest
+        /// value or more is saturated, counted as a star but not measured (step 13a).
+        static let saturationFraction: Float = 0.98
     }
 
     /// Tunables of the per-star shape measurement (CODE_AUDIT §9.4).

@@ -53,28 +53,28 @@ struct MetricsCalculator {
         let floatPtr = metalBuffer.contents().assumingMemoryBound(to: Float.self)
         let pixels   = UnsafeBufferPointer(start: floatPtr, count: count)
 
-        let (background, sigma) = estimateBackground(pixels, width: width, height: height)
-        let threshold = background + Constants.detectionSigmas * sigma
+        let (background, sky) = skyLevels(pixels, width: width, height: height, bayerPattern: bayerPattern)
+        let levels = sky.detectionLevels
 
         // Try GPU detection over the full frame; fall back to CPU on failure.
         let allCandidates: [StarCandidate]
 
         if let result = await findLocalMaximaGPU(metalBuffer: metalBuffer,
                                                   width: width, height: height,
-                                                  threshold: threshold) {
+                                                  levels: levels) {
             allCandidates = nonMaximumSuppression(result.candidates, imageWidth: width)
         } else {
             let cpu = findLocalMaxima(pixels: pixels,
                                       width: width, height: height,
                                       cropX: 0, cropY: 0,
                                       cropW: width, cropH: height,
-                                      threshold: threshold)
+                                      levels: levels)
             allCandidates = nonMaximumSuppression(cpu, imageWidth: width)
         }
 
         guard !allCandidates.isEmpty else { return nil }
         return await measureCandidates(allCandidates: allCandidates,
-                                       pixels: pixels, background: background, sigma: sigma,
+                                       pixels: pixels, background: background, sky: sky,
                                        width: width, height: height, config: config,
                                        bayerPattern: bayerPattern)
     }
@@ -112,19 +112,38 @@ struct MetricsCalculator {
         let cropX = (width  - cropW) / 2   // centre the crop horizontally
         let cropY = (height - cropH) / 2   // centre the crop vertically
 
-        let (background, sigma) = estimateBackground(pixels, width: width, height: height)
-        let threshold = background + Constants.detectionSigmas * sigma
+        let (background, sky) = skyLevels(pixels, width: width, height: height, bayerPattern: bayerPattern)
 
         let raw = findLocalMaxima(pixels: pixels, width: width, height: height,
                                   cropX: cropX, cropY: cropY,
                                   cropW: cropW, cropH: cropH,
-                                  threshold: threshold)
+                                  levels: sky.detectionLevels)
         let allCandidates = nonMaximumSuppression(raw, imageWidth: width)
         guard !allCandidates.isEmpty else { return nil }
         return await measureCandidates(allCandidates: allCandidates,
-                                       pixels: pixels, background: background, sigma: sigma,
+                                       pixels: pixels, background: background, sky: sky,
                                        width: width, height: height, config: config,
                                        bayerPattern: bayerPattern)
+    }
+
+    /// The level from which a pixel counts as saturated: `saturationFraction` of the frame's
+    /// highest value (PixInsight's ImageAnalysis uses ¾ of the maximum for the same purpose).
+    private static func saturationLevel(_ pixels: UnsafeBufferPointer<Float>) -> Float {
+        guard let base = pixels.baseAddress, !pixels.isEmpty else { return .infinity }
+        var maximum: Float = 0
+        vDSP_maxv(base, 1, &maximum, vDSP_Length(pixels.count))
+        return maximum * Constants.saturationFraction
+    }
+
+    /// The frame's sky: the background over all pixels (the Sky BG value, unchanged by step
+    /// 13a) and the levels the detection and measurement use. Mono frames: that one
+    /// background and σ everywhere. Raw colour frames: background and σ per position of the
+    /// 2×2 Bayer cell, so the sky colour no longer counts as noise (master-plan step 13a).
+    private static func skyLevels(_ pixels: UnsafeBufferPointer<Float>, width: Int, height: Int,
+                                  bayerPattern: BayerPattern?) -> (background: Float, sky: SkyLevels) {
+        let (background, sigma) = estimateBackground(pixels, width: width, height: height)
+        guard bayerPattern != nil else { return (background, .uniform(background: background, sigma: sigma)) }
+        return (background, estimateChannelLevels(pixels, width: width, height: height))
     }
 
     /// Shared measurement stage: filters raw candidates, fits PSF models sequentially,
@@ -132,10 +151,17 @@ struct MetricsCalculator {
     /// after their respective detection steps.
     @concurrent private static func measureCandidates(allCandidates: [StarCandidate],
                                                      pixels: UnsafeBufferPointer<Float>,
-                                                     background: Float, sigma: Float,
+                                                     background: Float, sky: SkyLevels,
                                                      width: Int, height: Int,
                                                      config: MetricsConfig,
                                                      bayerPattern: BayerPattern? = nil) async -> FrameMetrics? {
+        // σ for SNR and PSF·S. Mono: the frame's σ, as before. Colour: the noise of the
+        // luminance the star crops are measured on, from the channel σ's (step 13a).
+        // The star fits keep the single background of the whole frame on both: subtracting
+        // the channel backgrounds under the fits made FWHM and eccentricity agree less with
+        // PixInsight (California eccentricity order −0.47 against +0.82; architecture-plan
+        // 13a), so that part of 13a was dropped.
+        let sigma = bayerPattern.map { sky.luminanceSigma(pattern: $0) } ?? sky.sigma[0]
 
         // ── Phase 1: shape statistics (top 200 candidates) ───────────────────────
         //
@@ -153,7 +179,33 @@ struct MetricsCalculator {
         // PSF Signal Weight accumulator: Σ(peakVal) across verified stars.
         var psfFluxSum:  Float = 0
 
-        for c in allCandidates.prefix(Constants.topCandidatesForShape) {
+        // Colour frames: saturated stars are left out of the shape measurements and counted
+        // once each (master-plan step 13a). With the channel backgrounds subtracted a
+        // saturated R or B pixel beats its saturated G neighbours, so saturated stars are
+        // detected and would otherwise fill the brightest 200. Mono frames take the first 200
+        // candidates as before.
+        var saturated: SaturatedStars? = bayerPattern.map { _ in
+            SaturatedStars(pixels: pixels, width: width, height: height, level: Self.saturationLevel(pixels))
+        }
+        var shapeCandidates: [StarCandidate] = []
+        var saturatedStars = 0
+        var nextCandidate = 0   // the first candidate Phase 2 looks at
+        if saturated != nil {
+            while nextCandidate < allCandidates.count, shapeCandidates.count < Constants.topCandidatesForShape {
+                let c = allCandidates[nextCandidate]
+                nextCandidate += 1
+                switch saturated?.classify(x: c.x, y: c.y) {
+                case .newStar:  saturatedStars += 1
+                case .sameStar: break
+                default:        shapeCandidates.append(c)
+                }
+            }
+        } else {
+            shapeCandidates = Array(allCandidates.prefix(Constants.topCandidatesForShape))
+            nextCandidate = shapeCandidates.count
+        }
+
+        for c in shapeCandidates {
             let shape: (Float, Float, Float, Float)? = {
                 if let pattern = bayerPattern {
                     let rawCrop = Self.extractCrop(from: pixels, width: width, height: height,
@@ -203,15 +255,19 @@ struct MetricsCalculator {
         // regardless of how large the candidate list is. Each check takes about a
         // microsecond, less than a child task would cost, so they run in one loop (§3.8).
 
-        var verifiedCount = topVerified
+        var verifiedCount = topVerified + saturatedStars
 
-        if allCandidates.count > Constants.topCandidatesForShape {
-            let remaining = allCandidates.dropFirst(Constants.topCandidatesForShape)
-                                         .prefix(Constants.fallbackCandidateCount)
+        if allCandidates.count > nextCandidate {
+            let remaining = allCandidates[nextCandidate...].prefix(Constants.fallbackCandidateCount)
             for c in remaining {
+                switch saturated?.classify(x: c.x, y: c.y) {
+                case .newStar:  verifiedCount += 1; continue
+                case .sameStar: continue
+                default:        break
+                }
                 let fwhm = Self.measureFWHMOnly(
                     pixels: pixels, width: width, height: height,
-                    cx: c.x, cy: c.y, background: background)
+                    cx: c.x, cy: c.y, sky: sky)
                 if Shape.acceptedFWHM.contains(fwhm) { verifiedCount += 1 }
             }
         }
