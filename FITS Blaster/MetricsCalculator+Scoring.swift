@@ -92,8 +92,9 @@ extension MetricsCalculator {
         }
         if let v = snr {
             let w: Float = 0.20
-            // Aperture SNR: bad below 10, ideal at 200+
-            let s = max(0, min(1, (v - 10) / 190))
+            // Star flux ÷ σ (step 13b), log scale: 0 at 100 (stars barely above the detection
+            // limit, where a 5σ star of FWHM 3 px gives about 60), full marks at 20,000.
+            let s = v > 0 ? max(0, min(1, log10(v / Scale.snrZero) / log10(Scale.snrFull / Scale.snrZero))) : 0
             weightedSum += s * w; totalWeight += w
         }
         if let v = starCount {
@@ -105,6 +106,14 @@ extension MetricsCalculator {
 
         guard totalWeight > 0 else { return 0 }
         return Int((weightedSum / totalWeight) * 100)
+    }
+
+    /// Fixed points of the score's sub-scores.
+    enum Scale {
+        /// SNR (star flux ÷ σ) that scores 0.
+        static let snrZero: Float = 100
+        /// SNR that scores full marks.
+        static let snrFull: Float = 20_000
     }
 
     // MARK: - Helpers

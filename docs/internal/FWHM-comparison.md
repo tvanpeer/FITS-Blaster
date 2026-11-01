@@ -12,7 +12,7 @@ FWHM is not a single standardised measurement. Every tool makes different choice
 - **Fitting method:** 1D weighted regressions along four directions (0°, 45°, 90°, 135°), linearised for β=4; the four widths are combined into the two principal axes of the elliptical star
 - **Result:** Geometric mean of the two principal-axis FWHMs, in raw sensor pixels
 - **Star sample:** Median over the stars fitted among the 200 brightest GPU-detected candidates
-- **SNR:** median over the same stars of peak above background ÷ sky σ; **PSF·S:** mean peak above background ÷ sky σ
+- **SNR:** median over the same stars of the fitted Moffat flux (peak · π · α_major · α_minor / 3) ÷ sky σ, since step 13b (before: peak ÷ σ); **PSF·S:** mean peak above background ÷ sky σ
 
 ---
 
@@ -300,10 +300,39 @@ Master-plan step 13a measures the sky background and noise per Bayer channel on 
 - Subtracting the channel backgrounds under the star fits as well (planned, then dropped) made California's eccentricity rank the frames the opposite way (−0.47) and its FWHM worse (+0.43); the fits keep the frame's single background.
 - California's FWHM ranks less well after 13a (+0.52), because a different set of 200 stars is measured. FITS Blaster's star count stays far below PixInsight's on both sets (429 against 2,993; 1,976 against 3,494), although it ranks the frames well.
 
+### Set 6: what SNR should measure, against ImageAnalysis (2026-11-01)
+
+New ImageAnalysis references (Maximum PSF fits 200, MRS noise; colour sets debayered with signal and noise evaluation): M31 night, Gamma Cygni 2026-03-04, ASI294MM SHO, Rosette R/G/B, M42 10 s including the 7 trailed frames in REJECTED; plus M81 (set 4) and California (set 5). M42 10 s and 180 s kept frames: SubframeSelector on debayered frames (set 3). FITS Blaster after step 13a, with six SNR candidates in a temporary build:
+
+- **A** median peak ÷ σ (until 13b); **B** median aperture flux ÷ (σ · √pixels), aperture 2 × FWHM; **C** median aperture flux ÷ σ; **D** whole image ((σL + σH) / 2σn)², PixInsight's SNR; **E** median fitted Moffat flux (peak · π · α_major · α_minor / 3) ÷ σ; **F** fitted flux ÷ (σ · √aperture area).
+
+Spearman r against PixInsight's PSF SNR, per group:
+
+| Group (frames) | A | B | C | D | E | F |
+|---|---|---|---|---|---|---|
+| M81 (61) | +0.30 | +0.89 | +0.81 | +0.56 | +0.82 | +0.84 |
+| California (87) | +0.98 | +0.98 | +0.96 | −0.47 | +0.97 | +0.98 |
+| M42 10 s (39, SFS) | +0.59 | +0.82 | +0.49 | −0.16 | +0.54 | +0.72 |
+| M42 180 s (9, SFS) | +0.63 | +0.90 | +0.53 | +0.40 | +0.45 | +0.80 |
+| SHO H (10) | −0.04 | +0.30 | +0.87 | −0.07 | +0.93 | +0.36 |
+| SHO O (10) | −0.79 | −0.81 | +0.67 | +0.20 | +0.43 | −0.84 |
+| SHO S (10) | −0.15 | +0.15 | +0.78 | +0.52 | +0.73 | −0.07 |
+| Rosette R (19) | −0.39 | +0.57 | +0.64 | −0.10 | +0.60 | +0.52 |
+| Rosette G (19) | −0.03 | +0.12 | +0.50 | +0.12 | +0.53 | +0.17 |
+| Rosette B (20) | +0.29 | +0.51 | +0.34 | +0.12 | +0.26 | +0.46 |
+| M31 (39) | +0.61 | +0.82 | +0.88 | +0.66 | +0.89 | +0.81 |
+| Gamma Cygni (34) | +0.90 | +0.95 | +0.97 | +0.88 | +0.92 | +0.92 |
+| **Mean (lowest)** | +0.24 (−0.79) | +0.52 (−0.81) | +0.70 (+0.34) | +0.22 (−0.47) | +0.67 (+0.26) | +0.47 (−0.84) |
+
+- A, the old SNR, follows FWHM (−0.25 to −0.96) and runs against PixInsight on several mono groups. B and F work on colour sets but fail on mono. D, the whole-image SNR, doesn't follow PixInsight's star SNR.
+- C and E are level. On these sessions they also rise with FWHM (+0.3 to +0.96), as PixInsight's PSF SNR does on the mono sets and M31 (+0.53 to +0.79), so that is largely in the data.
+- **Trailed frames** (M42 10 s REJECTED, eccentricity 0.97): E and C are 7 × the kept frames (A 1.5 ×). PixInsight's detection rejects elongated sources: 18 stars, PSF SNR ≈ 0, and eccentricity 0.40, below the kept frames' 0.51, so PixInsight's eccentricity misses the trailing that FITS Blaster's catches.
+- Chosen (master-plan 13b): **E**, with a log score scale from 100 to 20,000. Trailed frames get full SNR points, as they did with A; eccentricity and FWHM give them a low score.
+
 ### Open questions (behaviour changes, master-plan step 13 at the earliest)
 
 1. ~~Why FWHM reads 18–22 % high on small stars (about 2 px), and whether that should be corrected.~~ Largely answered (set 4): mostly which stars are measured. On the 200 brightest stars FITS Blaster reads 14 % above ImageAnalysis; the rest (1D against 2D fit, median against biweight) is not measured. No correction proposed.
-2. Whether FITS Blaster's SNR should track image quality within a filter, as PixInsight's does, given its weight in the score. On both sets it doesn't. Set 4 shows why: it is peak ÷ sky σ of the brightest stars, so it mostly repeats the FWHM (−0.76), while PixInsight's SNR is a whole-image statistic that follows the sky background. Decide what FITS Blaster's SNR should measure (step 13). After step 13a (σ per Bayer channel) SNR ranks M81 better against PixInsight's SNR (+0.06 → +0.44, set 5).
+2. Whether FITS Blaster's SNR should track image quality within a filter, as PixInsight's does, given its weight in the score. On both sets it doesn't. Set 4 shows why: it is peak ÷ sky σ of the brightest stars, so it mostly repeats the FWHM (−0.76), while PixInsight's SNR is a whole-image statistic that follows the sky background. After step 13a (σ per Bayer channel) SNR ranked M81 better against PixInsight's SNR (+0.06 → +0.44, set 5). **Answered in step 13b** (set 6): SNR is now the fitted star flux ÷ σ, which ranks frames like PixInsight's PSF SNR (mean +0.67 over 12 groups, against +0.24 before).
 3. ~~Why FITS Blaster finds half as many stars, and a lower SNR, on 180 s frames than on 10 s frames~~ Answered (set 3, star positions): the background σ of OSC frames includes the R/G/B sky spread, and saturated stars aren't detected (M3). Decide on the fixes in step 13.
 4. What the ~1,250 unexplained extra detections on the 10 s frame are (set 3), and whether candidates in bright nebula should be rejected.
 

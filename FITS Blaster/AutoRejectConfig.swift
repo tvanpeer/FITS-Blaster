@@ -29,7 +29,7 @@ struct AutoRejectConfig: Sendable {
     // SNR
     var useSNR: Bool = true
     var snrMultiplier: Double = 0.50
-    var absoluteSNRFloor: Double = 20.0
+    var absoluteSNRFloor: Double = 200.0   // star flux ÷ σ (step 13b; was 20 on the old peak ÷ σ)
 
     // Sky background
     var useSkyBackground: Bool = false

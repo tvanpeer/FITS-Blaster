@@ -792,6 +792,29 @@ Colour baselines, medians old → new (standard filter: frames kept):
 
 Open after 13a: California's FWHM orders the frames less like PixInsight (+0.65 → +0.52; median 3.90 → 4.06), from the different choice of the 200 measured stars (ranked on background-subtracted values, saturated ones left out). The absolute star count stays far below PixInsight's (M81 1,976 against 3,494; California 429 against 2,993), and M42 180 s still has fewer stars than 10 s; a likely next suspect is the detection itself (5σ on single raw pixels, where PixInsight detects on smoothed luminance).
 
+### 13b (2026-11-01) — what SNR measures
+
+Agreed by Tom on 2026-11-01: SNR should show signal strength (transparency, exposure, sky) **without** the seeing, which FWHM already covers; Auto-Flag absolute floors reset (in practice nothing to reset: the Auto-Flag sheet doesn't store its settings).
+
+**Problem**: SNR was the median over the measured stars of peak ÷ σ. A peak falls as flux ÷ FWHM², so SNR mostly repeated the FWHM (−0.76 on M81) and ranked frames against PixInsight's star SNR on only half the sets. `docs/public/Score.md` still described the aperture SNR the code used before April 2026 (`769c670`).
+
+**(a) Measurement** (temporary build, not committed; details in [FWHM-comparison set 6](FWHM-comparison.md)): six candidates against PixInsight ImageAnalysis (debayered for colour, Maximum PSF fits 200) on 12 groups. Mean Spearman r against PSF SNR: A peak ÷ σ +0.24 (worst −0.79), B aperture flux ÷ (σ √n) +0.52 (−0.81), C aperture flux ÷ σ +0.70 (+0.34), D whole-image ((σL + σH)/2σn)² +0.22 (−0.47), **E fitted Moffat flux ÷ σ +0.67 (+0.26)**, F fitted flux ÷ (σ √area) +0.47 (−0.84). Tom chose E: level with C, no aperture (no crop limit on colour frames, no nebula), no extra work.
+
+Trailed frames (M42 10 s REJECTED): E is 7 × the kept frames (also C; A 1.5 ×), because the fitted profile overestimates a trail's flux and the faint stars drop out. PixInsight's detection rejects elongated sources (maximum distortion 0.6), finds 18 objects and gives PSF SNR ≈ 0, but then its eccentricity misses the trailing (0.40 against 0.51 kept; FITS Blaster 0.97). Tom chose option 1: E as is. Trailed frames already got full SNR points with A; eccentricity and FWHM (70 % of the score) and Auto-Flag catch them.
+
+**(b) Change**: SNR = median over the measured stars of peak · π · α_major · α_minor / 3 ÷ σ (Moffat β = 4). Score: log scale, `clamp(log₁₀(SNR / 100) / log₁₀(200), 0, 1)` (a 5σ star of FWHM 3 px gives about 60). Auto-Flag absolute SNR floor 200 (slider 100–10,000). `Score.md` and `FAQ.md` rewritten; `site/faq.html` at stable 1.24. Tests: 386 (3 new in `StarFluxSNRTests`, 3 in `QualityScoreTests` moved to the new scale). All 10 baselines regenerated: only SNR and score change, the standard filter keeps the same frames.
+
+| Set | SNR median old → new | Score median (range) old → new |
+|---|---|---|
+| sample-m31 | 558 → 8,314 | 56 (52–58) → 52 (49–55) |
+| m31-night | 518 → 8,206 | 57 (55–64) → 53 (50–61) |
+| california | 70 → 1,016 | 46 (30–53) → 48 (35–54) |
+| gamma-cygni-0304 | 327 → 4,989 | 57 (54–59) → 51 (49–54) |
+| m42-10 | 271 → 7,604 | 51 (44–53) → 47 (41–50) |
+| m42-180 | 359 → 10,203 | 49 (46–51) → 46 (44–48) |
+| rosette-r / g / b | 189 / 189 / 148 → 1,420 / 1,272 / 1,362 | 67 / 68 / 61 → 57 / 58 / 57 |
+| asi294mm-sho | 688 → 3,411 | 72 (65–77) → 65 (56–71) |
+
 ---
 
 ## Step 14 — Configuration, security and release tooling

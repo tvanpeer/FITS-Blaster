@@ -104,14 +104,18 @@ Because the reconstruction uses four evenly-spaced directions spanning 180°, it
 
 Bilinear demosaicking preserves the full crop resolution, so eccentricity precision on OSC cameras is equivalent to a mono camera.
 
-### SNR — aperture photometry
-A circular aperture of radius r = 2 × FWHM is placed at the centroid. The background-subtracted flux inside the aperture (I_net) and the pixel count (n_ap) are summed, then:
+### SNR — star flux against sky noise
+For each measured star, the total flux of the fitted Moffat profile (β = 4) is divided by the sky noise σ:
 
 ```
-SNR = I_net / √(I_net + n_ap · σ²_sky)
+SNR = A · π · α_major · α_minor / (β − 1) / σ_sky
 ```
 
-This is the standard simplified CCD equation (Merline & Howell 1995): the two noise terms under the root represent Poisson shot noise from the star and accumulated background noise across the aperture. Without a known camera gain, the Poisson term is a proportional proxy; it correctly **ranks frames relative to each other** within a session on the same camera.
+where `A` is the background-subtracted peak and `α_major`, `α_minor` are the fitted widths along the star's two axes. The flux is what a star delivers in total, however sharp or soft it is, so SNR shows **signal strength** — transparency, exposure time, sky brightness — and leaves the seeing to FWHM. It doesn't depend on the camera gain or on the data units (16-bit or 0–1 float), because flux and σ scale together. It is the closest equivalent of PixInsight's PSF SNR.
+
+Until version 1.24 SNR was the star's peak divided by σ. A peak falls with the square of the FWHM, so that SNR mostly repeated the FWHM. Values from earlier versions can't be compared with the new ones.
+
+Trailed frames (wind, tracking errors) can get a high SNR, because a trailed star's fitted profile overestimates its flux. FWHM and eccentricity give such frames a low score, and Auto-Flag catches them on eccentricity.
 
 The **median** FWHM, eccentricity, and SNR across all accepted candidates are used as the frame values.
 
@@ -139,7 +143,7 @@ Good transparency delivers more photons, which raises the peak `A`. Good seeing 
 
 - **High PSF-SW** — good transparency and/or good seeing. Stars are bright and sharp relative to the sky noise.
 - **Low PSF-SW** — haze, thin cloud, poor seeing, or high sky background. The frame was photon-starved or the PSF was bloated.
-- **Unlike SNR**, PSF-SW is not diluted by a large aperture — it uses the star's peak, not its total aperture flux.
+- **Unlike SNR**, PSF-SW uses the star's peak, not its total flux, so it also rewards sharp stars.
 
 PSF-SW is available in the session chart (the **PSF·S** button), the inspector, and the sidebar sort menu. It does **not** contribute to the composite quality score — it is a supplemental transparency metric intended to inform integration decisions.
 
@@ -153,7 +157,7 @@ Each metric is converted to a normalised sub-score **s ∈ [0, 1]** using a piec
 |--------|--------|-------|--------|---------|
 | FWHM | 35 % | ≤ 2 px | ≥ 7 px | `s = clamp(1 − (FWHM − 2) / 5, 0, 1)` |
 | Eccentricity | 35 % | 0 | ≥ 0.5 | `s = clamp(1 − e / 0.5, 0, 1)` |
-| SNR | 20 % | ≥ 200 | ≤ 10 | `s = clamp((SNR − 10) / 190, 0, 1)` |
+| SNR | 20 % | ≥ 20,000 | ≤ 100 | `s = clamp(log₁₀(SNR / 100) / log₁₀(200), 0, 1)` |
 | Star count | 10 % | ≥ 500 | 0 | `s = clamp(log₁₀(n + 1) / log₁₀(501), 0, 1)` |
 
 Star count uses a **log scale** so that a frame with 50 stars is not penalised as harshly as a frame with 0 stars.

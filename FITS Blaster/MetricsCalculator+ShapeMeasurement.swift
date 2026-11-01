@@ -113,7 +113,11 @@ extension MetricsCalculator {
     /// **Eccentricity:** Derived from the reconstructed principal-axis FWHM values.
     /// Orientation-invariant: correctly detects elongation at any angle, including diagonal.
     ///
-    /// **SNR:** Peak signal above background in units of sky sigma.
+    /// **SNR:** the star's total flux from the fitted profile, in units of sky sigma:
+    /// peak · π · α_major · α_minor / (β − 1) ÷ σ for the Moffat β = 4 (master-plan step 13b).
+    /// It measures signal strength (transparency, exposure, sky noise) without the seeing:
+    /// the peak alone falls as 1/FWHM² and made SNR repeat the FWHM. The closest equivalent
+    /// of PixInsight's PSF SNR (FWHM-comparison set 6).
     ///
     /// **peakVal:** Background-subtracted sub-pixel peak, returned so callers can
     /// compute PSF Signal Weight without re-deriving it from the fit coefficients.
@@ -190,7 +194,10 @@ extension MetricsCalculator {
         let axisRatio    = fwhmMinor / fwhmMajor
         let eccentricity = max(0, 1 - axisRatio * axisRatio).squareRoot()
 
-        let snr: Float = peakVal / sigma
+        // Total flux of the fitted Moffat β = 4: peak · π · α_major · α_minor / (β − 1).
+        let alphaMajor = fwhmMajor / fwhmFactor, alphaMinor = fwhmMinor / fwhmFactor
+        let flux = peakVal * Float.pi * alphaMajor * alphaMinor / 3
+        let snr: Float = flux / sigma
 
         return (fwhm, eccentricity, snr, peakVal)
     }

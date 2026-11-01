@@ -98,7 +98,7 @@ FITS Blaster fits a Moffat β=4 profile (the same default as PixInsight's Subfra
 Eccentricity measures how elongated the stars are (0 = perfectly round, 1 = infinitely elongated). A value above ~0.5 usually indicates trailing from poor polar alignment, wind shake, or a mechanical issue. FITS Blaster reports the eccentricity of the median star candidate.
 
 ### What is SNR?
-Signal-to-Noise Ratio — the peak star signal divided by the background noise level. Higher is better. SNR depends heavily on exposure length, sky background, and seeing conditions. It is most useful for comparing frames within the same session rather than between different nights or setups.
+Signal-to-Noise Ratio — the total light of the measured stars divided by the background noise level. Higher is better. It shows how strong the star signal is: it rises with exposure time and transparency and falls with a brighter sky, but it doesn't depend on the seeing (that's FWHM). It is most useful for comparing frames within the same session rather than between different nights or setups. Since version 1.24 it is measured this way; SNR values from earlier versions are on a different scale.
 
 ### Why are FITS Blaster's FWHM values different from my other tools?
 FWHM is not a standardised measurement — every tool makes different choices about the PSF model, fitting method, and unit convention. Agreement within ~10% is normal. The most common causes of larger differences are:

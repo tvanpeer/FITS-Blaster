@@ -1,62 +1,62 @@
 {
   "asi294mm-sho": {
-    "app": "FITS Blaster.app 1.23.1-beta.2 (206)",
-    "commit": "30d9744 (with uncommitted changes)",
+    "app": "FITS Blaster.app 1.24-beta.3 (212)",
+    "commit": "f3dc190 (with uncommitted changes)",
     "macOS": "27.0.1",
-    "updated": "2026-10-21T19:27:40"
+    "updated": "2026-11-01T13:00:07"
   },
   "california": {
     "app": "FITS Blaster.app 1.24-beta.3 (212)",
-    "commit": "51f5001 (with uncommitted changes)",
+    "commit": "f3dc190 (with uncommitted changes)",
     "macOS": "27.0.1",
-    "updated": "2026-11-01T11:16:27"
+    "updated": "2026-11-01T13:00:06"
   },
   "gamma-cygni-0304": {
     "app": "FITS Blaster.app 1.24-beta.3 (212)",
-    "commit": "51f5001 (with uncommitted changes)",
+    "commit": "f3dc190 (with uncommitted changes)",
     "macOS": "27.0.1",
-    "updated": "2026-11-01T11:16:27"
+    "updated": "2026-11-01T13:00:06"
   },
   "m31-night": {
     "app": "FITS Blaster.app 1.24-beta.3 (212)",
-    "commit": "51f5001 (with uncommitted changes)",
+    "commit": "f3dc190 (with uncommitted changes)",
     "macOS": "27.0.1",
-    "updated": "2026-11-01T11:16:27"
+    "updated": "2026-11-01T13:00:06"
   },
   "m42-10": {
     "app": "FITS Blaster.app 1.24-beta.3 (212)",
-    "commit": "51f5001 (with uncommitted changes)",
+    "commit": "f3dc190 (with uncommitted changes)",
     "macOS": "27.0.1",
-    "updated": "2026-11-01T11:16:27"
+    "updated": "2026-11-01T13:00:07"
   },
   "m42-180": {
     "app": "FITS Blaster.app 1.24-beta.3 (212)",
-    "commit": "51f5001 (with uncommitted changes)",
+    "commit": "f3dc190 (with uncommitted changes)",
     "macOS": "27.0.1",
-    "updated": "2026-11-01T11:16:27"
+    "updated": "2026-11-01T13:00:07"
   },
   "rosette-b": {
-    "app": "FITS Blaster.app 1.23-beta.10 (203)",
-    "commit": "0f5c953 (with uncommitted changes)",
-    "macOS": "27.0",
-    "updated": "2026-10-13T22:06:59"
+    "app": "FITS Blaster.app 1.24-beta.3 (212)",
+    "commit": "f3dc190 (with uncommitted changes)",
+    "macOS": "27.0.1",
+    "updated": "2026-11-01T13:00:07"
   },
   "rosette-g": {
-    "app": "FITS Blaster.app 1.23-beta.10 (203)",
-    "commit": "0f5c953 (with uncommitted changes)",
-    "macOS": "27.0",
-    "updated": "2026-10-13T22:06:59"
+    "app": "FITS Blaster.app 1.24-beta.3 (212)",
+    "commit": "f3dc190 (with uncommitted changes)",
+    "macOS": "27.0.1",
+    "updated": "2026-11-01T13:00:07"
   },
   "rosette-r": {
-    "app": "FITS Blaster.app 1.23-beta.10 (203)",
-    "commit": "0f5c953 (with uncommitted changes)",
-    "macOS": "27.0",
-    "updated": "2026-10-13T22:06:59"
+    "app": "FITS Blaster.app 1.24-beta.3 (212)",
+    "commit": "f3dc190 (with uncommitted changes)",
+    "macOS": "27.0.1",
+    "updated": "2026-11-01T13:00:07"
   },
   "sample-m31": {
     "app": "FITS Blaster.app 1.24-beta.3 (212)",
-    "commit": "51f5001 (with uncommitted changes)",
+    "commit": "f3dc190 (with uncommitted changes)",
     "macOS": "27.0.1",
-    "updated": "2026-11-01T11:16:27"
+    "updated": "2026-11-01T13:00:06"
   }
 }

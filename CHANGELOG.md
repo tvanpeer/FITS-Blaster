@@ -4,6 +4,19 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-11-01 — SNR measures the stars' light, not their sharpness
+
+### Changed
+- **SNR is now the total light of each measured star divided by the sky noise** (the flux of the fitted star profile), instead of the star's peak. A peak drops when stars get softer, so the old SNR mostly repeated the FWHM. The new SNR shows signal strength — exposure, transparency, sky brightness — and leaves the seeing to FWHM. Against PixInsight's PSF SNR it ranks frames far better (mean Spearman +0.67 over 12 test sessions, against +0.24), on mono and colour cameras alike.
+- **The numbers are on a new scale**, on the test sessions medians of 1,000–10,000 where they were 70–700, and enter the score on a log scale (100 → 0, 20,000 → full marks). Most scores drop by 3–10 points: under the old scale nearly every session got full SNR points. Scores and SNR values from earlier versions can't be compared with the new ones.
+- **Auto-Flag:** the absolute SNR floor defaults to 200 (slider 100–10,000). The relative mode works as before.
+- Trailed frames can show a high SNR; their FWHM and eccentricity give them a low score, and Auto-Flag catches them on eccentricity.
+
+### Under the hood
+- All metric baselines are regenerated; only SNR and score change. `docs/public/Score.md` describes the SNR the app computes (it still described an older one). The plan and measurements are in `docs/internal/architecture-plan.md` (13b) and `docs/internal/FWHM-comparison.md` (set 6).
+
+---
+
 ## 2026-11-01 — Colour cameras: sky background and noise per colour channel
 
 ### Changed

@@ -356,9 +356,10 @@ Datasets: the sample set (unpacked from the published zip), the M31 night,
 California, Gamma Cygni 03-04, Rosette R, G and B, and ASI294MM SHO (mono
 narrowband H/O/S, `.fit` files, single-letter filter names; added 2026-10-21),
 and M42 10 s and 180 s (OSC, one night, two exposure times; added 2026-10-25).
-The M42 baselines record today's behaviour, which is known to be wrong across
-exposure times (star count and SNR fall at 180 s; `FWHM-comparison.md` set 3):
-a fix in master-plan step 13 will change them on purpose.
+The M42 baselines were known to be wrong across exposure times (star count and
+SNR fell at 180 s; `FWHM-comparison.md` set 3). Since master-plan steps 13a and
+13b (2026-11-01) SNR, PSF·S and the score are higher at 180 s; the star count is
+still lower at 180 s than at 10 s (open in step 13).
 Each run's CLI output is kept in `tests/baseline-results/<time>/` (not committed).
 To add a dataset: add it to `DATASETS` in `scripts/testdata.py`, run
 `scripts/baseline-data.py create --only <name>`, then write only its baseline with

@@ -176,7 +176,7 @@ private struct SNRSection: View {
                         Text("\(config.absoluteSNRFloor, format: .number.precision(.fractionLength(0)))")
                             .foregroundStyle(.secondary)
                     }
-                    Slider(value: $config.absoluteSNRFloor, in: 5.0...1000.0, step: 5.0)
+                    Slider(value: $config.absoluteSNRFloor, in: 100.0...10_000.0, step: 100.0)
                 }
             }
         }
