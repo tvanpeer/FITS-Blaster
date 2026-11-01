@@ -26,6 +26,24 @@ extension MetricsCalculator {
     /// frames have one background, as before.
     ///
     /// Returns the estimated FWHM in pixels, or 0 on fit failure.
+    static func hasStarNeighbours(pixels: UnsafeBufferPointer<Float>, width: Int, height: Int,
+                                  cx: Int, cy: Int, sky: SkyLevels) -> Bool {
+        let rowStart = cy * width
+        guard cy >= 0 && cy < height, cx >= 0 && cx < width, rowStart + cx < pixels.count else { return false }
+        let cell = SkyLevels.cellIndex(x: cx, y: cy)
+        let rowNeighbourBackground = sky.background[cell ^ 1]       // left, right
+        let columnNeighbourBackground = sky.background[cell ^ 2]    // above, below
+        let peak = pixels[rowStart + cx] - sky.background[cell]
+        guard peak > 0 else { return false }
+        let minWing = peak * Shape.wingFraction
+        let l = cx > 0          ? pixels[rowStart + cx - 1]      - rowNeighbourBackground : -1
+        let r = cx + 1 < width  ? pixels[rowStart + cx + 1]      - rowNeighbourBackground : -1
+        let u = cy > 0          ? pixels[(cy - 1) * width + cx]  - columnNeighbourBackground : -1
+        let d = cy + 1 < height ? pixels[(cy + 1) * width + cx]  - columnNeighbourBackground : -1
+        return l > minWing && r > minWing && u > minWing && d > minWing
+    }
+
+    /// The quick FWHM check above, after the neighbour pre-filter (`hasStarNeighbours`).
     static func measureFWHMOnly(pixels: UnsafeBufferPointer<Float>,
                                 width: Int, height: Int,
                                 cx: Int, cy: Int,
@@ -54,12 +72,8 @@ extension MetricsCalculator {
         // > 0.25σ) ≈ 40%, giving P(all 4 pass) ≈ 2.6% — a large reduction at very low
         // cost. 15% was too aggressive: off-centre stars with FWHM ≈ 2 px had Y-neighbours
         // at ~10% of detected peak, causing ~38% of real stars to be incorrectly rejected.
-        let minWing = peak * Shape.wingFraction
-        let l = cx > 0          ? pixels[rowStart + cx - 1]      - rowNeighbourBackground : -1
-        let r = cx + 1 < width  ? pixels[rowStart + cx + 1]      - rowNeighbourBackground : -1
-        let u = cy > 0          ? pixels[(cy - 1) * width + cx]  - columnNeighbourBackground : -1
-        let d = cy + 1 < height ? pixels[(cy + 1) * width + cx]  - columnNeighbourBackground : -1
-        guard l > minWing, r > minWing, u > minWing, d > minWing else { return 0 }
+        guard hasStarNeighbours(pixels: pixels, width: width, height: height, cx: cx, cy: cy, sky: sky)
+        else { return 0 }
 
         let halfW    = Shape.moffatHalfWidth
         let minFrac  = Shape.moffatMinimumFraction

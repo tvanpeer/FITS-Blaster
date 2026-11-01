@@ -48,6 +48,7 @@ The log confirms validation was active in each process ("Metal API Validation En
 - **Severity:** Low (cosmetic, to be confirmed)
 
 ### M3 Saturated stars are never detected
+- **Status (2026-11-01): fixed** in master-plan step 13d (colour frames already in 13a). At a pixel at or above the saturation level (98 % of the frame maximum, when at least 3 pixels share that maximum) the GPU kernel and the CPU use a tie rule: ≥ the 4 later neighbours, > the 4 earlier ones, so a flat top gives one candidate, its top-left pixel. Saturated stars count once and are left out of the shape measurements. Rosette R now finds 2,896 stars against PixInsight's 2,868 (was 2,641). See `architecture-plan.md` 13d.
 - **Location:** `FITSStretch.metal:275-283` (GPU) and `MetricsCalculator+StarDetection.swift:124-131` (CPU): both use a strict `>` against all 8 neighbours.
 - **What:** A star whose top is clipped at the sensor's maximum has a flat plateau of equal pixels. No pixel in the plateau is strictly greater than all its neighbours, so the star produces no candidate.
 - **Evidence:** pixels at the maximum value per frame, and how many of them sit in a plateau:
@@ -131,5 +132,5 @@ The log confirms validation was active in each process ("Metal API Validation En
 ## 5. Suggested order
 
 1. **Step 8:** a GPU-vs-CPU parity test for the stretch (M1) and for detection on a frame larger than 4096 (M5), together with the §5.17 error handling. This tells us the real size of M1 and M4.
-2. **Step 13 (decisions):** saturated stars (M3); whether Quick Look should match the app (M1, M2).
+2. **Step 13 (decisions):** saturated stars (M3, done in 13d); whether Quick Look should match the app (M1, M2).
 3. **Step 8, only if measured:** buffer reuse (M6).

@@ -737,7 +737,7 @@ Agreed by Tom on 2026-11-01 (after [FWHM-comparison set 4](FWHM-comparison.md)).
 4. ~~Star fits on the luminance crops: the matching luminance background (channel backgrounds with the crop's weights, Rec. 709 or adaptive). Tom: yes, although FWHM on colour frames changes too.~~ **Dropped** (Tom, 2026-11-01) after measuring: it made FWHM and eccentricity agree less with PixInsight (see the results below). The star fits keep the single background.
 5. SNR and PSF·S: σ = the luminance noise (channel σ's with the same weights). What SNR should measure is decided separately (open question 2).
 6. Unchanged: the sky-background value (Sky BG filter), mono frames, rendered images.
-7. **Added during (b)** (Tom, 2026-11-01): saturated stars on colour frames. With the channel backgrounds subtracted, a saturated R or B pixel beats its saturated G neighbours, so saturated stars are now detected and filled the 200 measured stars (M42 180 s: all 200; FWHM 9.9 px). A candidate with a pixel at ≥ 98 % of the frame's highest value in its 3×3 neighbourhood is saturated: left out of FWHM, eccentricity, SNR and PSF·S and counted as a star. A large saturated star has several such candidates (M42 180 s: 243 candidates on 122 stars), so each saturated area (pixels at most 2 px apart) counts once (`SaturatedStars`). Mono frames: unchanged until M3 itself.
+7. **Added during (b)** (Tom, 2026-11-01): saturated stars on colour frames. With the channel backgrounds subtracted, a saturated R or B pixel beats its saturated G neighbours, so saturated stars are now detected and filled the 200 measured stars (M42 180 s: all 200; FWHM 9.9 px). A candidate with a pixel at ≥ 98 % of the frame's highest value in its 3×3 neighbourhood is saturated: left out of FWHM, eccentricity, SNR and PSF·S and counted as a star. A large saturated star has several such candidates (M42 180 s: 243 candidates on 122 stars), so each saturated area (pixels at most 2 px apart) counts once (`SaturatedStars`). Mono frames: unchanged until M3 itself (13d).
 
 **Checks**: (a) measure first, no code change; (b) the change, compared with M81 set 4 (ImageAnalysis, debayered; FWHM with 200 fits), M42 10 s against 180 s (180 s should get more stars), mono sets byte-identical. Unit tests: per-channel background on a synthetic mosaic, detection with a coloured sky, mono unchanged. Baselines of the colour sets (sample-m31, m31-night, california, gamma-cygni-0304, m42-10, m42-180) regenerated in the same commit, old and new shown to Tom first.
 
@@ -824,13 +824,48 @@ Goal (Tom): counts close to PixInsight's, with its default star detection as the
 - **PixInsight counts hot pixels as stars on uncalibrated colour frames**: the demosaic smears a hot pixel into a small blob. Recognised by an exact integer position and a centre more than 3 × the brightest neighbour above the sky: M81 1,187 of 3,270, California 2,629 of 3,543, M42 180 s 224 of 1,672. ImageAnalysis's "Stars" includes them, so the target is PixInsight's **real** stars. On mono, integer positions are real small stars (centre 1.4–1.7 × the neighbour).
 - FITS Blaster checked only the first 6,200 candidates; on uncalibrated frames thousands of hot pixels came first in the brightness order, so faint real stars were never checked (M81: 415, California: 305, M42 180 s: 431). FITS Blaster's neighbour check rejects hot pixels correctly.
 - Too many: noise peaks on nebula (M42 10 s: 2,459 extras with the local sky 4.4 σ above the background and a peak only 2.6 × the local noise above it) and faint peaks below PixInsight's sensitivity on mono (SHO 17 ×, Rosette 8 × the local noise).
-- Mono saturated stars (M3) are not detected: Rosette R misses 43 % of PixInsight's brightest quarter. Separate step.
+- Mono saturated stars (M3) are not detected: Rosette R misses 43 % of PixInsight's brightest quarter. Done in 13d.
 
 **(b) Change**: every candidate is checked (no 6,200 limit); a candidate counts when the quick profile check accepts it and its peak stands ≥ 12 × the local noise above the local sky (median and 1.4826 × MAD of the same-cell pixels in a ring of 6–10 px). k = 12 was chosen from k = 5–20 on the six frames. Result with the real code against PixInsight's real stars: M81 2,311 / 2,083 (1.11), California 875 / 914 (0.96), M42 10 s 695 / 682 (1.02), M42 180 s 1,547 / 1,448 (1.07), SHO H 4,539 / 3,937 (1.15), Rosette R 2,641 / 2,868 (0.92). Only the star count changes; scores stay the same (above 500 stars the score's star part is full); the standard filter keeps the same frames. Tests 390 (4 new in `StarCountTests`); all baselines regenerated.
 
 Baseline medians old → new: sample-m31 3,855 → 5,348; m31-night 3,704 → 4,910; california 429 → 502; gamma-cygni-0304 1,264 → 2,079; m42-10 2,974 → 695; m42-180 1,462 → 1,562; rosette-r/g/b 4,734 / 3,630 / 2,429 → 2,708 / 2,163 / 1,402; asi294mm-sho 5,776 → 5,964 (up to 10,769).
 
 **Performance**: about 8 ms more per frame (command line, 61 M81 frames cached: 2.1 → 2.6 s), from the ring median per checked candidate on the CPU. Later, if wanted (Tom, 2026-11-01): move the ring calculation to the GPU.
+
+### 13d (2026-11-01) — saturated stars on mono frames (METAL_REVIEW M3)
+
+Decided (Tom): the rule only applies at saturation; elsewhere the local-maximum test stays strict.
+
+**(a) Measurement**: on Rosette R #0000 FITS Blaster missed 43 % of PixInsight's brightest quarter: a clipped top is a plateau of equal pixels, and the strict "higher than all 8 neighbours" test finds no maximum in it. Colour frames were already covered by 13a (with the channel backgrounds subtracted a saturated R or B pixel beats its G neighbours).
+
+**(b) Change**:
+- **Tie rule at saturation** (GPU kernel and CPU, the same rule): at a pixel at or above the saturation level, a maximum must be ≥ the 4 neighbours after it in reading order and > the 4 before it, so a flat top gives one candidate, its top-left pixel. Below the saturation level the test stays strict. The level is passed to the kernel in the field that was padding, so the parameter layout is unchanged.
+- **Saturation level**: 98 % of the frame's highest value, and only when at least 3 pixels have exactly that value; otherwise the frame counts as unsaturated (one hot pixel at the maximum doesn't make a frame saturated).
+- **Mono and colour alike**: saturated candidates are counted once per saturated area (`SaturatedStars`, as in 13a) and left out of FWHM, eccentricity, SNR and PSF·S.
+- **Saturated hot pixels don't count**: a saturated candidate counts only when its neighbours carry part of its light (`hasStarNeighbours`, the same 5 % check as for unsaturated candidates).
+
+**Results**: star count against PixInsight's real stars (set 7): Rosette R 2,641 → 2,896 / 2,868 (0.92 → 1.01), SHO H 4,539 → 4,558 / 3,937 (1.16), M81 2,311 → 2,304 (1.11), California 875 → 865 (0.95), M42 10 s 695 (1.02), M42 180 s 1,547 → 1,541 (1.06). Colour counts drop by about 5–10 per frame (saturated hot pixels).
+
+On mono sets SNR and PSF·S drop by 10–20 %: the brightest stars used to be measured although they were saturated (a strict maximum on a clipped top with one pixel slightly higher), and their flux and peak are clipped. On colour sets SNR and PSF·S change on 2–8 frames per set: a saturated pair that the tie rule now detects suppresses (3 px duplicate removal) an unsaturated candidate next to it, so one of the 200 measured stars is swapped for the next one. Expected, not a bug.
+
+Baseline medians old → new:
+
+| Set | Stars | SNR | PSF·S | Score |
+|---|---|---|---|---|
+| sample-m31 | 5,348 → 5,344 | 8,314 → 8,300 | 623 → 621 | 52 → 52 |
+| m31-night | 4,910 → 4,906 | 8,206 → 8,198 | 584 → 584 | 53 → 53 |
+| california | 502 → 492 | unchanged | unchanged | 48 → 48 |
+| gamma-cygni-0304 | 2,079 → 2,071 | unchanged | unchanged | 51 → 51 |
+| m42-10 | 695 → 695 | 7,604 → 7,573 | 480 → 471 | 47 → 47 |
+| m42-180 | 1,562 → 1,566 | unchanged | unchanged | 46 → 46 |
+| rosette-r | 2,708 → 2,965 | 1,420 → 1,196 | 188 → 159 | 57 → 56 |
+| rosette-g | 2,163 → 2,400 | 1,272 → 1,022 | 186 → 152 | 58 → 57 |
+| rosette-b | 1,402 → 1,572 | 1,362 → 1,222 | 156 → 135 | 57 → 55 |
+| asi294mm-sho | 5,964 → 6,006 | 3,411 → 3,093 | 894 → 766 | 65 → 65 |
+
+The standard filter keeps the same frames, except one fewer on Rosette G (18 → 17) and Rosette B (20 → 19). Tests 394 (4 new in `SaturatedStarTests`: flat top on CPU and GPU, the saturation rule, saturated mono stars including a saturated hot pixel). All baselines regenerated.
+
+**Performance**: about 3 ms more per frame on M81 (61 frames cached: 2.62 → 2.80 s), no measurable difference on Rosette.
 
 ---
 

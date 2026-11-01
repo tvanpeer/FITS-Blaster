@@ -4,6 +4,18 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-11-01 — Saturated stars on mono cameras
+
+### Changed
+- **Saturated stars on mono cameras are now found and counted once each**, as on colour cameras since the per-channel change. A star whose top is clipped at the camera's maximum has a flat top, and the star detection found no peak in it, so the brightest stars were missing from the count. On a Rosette R frame the count now matches PixInsight's (2,896 against 2,868; was 2,641).
+- **Saturated stars are left out of FWHM, eccentricity, SNR and PSF·S** on mono frames too. Some of the brightest stars used to be measured although they were clipped, so on mono sessions SNR and PSF·S drop by 10–20 %; scores change by 0–2 points.
+- A saturated hot pixel no longer counts as a star (mono and colour), so colour counts drop by a few per frame. Colour SNR and PSF·S change slightly on a few frames.
+
+### Under the hood
+- The star detection (GPU and CPU fallback) treats a flat top at or above the saturation level as one peak; elsewhere it stays strict. A frame counts as saturated when at least 3 pixels share its highest value. About 3 ms more per frame. All metric baselines are regenerated; the standard filter keeps one frame fewer on the Rosette G and B test sets. Closes METAL_REVIEW M3; details in `docs/internal/architecture-plan.md` (13d).
+
+---
+
 ## 2026-11-01 — Star count close to PixInsight's
 
 ### Changed

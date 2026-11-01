@@ -294,7 +294,8 @@ struct DetectParams {
     uint   width;      // image width in pixels
     uint   height;     // image height in pixels
     uint   capacity;   // candidates the output list can hold
-    uint   padding;    // aligns the float4 fields to 16 bytes, as in Swift
+    float  saturation; // raw level of saturated pixels (infinity: none); also aligns the
+                       // float4 fields to 16 bytes, as in Swift
     float4 offsets;    // per 2×2 cell position ((y&1)*2 + (x&1)): subtracted from each pixel;
                        // the channel's sky background on a raw colour frame, 0 on mono
     float4 thresholds; // per position: pixel − offset must reach this (background + 5σ on
@@ -354,17 +355,24 @@ kernel void detectLocalMaxima(
     float oV = p.offsets[cell ^ 2u];
     float oD = p.offsets[cell ^ 3u];
 
-    // Strict 8-neighbour local-maximum test on sky-subtracted values, expressed as a single
-    // predicate so the compiler can emit branchless, fully-vectorised instructions.
+    // 8-neighbour local-maximum test on sky-subtracted values, expressed as a single
+    // predicate so the compiler can emit branchless, fully-vectorised instructions. Strict,
+    // except at saturation: there a pixel may equal the 4 neighbours after it in reading order,
+    // so a flat saturated top gives one candidate, its top-left pixel (step 13d).
+    bool flat = pixels[idx] >= p.saturation;
+    float right = pixels[idx           + 1] - oH;
+    float bl    = pixels[idx + p.width - 1] - oD;
+    float bc    = pixels[idx + p.width    ] - oV;
+    float br    = pixels[idx + p.width + 1] - oD;
     bool isMax =
         val > pixels[idx - p.width - 1] - oD &&   // top-left
         val > pixels[idx - p.width    ] - oV &&   // top-centre
         val > pixels[idx - p.width + 1] - oD &&   // top-right
         val > pixels[idx           - 1] - oH &&   // left
-        val > pixels[idx           + 1] - oH &&   // right
-        val > pixels[idx + p.width - 1] - oD &&   // bottom-left
-        val > pixels[idx + p.width    ] - oV &&   // bottom-centre
-        val > pixels[idx + p.width + 1] - oD;     // bottom-right
+        (val > right || (flat && val == right)) && // right
+        (val > bl    || (flat && val == bl))    && // bottom-left
+        (val > bc    || (flat && val == bc))    && // bottom-centre
+        (val > br    || (flat && val == br));      // bottom-right
 
     if (!isMax) return;
 

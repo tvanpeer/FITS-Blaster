@@ -344,6 +344,8 @@ PixInsight's `StarDetector` (the V8 object ImageAnalysis uses, default settings;
 
 Before 13c, FITS Blaster missed faint real stars (only the first 6,200 of up to 30,000 candidates were checked, hot pixels first) and counted noise peaks on nebula and faint peaks below PixInsight's sensitivity. Step 13c checks every candidate and requires the peak to stand ≥ 12 × the local noise above the local sky. Set 3's question why the star count fell at 180 s is answered: M42 180 s now has more stars than 10 s.
 
+Step 13d (saturated stars on mono, METAL_REVIEW M3) after 13c: M81 2,304 (1.11), California 865 (0.95), M42 10 s 695 (1.02), M42 180 s 1,541 (1.06), SHO H 4,558 (1.16), **Rosette R 2,896 (1.01)**.
+
 ### Open questions (behaviour changes, master-plan step 13 at the earliest)
 
 1. ~~Why FWHM reads 18–22 % high on small stars (about 2 px), and whether that should be corrected.~~ Largely answered (set 4): mostly which stars are measured. On the 200 brightest stars FITS Blaster reads 14 % above ImageAnalysis; the rest (1D against 2D fit, median against biweight) is not measured. No correction proposed.

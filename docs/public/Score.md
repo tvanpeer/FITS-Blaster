@@ -36,13 +36,13 @@ Not every candidate is a star: on uncalibrated frames thousands are hot pixels, 
 - its four neighbours carry part of its light and a quick profile fit gives a plausible FWHM (this keeps hot pixels out), and
 - its peak stands at least **12 ×** the local noise above the local sky, both measured in a ring 6–10 px around it (same colour channel on colour cameras). This keeps noise on nebula and very faint peaks out.
 
-Saturated stars on colour cameras count once each. With these rules the count comes within about ±15 % of the stars PixInsight's star detector finds (with its default settings) on six test frames, mono and colour. Since version 1.24; earlier counts were limited to about 6,200 and were too high on nebula.
+A saturated star (its top clipped at the camera's maximum) counts once, and a saturated hot pixel doesn't count; this holds for mono and colour cameras (mono since version 1.24). With these rules the count comes within about ±15 % of the stars PixInsight's star detector finds (with its default settings) on six test frames, mono and colour. Since version 1.24; earlier counts were limited to about 6,200 and were too high on nebula.
 
 ---
 
 ## Step 3 — Per-Star Shape Measurement
 
-Up to 200 of the brightest candidates are selected for shape fitting. Because the median is used to summarise each metric across the candidates, occasional saturated stars at the top of the brightness ranking have negligible effect on the result. For each candidate the following quantities are computed:
+Up to 200 of the brightest unsaturated candidates are selected for shape fitting. Saturated stars are left out, because their clipped tops would make them look wider and fainter than they are. For each candidate the following quantities are computed:
 
 ### Sub-pixel centroid
 A 5 × 5 intensity-weighted window gives a sub-pixel centroid (cx, cy) and a bilinearly-interpolated peak value.

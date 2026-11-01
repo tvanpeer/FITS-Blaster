@@ -54,7 +54,8 @@ struct MetricsCalculator {
         let pixels   = UnsafeBufferPointer(start: floatPtr, count: count)
 
         let (background, sky) = skyLevels(pixels, width: width, height: height, bayerPattern: bayerPattern)
-        let levels = sky.detectionLevels
+        let saturation = saturationLevel(pixels)
+        let levels = sky.detectionLevels(saturation: saturation ?? .infinity)
 
         // Try GPU detection over the full frame; fall back to CPU on failure.
         let allCandidates: [StarCandidate]
@@ -75,6 +76,7 @@ struct MetricsCalculator {
         guard !allCandidates.isEmpty else { return nil }
         return await measureCandidates(allCandidates: allCandidates,
                                        pixels: pixels, background: background, sky: sky,
+                                       saturation: saturation,
                                        width: width, height: height, config: config,
                                        bayerPattern: bayerPattern)
     }
@@ -113,15 +115,17 @@ struct MetricsCalculator {
         let cropY = (height - cropH) / 2   // centre the crop vertically
 
         let (background, sky) = skyLevels(pixels, width: width, height: height, bayerPattern: bayerPattern)
+        let saturation = saturationLevel(pixels)
 
         let raw = findLocalMaxima(pixels: pixels, width: width, height: height,
                                   cropX: cropX, cropY: cropY,
                                   cropW: cropW, cropH: cropH,
-                                  levels: sky.detectionLevels)
+                                  levels: sky.detectionLevels(saturation: saturation ?? .infinity))
         let allCandidates = nonMaximumSuppression(raw, imageWidth: width)
         guard !allCandidates.isEmpty else { return nil }
         return await measureCandidates(allCandidates: allCandidates,
                                        pixels: pixels, background: background, sky: sky,
+                                       saturation: saturation,
                                        width: width, height: height, config: config,
                                        bayerPattern: bayerPattern)
     }
@@ -158,11 +162,19 @@ struct MetricsCalculator {
 
     /// The level from which a pixel counts as saturated: `saturationFraction` of the frame's
     /// highest value (PixInsight's ImageAnalysis uses ¾ of the maximum for the same purpose).
-    private static func saturationLevel(_ pixels: UnsafeBufferPointer<Float>) -> Float {
-        guard let base = pixels.baseAddress, !pixels.isEmpty else { return .infinity }
+    /// Nil when the frame isn't clipped: fewer than `saturatedPixelsAtMaximum` pixels share
+    /// exactly the highest value, so it is one bright star, not saturation (step 13d).
+    static func saturationLevel(_ pixels: UnsafeBufferPointer<Float>) -> Float? {
+        guard let base = pixels.baseAddress, !pixels.isEmpty else { return nil }
         var maximum: Float = 0
         vDSP_maxv(base, 1, &maximum, vDSP_Length(pixels.count))
-        return maximum * Constants.saturationFraction
+        guard maximum > 0 else { return nil }
+        var atMaximum = 0
+        for value in pixels where value == maximum {
+            atMaximum += 1
+            if atMaximum >= Constants.saturatedPixelsAtMaximum { return maximum * Constants.saturationFraction }
+        }
+        return nil
     }
 
     /// The frame's sky: the background over all pixels (the Sky BG value, unchanged by step
@@ -182,6 +194,7 @@ struct MetricsCalculator {
     @concurrent private static func measureCandidates(allCandidates: [StarCandidate],
                                                      pixels: UnsafeBufferPointer<Float>,
                                                      background: Float, sky: SkyLevels,
+                                                     saturation: Float?,
                                                      width: Int, height: Int,
                                                      config: MetricsConfig,
                                                      bayerPattern: BayerPattern? = nil) async -> FrameMetrics? {
@@ -209,14 +222,12 @@ struct MetricsCalculator {
         // PSF Signal Weight accumulator: Σ(peakVal) across verified stars.
         var psfFluxSum:  Float = 0
 
-        // Colour frames: saturated stars are left out of the shape measurements and counted
-        // once each (master-plan step 13a). With the channel backgrounds subtracted a
-        // saturated R or B pixel beats its saturated G neighbours, so saturated stars are
-        // detected and would otherwise fill the brightest 200. Mono frames take the first 200
-        // candidates as before.
-        let saturationLevel: Float? = bayerPattern.map { _ in Self.saturationLevel(pixels) }
+        // Saturated stars are left out of the shape measurements and counted once each
+        // (colour: step 13a, mono: step 13d). Since they are detected (colour: the channel
+        // backgrounds; mono and colour: the tie rule at saturation), they would otherwise fill
+        // the brightest 200. A frame without clipping (`saturation` nil) takes the first 200.
         var shapeCandidates: [StarCandidate] = []
-        if let level = saturationLevel {
+        if let level = saturation {
             var saturated = SaturatedStars(pixels: pixels, width: width, height: height, level: level)
             for c in allCandidates where shapeCandidates.count < Constants.topCandidatesForShape {
                 if saturated.classify(x: c.x, y: c.y) == .unsaturated { shapeCandidates.append(c) }
@@ -273,19 +284,25 @@ struct MetricsCalculator {
         //   • its peak stands at least `countContrast` × the local noise above the local sky
         //     (`localContrast`), which keeps noise peaks on nebula and peaks below
         //     PixInsight's detection out.
-        // Saturated stars on colour frames count once each. With k = 12 the counts of six
+        // Saturated stars count once each, when their neighbours are bright too (a saturated
+        // hot pixel doesn't count). With k = 12 the counts of six
         // test frames lie within ±18 % of PixInsight's real stars (architecture-plan 13c).
         // Each check takes microseconds, so they run in one loop (§3.8).
 
         var verifiedCount = 0
-        var saturatedForCount = saturationLevel.map {
+        var saturatedForCount = saturation.map {
             SaturatedStars(pixels: pixels, width: width, height: height, level: $0)
         }
         var ring: [Float] = []
         ring.reserveCapacity(Self.contrastRingCapacity)
         for c in allCandidates {
             switch saturatedForCount?.classify(x: c.x, y: c.y) {
-            case .newStar:  verifiedCount += 1; continue
+            case .newStar:
+                // A saturated hot pixel is one bright pixel with its neighbours at sky level;
+                // a saturated star's neighbours are bright too (step 13d).
+                if Self.hasStarNeighbours(pixels: pixels, width: width, height: height,
+                                          cx: c.x, cy: c.y, sky: sky) { verifiedCount += 1 }
+                continue
             case .sameStar: continue
             default:        break
             }

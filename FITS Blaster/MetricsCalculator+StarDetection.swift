@@ -174,14 +174,20 @@ extension MetricsCalculator {
                 guard val >= thresholds[cell] else { continue }
                 let horizontal = offsets[cell ^ 1], vertical = offsets[cell ^ 2], diagonal = offsets[cell ^ 3]
 
+                // Strict, except at saturation: there the 4 neighbours after it in reading
+                // order may be equal, so a flat top gives one candidate (step 13d).
+                let flat = pixels[idx] >= levels.saturation
+                @inline(__always) func beats(_ neighbour: Float) -> Bool {
+                    val > neighbour || (flat && val == neighbour)
+                }
                 if val > pixels[idx - width - 1] - diagonal &&
                    val > pixels[idx - width    ] - vertical &&
                    val > pixels[idx - width + 1] - diagonal &&
                    val > pixels[idx         - 1] - horizontal &&
-                   val > pixels[idx         + 1] - horizontal &&
-                   val > pixels[idx + width - 1] - diagonal &&
-                   val > pixels[idx + width    ] - vertical &&
-                   val > pixels[idx + width + 1] - diagonal {
+                   beats(pixels[idx         + 1] - horizontal) &&
+                   beats(pixels[idx + width - 1] - diagonal) &&
+                   beats(pixels[idx + width    ] - vertical) &&
+                   beats(pixels[idx + width + 1] - diagonal) {
                     candidates.append(StarCandidate(x: origX, y: origY, peak: val))
                 }
             }
@@ -281,7 +287,7 @@ extension MetricsCalculator {
         var params = DetectParams(width:      UInt32(width),
                                   height:     UInt32(height),
                                   capacity:   UInt32(capacity),
-                                  padding:    0,
+                                  saturation: levels.saturation,
                                   offsets:    levels.offsets,
                                   thresholds: levels.thresholds)
 

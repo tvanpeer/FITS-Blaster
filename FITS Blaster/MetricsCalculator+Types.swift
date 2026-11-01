@@ -18,7 +18,8 @@ extension MetricsCalculator {
         var width:      UInt32         // image width in pixels
         var height:     UInt32         // image height in pixels
         var capacity:   UInt32         // candidates the output list can hold
-        var padding:    UInt32         // keeps the float4 fields 16-byte aligned, as in Metal
+        var saturation: Float          // raw level of saturated pixels (∞: none); also keeps the
+                                       // float4 fields 16-byte aligned, as in Metal
         var offsets:    SIMD4<Float>   // per 2×2 cell position: subtracted from each pixel
         var thresholds: SIMD4<Float>   // per position: pixel − offset must reach this
     }
@@ -55,6 +56,9 @@ extension MetricsCalculator {
         /// Colour frames: a candidate with a pixel at this fraction of the frame's highest
         /// value or more is saturated, counted as a star but not measured (step 13a).
         static let saturationFraction: Float = 0.98
+        /// A frame counts as saturated only when at least this many pixels share exactly its
+        /// highest value (clipping gives identical values; one bright star doesn't). Step 13d.
+        static let saturatedPixelsAtMaximum = 3
     }
 
     /// Tunables of the per-star shape measurement (CODE_AUDIT §9.4).

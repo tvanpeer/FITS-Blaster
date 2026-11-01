@@ -73,7 +73,7 @@ struct BayerSkyLevelsTests {
 
     @Test("Mono frames keep the old detection: no offsets, one threshold of background + 5σ")
     func monoLevelsUnchanged() {
-        let levels = SkyLevels.uniform(background: 812.5, sigma: 23.25).detectionLevels
+        let levels = SkyLevels.uniform(background: 812.5, sigma: 23.25).detectionLevels()
         #expect(levels == .uniform(threshold: 812.5 + MetricsCalculator.Constants.detectionSigmas * 23.25))
         #expect(levels.lowestCandidateValue == 812.5 + MetricsCalculator.Constants.detectionSigmas * 23.25)
     }
@@ -87,7 +87,7 @@ struct BayerSkyLevelsTests {
             let levels = MetricsCalculator.estimateChannelLevels(buffer, width: n, height: n)
             let perChannel = MetricsCalculator.findLocalMaxima(
                 pixels: buffer, width: n, height: n, cropX: 0, cropY: 0, cropW: n, cropH: n,
-                levels: levels.detectionLevels)
+                levels: levels.detectionLevels())
             let old = MetricsCalculator.estimateBackground(buffer, width: n, height: n)
             let single = MetricsCalculator.findLocalMaxima(
                 pixels: buffer, width: n, height: n, cropX: 0, cropY: 0, cropW: n, cropH: n,
@@ -161,7 +161,7 @@ struct BayerSkyLevelsTests {
         let buffer = try #require(device.makeBuffer(bytes: pixels, length: pixels.count * MemoryLayout<Float>.stride,
                                                     options: .storageModeShared))
         let frame = UnsafeBufferPointer(start: buffer.contents().assumingMemoryBound(to: Float.self), count: n * n)
-        let levels = MetricsCalculator.estimateChannelLevels(frame, width: n, height: n).detectionLevels
+        let levels = MetricsCalculator.estimateChannelLevels(frame, width: n, height: n).detectionLevels()
         let cpu = MetricsCalculator.findLocalMaxima(pixels: frame, width: n, height: n,
                                                     cropX: 0, cropY: 0, cropW: n, cropH: n, levels: levels)
         let gpu = try #require(await MetricsCalculator.findLocalMaximaGPU(metalBuffer: buffer, width: n, height: n,

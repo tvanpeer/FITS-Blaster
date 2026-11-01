@@ -36,14 +36,14 @@ struct SkyLevels: Sendable, Equatable {
 
     /// What the detection compares: pixel − offset against the threshold of its position.
     /// Mono: offset 0 and background + 5σ, the same arithmetic as before step 13a. Colour:
-    /// the channel's background and 5 × the channel's σ.
-    var detectionLevels: DetectionLevels {
+    /// the channel's background and 5 × the channel's σ. `saturation`: see `DetectionLevels`.
+    func detectionLevels(saturation: Float = .infinity) -> DetectionLevels {
         let sigmas = MetricsCalculator.Constants.detectionSigmas
         guard isPerChannel else {
             let threshold = background[0] + sigmas * sigma[0]
-            return DetectionLevels(offsets: .zero, thresholds: SIMD4(repeating: threshold))
+            return DetectionLevels(offsets: .zero, thresholds: SIMD4(repeating: threshold), saturation: saturation)
         }
-        return DetectionLevels(offsets: background, thresholds: sigmas * sigma)
+        return DetectionLevels(offsets: background, thresholds: sigmas * sigma, saturation: saturation)
     }
 
     /// The noise of the luminance the star crops of a colour frame are measured on: the
