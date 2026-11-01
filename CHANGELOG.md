@@ -4,6 +4,13 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-11-01 — FWHM comparison with PixInsight ImageAnalysis
+
+### Under the hood
+- `docs/internal/FWHM-comparison.md` has a fourth set: one M81 night (61 OSC frames) against PixInsight's new ImageAnalysis, raw, debayered, and debayered with only the 200 brightest stars fitted, with ImageAnalysis's formulas. Most of FITS Blaster's higher FWHM comes from which stars are measured (on the brightest 200 it reads 14 % above PixInsight); FITS Blaster's SNR mostly repeats the FWHM and doesn't follow PixInsight's. The description of FITS Blaster's own fit now says four directions instead of X and Y. No change to the app.
+
+---
+
 ## 2026-11-01 — Release workflows on Node 24
 
 ### Under the hood

@@ -9,9 +9,10 @@ FWHM is not a single standardised measurement. Every tool makes different choice
 ## What FITS Blaster does
 
 - **PSF model:** Moffat β=4 (same default as PixInsight SubframeSelector)
-- **Fitting method:** Two independent 1D weighted regressions (along X and Y axes), linearised for β=4
-- **Result:** Geometric mean of FWHMx and FWHMy, in raw sensor pixels
-- **Star sample:** Median over the top ~200 unsaturated candidate stars, GPU-detected
+- **Fitting method:** 1D weighted regressions along four directions (0°, 45°, 90°, 135°), linearised for β=4; the four widths are combined into the two principal axes of the elliptical star
+- **Result:** Geometric mean of the two principal-axis FWHMs, in raw sensor pixels
+- **Star sample:** Median over the stars fitted among the 200 brightest GPU-detected candidates
+- **SNR:** median over the same stars of peak above background ÷ sky σ; **PSF·S:** mean peak above background ÷ sky σ
 
 ---
 
@@ -210,10 +211,80 @@ The colour spread grows with the exposure time and the real noise with its squar
 
 **What it means:** on OSC broadband frames, star count, SNR and PSF Signal Weight depend on the colour of the sky, so they can't be compared between exposure times, and probably not between nights or sites with different sky colours. Within one folder (same exposure and sky) the ranking is still usable (score against PixInsight's PSF Signal Weight +0.74 and +0.86). Possible fixes, both behaviour changes for master-plan step 13 and needing a decision: background and σ per Bayer channel (or on 2×2 superpixels) for colour cameras, which fixes threshold, SNR and PSF Signal Weight together; and counting a saturated top as one candidate (M3). Both change metrics and baselines.
 
+### Set 4: M81 OSC vs PixInsight ImageAnalysis (2026-11-01)
+
+PixInsight's new **ImageAnalysis** process replaces SubframeSelector. It measures the same kinds of properties, with some definitions changed (biweight mean and Qn spread instead of median and mean deviation; pixel values in [0,1]).
+
+Data: `Test Data/M81 IMX571/2025-03-26_None/LIGHT` — the IMX571 OSC camera and 430 mm setup of set 3 (1.80"/px), no filter, gain 100, 180 s, 61 kept frames from 21:03 to 04:33 local time (the 10 in REJECTED were not measured). FITS Blaster at `e79bb50` (metrics as 1.24-beta.3), command-line mode, default options. ImageAnalysis with its default settings (PSF type Moffat β = 4, sensitivity 0.5, peak response 0.5, Maximum PSF fits 8000), three runs:
+
+- **A, raw:** on the `.fits` files (60 frames; #0137 was missed when selecting files).
+- **B, debayered:** on files from Debayer 1.12.1 (VNG, RGGB, signal and noise evaluation on: Moffat4 PSF signal, MRS noise), without calibration or registration (60 frames). With these estimates in the metadata, ImageAnalysis takes noise, SNR scaling and PSF signal from Debayer, computed on the raw data before interpolation, as its documentation recommends for colour cameras.
+- **C, debayered, 200 fits:** as B with Maximum PSF fits = 200, so only the 200 brightest detected stars get a PSF fit, close to FITS Blaster's sample (all 61 frames).
+
+#### ImageAnalysis definitions (from its documentation)
+
+| Property | Definition |
+|---|---|
+| FWHM | 2D elliptical Moffat (or Gaussian) fit per star, σ = √(σx·σy), FWHM = 2σ√(2^(1/β) − 1); frame value = biweight mean over the fitted stars |
+| Eccentricity | √(1 − σy²/σx²) per star; biweight mean |
+| Stars | number of stars detected (multiscale detection), not the number fitted |
+| SNR | ((σL + σH) / (2σn))², with σL, σH the spread of the pixels below and above the median and σn the noise: a whole-image statistic ("scaled inverse noise variance") |
+| PSF Signal Weight | c₁·F·F̄ / (c₂·σn·M*), with F the sum of the PSF fluxes, F̄ the sum of the mean PSF fluxes (flux per area, higher for smaller stars), M* the mean background; c₁ = 5.326·10⁻⁶, c₂ = 9.0·10⁶ |
+| PSF SNR | c₃·F² / (c₄·σn²), c₃ = 1.316·10⁻⁷, c₄ = 4.987·10⁶; insensitive to gradients and star size |
+| Robust mean | Tukey biweight location, c = 6 MAD, iterated from the median |
+| Robust σ | Qn of Rousseeuw and Croux (first quartile of the pairwise distances, × 2.2191 and a small-sample factor) |
+
+For colour images stars and pixel statistics are measured on the HSI intensity; the per-channel noise and PSF estimates from the metadata are combined as the mid-range.
+
+#### Medians
+
+| Metric | A raw | B debayered | C debayered, 200 fits | FITS Blaster |
+|---|---|---|---|---|
+| FWHM (px) | 3.18 | 2.41 | **3.39** | 3.83 |
+| Eccentricity | 0.58 | 0.53 | 0.54 | 0.53 |
+| Stars | 1,218 | 3,492 | 3,492 | 1,863 |
+| SNR | 0.320 (0.302–0.330) | 0.437 | 0.437 | 400 |
+| PSF Signal Weight | 0.024 | 0.045 | 0.045 | 503 |
+| PSF SNR | 0.206 | 0.080 | 0.080 | — |
+
+Only the PSF fits differ between B and C: stars, SNR, PSF Signal Weight and PSF SNR are identical, because they come from the detection and from Debayer's metadata. On the raw frames PixInsight's SNR is almost flat (0.302–0.330), so the raw run can't rank the frames on it.
+
+#### Ranking against FITS Blaster (Spearman r; 59 frames, without #0089, see below)
+
+| FITS Blaster | ImageAnalysis | A raw | B debayered | C 200 fits |
+|---|---|---|---|---|
+| FWHM | FWHM | +0.94 | +0.93 | +0.93 |
+| Eccentricity | Eccentricity | +0.73 | +0.69 | +0.67 |
+| Stars | Stars | +0.54 | +0.58 | +0.58 |
+| PSF·S | PSF Signal Weight | +0.61 | +0.68 | +0.68 |
+| Score | PSF Signal Weight | +0.38 | +0.40 | +0.40 |
+| SNR | SNR | +0.51 | +0.06 | +0.06 |
+| SNR | PSF SNR | −0.08 | −0.11 | −0.11 |
+
+(The raw column uses 60 frames.) Between runs B and C PixInsight orders the frames the same way on FWHM (+0.99) and eccentricity (+0.98).
+
+Within each tool (run B, 59 frames): FITS Blaster's SNR follows its own FWHM (−0.76) and its score follows FWHM (−0.70) and SNR (+0.54) but hardly the star count (+0.13). PixInsight's SNR follows the sky background (Median, −0.82); its PSF Signal Weight follows the star count (+0.86) and FWHM (−0.48).
+
+#### Which stars are measured: FWHM
+
+With all stars fitted (run B), PixInsight's FWHM is 24 % *smaller* than on the raw frames (0.68–0.85 × per frame), and FITS Blaster reads 1.59 × PixInsight. Debayering adds many faint stars (1,218 → 3,492 detected), and in PixInsight's fits the faint stars come out much smaller than the bright ones. With only the 200 brightest stars fitted (run C) PixInsight's FWHM rises 40 % to 3.39 px, and **FITS Blaster reads 1.14 × PixInsight (1.08–1.23 per frame)**, with the same ranking (+0.93). The PSF model is the same in both tools (Moffat β = 4), so it doesn't explain the gap.
+
+Frame **#0089** shows the same effect at its extreme: in run B PixInsight gives FWHM 1.28 px, the sharpest of the night; in run A 4.49 px with eccentricity 0.86 and only 738 stars; in run C 4.68 px and 0.85; FITS Blaster 5.10 px. It is the worst frame of the night, and the all-stars average was dominated by faint fits.
+
+#### Conclusions
+
+- **FWHM ranks the frames the same as PixInsight** in every run (+0.93 to +0.94), so culling on FWHM removes the same frames.
+- **Most of FITS Blaster's higher FWHM is the star sample**: on comparable stars (the brightest 200) it reads 14 % above ImageAnalysis, against 59 % above its default. The remaining 14 % is about what set 3 showed with stars of the same size (1.18 at 3.4 px). Candidates for that rest: 1D fits along four directions against a 2D fit, and median against biweight mean; not measured. SubframeSelector (sets 1–3) also fits all detected stars by default; whether the same sample effect explains the 18–22 % there was not measured.
+- **Which FWHM is "right" depends on the stars you ask about.** The brightest stars are the best measured (PixInsight's relative PSF residual is 10 × lower for them: 0.0056 against 0.055), and they are what FITS Blaster uses. The all-stars average can be pulled down by faint stars, as #0089 shows. No reason here to change FITS Blaster's sample.
+- **FITS Blaster's SNR does not measure what PixInsight's SNR does.** It is the median peak ÷ sky σ of the brightest stars, so sharper stars give a higher value: it largely repeats the FWHM (−0.76). PixInsight's SNR is a whole-image statistic that falls as the sky gets brighter. They don't correlate (+0.06), nor with PSF SNR (−0.11). SNR is 20 % of FITS Blaster's score.
+- **FITS Blaster finds about half PixInsight's stars** (1,863 against 3,492 debayered), which fits the colour-camera noise estimate of set 3 (the R/G/B sky spread counts as noise and raises the detection threshold).
+- **PSF·S is FITS Blaster's best signal metric** against PixInsight's PSF Signal Weight (+0.68). The score follows PSF Signal Weight only weakly (+0.40), because it is driven by FWHM and SNR and hardly by the star count.
+- **For comparisons with ImageAnalysis on OSC data:** debayer first (with signal and noise evaluation), and compare FWHM with Maximum PSF fits = 200.
+
 ### Open questions (behaviour changes, master-plan step 13 at the earliest)
 
-1. Why FWHM reads 18–22 % high on small stars (about 2 px), and whether that should be corrected.
-2. Whether FITS Blaster's SNR should track image quality within a filter, as PixInsight's does, given its weight in the score. On both sets it doesn't.
+1. ~~Why FWHM reads 18–22 % high on small stars (about 2 px), and whether that should be corrected.~~ Largely answered (set 4): mostly which stars are measured. On the 200 brightest stars FITS Blaster reads 14 % above ImageAnalysis; the rest (1D against 2D fit, median against biweight) is not measured. No correction proposed.
+2. Whether FITS Blaster's SNR should track image quality within a filter, as PixInsight's does, given its weight in the score. On both sets it doesn't. Set 4 shows why: it is peak ÷ sky σ of the brightest stars, so it mostly repeats the FWHM (−0.76), while PixInsight's SNR is a whole-image statistic that follows the sky background. Decide what FITS Blaster's SNR should measure (step 13).
 3. ~~Why FITS Blaster finds half as many stars, and a lower SNR, on 180 s frames than on 10 s frames~~ Answered (set 3, star positions): the background σ of OSC frames includes the R/G/B sky spread, and saturated stars aren't detected (M3). Decide on the fixes in step 13.
 4. What the ~1,250 unexplained extra detections on the 10 s frame are (set 3), and whether candidates in bright nebula should be rejected.
 
@@ -231,7 +302,7 @@ The Moffat β parameter controls how quickly the star profile falls off in the w
 
 ### 2. 1D vs 2D fitting
 
-FITS Blaster fits two separate 1D profiles (along X and Y) and takes the geometric mean. PixInsight and Siril fit a full 2D PSF simultaneously. For non-round stars or when axes are correlated, 2D fitting is more accurate.
+FITS Blaster fits 1D profiles along four directions (0°, 45°, 90°, 135°), combines them into the two principal axes and takes the geometric mean. PixInsight and Siril fit a full 2D PSF simultaneously. For non-round stars or when axes are correlated, 2D fitting is more accurate.
 
 ### 3. Bayer (OSC) camera images
 
@@ -268,10 +339,10 @@ FITS Blaster's FWHM agrees with PixInsight's ranking on every set, but its offse
 | Rosette R/G/B, IMX585 mono | 1.56"/px | 1.8–2.2 px | 1.18–1.19 |
 | SH2-72 H/O/S, ASI294MM bin 2 | 2.34"/px | 1.5–1.7 px | 1.21–1.22 |
 
-A likely suspect is the 1D fit along X and Y on stars only a few pixels wide, against PixInsight's 2D fit, but this hasn't been measured; the two OSC images are also Bayer data, so they aren't a clean comparison. Until it is understood, absolute FWHM values of stars around 2 px or smaller should be read as relative only.
+Set 4 (2026-11-01) shows that most of such a gap can come from which stars are measured: PixInsight fits all detected stars, faint ones fit smaller, and with only the 200 brightest fitted the gap fell from 1.59 to 1.14. Whether this explains the sets in this table was not measured. Another suspect for the rest is the 1D fits on stars only a few pixels wide, against PixInsight's 2D fit; the two OSC images are also Bayer data, so they aren't a clean comparison. Until it is understood, absolute FWHM values of stars around 2 px or smaller should be read as relative only.
 
 ---
 
 ## Summary
 
-For frame-quality ranking (the primary use case), the exact absolute value matters less than consistency. FITS Blaster is self-consistent across sessions and correlates well with actual image quality. Absolute values will be within ±10–15% of PixInsight Moffat4 under normal conditions. Larger differences are almost always explained by one of the factors above. The exceptions so far: small stars (about 3.5 px and less), where FITS Blaster read 18–22% high but still ranked the frames the same (source 6), and star count, SNR and PSF Signal Weight on OSC broadband frames, which depend on the sky colour through the noise estimate and go the opposite way from PixInsight across exposure times (set 3).
+For frame-quality ranking (the primary use case), the exact absolute value matters less than consistency. FITS Blaster is self-consistent across sessions and correlates well with actual image quality. Absolute values will be within ±10–15% of PixInsight Moffat4 under normal conditions. Larger differences are almost always explained by one of the factors above. The exceptions so far: small stars (about 3.5 px and less), where FITS Blaster read 18–22% high but still ranked the frames the same (source 6; set 4 shows that most of such a gap can be the choice of stars: on the 200 brightest it was 14 %), and star count, SNR and PSF Signal Weight on OSC broadband frames, which depend on the sky colour through the noise estimate and go the opposite way from PixInsight across exposure times (set 3).
