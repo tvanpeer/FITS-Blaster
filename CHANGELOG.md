@@ -4,6 +4,17 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-11-01 — Star count close to PixInsight's
+
+### Changed
+- **The star count is now close to what PixInsight's star detector finds** (within about ±15 % on six test frames, mono and colour; before, from 7 × too few to 4.5 × too many). Every star candidate is checked (before, only the first 6,200, and on uncalibrated frames hot pixels came first), and a star must stand clearly above its own surroundings, so noise on nebula and very faint peaks no longer count. M42 at 180 s now shows more stars than at 10 s, as it should.
+- Star counts change on all frames; scores don't (above 500 stars the score's star part is already full), and Auto-Flag in relative mode compares with the session's own median as before.
+
+### Under the hood
+- About 8 ms more measuring time per frame. All metric baselines are regenerated (only the star count changes). Note for anyone comparing with PixInsight: on uncalibrated colour frames ImageAnalysis counts hot pixels as stars. Details in `docs/internal/architecture-plan.md` (13c) and `docs/internal/FWHM-comparison.md` (set 7).
+
+---
+
 ## 2026-11-01 — SNR measures the stars' light, not their sharpness
 
 ### Changed

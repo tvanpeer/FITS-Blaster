@@ -126,6 +126,36 @@ struct MetricsCalculator {
                                        bayerPattern: bayerPattern)
     }
 
+    /// Room for the ring samples of `localContrast` (pixels of one cell position at 6–10 px).
+    private static let contrastRingCapacity = 128
+
+    /// How far the pixel at (x, y) stands above its local sky, in units of the local noise:
+    /// (pixel − median) ÷ (1.4826 × MAD) of the pixels at 6–10 px from it at the same position
+    /// of the 2×2 cell (the same colour channel on a raw colour frame). Infinite when the
+    /// ring has no spread and the pixel is above it. `ring` is a reused buffer.
+    static func localContrast(pixels: UnsafeBufferPointer<Float>, width: Int, height: Int,
+                              x: Int, y: Int, ring: inout [Float]) -> Float {
+        let inner = Constants.contrastRingInner, outer = Constants.contrastRingOuter
+        ring.removeAll(keepingCapacity: true)
+        let cell = SkyLevels.cellIndex(x: x, y: y)
+        for py in max(0, y - outer)...min(height - 1, y + outer) {
+            for px in max(0, x - outer)...min(width - 1, x + outer)
+            where SkyLevels.cellIndex(x: px, y: py) == cell {
+                let r2 = (px - x) * (px - x) + (py - y) * (py - y)
+                if r2 >= inner * inner && r2 <= outer * outer { ring.append(pixels[py * width + px]) }
+            }
+        }
+        guard !ring.isEmpty else { return 0 }
+        ring.sort()
+        let median = ring[ring.count / 2]
+        for i in ring.indices { ring[i] = abs(ring[i] - median) }
+        ring.sort()
+        let noise = ring[ring.count / 2] * 1.4826
+        let excess = pixels[y * width + x] - median
+        guard noise > 0 else { return excess > 0 ? .infinity : 0 }
+        return excess / noise
+    }
+
     /// The level from which a pixel counts as saturated: `saturationFraction` of the frame's
     /// highest value (PixInsight's ImageAnalysis uses ¾ of the maximum for the same purpose).
     private static func saturationLevel(_ pixels: UnsafeBufferPointer<Float>) -> Float {
@@ -184,25 +214,15 @@ struct MetricsCalculator {
         // saturated R or B pixel beats its saturated G neighbours, so saturated stars are
         // detected and would otherwise fill the brightest 200. Mono frames take the first 200
         // candidates as before.
-        var saturated: SaturatedStars? = bayerPattern.map { _ in
-            SaturatedStars(pixels: pixels, width: width, height: height, level: Self.saturationLevel(pixels))
-        }
+        let saturationLevel: Float? = bayerPattern.map { _ in Self.saturationLevel(pixels) }
         var shapeCandidates: [StarCandidate] = []
-        var saturatedStars = 0
-        var nextCandidate = 0   // the first candidate Phase 2 looks at
-        if saturated != nil {
-            while nextCandidate < allCandidates.count, shapeCandidates.count < Constants.topCandidatesForShape {
-                let c = allCandidates[nextCandidate]
-                nextCandidate += 1
-                switch saturated?.classify(x: c.x, y: c.y) {
-                case .newStar:  saturatedStars += 1
-                case .sameStar: break
-                default:        shapeCandidates.append(c)
-                }
+        if let level = saturationLevel {
+            var saturated = SaturatedStars(pixels: pixels, width: width, height: height, level: level)
+            for c in allCandidates where shapeCandidates.count < Constants.topCandidatesForShape {
+                if saturated.classify(x: c.x, y: c.y) == .unsaturated { shapeCandidates.append(c) }
             }
         } else {
             shapeCandidates = Array(allCandidates.prefix(Constants.topCandidatesForShape))
-            nextCandidate = shapeCandidates.count
         }
 
         for c in shapeCandidates {
@@ -243,32 +263,39 @@ struct MetricsCalculator {
             psfFluxSum += peakVal
         }
 
-        // ── Phase 2: star count via direct measurement of top candidates ─────────
+        // ── Phase 2: star count ──────────────────────────────────────────────────
         //
-        // Candidates are sorted brightest-first. Real stars are substantially
-        // brighter than noise peaks (which cluster just above background + 5σ),
-        // so real stars dominate the top of the list. Directly counting up to
-        // 6 000 candidates with measureFWHMOnly avoids the extrapolation trap:
-        // with a sample+extrapolate approach, even a 1% noise false-positive rate
-        // multiplied by ~49 700 remaining candidates adds ~497 phantom stars.
-        // Direct counting limits noise contamination to at most a few dozen stars
-        // regardless of how large the candidate list is. Each check takes about a
-        // microsecond, less than a child task would cost, so they run in one loop (§3.8).
+        // Every candidate is checked (master-plan step 13c; before, only the first 6,200,
+        // and on uncalibrated frames thousands of hot pixels came first in the brightness
+        // order, so faint real stars were never looked at). A candidate counts as a star when
+        //   • the quick profile check accepts it (`measureFWHMOnly`: all four neighbours
+        //     carry part of the peak, which keeps hot pixels out, and a plausible FWHM), and
+        //   • its peak stands at least `countContrast` × the local noise above the local sky
+        //     (`localContrast`), which keeps noise peaks on nebula and peaks below
+        //     PixInsight's detection out.
+        // Saturated stars on colour frames count once each. With k = 12 the counts of six
+        // test frames lie within ±18 % of PixInsight's real stars (architecture-plan 13c).
+        // Each check takes microseconds, so they run in one loop (§3.8).
 
-        var verifiedCount = topVerified + saturatedStars
-
-        if allCandidates.count > nextCandidate {
-            let remaining = allCandidates[nextCandidate...].prefix(Constants.fallbackCandidateCount)
-            for c in remaining {
-                switch saturated?.classify(x: c.x, y: c.y) {
-                case .newStar:  verifiedCount += 1; continue
-                case .sameStar: continue
-                default:        break
-                }
-                let fwhm = Self.measureFWHMOnly(
-                    pixels: pixels, width: width, height: height,
-                    cx: c.x, cy: c.y, sky: sky)
-                if Shape.acceptedFWHM.contains(fwhm) { verifiedCount += 1 }
+        var verifiedCount = 0
+        var saturatedForCount = saturationLevel.map {
+            SaturatedStars(pixels: pixels, width: width, height: height, level: $0)
+        }
+        var ring: [Float] = []
+        ring.reserveCapacity(Self.contrastRingCapacity)
+        for c in allCandidates {
+            switch saturatedForCount?.classify(x: c.x, y: c.y) {
+            case .newStar:  verifiedCount += 1; continue
+            case .sameStar: continue
+            default:        break
+            }
+            let fwhm = Self.measureFWHMOnly(
+                pixels: pixels, width: width, height: height,
+                cx: c.x, cy: c.y, sky: sky)
+            guard Shape.acceptedFWHM.contains(fwhm) else { continue }
+            if Self.localContrast(pixels: pixels, width: width, height: height,
+                                  x: c.x, y: c.y, ring: &ring) >= Constants.countContrast {
+                verifiedCount += 1
             }
         }
 

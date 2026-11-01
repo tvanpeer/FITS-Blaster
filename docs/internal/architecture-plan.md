@@ -815,6 +815,23 @@ Trailed frames (M42 10 s REJECTED): E is 7 × the kept frames (also C; A 1.5 ×)
 | rosette-r / g / b | 189 / 189 / 148 → 1,420 / 1,272 / 1,362 | 67 / 68 / 61 → 57 / 58 / 57 |
 | asi294mm-sho | 688 → 3,411 | 72 (65–77) → 65 (56–71) |
 
+### 13c (2026-11-01) — star count
+
+Goal (Tom): counts close to PixInsight's, with its default star detection as the reference.
+
+**(a) Measurement**: per-stage counts and PixInsight StarDetector lists (V8 `StarDetector`, ImageAnalysis defaults, colour frames on the debayered HSI intensity) for one frame each of M81, California, M42 10 s and 180 s, SHO H and Rosette R. Findings:
+- 97–99 % of PixInsight's stars were already FITS Blaster candidates: detection on single raw pixels is not the problem.
+- **PixInsight counts hot pixels as stars on uncalibrated colour frames**: the demosaic smears a hot pixel into a small blob. Recognised by an exact integer position and a centre more than 3 × the brightest neighbour above the sky: M81 1,187 of 3,270, California 2,629 of 3,543, M42 180 s 224 of 1,672. ImageAnalysis's "Stars" includes them, so the target is PixInsight's **real** stars. On mono, integer positions are real small stars (centre 1.4–1.7 × the neighbour).
+- FITS Blaster checked only the first 6,200 candidates; on uncalibrated frames thousands of hot pixels came first in the brightness order, so faint real stars were never checked (M81: 415, California: 305, M42 180 s: 431). FITS Blaster's neighbour check rejects hot pixels correctly.
+- Too many: noise peaks on nebula (M42 10 s: 2,459 extras with the local sky 4.4 σ above the background and a peak only 2.6 × the local noise above it) and faint peaks below PixInsight's sensitivity on mono (SHO 17 ×, Rosette 8 × the local noise).
+- Mono saturated stars (M3) are not detected: Rosette R misses 43 % of PixInsight's brightest quarter. Separate step.
+
+**(b) Change**: every candidate is checked (no 6,200 limit); a candidate counts when the quick profile check accepts it and its peak stands ≥ 12 × the local noise above the local sky (median and 1.4826 × MAD of the same-cell pixels in a ring of 6–10 px). k = 12 was chosen from k = 5–20 on the six frames. Result with the real code against PixInsight's real stars: M81 2,311 / 2,083 (1.11), California 875 / 914 (0.96), M42 10 s 695 / 682 (1.02), M42 180 s 1,547 / 1,448 (1.07), SHO H 4,539 / 3,937 (1.15), Rosette R 2,641 / 2,868 (0.92). Only the star count changes; scores stay the same (above 500 stars the score's star part is full); the standard filter keeps the same frames. Tests 390 (4 new in `StarCountTests`); all baselines regenerated.
+
+Baseline medians old → new: sample-m31 3,855 → 5,348; m31-night 3,704 → 4,910; california 429 → 502; gamma-cygni-0304 1,264 → 2,079; m42-10 2,974 → 695; m42-180 1,462 → 1,562; rosette-r/g/b 4,734 / 3,630 / 2,429 → 2,708 / 2,163 / 1,402; asi294mm-sho 5,776 → 5,964 (up to 10,769).
+
+**Performance**: about 8 ms more per frame (command line, 61 M81 frames cached: 2.1 → 2.6 s), from the ring median per checked candidate on the CPU. Later, if wanted (Tom, 2026-11-01): move the ring calculation to the GPU.
+
 ---
 
 ## Step 14 — Configuration, security and release tooling

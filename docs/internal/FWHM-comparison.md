@@ -329,6 +329,21 @@ Spearman r against PixInsight's PSF SNR, per group:
 - **Trailed frames** (M42 10 s REJECTED, eccentricity 0.97): E and C are 7 × the kept frames (A 1.5 ×). PixInsight's detection rejects elongated sources: 18 stars, PSF SNR ≈ 0, and eccentricity 0.40, below the kept frames' 0.51, so PixInsight's eccentricity misses the trailing that FITS Blaster's catches.
 - Chosen (master-plan 13b): **E**, with a log score scale from 100 to 20,000. Trailed frames get full SNR points, as they did with A; eccentricity and FWHM give them a low score.
 
+### Set 7: star count against PixInsight's star detector (2026-11-01)
+
+PixInsight's `StarDetector` (the V8 object ImageAnalysis uses, default settings; colour frames on the debayered (R + G + B) / 3) exported every star's position for one frame per set. On uncalibrated colour frames a large part of its list is **hot pixels**, smeared into small blobs by the demosaic: exact integer position, centre more than 3 × the brightest neighbour above the sky (real stars: 1.1 ×). ImageAnalysis's "Stars" includes them.
+
+| Frame | PixInsight list | of which hot pixels | PixInsight real stars | FITS Blaster before 13c | after 13c |
+|---|---|---|---|---|---|
+| M81 #0002 | 3,270 | 1,187 | 2,083 | 2,102 | 2,311 |
+| California #0000 | 3,543 | 2,629 | 914 | ~500 | 875 |
+| M42 10 s #0000 | 692 | 10 | 682 | 3,054 | 695 |
+| M42 180 s #0000 | 1,672 | 224 | 1,448 | ~1,500 | 1,547 |
+| SHO H #0001 (mono) | 3,947 | 10 | 3,937 | 5,516 | 4,539 |
+| Rosette R #0000 (mono) | 2,868 | 0 | 2,868 | 4,739 | 2,641 |
+
+Before 13c, FITS Blaster missed faint real stars (only the first 6,200 of up to 30,000 candidates were checked, hot pixels first) and counted noise peaks on nebula and faint peaks below PixInsight's sensitivity. Step 13c checks every candidate and requires the peak to stand ≥ 12 × the local noise above the local sky. Set 3's question why the star count fell at 180 s is answered: M42 180 s now has more stars than 10 s.
+
 ### Open questions (behaviour changes, master-plan step 13 at the earliest)
 
 1. ~~Why FWHM reads 18–22 % high on small stars (about 2 px), and whether that should be corrected.~~ Largely answered (set 4): mostly which stars are measured. On the 200 brightest stars FITS Blaster reads 14 % above ImageAnalysis; the rest (1D against 2D fit, median against biweight) is not measured. No correction proposed.

@@ -41,8 +41,12 @@ extension MetricsCalculator {
         static let backgroundSampleCount   = 5_000
         /// Top N candidates used for full shape measurement (FWHM, ecc, SNR).
         static let topCandidatesForShape   = 200
-        /// Additional candidates checked in the fast star-count pass (Phase 2).
-        static let fallbackCandidateCount  = 6_000
+        /// Star count: a candidate's peak must stand this many local-noise units above the
+        /// local sky (`localContrast`). 12 matched PixInsight's real stars best (step 13c).
+        static let countContrast: Float     = 12
+        /// Inner and outer radius (pixels) of the ring that gives the local sky and noise.
+        static let contrastRingInner       = 6
+        static let contrastRingOuter       = 10
         /// A star candidate is a local maximum this many sky sigmas above the background.
         static let detectionSigmas: Float  = 5
         /// The CPU detection scans at most this centre crop (pixels per side), which keeps

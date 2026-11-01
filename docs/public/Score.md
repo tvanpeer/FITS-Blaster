@@ -25,12 +25,18 @@ The detection **threshold** is set at background + 5 σ, so only genuine stars (
 Stars are detected as **local maxima** above the 5 σ threshold.
 
 ### GPU path (default on Apple Silicon)
-A Metal compute kernel (`detectLocalMaxima`) scans the **full frame** in parallel. Each thread checks whether its pixel is above the threshold and is strictly greater than all 8 neighbours. Candidates are written to a compact shared buffer (capped at 50 000 entries); an atomic counter records the true total even when the buffer overflows. The GPU step takes roughly 3–8 ms for a 16–50 MP image.
+A Metal compute kernel (`detectLocalMaxima`) scans the **full frame** in parallel. Each thread checks whether its pixel is above the threshold and is strictly greater than all 8 neighbours. Candidates are written to a compact shared buffer; when there are more than 50 000, a second pass with room for all of them follows, so every candidate is kept. The GPU step takes roughly 3–8 ms for a 16–50 MP image.
 
 ### CPU fallback
 When Metal is unavailable, a vectorised scan covers a **4 096 × 4 096 centre crop**. Each row is pre-filtered with a single `vDSP_maxv` call; rows where no pixel exceeds the threshold are skipped entirely (~50× faster than a naïve full-scan for typical star fields where 95 %+ of pixels are below threshold).
 
-The detected star count (before any culling for saturation) is what is reported as the **star-count metric**.
+### Star count
+Not every candidate is a star: on uncalibrated frames thousands are hot pixels, and on nebula the noise lifts many peaks above the frame-wide threshold. Every candidate is checked, and it counts as a star when
+
+- its four neighbours carry part of its light and a quick profile fit gives a plausible FWHM (this keeps hot pixels out), and
+- its peak stands at least **12 ×** the local noise above the local sky, both measured in a ring 6–10 px around it (same colour channel on colour cameras). This keeps noise on nebula and very faint peaks out.
+
+Saturated stars on colour cameras count once each. With these rules the count comes within about ±15 % of the stars PixInsight's star detector finds (with its default settings) on six test frames, mono and colour. Since version 1.24; earlier counts were limited to about 6,200 and were too high on nebula.
 
 ---
 
