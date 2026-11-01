@@ -346,6 +346,15 @@ Before 13c, FITS Blaster missed faint real stars (only the first 6,200 of up to 
 
 Step 13d (saturated stars on mono, METAL_REVIEW M3) after 13c: M81 2,304 (1.11), California 865 (0.95), M42 10 s 695 (1.02), M42 180 s 1,541 (1.06), SHO H 4,558 (1.16), **Rosette R 2,896 (1.01)**.
 
+### Set 8: hot pixels and faint stars in the measured set (2026-11-01)
+
+California's FWHM ranked the frames at only +0.52 against ImageAnalysis (after 13d). Per frame, #0000–#0089 rank at +0.99; the last 13 frames (#0090–#0102, target at 12° altitude, airmass 4.9) at −0.40.
+
+- **PixInsight on those frames:** its FWHM drops to 1.35–1.37 px from #0095 on. StarDetector lists of #0098 and #0102: 1,440 and 1,322 entries, 95 % and 97 % hot pixels (exact integer position, centre > 3 × the brightest neighbour above the sky), 66 and 43 real stars, and 139 and 159 hot pixels among its 200 brightest. Its PSF fits there are on hot pixels. (#0000 for comparison: 74 % hot pixels, 15 among the 200 brightest.)
+- **FITS Blaster on the same frames:** its 200 measured candidates were mostly hot pixels too (California #0000 87, #0066 154, #0102 193), and the shape fit accepts them, with FWHM 1–2.5 px or junk at 5–8 px. The median depended on the mix: #0102 read 3.69 px where its real stars give about 6. Other sets: Gamma Cygni 26 hot pixels per frame, SHO H/O/S 40/27/31, M42 10 s 9, M31 6, Rosette 1–2.
+- **Faint stars:** without hot pixels (13e) the measured set reaches fainter stars, and noise widens and elongates their fits (synthetic round stars: eccentricity 0.16–0.21 bright, 0.5–0.75 faint; a 3 px star reads 4.5 px at peak SNR 40). California's eccentricity then ranked −0.11 and rose through the night where PixInsight's falls. Its old +0.80 came from the hot pixels: they are round and their share grew through the night.
+- **Fix (master-plan 13e + 13f):** measure only stars (the count's check); FWHM and eccentricity from the stars at contrast ≥ 40 (or the 20 with the highest contrast). Ranking after: see the plan, 13f. California #0–#89 eccentricity +0.56, FWHM +0.99, PSF·S +0.99; M42 10 s PSF·S +0.03 → +0.55.
+
 ### Open questions (behaviour changes, master-plan step 13 at the earliest)
 
 1. ~~Why FWHM reads 18–22 % high on small stars (about 2 px), and whether that should be corrected.~~ Largely answered (set 4): mostly which stars are measured. On the 200 brightest stars FITS Blaster reads 14 % above ImageAnalysis; the rest (1D against 2D fit, median against biweight) is not measured. No correction proposed.

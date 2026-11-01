@@ -867,6 +867,65 @@ The standard filter keeps the same frames, except one fewer on Rosette G (18 →
 
 **Performance**: about 3 ms more per frame on M81 (61 frames cached: 2.62 → 2.80 s), no measurable difference on Rosette.
 
+### 13e (2026-11-01) — measure only stars
+
+**Why** (measured with a temporary test that repeats the app's shape phase; it reproduces the baselines on all 296 frames of the nine sets): FWHM, eccentricity, SNR and PSF·S are measured on the 200 brightest unsaturated candidates, and on uncalibrated frames many of those are hot pixels, which the shape fit accepts. Hot pixels among the 200 (median per frame): California 130 (#0000: 87, #0102: 193), Gamma Cygni 26, SHO H/O/S 40/27/31, M42 10 s 9, M31 6, Rosette 1–2. Their fits give 1–2.5 px or junk at 5–8 px, so the median FWHM depends on the mix: California #0102 reads 3.69 px where its real stars give about 6 (the "California FWHM ranking +0.52"). PixInsight's own California reference fails on the same frames: from #0095 its FWHM is 1.35 px, its star lists of #0098 and #0102 are 95–97 % hot pixels (66 and 43 real stars), and 139–159 of its 200 brightest are hot pixels. On #0000–#0089 FITS Blaster's FWHM ranks the frames like PixInsight's (+0.99).
+
+**Change**: the shape set is the first 200 candidates (brightest first) that **count as stars**: unsaturated, accepted by the quick profile check (`measureFWHMOnly`, all four neighbours carry light) and local contrast ≥ 12. One pass over the candidates does the count and fills the shape set, so a star means the same thing for the count and for the measurements. The star count doesn't change. A frame with fewer than 200 stars measures fewer; a frame with none gets no FWHM/eccentricity/SNR/PSF·S (today hot pixels may give values; how such frames score is the decided item "no-star frames score 0").
+
+**Expected effect** (temporary test, variant C; Spearman against ImageAnalysis, today → 13e):
+
+| Set | FWHM | Eccentricity | SNR (vs PSF SNR) | PSF·S | FWHM median (PixInsight) |
+|---|---|---|---|---|---|
+| California #0–#89 | +0.99 → +0.99 | +0.80 → −0.11 | +0.95 → +0.88 | +0.98 → +0.99 | 3.87 → 4.38 (3.45) |
+| California #90–#102 | 5.71 → 7.14 px, no drop at the end | | | | |
+| Gamma Cygni | +0.95 → +0.96 | +0.26 → +0.28 | +0.92 → +0.94 | +0.97 → +0.97 | 3.32 → 3.38 (2.54) |
+| M31 | +0.91 → +0.91 | +0.86 → +0.87 | +0.90 → +0.89 | +0.95 → +0.96 | 3.28 → 3.29 (2.99) |
+| M42 10 s | +0.99 → +0.99 | +0.83 → +0.88 | +0.53 → +0.73 | +0.03 → +0.55 | 4.00 → 4.18 (3.58) |
+| SHO H / O / S | ≈ +1.00 | +0.90 → +0.93 / = / = | +0.95 → +0.89 / +0.65 → +0.78 / +0.73 → +0.79 | = | +0.01–0.02 px |
+| Rosette R / G / B | = | = | = | = | = |
+
+California's eccentricity ranked well only because of the hot pixels: they are round, and their share grows through the night (Spearman +0.97 with time, −0.84 with FITS Blaster's eccentricity), while PixInsight's eccentricity also falls through the night. On real stars the two disagree; that is 13f.
+
+A variant with the neighbour check only (no contrast) gave nearly the same results; the full count check is chosen so there is one definition of a star.
+
+**Performance**: no extra work (the checks already run for the count; the shape fits stay at most 200). No Metal question.
+
+**Tests**: unit test with a synthetic mono frame and a Bayer frame where hot pixels are brighter than the stars: FWHM, eccentricity and SNR equal those of the same frame without hot pixels; star count unchanged. Unit tests, render tests (full), metric baselines: FWHM, eccentricity, SNR, PSF·S and score change on the colour sets and SHO, stars don't; Rosette about unchanged. Baselines regenerated after review.
+
+**Docs**: `Score.md` (which stars are measured), FWHM-comparison set 8 (this measurement, including PixInsight's hot-pixel fits on California #0090–#0102), CHANGELOG.
+
+**Done (with 13f, one commit)**: the shape set is the first 200 stars of the count, from the same loop. Result: see 13f.
+
+### 13f (2026-11-01) — eccentricity and FWHM as stars fade
+
+**(a) Measurement**: with 13e alone, California's eccentricity rose through the night (0.49 → 0.59) where PixInsight's fell (0.54 → 0.42), and California and Gamma Cygni crossed the standard filter's eccentricity limit of 0.5 (California 75 → 23 of 87 frames kept, Gamma Cygni 30 → 14 of 34).
+- Synthetic round Moffat stars (temporary test, the app's `measureShape`): eccentricity 0.16–0.21 when bright (peak SNR 160–500), 0.31–0.48 at peak SNR 80, 0.5–0.75 at peak SNR 5–40; FWHM of a 3 px star reads 4.5 px at peak SNR 40. Noise widens and elongates faint stars' fits.
+- Real frames, per star: eccentricity and FWHM fall with local contrast on every frame (California #0000: contrast 12–20 → 0.90, 20–40 → 0.66, 40–80 → 0.55, ≥ 160 → 0.46). Late on California most of the 200 measured stars are faint.
+- A brightness floor for all four metrics improves eccentricity but breaks SNR and PSF·S (they follow the transparency through the faint stars too: California SNR +0.88 → −0.77 at contrast ≥ 40). So the floor applies to FWHM and eccentricity only.
+- Fallback when few stars reach the floor (per-star dump of all 296 frames; only California #0091–#0102 need it): all stars brings the noisy ones back (eccentricity +0.14 to +0.19 on the whole set); the N stars with the highest contrast is better (+0.28 to +0.36). N = 20 chosen: the same as 10 wherever there are enough stars, and a steadier median.
+
+**(b) Change** (Tom: K = 40, fallback 20): SNR and PSF·S use every fitted star (up to 200); FWHM and eccentricity use the fitted stars with local contrast ≥ 40 (`shapeContrast`), or the 20 with the highest contrast when fewer reach it (`shapeMinimumStars`, `brightStarsForShape`). No extra fits.
+
+**Result, 13e + 13f** (Spearman against ImageAnalysis, before → after): California #0–#89 FWHM +0.99 → +0.99, eccentricity +0.80 (hot pixels; −0.11 on real stars with 13e alone) → +0.56, SNR +0.95 → +0.88, PSF·S +0.98 → +0.99; M42 10 s SNR +0.53 → +0.73, PSF·S +0.03 → +0.55; SHO O/S SNR +0.65/+0.73 → +0.78/+0.79; Gamma Cygni, M31, Rosette and SHO otherwise within ±0.04. California's FWHM keeps rising to the end of the night (#0082 → #0101: 4.99 → 6.29 px; was 5.32 → 5.00 with a drop to 3.69 on #0102); #0102 (3 stars at contrast ≥ 40, a glow in one corner) reads 9.28 px.
+
+Baseline medians 13d → 13e + 13f:
+
+| Set | FWHM | Eccentricity | SNR | PSF·S | Score | Standard filter keeps |
+|---|---|---|---|---|---|---|
+| sample-m31 | 3.24 → 3.25 | 0.514 → 0.518 | 8,300 → 8,300 | 621 → 614 | 52 → 52 | 2 → 1 of 8 |
+| m31-night | 3.28 → 3.29 | 0.483 → 0.487 | 8,198 → 8,206 | 584 → 576 | 53 → 53 | 26 → 24 of 39 |
+| california | 4.06 → 4.27 | 0.362 → 0.490 | 1,016 → 1,564 | 127 → 94 | 48 → 40 | 75 → 48 of 87 |
+| gamma-cygni-0304 | 3.33 → 3.38 | 0.479 → 0.502 | 4,989 → 4,922 | 443 → 421 | 51 → 50 | 30 → 15 of 34 |
+| m42-10 | 4.00 → 4.12 | 0.516 → 0.529 | 7,573 → 5,906 | 471 → 372 | 47 → 45 | 10 → 7 of 39 |
+| m42-180 | 4.27 → 4.30 | 0.507 → 0.507 | 10,203 → 7,821 | 390 → 278 | 46 → 45 | 3 → 3 of 9 |
+| rosette-r / g / b | unchanged | ≈ | within 0.5 % | ±1 | ≈ | unchanged |
+| asi294mm-sho | 1.92 → 1.92 | 0.395 → 0.401 | 3,093 → 2,866 | 766 → 721 | 65 → 64 | 29 → 29 of 30 |
+
+Star counts are unchanged on every frame. Gamma Cygni's eccentricity sits at the 0.5 limit (PixInsight 0.48): its 26 hot pixels per frame had pulled it down a little. Our eccentricity has a noise floor of its own (round stars 0.16–0.5), so the 0.5 default is strict; a later item (Tom, 2026-11-01).
+
+Tests 398 (4 new in `ShapeSetTests`: hot pixels brighter than the stars on mono and colour frames, the selection rule, faint stars left out of FWHM and eccentricity; each fails without its change). All baselines regenerated. Performance: no extra fits.
+
 ---
 
 ## Step 14 — Configuration, security and release tooling

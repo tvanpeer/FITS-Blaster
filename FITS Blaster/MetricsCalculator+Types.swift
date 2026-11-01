@@ -40,11 +40,17 @@ extension MetricsCalculator {
         static let maxDetectionCandidates  = 50_000
         /// Number of stratified samples for background estimation.
         static let backgroundSampleCount   = 5_000
-        /// Top N candidates used for full shape measurement (FWHM, ecc, SNR).
+        /// The first N stars (brightest first) are fitted; SNR and PSF·S use all of them (step 13e).
         static let topCandidatesForShape   = 200
         /// Star count: a candidate's peak must stand this many local-noise units above the
         /// local sky (`localContrast`). 12 matched PixInsight's real stars best (step 13c).
         static let countContrast: Float     = 12
+        /// FWHM and eccentricity use only the fitted stars at least this bright (local
+        /// contrast): on fainter stars noise widens and elongates the fit (step 13f).
+        static let shapeContrast: Float     = 40
+        /// With fewer such stars, FWHM and eccentricity use this many fitted stars with the
+        /// highest contrast instead (step 13f).
+        static let shapeMinimumStars        = 20
         /// Inner and outer radius (pixels) of the ring that gives the local sky and noise.
         static let contrastRingInner       = 6
         static let contrastRingOuter       = 10

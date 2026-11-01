@@ -4,6 +4,19 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-11-01 — Only real stars are measured
+
+### Changed
+- **FWHM, eccentricity, SNR and PSF·S are now measured only on stars.** FITS Blaster measured the 200 brightest peaks in a frame, and on uncalibrated frames (no darks) many of those are hot pixels. Their fits pulled the results around: on a California Nebula night with the target setting, FWHM dropped from about 6 px to 3.7 px on the last frame because hot pixels outnumbered the remaining stars. Now only peaks that pass the star count's checks are measured.
+- **FWHM and eccentricity use the bright stars only** (at least 40 × the local noise; on frames with fewer than 20 of those, the 20 brightest). Noise makes faint stars look wider and more elongated than they are. SNR and PSF·S still use all measured stars, since the faint ones show changes in transparency too.
+- On colour-camera sessions FWHM and eccentricity come out somewhat higher, and SNR and PSF·S somewhat lower, than before; on a calibrated mono session hardly anything changes. Because the old eccentricity was held down by round hot pixels, more frames of some sessions now exceed Auto-Flag's default eccentricity limit of 0.5 (on the test sets the standard filter keeps 48 instead of 75 frames of the California night, 15 instead of 30 of a Gamma Cygni night). Star counts don't change.
+- Against PixInsight's ImageAnalysis the frames now rank better on eccentricity (California +0.56; before, the agreement came from the hot pixels) and on PSF·S (M42 10 s +0.03 → +0.55); FWHM ranks as before.
+
+### Under the hood
+- One pass over the candidates counts the stars and picks the first 200 to measure; no extra fitting. All metric baselines are regenerated. Details in `docs/internal/architecture-plan.md` (13e, 13f) and `docs/internal/FWHM-comparison.md` (set 8).
+
+---
+
 ## 2026-11-01 — Saturated stars on mono cameras
 
 ### Changed

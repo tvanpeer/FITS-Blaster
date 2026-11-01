@@ -42,7 +42,12 @@ A saturated star (its top clipped at the camera's maximum) counts once, and a sa
 
 ## Step 3 — Per-Star Shape Measurement
 
-Up to 200 of the brightest unsaturated candidates are selected for shape fitting. Saturated stars are left out, because their clipped tops would make them look wider and fainter than they are. For each candidate the following quantities are computed:
+The first 200 stars of the star count (brightest first) are fitted: only candidates that count as stars, so hot pixels, which are often brighter than the stars on uncalibrated frames, are never measured. Saturated stars are left out, because their clipped tops would make them look wider and fainter than they are.
+
+- **SNR and PSF Signal Weight** use every fitted star: the faint stars show changes in transparency too.
+- **FWHM and eccentricity** use only the bright fitted stars, those standing at least **40 ×** the local noise above the local sky. Noise makes a faint star's profile look wider and more elongated than it is. When fewer than 20 stars are that bright (a frame low in the sky or through cloud), the 20 brightest are used.
+
+Since version 1.24. For each fitted star the following quantities are computed:
 
 ### Sub-pixel centroid
 A 5 × 5 intensity-weighted window gives a sub-pixel centroid (cx, cy) and a bilinearly-interpolated peak value.

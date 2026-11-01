@@ -160,6 +160,20 @@ struct MetricsCalculator {
         return excess / noise
     }
 
+    /// The fitted stars FWHM and eccentricity are taken from (step 13f): those with local
+    /// contrast ≥ `shapeContrast`, or, when fewer than `shapeMinimumStars` reach it, the
+    /// `shapeMinimumStars` with the highest contrast (ties: brightest first, i.e. the earlier
+    /// one). Falling back to all stars would bring back the noisy faint ones.
+    static func brightStarsForShape(_ stars: [(contrast: Float, fwhm: Float, ecc: Float)])
+        -> [(contrast: Float, fwhm: Float, ecc: Float)] {
+        let bright = stars.filter { $0.contrast >= Constants.shapeContrast }
+        guard bright.count < Constants.shapeMinimumStars else { return bright }
+        let order = stars.indices.sorted { a, b in
+            stars[a].contrast != stars[b].contrast ? stars[a].contrast > stars[b].contrast : a < b
+        }
+        return order.prefix(Constants.shapeMinimumStars).map { stars[$0] }
+    }
+
     /// The level from which a pixel counts as saturated: `saturationFraction` of the frame's
     /// highest value (PixInsight's ImageAnalysis uses ¾ of the maximum for the same purpose).
     /// Nil when the frame isn't clipped: fewer than `saturatedPixelsAtMaximum` pixels share
@@ -206,37 +220,80 @@ struct MetricsCalculator {
         // 13a), so that part of 13a was dropped.
         let sigma = bayerPattern.map { sky.luminanceSigma(pattern: $0) } ?? sky.sigma[0]
 
-        // ── Phase 1: shape statistics (top 200 candidates) ───────────────────────
+        // ── Phase 1: star count, and the stars to measure ────────────────────────
         //
-        // Candidates are sorted brightest-first, so the top 200 reliably contain
-        // enough unsaturated stars for stable median FWHM/eccentricity/SNR estimates.
+        // Every candidate is checked (master-plan step 13c; before, only the first 6,200,
+        // and on uncalibrated frames thousands of hot pixels came first in the brightness
+        // order, so faint real stars were never looked at). A candidate counts as a star when
+        //   • the quick profile check accepts it (`measureFWHMOnly`: all four neighbours
+        //     carry part of the peak, which keeps hot pixels out, and a plausible FWHM), and
+        //   • its peak stands at least `countContrast` × the local noise above the local sky
+        //     (`localContrast`), which keeps noise peaks on nebula and peaks below
+        //     PixInsight's detection out.
+        // Saturated stars count once each, when their neighbours are bright too (a saturated
+        // hot pixel doesn't count), and are not measured: their tops are clipped (colour:
+        // step 13a, mono: step 13d). With k = 12 the counts of six test frames lie within
+        // ±18 % of PixInsight's real stars (architecture-plan 13c).
+        //
+        // The first `topCandidatesForShape` unsaturated stars, brightest first, are the ones
+        // measured in phase 2 (step 13e). Before, the brightest 200 candidates were measured
+        // whether they were stars or not; on uncalibrated frames many were hot pixels, which
+        // the shape fit accepts, and they pulled FWHM, eccentricity, SNR and PSF·S around.
+        // Each check takes microseconds, so they run in one loop (§3.8).
+
+        var verifiedCount = 0
+        // The stars to fit, each with its local contrast (used again in phase 2).
+        var shapeCandidates: [(candidate: StarCandidate, contrast: Float)] = []
+        shapeCandidates.reserveCapacity(Constants.topCandidatesForShape)
+        var saturated = saturation.map {
+            SaturatedStars(pixels: pixels, width: width, height: height, level: $0)
+        }
+        var ring: [Float] = []
+        ring.reserveCapacity(Self.contrastRingCapacity)
+        for c in allCandidates {
+            switch saturated?.classify(x: c.x, y: c.y) {
+            case .newStar:
+                // A saturated hot pixel is one bright pixel with its neighbours at sky level;
+                // a saturated star's neighbours are bright too (step 13d).
+                if Self.hasStarNeighbours(pixels: pixels, width: width, height: height,
+                                          cx: c.x, cy: c.y, sky: sky) { verifiedCount += 1 }
+                continue
+            case .sameStar: continue
+            default:        break
+            }
+            let fwhm = Self.measureFWHMOnly(
+                pixels: pixels, width: width, height: height,
+                cx: c.x, cy: c.y, sky: sky)
+            guard Shape.acceptedFWHM.contains(fwhm) else { continue }
+            let contrast = Self.localContrast(pixels: pixels, width: width, height: height,
+                                              x: c.x, y: c.y, ring: &ring)
+            guard contrast >= Constants.countContrast else { continue }
+            verifiedCount += 1
+            if shapeCandidates.count < Constants.topCandidatesForShape {
+                shapeCandidates.append((candidate: c, contrast: contrast))
+            }
+        }
+
+        // ── Phase 2: shape statistics (up to 200 stars) ──────────────────────────
+        //
         // The fits run one after another, in candidate order: several frames are
         // measured at the same time during a load, which keeps the cores busy, and the
         // pixel pointer then never crosses into another task (CODE_AUDIT §3.3, §3.8).
         // Aggregating in candidate order keeps the float sums the same on every run.
+        //
+        // SNR and PSF·S use every fitted star: they follow the transparency through the
+        // faint stars as well. FWHM and eccentricity use only the bright ones (step 13f):
+        // noise makes a faint star's fit wider and more elongated (a round star at peak
+        // SNR 40 measures eccentricity 0.4–0.75), and on frames with few bright stars the
+        // faint ones would dominate the median.
 
-        var fwhmValues:  [Float] = []
-        var eccValues:   [Float] = []
+        var fitted: [(contrast: Float, fwhm: Float, ecc: Float)] = []
         var snrValues:   [Float] = []
-        var topVerified  = 0    // PSF-verified count within the top-200 pass
+        var topVerified  = 0    // PSF-verified count within the measured stars
         // PSF Signal Weight accumulator: Σ(peakVal) across verified stars.
         var psfFluxSum:  Float = 0
 
-        // Saturated stars are left out of the shape measurements and counted once each
-        // (colour: step 13a, mono: step 13d). Since they are detected (colour: the channel
-        // backgrounds; mono and colour: the tie rule at saturation), they would otherwise fill
-        // the brightest 200. A frame without clipping (`saturation` nil) takes the first 200.
-        var shapeCandidates: [StarCandidate] = []
-        if let level = saturation {
-            var saturated = SaturatedStars(pixels: pixels, width: width, height: height, level: level)
-            for c in allCandidates where shapeCandidates.count < Constants.topCandidatesForShape {
-                if saturated.classify(x: c.x, y: c.y) == .unsaturated { shapeCandidates.append(c) }
-            }
-        } else {
-            shapeCandidates = Array(allCandidates.prefix(Constants.topCandidatesForShape))
-        }
-
-        for c in shapeCandidates {
+        for (c, contrast) in shapeCandidates {
             let shape: (Float, Float, Float, Float)? = {
                 if let pattern = bayerPattern {
                     let rawCrop = Self.extractCrop(from: pixels, width: width, height: height,
@@ -268,56 +325,14 @@ struct MetricsCalculator {
             }()
             guard let (fwhm, ecc, snr, peakVal) = shape else { continue }
             topVerified += 1
-            fwhmValues.append(fwhm)
-            eccValues.append(ecc)
+            fitted.append((contrast: contrast, fwhm: fwhm, ecc: ecc))
             snrValues.append(snr)
             psfFluxSum += peakVal
         }
 
-        // ── Phase 2: star count ──────────────────────────────────────────────────
-        //
-        // Every candidate is checked (master-plan step 13c; before, only the first 6,200,
-        // and on uncalibrated frames thousands of hot pixels came first in the brightness
-        // order, so faint real stars were never looked at). A candidate counts as a star when
-        //   • the quick profile check accepts it (`measureFWHMOnly`: all four neighbours
-        //     carry part of the peak, which keeps hot pixels out, and a plausible FWHM), and
-        //   • its peak stands at least `countContrast` × the local noise above the local sky
-        //     (`localContrast`), which keeps noise peaks on nebula and peaks below
-        //     PixInsight's detection out.
-        // Saturated stars count once each, when their neighbours are bright too (a saturated
-        // hot pixel doesn't count). With k = 12 the counts of six
-        // test frames lie within ±18 % of PixInsight's real stars (architecture-plan 13c).
-        // Each check takes microseconds, so they run in one loop (§3.8).
-
-        var verifiedCount = 0
-        var saturatedForCount = saturation.map {
-            SaturatedStars(pixels: pixels, width: width, height: height, level: $0)
-        }
-        var ring: [Float] = []
-        ring.reserveCapacity(Self.contrastRingCapacity)
-        for c in allCandidates {
-            switch saturatedForCount?.classify(x: c.x, y: c.y) {
-            case .newStar:
-                // A saturated hot pixel is one bright pixel with its neighbours at sky level;
-                // a saturated star's neighbours are bright too (step 13d).
-                if Self.hasStarNeighbours(pixels: pixels, width: width, height: height,
-                                          cx: c.x, cy: c.y, sky: sky) { verifiedCount += 1 }
-                continue
-            case .sameStar: continue
-            default:        break
-            }
-            let fwhm = Self.measureFWHMOnly(
-                pixels: pixels, width: width, height: height,
-                cx: c.x, cy: c.y, sky: sky)
-            guard Shape.acceptedFWHM.contains(fwhm) else { continue }
-            if Self.localContrast(pixels: pixels, width: width, height: height,
-                                  x: c.x, y: c.y, ring: &ring) >= Constants.countContrast {
-                verifiedCount += 1
-            }
-        }
-
-        let fwhm         = median(fwhmValues)
-        let eccentricity = median(eccValues)
+        let forShape = Self.brightStarsForShape(fitted)
+        let fwhm         = median(forShape.map(\.fwhm))
+        let eccentricity = median(forShape.map(\.ecc))
         let snr          = median(snrValues)
         let starCount    = verifiedCount
 
