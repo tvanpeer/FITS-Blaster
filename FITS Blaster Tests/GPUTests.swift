@@ -100,28 +100,29 @@ struct GPUTests {
     func gpuDetectionFindsStars() async throws {
         let width = 256, height = 256
         let buffer = try makeMetalBuffer(width: width, height: height, background: 1000,
-                                         stars: [
-                                             SyntheticStar(cx: 80,  cy: 80,  amplitude: 6000, sigma: 2.5),
-                                             SyntheticStar(cx: 180, cy: 180, amplitude: 7000, sigma: 2.0),
-                                         ])
+                                         stars: (0..<10).map { i in
+                                             SyntheticStar(cx: 30 + (i % 5) * 48, cy: 70 + (i / 5) * 110,
+                                                           amplitude: Float(6000 + i * 100), sigma: 2.0 + Float(i % 2) * 0.5)
+                                         })
         let config = MetricsConfig()
 
         let m = try #require(
             await MetricsCalculator.compute(metalBuffer: buffer,
                                             width: width, height: height, config: config))
 
-        #expect((m.starCount ?? 0) >= 2, "Should detect both planted stars")
+        #expect((m.starCount ?? 0) >= 10, "Should detect the planted stars")
         #expect(m.fwhm != nil, "Should compute FWHM")
         #expect(m.eccentricity != nil, "Should compute eccentricity")
         #expect(m.snr != nil, "Should compute SNR")
     }
 
-    @Test("GPU detection returns nil for flat image")
+    @Test("GPU detection on a flat image: star count 0 and score 0 (step 13g)")
     func gpuDetectionFlatImage() async throws {
         let buffer = try makeMetalBuffer(width: 128, height: 128, background: 1000)
-        let m = await MetricsCalculator.compute(metalBuffer: buffer,
-                                                 width: 128, height: 128, config: MetricsConfig())
-        #expect(m == nil, "Flat image should return nil from GPU detection")
+        let m = try #require(await MetricsCalculator.compute(metalBuffer: buffer,
+                                                             width: 128, height: 128, config: MetricsConfig()))
+        #expect(m.starCount == 0)
+        #expect(m.qualityScore == 0)
     }
 
     // MARK: - GPU vs CPU consistency
@@ -129,11 +130,10 @@ struct GPUTests {
     @Test("GPU and CPU paths produce consistent star counts")
     func gpuCpuConsistency() async throws {
         let width = 256, height = 256
-        let stars = [
-            SyntheticStar(cx: 64,  cy: 64,  amplitude: 6000, sigma: 2.0),
-            SyntheticStar(cx: 192, cy: 64,  amplitude: 7000, sigma: 2.5),
-            SyntheticStar(cx: 128, cy: 192, amplitude: 8000, sigma: 2.0),
-        ]
+        let stars = (0..<12).map { i in
+            SyntheticStar(cx: 32 + (i % 4) * 64, cy: 48 + (i / 4) * 80,
+                          amplitude: Float(6000 + (i % 3) * 1000), sigma: 2.0 + Float(i % 2) * 0.5)
+        }
         let buffer = try makeMetalBuffer(width: width, height: height, background: 1000, stars: stars)
 
         // Build a matching Float array for the CPU path

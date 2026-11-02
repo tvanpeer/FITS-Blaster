@@ -51,6 +51,11 @@ extension MetricsCalculator {
         /// With fewer such stars, FWHM and eccentricity use this many fitted stars with the
         /// highest contrast instead (step 13f).
         static let shapeMinimumStars        = 20
+        /// A frame with fewer stars than this has no stars for the metrics: FWHM,
+        /// eccentricity, SNR and PSF·S stay empty and the score is 0, so every check can
+        /// reject it (step 13g, CODE_AUDIT §5.4). Flats count 0–2 spurious "stars"; real
+        /// frames in the test sets have 80 or more.
+        static let minimumStars             = 10
         /// Inner and outer radius (pixels) of the ring that gives the local sky and noise.
         static let contrastRingInner       = 6
         static let contrastRingOuter       = 10

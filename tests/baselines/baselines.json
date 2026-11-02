@@ -11,6 +11,12 @@
     "macOS": "27.0.1",
     "updated": "2026-11-01T23:11:16"
   },
+  "california-flat": {
+    "app": "FITS Blaster.app 1.24-beta.3 (212)",
+    "commit": "a32cef5 (with uncommitted changes)",
+    "macOS": "27.0.1",
+    "updated": "2026-11-02T09:10:13"
+  },
   "gamma-cygni-0304": {
     "app": "FITS Blaster.app 1.24-beta.3 (212)",
     "commit": "96bd46e (with uncommitted changes)",

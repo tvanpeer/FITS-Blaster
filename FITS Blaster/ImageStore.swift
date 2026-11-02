@@ -338,7 +338,10 @@ final class ImageStore {
 
     func updateGroupStatistics() {
         var result: [FilterGroup: GroupStats] = [:]
-        for (group, groupEntries) in FilterGroup.grouped(entries) {
+        for (group, allGroupEntries) in FilterGroup.grouped(entries) {
+            // Frames without stars stay out of the medians: their star count and score 0
+            // would pull the session's typical values down (step 13g).
+            let groupEntries = allGroupEntries.filter { !($0.metrics?.hasNoStars ?? false) }
             let scores = groupEntries.compactMap { $0.metrics?.qualityScore }.sorted()
             result[group] = GroupStats(
                 medianFWHM:            groupEntries.compactMap { $0.metrics?.fwhm }.upperMedian,

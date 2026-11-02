@@ -35,6 +35,18 @@ struct IntegrationTests {
         }
     }
 
+    /// Ten copies of `star` on a 5 × 2 grid: a frame needs at least
+    /// `MetricsCalculator.Constants.minimumStars` stars to be measured (step 13g). Their
+    /// peaks differ by 1 % each: identical peaks would share the frame's highest value and
+    /// count as saturated (step 13d).
+    private func tenCopies(of star: SyntheticStar, width: Int, height: Int) -> [SyntheticStar] {
+        (0..<10).map { i in
+            SyntheticStar(cx: width * (1 + 2 * (i % 5)) / 10, cy: height * (1 + 2 * (i / 5)) / 4,
+                          amplitude: star.amplitude * (1 + 0.01 * Float(i)),
+                          sigmaX: star.sigmaX, sigmaY: star.sigmaY)
+        }
+    }
+
     private func makeImage(width: Int, height: Int,
                            background: Float = 1000,
                            stars: [SyntheticStar] = [],
@@ -90,14 +102,15 @@ struct IntegrationTests {
 
     // MARK: - Single star: FWHM accuracy
 
-    @Test("Single Gaussian star: FWHM matches planted value within 30%")
+    @Test("Ten identical Gaussian stars: FWHM matches planted value within 30%")
     func singleStarFWHMAccuracy() async throws {
         let width = 256, height = 256
         let sigma: Float = 2.5
         let expectedFWHM = Double(2.3548 * sigma)
 
         let pixels = makeImage(width: width, height: height, background: 1000,
-                               stars: [SyntheticStar(cx: 128, cy: 128, amplitude: 8000, sigma: sigma)])
+                               stars: tenCopies(of: SyntheticStar(cx: 0, cy: 0, amplitude: 8000, sigma: sigma),
+                                                width: width, height: height))
 
         let config = MetricsConfig()
         let m = try #require(await MetricsCalculator.compute(pixels: pixels,
@@ -106,12 +119,12 @@ struct IntegrationTests {
         let fwhm = try #require(m.fwhm)
         #expect(abs(Double(fwhm) - expectedFWHM) < expectedFWHM * 0.3,
                 "FWHM \(fwhm) should be close to planted \(expectedFWHM)")
-        #expect((m.starCount ?? 0) >= 1, "Should detect at least the planted star")
+        #expect(m.starCount == 10, "Should detect the planted stars")
     }
 
     // MARK: - Multiple stars: count accuracy
 
-    @Test("Five planted stars: count and eccentricity")
+    @Test("Twelve planted stars: count and eccentricity")
     func multipleStarsDetected() async throws {
         let pixels = makeImage(width: 512, height: 512, background: 1000, stars: [
             SyntheticStar(cx: 100, cy: 100, amplitude: 6000, sigma: 2.0),
@@ -119,16 +132,22 @@ struct IntegrationTests {
             SyntheticStar(cx: 400, cy: 100, amplitude: 5000, sigma: 2.0),
             SyntheticStar(cx: 100, cy: 350, amplitude: 8000, sigma: 3.0),
             SyntheticStar(cx: 300, cy: 300, amplitude: 6000, sigma: 2.5),
+            SyntheticStar(cx: 450, cy: 220, amplitude: 6500, sigma: 2.2),
+            SyntheticStar(cx: 60,  cy: 220, amplitude: 7500, sigma: 2.4),
+            SyntheticStar(cx: 200, cy: 450, amplitude: 5500, sigma: 2.6),
+            SyntheticStar(cx: 350, cy: 450, amplitude: 6200, sigma: 2.0),
+            SyntheticStar(cx: 450, cy: 400, amplitude: 7200, sigma: 2.8),
+            SyntheticStar(cx: 180, cy: 230, amplitude: 5800, sigma: 2.3),
+            SyntheticStar(cx: 330, cy: 180, amplitude: 6800, sigma: 2.1),
         ])
 
         let m = try #require(await MetricsCalculator.compute(
             pixels: pixels, width: 512, height: 512, config: MetricsConfig()))
 
-        #expect((m.starCount ?? 0) >= 4, "Should detect most planted stars")
-        #expect((m.starCount ?? 999) <= 10, "Should not wildly overcount")
-        if let ecc = m.eccentricity {
-            #expect(ecc < 0.3, "Round stars should have low eccentricity")
-        }
+        #expect((m.starCount ?? 0) >= 11, "Should detect most planted stars")
+        #expect((m.starCount ?? 999) <= 16, "Should not wildly overcount")
+        let ecc = try #require(m.eccentricity)
+        #expect(ecc < 0.3, "Round stars should have low eccentricity")
     }
 
     // MARK: - Stars on gradient background
@@ -165,25 +184,27 @@ struct IntegrationTests {
     @Test("Elongated star has elevated eccentricity")
     func elongatedStarHasHighEccentricity() async throws {
         let pixels = makeImage(width: 256, height: 256, background: 1000,
-                               stars: [SyntheticStar(cx: 128, cy: 128, amplitude: 8000,
-                                                     sigmaX: 1.5, sigmaY: 5.0)])
+                               stars: tenCopies(of: SyntheticStar(cx: 0, cy: 0, amplitude: 8000,
+                                                                  sigmaX: 1.5, sigmaY: 5.0),
+                                                width: 256, height: 256))
         let m = try #require(await MetricsCalculator.compute(
             pixels: pixels, width: 256, height: 256,
             config: MetricsConfig()))
 
-        if let ecc = m.eccentricity {
-            #expect(ecc > 0.3, "Elongated star should have elevated eccentricity")
-        }
+        let ecc = try #require(m.eccentricity)
+        #expect(ecc > 0.3, "Elongated stars should have elevated eccentricity")
     }
 
     // MARK: - Flat image: no stars
 
-    @Test("Flat image with no stars returns nil")
-    func flatImageReturnsNil() async {
+    @Test("Flat image with no stars: star count 0 and score 0 (step 13g)")
+    func flatImageReturnsNil() async throws {
         let pixels = makeImage(width: 128, height: 128, background: 1000)
-        let m = await MetricsCalculator.compute(pixels: pixels, width: 128, height: 128,
-                                                 config: MetricsConfig())
-        #expect(m == nil, "Flat image with no stars should return nil")
+        let m = try #require(await MetricsCalculator.compute(pixels: pixels, width: 128, height: 128,
+                                                             config: MetricsConfig()))
+        #expect(m.starCount == 0)
+        #expect(m.qualityScore == 0)
+        #expect(m.fwhm == nil)
     }
 
     // MARK: - FITS round-trip
@@ -191,10 +212,8 @@ struct IntegrationTests {
     @Test("FITS file → read → metrics produces valid results")
     func fitsRoundTripProducesMetrics() async throws {
         let pixels = makeImage(width: 256, height: 256, background: 32768,
-                               stars: [
-                                   SyntheticStar(cx: 128, cy: 128, amplitude: 10000, sigma: 2.5),
-                                   SyntheticStar(cx: 60,  cy: 60,  amplitude: 8000,  sigma: 2.0),
-                               ])
+                               stars: tenCopies(of: SyntheticStar(cx: 0, cy: 0, amplitude: 10000, sigma: 2.5),
+                                                width: 256, height: 256))
         let url = try writeFITS(pixels: pixels, width: 256, height: 256)
         defer { try? FileManager.default.removeItem(at: url) }
 

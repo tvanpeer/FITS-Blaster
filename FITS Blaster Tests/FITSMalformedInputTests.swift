@@ -125,6 +125,8 @@ struct FITSMalformedInputTests {
         #expect(candidates.isEmpty)
         let metrics = await MetricsCalculator.compute(pixels: pixels, width: 2, height: 2,
                                                       config: MetricsConfig())
-        #expect(metrics == nil)
+        // No candidates: a frame without stars (step 13g), not nil.
+        #expect(metrics?.starCount == 0)
+        #expect(metrics?.qualityScore == 0)
     }
 }

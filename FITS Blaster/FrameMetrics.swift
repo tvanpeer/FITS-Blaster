@@ -79,9 +79,9 @@ struct FrameMetrics: Sendable {
     /// Median sky background level in ADU, from stratified sampling (nil if star detection skipped)
     let skyBackground: Float?
     /// PSF Signal Weight: mean background-subtracted peak of the measured stars (up to the
-    /// 200 brightest candidates) divided by the sky sigma. Higher means brighter stars above
+    /// 200 brightest stars) divided by the sky sigma. Higher means brighter stars above
     /// the sky noise (transparency, exposure).
-    /// Nil when no stars were successfully fitted.
+    /// Nil when no stars were successfully fitted, or the frame has no stars (`hasNoStars`).
     let psfSignalWeight: Float?
 
     // MARK: Filter
@@ -96,6 +96,13 @@ struct FrameMetrics: Sendable {
                                                                          snr: nil, starCount: nil),
                             skyBackground: skyBackground,
                             psfSignalWeight: psfSignalWeight)
+    }
+
+    /// True for a frame without stars: fewer than `minimumStars` counted, so FWHM,
+    /// eccentricity, SNR and PSF·S are empty and the score is 0 (step 13g). False when
+    /// metrics are off (no star count).
+    var hasNoStars: Bool {
+        starCount.map { $0 < MetricsCalculator.Constants.minimumStars } ?? false
     }
 
     /// True when at least one metric was actually computed.
@@ -117,9 +124,12 @@ struct FrameMetrics: Sendable {
 
     /// Returns the worst detected quality problem, or nil when no threshold is exceeded.
     ///
-    /// Priority order: trailing → focus fail → low star count.
+    /// Priority order: no stars → trailing → focus fail → low star count.
     /// Returns nil when group stats are unavailable or no threshold is met.
     func badgeProblem(stats: GroupStats?) -> BadgeProblem? {
+        // No stars at all (cloud, dew, cap on, a flat): whatever the group looks like.
+        if hasNoStars { return .lowStars }
+
         // Trailing is the most visually obvious problem — check first.
         if let ecc = eccentricity, ecc > 0.5 { return .trailing }
 

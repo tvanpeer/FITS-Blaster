@@ -33,6 +33,9 @@ DATASETS = {
     # should rise (FWHM-comparison.md set 3); the baselines record today's values.
     "m42-10": "M42 RGB IMX571/2025-03-04_None/LIGHT/10",
     "m42-180": "M42 RGB IMX571/2025-03-04_None/LIGHT/180",
+    # Flats: frames without stars. Each must get star count 0–9, empty metrics and
+    # score 0, and no filter keeps them (master-plan step 13g).
+    "california-flat": "California Nebula IMX571/2026-02-25_Antlia ALP-T/FLAT",
 }
 
 # The sets RenderingTests reads: the sample set, plus the rest with --full.

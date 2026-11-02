@@ -926,6 +926,28 @@ Star counts are unchanged on every frame. Gamma Cygni's eccentricity sits at the
 
 Tests 398 (4 new in `ShapeSetTests`: hot pixels brighter than the stars on mono and colour frames, the selection rule, faint stars left out of FWHM and eccentricity; each fails without its change). All baselines regenerated. Performance: no extra fits.
 
+### 13g (2026-11-02) — frames without stars (§5.4)
+
+Decision 4 (2026-10-20): star count 0 and score 0, so they can be rejected. Measured on the three FLAT folders in Test Data (60 flats, current code after 13f):
+- No flat has zero candidates: all give metrics. 51 get star count 0, empty FWHM/eccentricity/SNR/PSF·S and score 0; today only the star-count check rejects them (the other checks skip empty values, so the CLI standard filter `-f -e -p` keeps them).
+- 9 flats count 1–2 spurious "stars" (noise or a defect). With one, FWHM is 0.9–1.3 px, which gets full FWHM points: score 28–44, higher than California's last real frames (14–31). With one counted star and no fit: score 11.
+- Real frames in the test sets have at least 80 stars (California #0099).
+
+**Changes** (Tom, 2026-11-02: N1–N3, minimum 10, plus a FLAT baseline set):
+- **N1, no candidates:** `compute` returns metrics with star count 0 (sky background kept) instead of nil, in both entry points. Metrics off (`needsStarDetection` false) still returns nil. Ends the re-reading of such files on every metric toggle (§5.4).
+- **N3, minimum stars:** a frame with fewer than 10 counted stars (`Constants.minimumStars`) is a frame without stars: star count as counted, FWHM, eccentricity, SNR and PSF·S empty, score 0. One helper on `FrameMetrics` (`hasNoStars`: star count present and below the minimum) is used everywhere below.
+- **N2, checks:** in `previewAutoReject` (Auto-Flag and the CLI filters) a frame without stars is rejected as soon as any check is on, in both modes. Group medians (`updateGroupStatistics`) leave frames without stars out, so a few of them don't drag the session's star-count median down.
+- **Badge:** a frame without stars gets the low-stars badge (amber, cloud) whatever the group statistics; today a FLAT folder on its own would show grey (its median is 0 too). `FAQ.md`: the badge text says grey means "no stars", which is wrong today and after; corrected (site FAQ at stable 1.24).
+- **Unchanged:** the session chart shows score 0 and gaps for the empty metrics, as for any missing value; CSV export writes empty cells and score 0.
+
+**Test data:** new baseline set `california-flat` = `California Nebula IMX571/2026-02-25_Antlia ALP-T/FLAT` (20 frames) in `scripts/testdata.py`; clone and manifest with `scripts/baseline-data.py --only california-flat`; not a render-test set. Expected baseline: all 20 frames star count 0–1, empty metrics, score 0, none kept by the standard filter.
+
+**Tests:** unit tests (Swift Testing): a synthetic frame with no candidates (flat sky without noise peaks) gives star count 0 and score 0, not nil; a frame with 3 stars gives empty metrics and score 0; a frame with 10 stars is measured as usual; `previewAutoReject` rejects a frame without stars with only the FWHM check on, and with only the eccentricity check on, in both modes; group medians leave it out; badge = low stars. Then unit tests, render tests (full), metric baselines: the ten existing sets unchanged (none has frames under 10 stars), the new set as expected.
+
+**Performance:** none (a comparison per frame).
+
+**Result:** as planned. `california-flat` baseline: 18 flats star count 0, 2 with 1, all with empty metrics and score 0, none kept (before: 2 flats scored 36 and 40). The ten existing sets are unchanged (all metrics match). Tests 406: 9 new in `NoStarFrameTests`; 12 existing tests updated: the 4 that expected nil for a starless frame now expect star count 0 and score 0, and the synthetic fixtures with 1–5 stars now plant 10–12 (with peaks that differ, so they don't count as saturated), with `#require` where an `if let` would have let them pass without measuring anything (IntegrationTests, GPUTests, FITSMalformedInputTests, MetricsModeSwitchTests, MetricsOnlyLoadTests).
+
 ---
 
 ## Step 14 — Configuration, security and release tooling

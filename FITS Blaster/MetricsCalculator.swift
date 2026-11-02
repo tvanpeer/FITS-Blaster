@@ -73,7 +73,7 @@ struct MetricsCalculator {
             allCandidates = nonMaximumSuppression(cpu, imageWidth: width)
         }
 
-        guard !allCandidates.isEmpty else { return nil }
+        guard !allCandidates.isEmpty else { return noStars(starCount: 0, background: background) }
         return await measureCandidates(allCandidates: allCandidates,
                                        pixels: pixels, background: background, sky: sky,
                                        saturation: saturation,
@@ -122,7 +122,7 @@ struct MetricsCalculator {
                                   cropW: cropW, cropH: cropH,
                                   levels: sky.detectionLevels(saturation: saturation ?? .infinity))
         let allCandidates = nonMaximumSuppression(raw, imageWidth: width)
-        guard !allCandidates.isEmpty else { return nil }
+        guard !allCandidates.isEmpty else { return noStars(starCount: 0, background: background) }
         return await measureCandidates(allCandidates: allCandidates,
                                        pixels: pixels, background: background, sky: sky,
                                        saturation: saturation,
@@ -158,6 +158,16 @@ struct MetricsCalculator {
         let excess = pixels[y * width + x] - median
         guard noise > 0 else { return excess > 0 ? .infinity : 0 }
         return excess / noise
+    }
+
+    /// The metrics of a frame without stars (fewer than `minimumStars`, none at all when
+    /// detection found no candidates): the star count as counted, the sky background, no
+    /// FWHM, eccentricity, SNR or PSF·S, and score 0 (step 13g, CODE_AUDIT §5.4). Before,
+    /// a frame without candidates got no metrics at all, so no check could reject it, and
+    /// one or two spurious "stars" on a flat could give it a score of 40.
+    static func noStars(starCount: Int, background: Float) -> FrameMetrics {
+        FrameMetrics(fwhm: nil, eccentricity: nil, snr: nil, starCount: starCount, qualityScore: 0,
+                     skyBackground: background, psfSignalWeight: nil)
     }
 
     /// The fitted stars FWHM and eccentricity are taken from (step 13f): those with local
@@ -272,6 +282,11 @@ struct MetricsCalculator {
             if shapeCandidates.count < Constants.topCandidatesForShape {
                 shapeCandidates.append((candidate: c, contrast: contrast))
             }
+        }
+
+        // Too few stars to measure: a frame without stars (step 13g).
+        guard verifiedCount >= Constants.minimumStars else {
+            return noStars(starCount: verifiedCount, background: background)
         }
 
         // ── Phase 2: shape statistics (up to 200 stars) ──────────────────────────

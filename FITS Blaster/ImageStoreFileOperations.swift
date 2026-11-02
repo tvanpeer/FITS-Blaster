@@ -275,6 +275,10 @@ extension ImageStore {
             guard !entry.isRejected, let m = entry.metrics else { return false }
             let gs = stats[entry.filterGroup]
 
+            // A frame without stars (cloud, dew, cap on, a flat) has no FWHM, eccentricity,
+            // SNR or PSF·S to compare, and fails every check (step 13g, CODE_AUDIT §5.4).
+            if m.hasNoStars { return config.isAnyCheckOn }
+
             // Eccentricity is an absolute threshold in both modes.
             if config.useEccentricity,
                let ecc = m.eccentricity,

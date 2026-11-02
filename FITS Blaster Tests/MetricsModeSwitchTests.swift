@@ -17,10 +17,12 @@ struct MetricsModeSwitchTests {
     private static let width = 256
     private static let height = 256
 
-    /// A 16-bit FITS file with a flat background and a few round Gaussian stars.
+    /// A 16-bit FITS file with a flat background and ten round Gaussian stars (a frame needs
+    /// at least `MetricsCalculator.Constants.minimumStars` to be measured, step 13g).
     private func starFieldData(seed: Int) -> Data {
         var pixels = [Float](repeating: 1000, count: Self.width * Self.height)
-        let stars = [(60, 70), (180, 60), (120, 150), (200, 200), (40, 210)]
+        let stars = [(60, 70), (180, 60), (120, 150), (200, 200), (40, 210),
+                     (30, 30), (220, 120), (90, 110), (150, 220), (230, 30)]
         for (i, (cx, cy)) in stars.enumerated() {
             let amplitude = Float(6000 + 900 * ((i + seed) % 4))
             let sigma: Float = 2.0 + 0.3 * Float((i + seed) % 3)

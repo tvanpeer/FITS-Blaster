@@ -80,14 +80,17 @@ Reset clears the current session and restores the full free-tier frame allowance
 ## Image Quality Metrics
 
 ### What does the Score badge mean?
-Each frame receives a coloured badge based on how its metrics compare to the rest of the session:
+Each frame receives a coloured badge based on its metrics and how they compare to the rest of its filter group:
 
-- **Green** — the frame is within normal range for this session
-- **Amber** — one metric is noticeably worse than average (trailing, focus drift, low star count)
-- **Red** — the frame is significantly below average and is a candidate for rejection
-- **Grey** — metrics could not be computed (no stars detected, or saturated field)
+- **Red** — trailing (eccentricity above 0.5) or a focus problem (FWHM more than 1.5 × the group median)
+- **Amber** — low star count (below 40 % of the group median, 30 % for narrowband), or no stars at all (fewer than 10: cloud, dew, a closed cap, a flat)
+- **Green** — no problem, and the frame's score is in the top third of its group
+- **Grey** — no problem, not in the top third
 
-The badge priority is: trailing stars → focus failure → low star count.
+The badge priority is: no stars → trailing stars → focus failure → low star count.
+
+### What happens to a frame without stars?
+A frame with fewer than 10 stars (thick cloud, dew, a closed cap, or a flat that ended up among the lights) gets its star count, a score of 0 and an amber badge; FWHM, eccentricity, SNR and PSF·S stay empty, because a handful of spots says nothing about the sky. Auto-Flag flags it with any check turned on, and it is left out of the session's medians.
 
 ### What is FWHM?
 Full Width at Half Maximum — a measure of how sharp (tightly focused) the stars are. It is the diameter of a star profile at half its peak brightness, in sensor pixels. Lower is better: a well-focused session might have FWHM 3–5 px, while a poorly-focused or turbulent frame might be 8–10 px or more.

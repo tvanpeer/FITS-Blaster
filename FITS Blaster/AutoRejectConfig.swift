@@ -44,4 +44,11 @@ struct AutoRejectConfig: Sendable {
     // Quality score (absolute mode only)
     var useScore: Bool = false
     var scoreFloor: Double = 40   // stored as Double for direct Slider binding
+
+    /// True when at least one check is on in the current mode (the score check only counts
+    /// in absolute mode). A frame without stars fails every check (step 13g).
+    var isAnyCheckOn: Bool {
+        useFWHM || useEccentricity || useStarCount || useSNR || useSkyBackground || usePSF
+            || (mode == .absolute && useScore)
+    }
 }

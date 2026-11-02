@@ -505,7 +505,8 @@ final class LoadPipeline {
         store.updateCachedSort()
 
         // Pass 2: with metrics on, collect entries that have no cached metrics yet
-        // (loaded in Simple mode, or no stars found) and measure them from disk.
+        // (loaded in Simple mode) and measure them from disk. A frame without stars has
+        // metrics since step 13g (star count 0–9, score 0), so it isn't measured again.
         let needsRecompute = metricsConfig.computeMetrics
             ? entriesToProcess.filter { $0.cachedMetrics == nil }
             : []

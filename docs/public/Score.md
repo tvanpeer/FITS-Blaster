@@ -173,6 +173,8 @@ Each metric is converted to a normalised sub-score **s ∈ [0, 1]** using a piec
 
 Star count uses a **log scale** so that a frame with 50 stars is not penalised as harshly as a frame with 0 stars.
 
+**Frames without stars:** with fewer than 10 stars (thick cloud, dew, a closed cap, a flat) FWHM, eccentricity, SNR and PSF·S are left empty and the score is **0**. Auto-Flag and the command-line filters reject such a frame with any check turned on. Since version 1.24; before, one or two spurious spots on a flat could give it a score of 40, and a frame without any candidate got no metrics at all, so nothing could reject it.
+
 The weighted average of active sub-scores is scaled to 0–100:
 
 ```

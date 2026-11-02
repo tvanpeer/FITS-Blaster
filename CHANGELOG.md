@@ -4,6 +4,19 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-11-02 — Frames without stars score 0 and are always flagged
+
+### Changed
+- **A frame with fewer than 10 stars counts as a frame without stars** (thick cloud, dew, a closed cap, a flat among the lights): it gets its star count and a score of 0, FWHM, eccentricity, SNR and PSF·S stay empty, and its badge is amber (low stars). Before, one or two spurious spots could give a flat a score of 40, higher than real frames taken low in the sky.
+- **Auto-Flag and the command-line filters reject such a frame with any check turned on.** Before, only the star-count check could, and a frame where detection found nothing at all got no metrics, so nothing rejected it and the command line exported it as kept.
+- Frames without stars are left out of the session medians that the relative checks compare with.
+- The FAQ's description of the badge colours is corrected.
+
+### Under the hood
+- New metric baseline set `california-flat` (20 flats). The other baselines are unchanged. Details in `docs/internal/architecture-plan.md` (13g).
+
+---
+
 ## 2026-11-01 — Only real stars are measured
 
 ### Changed
