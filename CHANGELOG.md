@@ -4,6 +4,13 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-11-02 — Download statistics script
+
+### Under the hood
+- `scripts/download-stats.py` shows how often each release's DMG was downloaded from GitHub Releases (new downloads and Sparkle updates together), with totals for stable and beta releases; `--stable` and `--since` narrow the list. App Store downloads stay in App Store Connect, website visits in the server statistics.
+
+---
+
 ## 2026-11-02 — Open Folder panel attached to the window
 
 ### Fixed
