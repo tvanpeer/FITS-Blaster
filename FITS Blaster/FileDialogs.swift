@@ -60,7 +60,15 @@ enum FileDialogs {
         panel.accessoryView = options
         panel.isAccessoryViewDisclosed = true
 
-        guard await panel.begin() == .OK, !panel.urls.isEmpty else { return nil }
+        // A sheet on the main window: a free-floating panel could end up behind the window
+        // (after a click on it, or Reset), and while it is up Open Folder does nothing, so
+        // the button looked dead (Tom, 2026-11-02).
+        let response = if let window = NSApp.mainWindow {
+            await panel.beginSheetModal(for: window)
+        } else {
+            await panel.begin()
+        }
+        guard response == .OK, !panel.urls.isEmpty else { return nil }
         return FolderChoice(urls: panel.urls,
                             includeSubfolders: subfolders.state == .on,
                             includeRejected: rejected.state == .on)

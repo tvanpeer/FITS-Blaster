@@ -4,6 +4,13 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-11-02 — Open Folder panel attached to the window
+
+### Fixed
+- **The Open Folder panel now slides down from the main window** instead of opening as a separate window. It could end up behind the main window (for example after Reset), and while it was open Open Folder… did nothing, so the button seemed dead.
+
+---
+
 ## 2026-11-02 — Frames without stars score 0 and are always flagged
 
 ### Changed
