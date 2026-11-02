@@ -4,6 +4,13 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-11-02 — Website statistics script
+
+### Under the hood
+- `scripts/site-stats.py` reads the website's access logs as downloaded from DirectAdmin and prints counts only, never addresses: update checks per day by channel and version (an estimate of active copies of the website version), real visitors per day and the pages they saw, where they came from, and sample-set downloads. Addresses to leave out (your own connection) go in a file outside the repository; the logs themselves stay out of it too.
+
+---
+
 ## 2026-11-02 — Download statistics script
 
 ### Under the hood
