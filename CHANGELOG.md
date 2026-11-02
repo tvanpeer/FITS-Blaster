@@ -4,6 +4,13 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-11-02 — Test set with high clouds
+
+### Under the hood
+- New metric baseline set `lobster-cloud`: one night on LBN 537 (OSC, L-Enhance filter, 121 frames) with high clouds passing in waves while the target stays high. It is the first set with real cloud, for checking the Auto-Flag defaults for cloudy frames, and the first with a dual-band filter. The other baselines are unchanged.
+
+---
+
 ## 2026-11-02 — Website statistics script
 
 ### Under the hood

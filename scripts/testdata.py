@@ -36,6 +36,11 @@ DATASETS = {
     # Flats: frames without stars. Each must get star count 0–9, empty metrics and
     # score 0, and no filter keeps them (master-plan step 13g).
     "california-flat": "California Nebula IMX571/2026-02-25_Antlia ALP-T/FLAT",
+    # OSC with the L-Enhance dual-band filter, one night with high clouds passing in
+    # waves while the target stays high (airmass 1.01–1.36). Cloudy when culled by eye:
+    # #3–#9, #28, #47, #53, #55–#58, #61, #85, #100–#103. The test set for the
+    # cloudy-frame defaults of Auto-Flag.
+    "lobster-cloud": "LBN 537 (Lobster Claw) IMX571/2025-11-12_L-Enhance/LIGHT",
 }
 
 # The sets RenderingTests reads: the sample set, plus the rest with --full.
