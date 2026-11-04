@@ -4,6 +4,20 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-11-04 — Auto-Flag catches thin cloud and elongated stars, not normal frames
+
+### Changed
+- **Auto-Flag's starting values:** SNR below **60 %** of the session median (was 50 %) and star count below **50 %** (was 40 %), so it also catches frames with thin cloud; eccentricity above **0.65** (was 0.5). Normal frames from a colour camera measure about 0.5, so the old limit flagged a third to two thirds of a typical colour session; elongated frames measure 0.65 and up, trails 0.9 and up. On the test sessions Auto-Flag now flags 0–23 frames per session instead of 1–84, and still catches every trailed frame and the cloudy ones.
+- **The red "trailing" badge** uses the same limit, 0.65 (was 0.5), so a red badge and an Auto-Flag flag mean the same thing.
+- **The score's eccentricity points** now run out at 0.9 instead of 0.5. Before, half the frames of a colour session got no eccentricity points at all, and a trailed frame lost no more than a normal one. Scores are about 10–15 points higher than before for the same frame; the order of frames within a session doesn't change.
+- `Score.md` and the FAQ describe the new values.
+
+### Under the hood
+- The command line is unchanged (it has no defaults; every check is off until you pass a threshold). All metric baselines were regenerated: only the score changed. Measurements in `docs/internal/FWHM-comparison.md` (set 9), plan and result in `docs/internal/architecture-plan.md` (13h).
+- Removed an unused value in the star measurement, the build's only compiler warning.
+
+---
+
 ## 2026-11-02 — Test set with high clouds
 
 ### Under the hood

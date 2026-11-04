@@ -362,4 +362,19 @@ struct AutoRejectTests {
 
         #expect(store.previewAutoReject(config: config).isEmpty, "Sky BG disabled → nothing rejected")
     }
+
+    // MARK: - Defaults (step 13h)
+
+    @Test("Defaults: SNR 60 % and stars 50 % of the median, eccentricity 0.65 like the badge")
+    func defaults() {
+        let config = AutoRejectConfig()
+        #expect(config.mode == .relative)
+        #expect(config.snrMultiplier == 0.60)
+        #expect(config.starCountMultiplier == 0.50)
+        #expect(config.eccentricityThreshold == 0.65)
+        #expect(config.eccentricityThreshold == MetricsCalculator.Constants.trailingEccentricity)
+        #expect(config.fwhmMultiplier == 1.5)
+        #expect(config.useFWHM && config.useEccentricity && config.useStarCount && config.useSNR)
+        #expect(!config.useSkyBackground && !config.usePSF && !config.useScore)
+    }
 }

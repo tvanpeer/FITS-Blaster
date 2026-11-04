@@ -131,7 +131,11 @@ struct FrameMetrics: Sendable {
         if hasNoStars { return .lowStars }
 
         // Trailing is the most visually obvious problem — check first.
-        if let ecc = eccentricity, ecc > 0.5 { return .trailing }
+        // Same limit as Auto-Flag's default (step 13h; was 0.5, where normal colour
+        // frames measure).
+        if let ecc = eccentricity, Double(ecc) > MetricsCalculator.Constants.trailingEccentricity {
+            return .trailing
+        }
 
         // Focus failure: FWHM significantly above the group median.
         if let fwhm = fwhm, let medFWHM = stats?.medianFWHM, fwhm > medFWHM * 1.5 {

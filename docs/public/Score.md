@@ -167,11 +167,13 @@ Each metric is converted to a normalised sub-score **s ∈ [0, 1]** using a piec
 | Metric | Weight | Ideal | Bad at | Formula |
 |--------|--------|-------|--------|---------|
 | FWHM | 35 % | ≤ 2 px | ≥ 7 px | `s = clamp(1 − (FWHM − 2) / 5, 0, 1)` |
-| Eccentricity | 35 % | 0 | ≥ 0.5 | `s = clamp(1 − e / 0.5, 0, 1)` |
+| Eccentricity | 35 % | 0 | ≥ 0.9 | `s = clamp(1 − e / 0.9, 0, 1)` |
 | SNR | 20 % | ≥ 20,000 | ≤ 100 | `s = clamp(log₁₀(SNR / 100) / log₁₀(200), 0, 1)` |
 | Star count | 10 % | ≥ 500 | 0 | `s = clamp(log₁₀(n + 1) / log₁₀(501), 0, 1)` |
 
 Star count uses a **log scale** so that a frame with 50 stars is not penalised as harshly as a frame with 0 stars.
+
+Eccentricity scores 0 from **0.9**, where trailed frames start (they measure 0.93–0.98). Normal frames measure about 0.5 on a colour camera and 0.4 on mono, elongated ones 0.65 and up, so the score keeps the three apart. Until version 1.24 the scale ended at 0.5: half the frames of a colour session got no eccentricity points at all, and a trail lost no more than a normal frame. Scores from 1.24 are therefore about 10–15 points higher than before for the same frame.
 
 **Frames without stars:** with fewer than 10 stars (thick cloud, dew, a closed cap, a flat) FWHM, eccentricity, SNR and PSF·S are left empty and the score is **0**. Auto-Flag and the command-line filters reject such a frame with any check turned on. Since version 1.24; before, one or two spurious spots on a flat could give it a score of 40, and a frame without any candidate got no metrics at all, so nothing could reject it.
 
@@ -191,7 +193,7 @@ The quality badge on each thumbnail is coloured by the **worst detected problem*
 
 | Colour | Condition |
 |--------|-----------|
-| 🔴 Red | Eccentricity > 0.5 (trailing), or FWHM > 1.5 × group median (focus failure) |
+| 🔴 Red | Eccentricity > 0.65 (trailing; Auto-Flag's default limit too), or FWHM > 1.5 × group median (focus failure) |
 | 🟡 Amber | Star count < 30–40 % of group median (low stars; threshold is 30 % for narrowband filters) |
 | 🟢 Green | Score is in the top third of the filter group |
 | ⚪ Grey | No problem detected, not in top third |

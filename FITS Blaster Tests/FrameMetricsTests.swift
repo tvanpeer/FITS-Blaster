@@ -90,14 +90,15 @@ struct FrameMetricsTests {
 
     // MARK: - badgeProblem
 
-    @Test("Trailing detected when eccentricity > 0.5")
+    @Test("Trailing detected when eccentricity > 0.65 (step 13h)")
     func trailingDetected() {
-        #expect(fullMetrics(eccentricity: 0.6).badgeProblem(stats: broadbandStats()) == .trailing)
+        #expect(fullMetrics(eccentricity: 0.66).badgeProblem(stats: broadbandStats()) == .trailing)
     }
 
-    @Test("Trailing not detected at eccentricity = 0.5")
+    @Test("Trailing not detected at eccentricity = 0.65, nor at 0.55 (a normal colour frame)")
     func trailingNotDetectedAtThreshold() {
-        #expect(fullMetrics(eccentricity: 0.5).badgeProblem(stats: broadbandStats()) != .trailing)
+        #expect(fullMetrics(eccentricity: 0.65).badgeProblem(stats: broadbandStats()) != .trailing)
+        #expect(fullMetrics(eccentricity: 0.55).badgeProblem(stats: broadbandStats()) != .trailing)
     }
 
     @Test("Focus fail detected when FWHM > median × 1.5")

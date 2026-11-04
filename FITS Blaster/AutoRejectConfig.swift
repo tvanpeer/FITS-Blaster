@@ -17,18 +17,19 @@ struct AutoRejectConfig: Sendable {
     var fwhmMultiplier: Double = 1.5     // relative: reject if FWHM > multiplier × group median
     var absoluteFWHM: Double = 3.5       // absolute: reject if FWHM (px) exceeds this
 
-    // Eccentricity — same threshold in both modes (inherently absolute)
+    // Eccentricity — same threshold in both modes (inherently absolute). The default is the
+    // red "trailing" badge's limit (step 13h; was 0.5).
     var useEccentricity: Bool = true
-    var eccentricityThreshold: Double = 0.5
+    var eccentricityThreshold: Double = MetricsCalculator.Constants.trailingEccentricity
 
     // Star count
     var useStarCount: Bool = true
-    var starCountMultiplier: Double = 0.40
+    var starCountMultiplier: Double = 0.50   // step 13h (was 0.40): catches thin cloud
     var absoluteStarCountFloor: Double = 20   // stored as Double for direct Slider binding
 
     // SNR
     var useSNR: Bool = true
-    var snrMultiplier: Double = 0.50
+    var snrMultiplier: Double = 0.60         // step 13h (was 0.50): catches thin cloud
     var absoluteSNRFloor: Double = 200.0   // star flux ÷ σ (step 13b; was 20 on the old peak ÷ σ)
 
     // Sky background

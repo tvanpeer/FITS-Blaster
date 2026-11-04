@@ -82,7 +82,7 @@ Reset clears the current session and restores the full free-tier frame allowance
 ### What does the Score badge mean?
 Each frame receives a coloured badge based on its metrics and how they compare to the rest of its filter group:
 
-- **Red** — trailing (eccentricity above 0.5) or a focus problem (FWHM more than 1.5 × the group median)
+- **Red** — trailing (eccentricity above 0.65) or a focus problem (FWHM more than 1.5 × the group median)
 - **Amber** — low star count (below 40 % of the group median, 30 % for narrowband), or no stars at all (fewer than 10: cloud, dew, a closed cap, a flat)
 - **Green** — no problem, and the frame's score is in the top third of its group
 - **Grey** — no problem, not in the top third
@@ -98,7 +98,7 @@ Full Width at Half Maximum — a measure of how sharp (tightly focused) the star
 FITS Blaster fits a Moffat β=4 profile (the same default as PixInsight's SubframeSelector) independently along the X and Y axes, then reports the geometric mean. Results agree with PixInsight Moffat4 within ±10% under typical conditions.
 
 ### What is Eccentricity?
-Eccentricity measures how elongated the stars are (0 = perfectly round, 1 = infinitely elongated). A value above ~0.5 usually indicates trailing from poor polar alignment, wind shake, or a mechanical issue. FITS Blaster reports the eccentricity of the median star candidate.
+Eccentricity measures how elongated the stars are (0 = perfectly round, 1 = infinitely elongated). Even perfectly round stars measure above 0 because of noise and the debayering: normal frames typically measure about 0.4 on a mono camera and about 0.5 on a colour camera. A value above about 0.65 indicates elongated stars (wind shake, guiding errors, tilt), and trailed frames measure 0.9 or more. FITS Blaster reports the eccentricity of the median star candidate.
 
 ### What is SNR?
 Signal-to-Noise Ratio — the total light of the measured stars divided by the background noise level. Higher is better. It shows how strong the star signal is: it rises with exposure time and transparency and falls with a brighter sky, but it doesn't depend on the seeing (that's FWHM). It is most useful for comparing frames within the same session rather than between different nights or setups. Since version 1.24 it is measured this way; SNR values from earlier versions are on a different scale.

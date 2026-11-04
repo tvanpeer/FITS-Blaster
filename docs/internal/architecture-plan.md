@@ -948,6 +948,37 @@ Decision 4 (2026-10-20): star count 0 and score 0, so they can be rejected. Meas
 
 **Result:** as planned. `california-flat` baseline: 18 flats star count 0, 2 with 1, all with empty metrics and score 0, none kept (before: 2 flats scored 36 and 40). The ten existing sets are unchanged (all metrics match). Tests 406: 9 new in `NoStarFrameTests`; 12 existing tests updated: the 4 that expected nil for a starless frame now expect star count 0 and score 0, and the synthetic fixtures with 1–5 stars now plant 10–12 (with peaks that differ, so they don't count as saturated), with `#require` where an `if let` would have let them pass without measuring anything (IntegrationTests, GPUTests, FITSMalformedInputTests, MetricsModeSwitchTests, MetricsOnlyLoadTests).
 
+### 13h plan (2026-11-04) — Auto-Flag defaults for cloud and elongation; eccentricity in the score
+
+Measured with the current code (after 13g) on all baseline sets, the REJECTED folders (measured separately, the tests don't read them) and three references: Tom's culling by eye, PixInsight ImageAnalysis (PSF Signal Weight, Eccentricity, CloudExtinction, ElongationCoherence) and, for M42 10 s, Astro Pixel Processor. New test set `lobster-cloud` (55be2de): LBN 537, L-Enhance, 121 frames, high clouds in waves at airmass 1.01–1.36.
+
+**Cloud (relative SNR and star count).** Yardstick on seven sessions: PixInsight PSF Signal Weight < 0.5 × median (28 frames, 21 of them California's setting target). Stars 0.4 | SNR 0.5 (now) catches 20, stars 0.5 | SNR 0.6 catches 25, no good frame flagged in either. On `lobster-cloud` against Tom's culling (20 cloudy frames): now 15, stars 0.5 | SNR 0.6 17, plus #1 (usable) and #2 (edge), no ok frame flagged. SNR 0.7 would catch all 20 but flags #0, #60, #69 (ok to Tom) and SHO S #0010 (PixInsight 1.00 ×). The three missed (#28, #47, #103: thin cloud with halos) look like usable frames in every metric, PixInsight's included (later item: halo metric). PSF·S adds nothing over SNR.
+
+**Elongation (eccentricity, absolute).** Since 13e/13f normal frames measure 0.49–0.53 on colour (80 % within ± 0.04) and 0.40–0.44 on mono; the default 0.5 flags 15–81 frames per colour session (California 0 → 29, Gamma Cygni 3 → 18 with 13e/13f). PixInsight would also flag many at 0.5 (M31 37 of 39). Against Tom's eye:
+- elongated: Lobster #62, #75, #77, #78 (0.66–0.74), M81 #89, #91, #66 (0.80, 0.71, 0.65, small differences), the trails in M42 10 s and 180 s REJECTED (0.93–0.98);
+- not elongated: Lobster #18, #61, #67, #71 (0.60–0.64), M81 #27, #65, #90 (0.66–0.68), Rosette G #8 (0.65), M42 10 s #39 (0.75).
+- Limit 0.65 catches all of Lobster's four and the trails and leaves Rosette G #8 alone; 0.6 adds four round Lobster frames and Rosette G #8; 0.7 misses Lobster #62 and #75; a relative rule (median + 0.15) flags Rosette G #8 and misses Lobster #62.
+- M42 10 s #39: PixInsight 0.78, APP star shape 0.40 (lowest), PixInsight elongation coherence 0.93 (median 0.32): an even stretch in one direction over the whole frame. All three programs put #16, #17, #23, #39 as the four least round. Known case: 0.65 flags it.
+- Not caught by any eccentricity rule: M42 180 s REJECTED #8 and #13 (0.56, 0.45), "a well-defined star with a stripe attached" (Tom): the core dominates the fit (later item).
+
+**Score.** Eccentricity is 35 % of the score with full points at 0 and none from 0.5, so half the colour frames get no eccentricity points and a trail (0.97) loses no more than a normal frame (0.55). With none from 0.9: kept frames +10–15 points (Lobster median 52 → 66, M31 53 → 68, SHO 64 → 77), trails stay 30, so the gap kept → trailed grows from 15 to 30 points and kept → elongated (Lobster) from 5 to 10. The order of frames within a session is unchanged.
+
+**Changes** (Tom, 2026-11-02 → 04):
+- **H1, Auto-Flag defaults** (`AutoRejectConfig`, not saved, so every user gets them the next time the sheet opens): `snrMultiplier` 0.50 → **0.60**, `starCountMultiplier` 0.40 → **0.50**, `eccentricityThreshold` 0.5 → **0.65**. Slider ranges (SNR 0.1–0.8, stars 0.1–0.7, eccentricity 0.3–0.9) hold the new values; the meaning of every slider stays the same. FWHM 1.5 ×, sky, PSF·S and score floor unchanged.
+- **H2, score scale for eccentricity** (`qualityScore`): `s = clamp(1 − e / 0.9, 0, 1)` instead of `1 − e / 0.5`; the bad end as one named constant (`Scale.eccentricityZero = 0.9`). Weights and the other three sub-scores unchanged.
+- **H3, badge** (to be agreed): the red "trailing" badge (`badgeProblem`, `ecc > 0.5`) uses the same 0.65 as Auto-Flag, as one shared constant, so a red badge and an Auto-Flag flag mean the same. Without it half the thumbnails of a colour session stay red. The amber low-stars badge (40 %, 30 % narrowband) stays as it is: it marks clearly low counts, Auto-Flag's 50 % is for checking.
+- **Unchanged:** the CLI has no defaults (every check is off until a threshold is passed, `-e` stays absolute), so the standard filter `-f 1.5 -e 0.5 -p 0.5` and every baseline's `kept` column are unchanged. Score floor 40 in absolute mode: kept (trails 30, California's cloudy end from 22); to check after the change. The inspector's score colours (80/60/40) are unchanged; scores rise, so more frames show yellow than orange.
+
+**Docs:** `Score.md` (eccentricity row of the score table, badge row), `FAQ.md` (badge colours, "What is Eccentricity?": 0.65 instead of ~0.5; the Auto-Flag defaults if mentioned), CHANGELOG; site FAQ at stable 1.24 (with SNR, ⌘-click and the badge). `FWHM-comparison.md`: a set 9 with the cloud and eccentricity measurements above.
+
+**Tests:** `AutoRejectConfig()` defaults (0.6, 0.5, 0.65); `QualityScoreTests` updated to the new scale (mid-range eccentricity 0.45 → 50, worst at 0.9, the "typical bad frame" fixture still ≤ 30); badge tests at 0.65 (0.66 → trailing, 0.65 not); the existing Auto-Flag tests set their thresholds explicitly and don't change. Then unit tests, render tests (full; renders don't depend on metrics), metric baselines: `score` changes on every frame of every set, all other metrics and every `kept` column unchanged; regenerate with `--update` after checking that only `score` moved.
+
+**Performance:** none (constants).
+
+**Later items from this measurement:** halo metric for thin cloud and moisture; "core with a stripe" frames measured round (M42 180 s #8, #13); NINA's ImageMetaData as a third reference (offered).
+
+**Result:** as planned (H3 agreed 2026-11-04). One shared constant `Constants.trailingEccentricity = 0.65` for the badge and Auto-Flag's default, `Scale.eccentricityZero = 0.9` in the score. Baselines: only `score` changed, on every frame (+6 to +16, average about +14; flats stay 0); every other metric and every `kept` column unchanged. Auto-Flag with the defaults flags, per set, old → new: Lobster 84 → 23, California 38 → 20, M31 15 → 5, M42 10 s 32 → 1, Gamma Cygni 18 → 0, M42 180 s 5 → 0, Rosette and SHO 1–2 → 0. Tests 408 (2 new: defaults, eccentricity scale); updated: the badge tests (0.66 trailing, 0.65 and 0.55 not), the score tests to the 0.9 end, and the "typical bad frame" fixture's eccentricity from 0.4 to 0.8 (0.4 is a normal frame on the new scale and would score 40). Also removed an unused local (`columnNeighbourBackground` in `measureFWHMOnly`, left over from 13d), the build's only warning. Set 9 in `FWHM-comparison.md`.
+
 ---
 
 ## Step 14 — Configuration, security and release tooling

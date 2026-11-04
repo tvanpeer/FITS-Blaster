@@ -56,7 +56,6 @@ extension MetricsCalculator {
         let cell = SkyLevels.cellIndex(x: cx, y: cy)
         let background = sky.background[cell]
         let rowNeighbourBackground = sky.background[cell ^ 1]       // left, right
-        let columnNeighbourBackground = sky.background[cell ^ 2]    // above, below
         let peak = pixels[rowStart + cx] - background
         guard peak > 0 else { return 0 }
 

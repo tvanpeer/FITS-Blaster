@@ -86,8 +86,9 @@ extension MetricsCalculator {
         }
         if let v = eccentricity {
             let w: Float = 0.35
-            // Ideal 0, bad at 0.5+
-            let s = max(0, min(1, 1 - v / 0.5))
+            // Ideal 0, no points from 0.9 (trails measure 0.93–0.98, normal frames about
+            // 0.5, so trails stay apart from mildly elongated frames; step 13h, was 0.5)
+            let s = max(0, min(1, 1 - v / Scale.eccentricityZero))
             weightedSum += s * w; totalWeight += w
         }
         if let v = snr {
@@ -114,6 +115,8 @@ extension MetricsCalculator {
         static let snrZero: Float = 100
         /// SNR that scores full marks.
         static let snrFull: Float = 20_000
+        /// Eccentricity that scores 0 (step 13h; was 0.5).
+        static let eccentricityZero: Float = 0.9
     }
 
     // MARK: - Helpers

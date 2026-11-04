@@ -29,7 +29,7 @@ struct QualityScoreTests {
 
     @Test("Worst single metric scores 0", arguments: [
         (10.0 as Float?, nil   as Float?, nil  as Float?, nil as Int?, "FWHM ≥ 7"),
-        (nil,             0.6,             nil,            nil,         "Ecc ≥ 0.5"),
+        (nil,             0.9,             nil,            nil,         "Ecc ≥ 0.9"),
         (nil,             nil,             50.0,           nil,         "SNR ≤ 100"),
         (nil,             nil,             nil,            0,           "0 stars"),
     ])
@@ -61,9 +61,9 @@ struct QualityScoreTests {
                                                 snr: nil, starCount: nil) == 50)
     }
 
-    @Test("Mid-range eccentricity (0.25) scores 50")
+    @Test("Mid-range eccentricity (0.45) scores 50")
     func midRangeEccentricity() {
-        #expect(MetricsCalculator.qualityScore(fwhm: nil, eccentricity: 0.25,
+        #expect(MetricsCalculator.qualityScore(fwhm: nil, eccentricity: 0.45,
                                                 snr: nil, starCount: nil) == 50)
     }
 
@@ -83,7 +83,7 @@ struct QualityScoreTests {
 
     @Test("Perfect FWHM + worst eccentricity renormalises to 50")
     func mixedGoodAndBadRenormalises() {
-        #expect(MetricsCalculator.qualityScore(fwhm: 1.5, eccentricity: 0.6,
+        #expect(MetricsCalculator.qualityScore(fwhm: 1.5, eccentricity: 0.9,
                                                 snr: nil, starCount: nil) == 50)
     }
 
@@ -98,8 +98,21 @@ struct QualityScoreTests {
 
     @Test("Typical bad frame scores ≤ 30")
     func typicalBadFrame() {
-        let score = MetricsCalculator.qualityScore(fwhm: 5.5, eccentricity: 0.4,
+        // Eccentricity 0.8: clearly elongated on the 0 → 0.9 scale (step 13h; was 0.4 on 0 → 0.5)
+        let score = MetricsCalculator.qualityScore(fwhm: 5.5, eccentricity: 0.8,
                                                     snr: 300, starCount: 40)
         #expect(score <= 30)
+    }
+
+    // MARK: - Eccentricity scale (step 13h)
+
+    @Test("A normal colour frame (0.5) keeps eccentricity points; a trail (0.95) gets none")
+    func eccentricityScale() {
+        let normal = MetricsCalculator.qualityScore(fwhm: nil, eccentricity: 0.5, snr: nil, starCount: nil)
+        let elongated = MetricsCalculator.qualityScore(fwhm: nil, eccentricity: 0.7, snr: nil, starCount: nil)
+        let trail = MetricsCalculator.qualityScore(fwhm: nil, eccentricity: 0.95, snr: nil, starCount: nil)
+        #expect(normal == 44)
+        #expect(elongated == 22)
+        #expect(trail == 0)
     }
 }

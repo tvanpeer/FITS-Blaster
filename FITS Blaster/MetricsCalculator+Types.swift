@@ -56,6 +56,10 @@ extension MetricsCalculator {
         /// reject it (step 13g, CODE_AUDIT §5.4). Flats count 0–2 spurious "stars"; real
         /// frames in the test sets have 80 or more.
         static let minimumStars             = 10
+        /// Eccentricity above which a frame counts as elongated: the red "trailing" badge
+        /// and Auto-Flag's default limit. Normal frames measure about 0.5 on colour and 0.4
+        /// on mono; elongated ones 0.65 and up, trails 0.9 and up (step 13h).
+        static let trailingEccentricity     = 0.65
         /// Inner and outer radius (pixels) of the ring that gives the local sky and noise.
         static let contrastRingInner       = 6
         static let contrastRingOuter       = 10
