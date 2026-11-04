@@ -4,6 +4,17 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-11-04 — Right-click menu in the thumbnail bar
+
+### Added
+- **Right-click a frame in the thumbnail bar** for Show in Finder, Copy File Path, Flag/Deflag, Reject, Undo Reject and Remove from List. When the frame is part of the orange selection the menu acts on the whole selection, as in Finder; otherwise on that frame alone, and the cursor and selection stay as they are. The items show your keys; with the single-key reject/undo setting there is one reject item (Reject or Undo Reject), which does what the key does. Remove from List shows no key, because the remove key removes the flagged frames instead. The FAQ describes the menu. Show in Finder also works in the sandboxed App Store build (checked on macOS 27.3 beta 1).
+
+### Under the hood
+- `removeSelected` now shares its work with the menu's Remove (`removeEntries(withIDs:alwaysMoveCursor:)`); the remove key behaves as before.
+- The macOS 27.3 beta 1 test VM (26C5035r) replaced the 27.2 one as `fb-27-beta`; `docs/internal/testing.md` lists it.
+
+---
+
 ## 2026-11-04 — Plan for large stars (long focal lengths)
 
 ### Under the hood

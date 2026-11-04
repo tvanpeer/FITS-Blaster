@@ -101,7 +101,7 @@ Tart base VM (see [VMs](#vms)); every test runs on a fresh clone of it.
 | Level | macOS | Base VM | Tests |
 |---|---|---|---|
 | **Fully tested** | Newest 27 release (27.2 on 2026-10-28) | `fb-27` | Automatic smoke test, metric baselines, render check **and** 👤 the manual checks below |
-| **Fully tested** | Current 27 beta or RC; between betas the newest release (27.2 on 2026-10-28) | `fb-27-beta` | Same |
+| **Fully tested** | Current 27 beta or RC; between betas the newest release (27.3 beta 1 on 2026-11-04) | `fb-27-beta` | Same |
 | **Automatically tested** | Latest 26 release | `fb-26` | Automatic smoke test, metric baselines, render check — no person needed |
 | **Automatically tested** | Latest 15 release | `fb-15` | Same |
 | Supported, not tested | Everything else from 15.6 (the app's minimum) | — | — |
@@ -526,7 +526,7 @@ from scripts: clone, start, stop and delete.
 
 | Base VM | macOS | Level | Created with |
 |---|---|---|---|
-| `fb-27-beta` | 27.2 (26B123) | Fully tested | `tart-create-base.sh` (2026-10-28, no clicks needed), 80 GB disk; the 27.2 release, until the first 27.3 beta (Tom's choice). Replaced the 27.2 RC VM (26B118, 2026-10-22) |
+| `fb-27-beta` | 27.3 beta 1 (26C5035r) | Fully tested | `tart-create-base.sh` (2026-11-04, licence clicks needed, 6 minutes + 16 to settle), 120 GB disk; installer from betaprofile.dev, SHA-256 checked. Replaced the 27.2 release VM (26B123, 2026-10-28) |
 | `fb-27` | 27.2 (26B123) | Fully tested | `tart-create-base.sh` (2026-10-28, no clicks needed, 6 minutes + 17 to settle), 80 GB disk; replaced the 27.0.1 VM (26A434, 2026-10-20) |
 | `fb-26` | 26.7.2 (25G332) | Automatically tested | `--manual` from 26.6.2 (2026-10-15); resized to 120 GB and upgraded with the full installer (2026-10-28, no clicks needed) |
 | `fb-15` | 15.8.2 (24H232) | Automatically tested | `--manual` from 15.6.1 (2026-10-15), updated to 15.8.1 (2026-10-15); resized to 120 GB and upgraded with the full installer (2026-10-28, no clicks needed) |

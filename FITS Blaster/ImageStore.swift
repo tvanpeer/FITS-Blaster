@@ -405,6 +405,13 @@ final class ImageStore {
         let idsToRemove: Set<UUID> = !flaggedEntryIDs.isEmpty
             ? flaggedEntryIDs
             : selectedEntry.map { [$0.id] } ?? []
+        removeEntries(withIDs: idsToRemove, alwaysMoveCursor: true)
+    }
+
+    /// Removes these entries from the list without touching files on disk. The cursor goes
+    /// to the next entry after the removed block, or the previous one at the end: always
+    /// (`removeSelected`, as before), or only when the cursor was removed (context menu).
+    func removeEntries(withIDs idsToRemove: Set<UUID>, alwaysMoveCursor: Bool) {
         guard !idsToRemove.isEmpty else { return }
 
         // Find a replacement selection from the current sorted order.
@@ -420,14 +427,17 @@ final class ImageStore {
             nextEntry = ordered.first { !idsToRemove.contains($0.id) }
         }
 
+        let cursorRemoved = selectedEntry.map { idsToRemove.contains($0.id) } ?? false
         entries.removeAll { idsToRemove.contains($0.id) }
-        flaggedEntryIDs = []
+        // removeSelected removes either every flagged entry or (with no flags) the cursor,
+        // so this empties the flagged set there, as before; the menu keeps other flags.
+        flaggedEntryIDs.subtract(idsToRemove)
         // Removed IDs must not linger in the other selection state (CODE_AUDIT §5.15).
         markedForRejectionIDs.subtract(idsToRemove)
         rejectedEntryIDs.subtract(idsToRemove)
         cursorPerFilterGroup = cursorPerFilterGroup.filter { !idsToRemove.contains($0.value) }
         cursorPerVisibility = cursorPerVisibility.filter { !idsToRemove.contains($0.value) }
-        selectedEntry = nextEntry
+        if alwaysMoveCursor || cursorRemoved { selectedEntry = nextEntry }
         updateGroupStatistics()
     }
 

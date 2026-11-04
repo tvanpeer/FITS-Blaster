@@ -189,6 +189,16 @@ It depends on the **Single key reject/undo (toggle)** setting in Settings → Ke
 
 In either case, if the `REJECTED/` folder becomes empty after an undo, it is removed automatically.
 
+### Is there a right-click menu for frames?
+Yes. Right-click (or Control-click) a frame in the thumbnail bar on the left:
+
+- **Show in Finder** opens a Finder window with the file selected (a rejected frame in its `REJECTED/` folder).
+- **Copy File Path** copies the file's full path; several frames give one path per line.
+- **Flag / Deflag**, **Reject** and **Undo Reject** do what their keys do; the menu shows your keys. With the single-key reject/undo setting there is one item, Reject or Undo Reject, as the key would do.
+- **Remove from List** takes the frame out of the list; the file stays where it is.
+
+When the frame you right-click is part of the orange selection, the menu acts on the whole selection, as in Finder; otherwise on that frame alone. The cursor and the selection stay as they are.
+
 ### How do I sort the sidebar?
 Use the sort dropdown in the sidebar toolbar to choose between **filename** (the default, reflecting capture order) or any quality metric: **FWHM**, **eccentricity**, **SNR**, **star count**, or **quality score**. The up/down arrow button next to it reverses the sort direction. Sorting by quality score with the worst frames at the bottom makes it quick to select and reject the tail of the list as a group.
 

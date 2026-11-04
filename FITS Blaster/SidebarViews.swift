@@ -171,6 +171,8 @@ struct ThumbnailSidebar: View {
             ThumbnailRow(entry: entry, metric: chartMetric)
         }
         .buttonStyle(.plain)
+        // Right-click: Show in Finder, Copy File Path, Flag, Reject / Undo, Remove.
+        .contextMenu { SidebarFrameMenu(entry: entry) }
         .id(entry.id)
     }
 }
