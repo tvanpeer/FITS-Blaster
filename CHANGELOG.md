@@ -4,6 +4,13 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-11-04 — Plan for large stars (long focal lengths)
+
+### Under the hood
+- Master-plan item 13i: on frames from a long focal length (stars of 10 px FWHM and more) the star count finds none of the real stars, because the local-contrast check measures the sky 6–10 px from the centre, which is still on the star itself. Measurements and next steps in `docs/internal/architecture-plan.md` (13i). No change to the app yet.
+
+---
+
 ## 2026-11-04 — Auto-Flag catches thin cloud and elongated stars, not normal frames
 
 ### Changed

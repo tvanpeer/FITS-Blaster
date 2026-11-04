@@ -979,6 +979,24 @@ Measured with the current code (after 13g) on all baseline sets, the REJECTED fo
 
 **Result:** as planned (H3 agreed 2026-11-04). One shared constant `Constants.trailingEccentricity = 0.65` for the badge and Auto-Flag's default, `Scale.eccentricityZero = 0.9` in the score. Baselines: only `score` changed, on every frame (+6 to +16, average about +14; flats stay 0); every other metric and every `kept` column unchanged. Auto-Flag with the defaults flags, per set, old → new: Lobster 84 → 23, California 38 → 20, M31 15 → 5, M42 10 s 32 → 1, Gamma Cygni 18 → 0, M42 180 s 5 → 0, Rosette and SHO 1–2 → 0. Tests 408 (2 new: defaults, eccentricity scale); updated: the badge tests (0.66 trailing, 0.65 and 0.55 not), the score tests to the 0.9 end, and the "typical bad frame" fixture's eccentricity from 0.4 to 0.8 (0.4 is a normal frame on the new scale and would score 40). Also removed an unused local (`columnNeighbourBackground` in `measureFWHMOnly`, left over from 13d), the build's only warning. Set 9 in `FWHM-comparison.md`.
 
+### 13i (2026-11-04, open) — large stars (long focal length, oversampled data)
+
+**Found on** four frames from a CDK14 at 2563 mm with a full-frame mono camera (0.30"/px, 9576 × 6388, one frame per filter, no guiding; NGC 253). PixInsight and APP measure FWHM 10.7–13.0 px; we measure 7.4–8.2 px, in a different order (PixInsight and APP: G best, B worst; we: B best, L worst). Eccentricity: PixInsight 0.50–0.60 on L, G and B (elongation coherence 0.91–0.97), we 0.26–0.34. Stars: we 466–866, PixInsight 56–106, APP 136–184.
+
+**Synthetic test** (temporary `TmpLargeStarTests`, not committed): mono 1024², σ ≈ 11.5, 81 Moffat β = 4 stars, peaks 150–30,000, round and true eccentricity 0.6.
+- FWHM 3–6 px: 77–78 of 81 counted, FWHM within 0.03 px, eccentricity 0.10–0.13 round and 0.60 elongated. 8 px: 64–67 counted, FWHM 8.0, eccentricity 0.22 round and 0.60 elongated.
+- **FWHM 10–16 px: no star counted**, so the frame counts as a frame without stars (13g).
+- Cause: `localContrast` (ring at 6–10 px, `Constants.contrastRingInner/Outer`) lies on the star's own flank. On the brightest star the contrast is 1307 at 3 px, 38 at 6, 12.3 at 8, 8.9 at 9, 7.3 at 10, 4.2 at 16 px, independent of brightness from about 8 px; `countContrast` needs 12. `measureFWHMOnly` and `hasStarNeighbours` pass at every size (16 px measures 15.99).
+- So on the real frames the 11–13 px stars drop out, and what is left (smaller and fainter sources, possibly knots in the galaxy) gives the low FWHM and the high count. Not yet confirmed on the real frames.
+
+**Other fixed pixel sizes to check** for large stars: the Moffat fit (±10 px, `Shape.moffatHalfWidth`), the crop around each star (25 × 25, `cropHalf = 12`), the centroid window (5 × 5), NMS separation (3 px: several local maxima on a wide, noisy star top?), `acceptedFWHM` up to 20 px.
+
+**Next, when more frames of this session are in** (Tom asks the owner for at least 10 per filter, rejected frames with the reason, and permission to use them as a test set; the header names the observer, so only file names and our measurements may go in the repo):
+1. Star positions on the real frames: what the counted sources are, against PixInsight's star list.
+2. The synthetic test extended to the other fixed sizes above (crop and fit window at 12–16 px, NMS on wide tops), with and without noise.
+3. A plan: scale the ring (and where needed the crop and fit window) with the star size, e.g. a ring from about 1.5–2 × the `measureFWHMOnly` FWHM, keeping 6–10 px for stars up to about 6 px so the existing sets stay byte-identical (checked with the baselines). Performance: larger rings only on frames with large stars.
+4. A test set from the session, if the owner agrees, under a name without his name.
+
 ---
 
 ## Step 14 — Configuration, security and release tooling
