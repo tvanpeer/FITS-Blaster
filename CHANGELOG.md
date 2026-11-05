@@ -4,6 +4,13 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-11-05 — Colour spaces dropped from the plan
+
+### Under the hood
+- The planned switch to named sRGB / grey colour spaces (master-plan step 13, CODE_AUDIT §4.5, decision 8) is dropped: colour accuracy is not a primary goal of culling. Renders stay as they are.
+
+---
+
 ## 2026-11-05 — Large stars measured correctly (long focal length, step 13i)
 
 ### Fixed

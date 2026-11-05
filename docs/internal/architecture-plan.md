@@ -718,7 +718,7 @@ All decided on 2026-10-20 (see "Decisions").
 
 - **Frames with no stars** (§5.4, decision 4: yes): return metrics with star count 0 and score 0, so Auto-Flag and the CLI filters can reject them. Do this together with the "score ignores cloudy frames" investigation (memory note; same root cause area). Changes CSV output and the metric baselines: regenerate them in the same commit and say so in the CHANGELOG.
 - **Small groups** (§5.16, decision 5): true median for even counts; relative checks skipped for groups under 3 frames. **Done 2026-11-05:** group statistics only (badges, Auto-Flag and CLI relative mode, header, chart line); the stretch clip medians stay as they are (Tom, 2026-11-05: a true median there changes renders, the sample set too). Groups under 3 frames with stars skip every check against the median and the focus-fail and low-star badges; the Auto-Flag sheet and the CLI (stderr) name those groups. No test set has such a group; baselines and renders unchanged.
-- **Colour spaces** (§4.5, decision 8: yes): named sRGB / grey spaces instead of device spaces. Changes rendered pixels: update the render-test targets and check `TARGET_LEVEL` / offsets in the smoke test.
+- ~~**Colour spaces** (§4.5, decision 8: yes): named sRGB / grey spaces instead of device spaces.~~ **Dropped 2026-11-05 (Tom):** colour accuracy is not a primary goal of culling, so renders stay on device spaces.
 - If step 8 or 9 chose to unify grey and colour statistics or accept render differences, those changes land here too.
 - **Input, not decided yet** (2026-10-23, [FWHM-comparison set 3](FWHM-comparison.md)): on colour (OSC) frames the background σ includes the R/G/B sky spread, which raises the detection threshold and lowers SNR and PSF Signal Weight more the longer the exposure; and saturated stars are missed (METAL_REVIEW M3). Possible fixes: background and σ per Bayer channel, and counting a saturated top as one star. Both need a decision before they join this step.
 
@@ -1099,7 +1099,7 @@ Answered by Tom on 2026-10-20 (the earlier open questions, same numbers):
 5. **§5.16** small groups: true median for even counts, and relative checks skipped for groups under 3 frames (absolute checks still apply) (step 13).
 6. **§5.11** CLI when no frame passes: write a CSV with only the header row and exit with its own exit code, documented in `--help` (step 12).
 7. **§7.2** fewer reads: (a), a display-size proxy per frame; confirmed with a measurement at the start of step 9. **Reopened 2026-10-29:** a proxy kept per frame costs more memory than the display image; see the 9f proposal in step 9.
-8. **§4.5** colour spaces: switch to named sRGB / grey spaces (step 13, render targets updated and checked by eye).
+8. **§4.5** colour spaces: switch to named sRGB / grey spaces (step 13, render targets updated and checked by eye). **Reversed 2026-11-05:** skipped; colour accuracy is not a primary goal of culling.
 9. **§9.11** export column order: the order chosen in Settings → Export, also in the Export sheet (step 4).
 10. **§9.6** grey and colour statistics: keep their current differences as explicit parameters; no render change (step 8). Making them the same is not planned.
 
