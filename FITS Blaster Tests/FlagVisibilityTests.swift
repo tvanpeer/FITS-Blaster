@@ -58,8 +58,15 @@ struct FlagVisibilityTests {
         low.metrics = FrameMetrics(fwhm: nil, eccentricity: nil, snr: nil, starCount: nil,
                                     qualityScore: 50, skyBackground: nil, psfSignalWeight: 2.0)
 
+        // A third frame: relative checks need at least 3 frames (CODE_AUDIT §5.16).
+        let middle = ImageEntry(url: URL(fileURLWithPath: "/tmp/\(UUID().uuidString).fits"))
+        middle.isProcessing = false
+        middle.metrics = FrameMetrics(fwhm: nil, eccentricity: nil, snr: nil, starCount: nil,
+                                       qualityScore: 50, skyBackground: nil, psfSignalWeight: 7.0)
+
         store.entries.append(high)
         store.entries.append(low)
+        store.entries.append(middle)
         store.updateGroupStatistics()
         return (store, high, low)
     }
@@ -141,7 +148,7 @@ struct FlagVisibilityTests {
 
     @Test("applyAutoFlag with relative PSF threshold flags the low-PSF entry")
     func psfRelativeAutoflag() {
-        // Median PSF = (8.0 + 2.0) / 2 = 5.0; multiplier 0.5 → floor = 2.5; low (2.0) < 2.5 → flagged
+        // Median PSF of 8, 2, 7 = 7.0; multiplier 0.5 → floor = 3.5; low (2.0) < 3.5 → flagged
         let (store, _, lowPSF) = makePSFStore()
         var config = AutoRejectConfig()
         config.mode = .relative
@@ -159,7 +166,7 @@ struct FlagVisibilityTests {
         var config = AutoRejectConfig()
         config.mode = .absolute
         config.usePSF = true
-        config.absolutePSFFloor = 3.0   // low entry (2.0) is below floor; high entry (8.0) is not
+        config.absolutePSFFloor = 3.0   // low entry (2.0) is below floor; the others (8.0, 7.0) are not
         store.applyAutoFlag(config: config)
 
         #expect(store.flaggedEntryIDs.contains(lowPSF.id), "Low-PSF entry should be flagged")

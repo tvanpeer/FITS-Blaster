@@ -155,7 +155,8 @@ struct NoStarFrameTests {
     func groupMedians() throws {
         let (store, _) = makeStore()
         let stats = try #require(store.groupStatistics.values.first)
-        #expect(stats.medianStarCount == 440)   // upper median of 400…460; with the 2 it would be 420
+        #expect(stats.medianStarCount == 430)   // median of 400…460; with the 2 it would be 420
+        #expect(stats.frameCount == 4)
     }
 
     @Test("A frame without stars gets the low-stars badge, even without group statistics")

@@ -20,11 +20,12 @@ struct FrameMetricsTests {
                      skyBackground: nil, psfSignalWeight: nil)
     }
 
-    private func broadbandStats(medianFWHM: Float = 3.0, medianStarCount: Int = 200) -> GroupStats {
+    private func broadbandStats(medianFWHM: Double = 3.0, medianStarCount: Double = 200,
+                                frameCount: Int = 20) -> GroupStats {
         GroupStats(medianFWHM: medianFWHM, medianEccentricity: 0.2,
                    medianStarCount: medianStarCount, medianSNR: 100,
                    medianScore: 70, medianSkyBackground: nil, medianPSFSignalWeight: nil,
-                   topThirdScoreFloor: 80, isNarrowband: false)
+                   frameCount: frameCount, topThirdScoreFloor: 80, isNarrowband: false)
     }
 
     // MARK: - hasData
@@ -118,7 +119,7 @@ struct FrameMetricsTests {
         let stats = GroupStats(medianFWHM: 3.0, medianEccentricity: 0.2,
                                medianStarCount: 100, medianSNR: 80,
                                medianScore: 60, medianSkyBackground: nil, medianPSFSignalWeight: nil,
-                               topThirdScoreFloor: 70, isNarrowband: true)
+                               frameCount: 20, topThirdScoreFloor: 70, isNarrowband: true)
 
         // 35 stars > 30% of 100 → no problem
         #expect(fullMetrics(fwhm: 3.0, eccentricity: 0.1, starCount: 35)

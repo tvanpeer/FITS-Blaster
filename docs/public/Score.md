@@ -198,4 +198,4 @@ The quality badge on each thumbnail is coloured by the **worst detected problem*
 | 🟢 Green | Score is in the top third of the filter group |
 | ⚪ Grey | No problem detected, not in top third |
 
-The group median thresholds are computed separately for each filter group (Ha, OIII, etc.) so that narrowband frames with naturally lower star counts are not unfairly penalised against broadband frames.
+The group median thresholds are computed separately for each filter group (Ha, OIII, etc.) so that narrowband frames with naturally lower star counts are not unfairly penalised against broadband frames. With an even number of frames the median is the mean of the two middle values. A group needs at least 3 frames with stars for the median checks: in a smaller group the focus and low-star badges (and Auto-Flag's relative checks) are left out, because a bad frame would set much of its own yardstick; the trailing badge and frames without stars still apply.

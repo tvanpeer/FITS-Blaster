@@ -43,11 +43,15 @@ struct SessionListsTests {
         #expect(groups[1].entries.map(\.id) == [o1.id, o2.id])
     }
 
-    @Test("The median is the middle value after sorting, the upper one for an even count")
-    func upperMedian() {
-        #expect([Float]().upperMedian == nil)
-        #expect([3, 1, 2].upperMedian == 2)
-        #expect([4, 1, 3, 2].upperMedian == 3)
+    @Test("The median is the middle value after sorting; for an even count the mean of the two middle ones")
+    func median() {
+        #expect([Float]().median == nil)
+        #expect([Int]().median == nil)
+        #expect([3, 1, 2].median == 2)
+        #expect([4, 1, 3, 2].median == 2.5)
+        #expect([Float(3.5)].median == 3.5)
+        #expect([Float(1), 2].median == 1.5)
+        #expect([Double(7), 1, 4, 9, 2, 8].median == 5.5)
     }
 
     // MARK: - Stored sidebar lists

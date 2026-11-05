@@ -344,13 +344,14 @@ final class ImageStore {
             let groupEntries = allGroupEntries.filter { !($0.metrics?.hasNoStars ?? false) }
             let scores = groupEntries.compactMap { $0.metrics?.qualityScore }.sorted()
             result[group] = GroupStats(
-                medianFWHM:            groupEntries.compactMap { $0.metrics?.fwhm }.upperMedian,
-                medianEccentricity:    groupEntries.compactMap { $0.metrics?.eccentricity }.upperMedian,
-                medianStarCount:       groupEntries.compactMap { $0.metrics?.starCount }.upperMedian,
-                medianSNR:             groupEntries.compactMap { $0.metrics?.snr }.upperMedian,
-                medianScore:           scores.upperMedian,
-                medianSkyBackground:   groupEntries.compactMap { $0.metrics?.skyBackground }.upperMedian,
-                medianPSFSignalWeight: groupEntries.compactMap { $0.metrics?.psfSignalWeight }.upperMedian,
+                medianFWHM:            groupEntries.compactMap { $0.metrics?.fwhm }.median,
+                medianEccentricity:    groupEntries.compactMap { $0.metrics?.eccentricity }.median,
+                medianStarCount:       groupEntries.compactMap { $0.metrics?.starCount }.median,
+                medianSNR:             groupEntries.compactMap { $0.metrics?.snr }.median,
+                medianScore:           scores.median,
+                medianSkyBackground:   groupEntries.compactMap { $0.metrics?.skyBackground }.median,
+                medianPSFSignalWeight: groupEntries.compactMap { $0.metrics?.psfSignalWeight }.median,
+                frameCount:            groupEntries.filter { $0.metrics != nil }.count,
                 topThirdScoreFloor:    scores.count < 3 ? nil : scores[scores.count * 2 / 3],
                 isNarrowband:          group.isNarrowband
             )

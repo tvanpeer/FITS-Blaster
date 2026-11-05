@@ -21,7 +21,7 @@ struct MetricTests {
     private func fullStats() -> GroupStats {
         GroupStats(medianFWHM: 3.0, medianEccentricity: 0.2, medianStarCount: 180,
                    medianSNR: 90.0, medianScore: 65, medianSkyBackground: 1000.0,
-                   medianPSFSignalWeight: 40.0, topThirdScoreFloor: 80, isNarrowband: false)
+                   medianPSFSignalWeight: 40.0, frameCount: 20, topThirdScoreFloor: 80, isNarrowband: false)
     }
 
     // MARK: - value(from:) — nil cases

@@ -167,6 +167,11 @@ enum CLIRunner {
             let good = baseFrames.filter { !badIDs.contains($0.id) }
             let nBad = badIDs.count
             fputs("Filtered out \(nBad) frame\(nBad == 1 ? "" : "s"); keeping \(good.count).\n", stderr)
+            if config.isAnyRelativeCheckOn {
+                for (group, count) in store.groupsTooSmallForRelativeChecks {
+                    fputs("note: filter group \(group.rawValue): \(count) frame\(count == 1 ? "" : "s"), relative checks skipped (they need at least \(GroupStats.minimumFramesForRelativeChecks)).\n", stderr)
+                }
+            }
             if good.isEmpty {
                 fputs("warning: no frames passed the filter criteria; exporting all \(baseFrames.count) frame\(baseFrames.count == 1 ? "" : "s").\n", stderr)
                 frames = baseFrames

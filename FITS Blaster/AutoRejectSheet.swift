@@ -22,7 +22,8 @@ struct AutoRejectSheet: View {
             SheetHeader()
             Divider()
             Form {
-                ModePicker(mode: $config.mode)
+                ModePicker(mode: $config.mode,
+                           smallGroups: config.isAnyRelativeCheckOn ? store.groupsTooSmallForRelativeChecks : [])
                 FWHMSection(config: $config)
                 EccentricitySection(config: $config)
                 StarCountSection(config: $config)
@@ -67,6 +68,14 @@ private struct SheetHeader: View {
 
 private struct ModePicker: View {
     @Binding var mode: AutoRejectConfig.Mode
+    /// Filter groups too small for relative checks, shown as a note in relative mode.
+    let smallGroups: [(group: FilterGroup, frameCount: Int)]
+
+    /// "Ha (2 frames), OIII (1 frame)".
+    private var smallGroupList: String {
+        smallGroups.map { "\($0.group.rawValue) (\($0.frameCount) frame\($0.frameCount == 1 ? "" : "s"))" }
+            .formatted(.list(type: .and))
+    }
 
     var body: some View {
         Section("Threshold Mode") {
@@ -87,6 +96,12 @@ private struct ModePicker: View {
             }
             .scaledFont(size: 10)
             .foregroundStyle(.secondary)
+            if !smallGroups.isEmpty {
+                Label("Too few frames to compare with a median in \(smallGroupList): relative checks need at least \(GroupStats.minimumFramesForRelativeChecks) frames and skip these groups. Eccentricity and frames without stars are still checked.",
+                      systemImage: "info.circle")
+                    .scaledFont(size: 10)
+                    .foregroundStyle(.secondary)
+            }
         }
     }
 }

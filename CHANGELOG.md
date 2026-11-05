@@ -4,6 +4,18 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-11-05 — Small filter groups: true median, no relative checks under 3 frames
+
+### Changed
+- **The group median is a true median:** with an even number of frames it is the mean of the two middle values (it was the upper one). This applies to the badges, Auto-Flag's relative mode, the command line's relative filter, the group header and the chart's median line.
+- **Groups with fewer than 3 frames with stars skip the checks against the group median**: Auto-Flag's and the command line's relative checks (FWHM, stars, SNR, sky, PSF·S), and the focus-fail and low-star badges. In such a small group a bad frame sets much of its own yardstick. Eccentricity, absolute mode, frames without stars and the trailing badge still apply. The Auto-Flag sheet names the groups this applies to, and the command line prints a note for each.
+- The stretch keeps its median clips as they are (a true median there would change renders, including the sample set).
+
+### Under the hood
+- `Array.median` (true median, `Double`) replaces `upperMedian`; `GroupStats` medians are `Double` and it has `frameCount` and `allowsRelativeChecks`. The score doesn't use group medians and is unchanged. Master-plan step 13 (CODE_AUDIT §5.16, decision 5). No test set has a group under 3 frames; renders and all metric baselines are unchanged. Score.md and the FAQ describe the rule.
+
+---
+
 ## 2026-11-05 — Clear frames no longer turn black after loading (GitHub issue #10)
 
 ### Fixed

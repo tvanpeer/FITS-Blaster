@@ -265,6 +265,17 @@ extension ImageStore {
 
     // MARK: - Auto-reject
 
+    /// Filter groups with too few frames for checks against the group median, with the
+    /// number of frames the median would come from, in filter-group order. Groups whose
+    /// frames all have no stars are left out: those frames fail every check anyway.
+    var groupsTooSmallForRelativeChecks: [(group: FilterGroup, frameCount: Int)] {
+        FilterGroup.allCases.compactMap { group in
+            guard let stats = groupStatistics[group], !stats.allowsRelativeChecks,
+                  stats.frameCount > 0 else { return nil }
+            return (group: group, frameCount: stats.frameCount)
+        }
+    }
+
     /// Returns entries that would be rejected by `config`, without touching any files.
     ///
     /// Thresholds are evaluated per filter group so that narrowband groups with naturally
@@ -286,16 +297,18 @@ extension ImageStore {
 
             switch config.mode {
             case .relative:
-                if config.useFWHM, let fwhm = m.fwhm, let medFWHM = gs?.medianFWHM,
-                   Double(fwhm) > Double(medFWHM) * config.fwhmMultiplier { return true }
-                if config.useStarCount, let stars = m.starCount, let medStars = gs?.medianStarCount,
-                   Double(stars) < Double(medStars) * config.starCountMultiplier { return true }
-                if config.useSNR, let snr = m.snr, let medSNR = gs?.medianSNR,
-                   Double(snr) < Double(medSNR) * config.snrMultiplier { return true }
-                if config.useSkyBackground, let bg = m.skyBackground, let medBG = gs?.medianSkyBackground,
-                   Double(bg) > Double(medBG) * config.skyBackgroundMultiplier { return true }
-                if config.usePSF, let psf = m.psfSignalWeight, let medPSF = gs?.medianPSFSignalWeight,
-                   Double(psf) < Double(medPSF) * config.psfMultiplier { return true }
+                // Too few frames to compare with the group median: only the checks above.
+                guard let gs, gs.allowsRelativeChecks else { return false }
+                if config.useFWHM, let fwhm = m.fwhm, let medFWHM = gs.medianFWHM,
+                   Double(fwhm) > medFWHM * config.fwhmMultiplier { return true }
+                if config.useStarCount, let stars = m.starCount, let medStars = gs.medianStarCount,
+                   Double(stars) < medStars * config.starCountMultiplier { return true }
+                if config.useSNR, let snr = m.snr, let medSNR = gs.medianSNR,
+                   Double(snr) < medSNR * config.snrMultiplier { return true }
+                if config.useSkyBackground, let bg = m.skyBackground, let medBG = gs.medianSkyBackground,
+                   Double(bg) > medBG * config.skyBackgroundMultiplier { return true }
+                if config.usePSF, let psf = m.psfSignalWeight, let medPSF = gs.medianPSFSignalWeight,
+                   Double(psf) < medPSF * config.psfMultiplier { return true }
 
             case .absolute:
                 if config.useFWHM, let fwhm = m.fwhm,

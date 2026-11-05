@@ -150,13 +150,13 @@ enum Metric: String, CaseIterable, Identifiable, Sendable, Hashable {
     /// Looks up the pre-computed per-group median from cached `GroupStats`.
     func median(from stats: GroupStats) -> Double? {
         switch self {
-        case .fwhm:            return stats.medianFWHM.map(Double.init)
-        case .eccentricity:    return stats.medianEccentricity.map(Double.init)
-        case .snr:             return stats.medianSNR.map(Double.init)
-        case .starCount:       return stats.medianStarCount.map(Double.init)
-        case .skyBackground:   return stats.medianSkyBackground.map(Double.init)
-        case .psfSignalWeight: return stats.medianPSFSignalWeight.map(Double.init)
-        case .qualityScore:    return stats.medianScore.map(Double.init)
+        case .fwhm:            return stats.medianFWHM
+        case .eccentricity:    return stats.medianEccentricity
+        case .snr:             return stats.medianSNR
+        case .starCount:       return stats.medianStarCount
+        case .skyBackground:   return stats.medianSkyBackground
+        case .psfSignalWeight: return stats.medianPSFSignalWeight
+        case .qualityScore:    return stats.medianScore
         }
     }
 

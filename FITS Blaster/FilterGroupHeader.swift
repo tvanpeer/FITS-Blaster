@@ -27,7 +27,7 @@ struct FilterGroupHeader: View {
                     .foregroundStyle(.secondary)
             }
             if let score = stats?.medianScore {
-                Text("▸\(score)")
+                Text("▸\(score, format: .number.precision(.fractionLength(0)))")
                     .scaledFont(size: 9, monospaced: true)
                     .foregroundStyle(.secondary)
             }

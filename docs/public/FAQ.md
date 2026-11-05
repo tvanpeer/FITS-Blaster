@@ -89,6 +89,8 @@ Each frame receives a coloured badge based on its metrics and how they compare t
 
 The badge priority is: no stars → trailing stars → focus failure → low star count.
 
+The group-median checks (focus failure, low star count, and Auto-Flag's relative mode) need at least 3 frames with stars in the filter group; in a smaller group they are skipped, and the Auto-Flag sheet says so.
+
 ### What happens to a frame without stars?
 A frame with fewer than 10 stars (thick cloud, dew, a closed cap, or a flat that ended up among the lights) gets its star count, a score of 0 and an amber badge; FWHM, eccentricity, SNR and PSF·S stay empty, because a handful of spots says nothing about the sky. Auto-Flag flags it with any check turned on, and it is left out of the session's medians.
 

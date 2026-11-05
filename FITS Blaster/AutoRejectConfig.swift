@@ -52,4 +52,10 @@ struct AutoRejectConfig: Sendable {
         useFWHM || useEccentricity || useStarCount || useSNR || useSkyBackground || usePSF
             || (mode == .absolute && useScore)
     }
+
+    /// True in relative mode with at least one check against the group median on (all
+    /// checks except eccentricity, which is absolute in both modes).
+    var isAnyRelativeCheckOn: Bool {
+        mode == .relative && (useFWHM || useStarCount || useSNR || useSkyBackground || usePSF)
+    }
 }

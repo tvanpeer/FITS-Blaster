@@ -49,7 +49,7 @@ struct SessionChartData {
         } else {
             medians = FilterGroup.grouped(entries).compactMap { group, groupEntries in
                 let values = groupEntries.compactMap { metric.value(from: $0.metrics) }
-                guard values.count >= 2, let median = values.upperMedian else { return nil }
+                guard values.count >= 2, let median = values.median else { return nil }
                 return (group: group, median: median)
             }
         }
