@@ -4,6 +4,29 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-11-05 — 1.24 beta 4: better metrics, clear frames no longer black, right-click menu
+
+### Changed
+- **Metrics are measured anew, closer to PixInsight.** Scores and values from earlier versions can't be compared with the new ones.
+- **SNR is the total light of each star divided by the sky noise**, instead of the star's peak, so it shows exposure, transparency and sky brightness and no longer repeats the FWHM. The numbers are on a new scale (session medians of about 1,000–10,000).
+- **The star count is close to PixInsight's** (within about ±15 % on the test frames; before, from 7 × too few to 4.5 × too many). Noise on nebula and hot pixels no longer count.
+- **Only real stars are measured**: hot pixels on uncalibrated frames no longer pull FWHM and eccentricity around, and FWHM and eccentricity come from the bright stars.
+- **Colour cameras:** sky background and noise are measured per colour channel, so the sky colour no longer counts as noise.
+- **Saturated stars** are counted once each and left out of the measurements, on mono and colour cameras.
+- **Large stars** (long focal lengths, FWHM above about 8 px) are measured correctly: before, the FWHM of such frames came out far too low.
+- **Frames without stars** (fewer than 10: thick cloud, dew, a closed cap, a flat among the lights) get a score of 0 and are flagged by Auto-Flag with any check turned on.
+- **Auto-Flag's starting values catch thin cloud and leave normal frames alone:** SNR below 60 % of the session median, stars below 50 %, eccentricity above 0.65 (normal colour-camera frames measure about 0.5, so the old limit of 0.5 flagged a third to two thirds of a session). The red "trailing" badge uses 0.65 too. Scores are about 10–15 points higher for the same frame.
+- **Filter groups with fewer than 3 frames** skip the checks against the group median (Auto-Flag's relative mode, the focus and low-star badges); the Auto-Flag sheet says which groups. With an even number of frames the median is now the true median.
+
+### Added
+- **Right-click a frame in the thumbnail bar** for Show in Finder, Copy File Path, Flag/Deflag, Reject, Undo Reject and Remove from List. On a frame in the orange selection the menu acts on the whole selection.
+
+### Fixed
+- **Clear mono frames no longer turn black after loading** when the folder also has many bright frames (dusk, dawn, cloud) (GitHub issue #10).
+- **The Open Folder panel slides down from the main window**, so it can no longer end up behind it.
+
+---
+
 ## 2026-11-05 — Colour spaces dropped from the plan
 
 ### Under the hood
