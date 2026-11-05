@@ -47,6 +47,12 @@
     "macOS": "27.0.1",
     "updated": "2026-11-04T12:03:04"
   },
+  "ngc253-cdk14": {
+    "app": "FITS Blaster.app 1.24-beta.3 (212)",
+    "commit": "5e94673 (with uncommitted changes)",
+    "macOS": "27.0.1",
+    "updated": "2026-11-05T17:43:14"
+  },
   "rosette-b": {
     "app": "FITS Blaster.app 1.24-beta.3 (212)",
     "commit": "55be2de (with uncommitted changes)",

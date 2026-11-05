@@ -364,7 +364,10 @@ narrowband H/O/S, `.fit` files, single-letter filter names; added 2026-10-21),
 and M42 10 s and 180 s (OSC, one night, two exposure times; added 2026-10-25),
 and `sky-spread` (9 mono Hα frames from GitHub issue #10, clear sky beside dusk
 frames; added 2026-11-05; the frames' owner agreed to them being kept for testing,
-they stay outside the repo).
+they stay outside the repo), and `ngc253-cdk14` (40 mono L/R/G/B frames from a
+CDK14 at 0.30″/px with stars of 11–17 px, master-plan 13i; added 2026-11-05 with
+the owner's permission; frames and the PixInsight/APP reference tables stay
+outside the repo, in the set's `reference` folder).
 The M42 baselines were known to be wrong across exposure times (star count and
 SNR fell at 180 s; `FWHM-comparison.md` set 3). Since master-plan steps 13a and
 13b (2026-11-01) SNR, PSF·S and the score are higher at 180 s; the star count is

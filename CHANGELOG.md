@@ -4,6 +4,13 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-11-05 — Test set for large stars (ngc253-cdk14)
+
+### Under the hood
+- New test set `ngc253-cdk14`: 40 mono frames (L, R, G, B × 10) of NGC 253 from a CDK14 at 2563 mm (0.30″/px, 9576 × 6388), with stars of 11–17 px FWHM, for master-plan step 13i. Used with the owner's permission; the frames and PixInsight's and APP's reference tables stay outside the repo. Its baseline records today's metrics, which show the problem: FWHM 7.4–8.2 px where PixInsight and APP measure 8.4–16.7, because the large stars fail the star check and the frame's FWHM comes from knots in the galaxy. No code change; the other baselines are unchanged.
+
+---
+
 ## 2026-11-05 — Small filter groups: true median, no relative checks under 3 frames
 
 ### Changed

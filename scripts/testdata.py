@@ -47,6 +47,11 @@ DATASETS = {
     # frames' sky and nebula below the low clip: 0/255 before the fix, #0068 at 23/255;
     # #0040 is the frame at the shared level (64/255).
     "sky-spread": "Sh2 201 Ha ASI1600MM (issue 10)/LIGHT",
+    # Mono L/R/G/B, 10 frames each, from a CDK14 at 2563 mm (0.30″/px, 9576 × 6388): stars of
+    # FWHM 11–17 px (PixInsight ImageAnalysis 8.4–16.7, APP 8.8–16.6). The set for large
+    # stars (master-plan 13i). PixInsight's and APP's tables are in the set's "reference"
+    # folder (outside the repo). Used with the owner's permission; his name stays out.
+    "ngc253-cdk14": "NGC 253 CDK14 C3-61000/LIGHT",
 }
 
 # The sets RenderingTests reads: the sample set, plus the rest with --full.
