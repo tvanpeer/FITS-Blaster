@@ -6,6 +6,44 @@
         <description>Beta release notes for FITS Blaster</description>
         <language>en-us</language>
         <item>
+            <title>FITS Blaster 1.24-beta.4</title>
+            <pubDate>Thu, 05 Nov 2026 21:31:36 +0000</pubDate>
+            <sparkle:version>213</sparkle:version>
+            <sparkle:shortVersionString>1.24-beta.4</sparkle:shortVersionString>
+            <description><![CDATA[
+<h2>2026-11-05 — 1.24 beta 4: better metrics, clear frames no longer black, right-click menu</h2>
+<h3>Changed</h3>
+<ul>
+  <li><b>Metrics are measured anew, closer to PixInsight.</b> Scores and values from earlier versions can&#x27;t be compared with the new ones.</li>
+  <li><b>SNR is the total light of each star divided by the sky noise</b>, instead of the star&#x27;s peak, so it shows exposure, transparency and sky brightness and no longer repeats the FWHM. The numbers are on a new scale (session medians of about 1,000–10,000).</li>
+  <li><b>The star count is close to PixInsight&#x27;s</b> (within about ±15 % on the test frames; before, from 7 × too few to 4.5 × too many). Noise on nebula and hot pixels no longer count.</li>
+  <li><b>Only real stars are measured</b>: hot pixels on uncalibrated frames no longer pull FWHM and eccentricity around, and FWHM and eccentricity come from the bright stars.</li>
+  <li><b>Colour cameras:</b> sky background and noise are measured per colour channel, so the sky colour no longer counts as noise.</li>
+  <li><b>Saturated stars</b> are counted once each and left out of the measurements, on mono and colour cameras.</li>
+  <li><b>Large stars</b> (long focal lengths, FWHM above about 8 px) are measured correctly: before, the FWHM of such frames came out far too low.</li>
+  <li><b>Frames without stars</b> (fewer than 10: thick cloud, dew, a closed cap, a flat among the lights) get a score of 0 and are flagged by Auto-Flag with any check turned on.</li>
+  <li><b>Auto-Flag&#x27;s starting values catch thin cloud and leave normal frames alone:</b> SNR below 60 % of the session median, stars below 50 %, eccentricity above 0.65 (normal colour-camera frames measure about 0.5, so the old limit of 0.5 flagged a third to two thirds of a session). The red &quot;trailing&quot; badge uses 0.65 too. Scores are about 10–15 points higher for the same frame.</li>
+  <li><b>Filter groups with fewer than 3 frames</b> skip the checks against the group median (Auto-Flag&#x27;s relative mode, the focus and low-star badges); the Auto-Flag sheet says which groups. With an even number of frames the median is now the true median.</li>
+</ul>
+<h3>Added</h3>
+<ul>
+  <li><b>Right-click a frame in the thumbnail bar</b> for Show in Finder, Copy File Path, Flag/Deflag, Reject, Undo Reject and Remove from List. On a frame in the orange selection the menu acts on the whole selection.</li>
+</ul>
+<h3>Fixed</h3>
+<ul>
+  <li><b>Clear mono frames no longer turn black after loading</b> when the folder also has many bright frames (dusk, dawn, cloud) (GitHub issue #10).</li>
+  <li><b>The Open Folder panel slides down from the main window</b>, so it can no longer end up behind it.</li>
+</ul>
+<p>---</p>
+<p>**[Full changelog](https://astrophoto-app.com/changelog.html)**</p>
+            ]]></description>
+            <enclosure
+                url="https://github.com/tvanpeer/FITS-Blaster/releases/download/v1.24-beta.4/FITS-Blaster-1.24-beta.4.dmg"
+                length="8927087"
+                type="application/octet-stream"
+                sparkle:edSignature="qYqtUwH5jCDET1g5UqNSSdABA3w0ilWlnmRmYl//hGGOCWWYsELbv7Gw252l7i+7XVD1wXT+6T6gaWJxk3VBBw==" />
+        </item>
+        <item>
             <title>FITS Blaster 1.24-beta.3</title>
             <pubDate>Sat, 31 Oct 2026 22:30:40 +0000</pubDate>
             <sparkle:version>212</sparkle:version>

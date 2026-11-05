@@ -310,7 +310,7 @@
     <div class="beta-badge">Beta</div>
     <p>Test the latest features before they ship. Beta builds may contain bugs.</p>
     <!-- beta-button-start -->
-    <a class="download-btn" href="https://github.com/tvanpeer/FITS-Blaster/releases/download/v1.24-beta.3/FITS-Blaster-1.24-beta.3.dmg">Download Beta 1.24-beta.3</a>
+    <a class="download-btn" href="https://github.com/tvanpeer/FITS-Blaster/releases/download/v1.24-beta.4/FITS-Blaster-1.24-beta.4.dmg">Download Beta 1.24-beta.4</a>
     <p class="download-sub">macOS 15.6 or later &nbsp;&middot;&nbsp; Free</p>
     <!-- beta-button-end -->
 </header>
@@ -327,6 +327,42 @@
     <h2>Beta release notes</h2>
     <p class="list-note">All betas since the last stable release, newest first.</p>
     <!-- beta-entry-start -->
+    <!-- v1.24-beta.4 -->
+    <div class="entry">
+        <div class="entry-header">
+            <div class="entry-title">1.24 beta 4: better metrics, clear frames no longer black, right-click menu — v1.24-beta.4</div>
+            <div class="entry-date">2026-11-05 &nbsp;&middot;&nbsp; <a class="entry-link" href="https://github.com/tvanpeer/FITS-Blaster/releases/tag/v1.24-beta.4">GitHub release &#8599;</a></div>
+        </div>
+        <div class="section">
+            <span class="section-label label-changed">Changed</span>
+            <ul>
+                <li><strong>Metrics are measured anew, closer to PixInsight.</strong> Scores and values from earlier versions can't be compared with the new ones.</li>
+                <li><strong>SNR is the total light of each star divided by the sky noise</strong>, instead of the star's peak, so it shows exposure, transparency and sky brightness and no longer repeats the FWHM. The numbers are on a new scale (session medians of about 1,000–10,000).</li>
+                <li><strong>The star count is close to PixInsight's</strong> (within about ±15 % on the test frames; before, from 7 × too few to 4.5 × too many). Noise on nebula and hot pixels no longer count.</li>
+                <li><strong>Only real stars are measured</strong>: hot pixels on uncalibrated frames no longer pull FWHM and eccentricity around, and FWHM and eccentricity come from the bright stars.</li>
+                <li><strong>Colour cameras:</strong> sky background and noise are measured per colour channel, so the sky colour no longer counts as noise.</li>
+                <li><strong>Saturated stars</strong> are counted once each and left out of the measurements, on mono and colour cameras.</li>
+                <li><strong>Large stars</strong> (long focal lengths, FWHM above about 8 px) are measured correctly: before, the FWHM of such frames came out far too low.</li>
+                <li><strong>Frames without stars</strong> (fewer than 10: thick cloud, dew, a closed cap, a flat among the lights) get a score of 0 and are flagged by Auto-Flag with any check turned on.</li>
+                <li><strong>Auto-Flag's starting values catch thin cloud and leave normal frames alone:</strong> SNR below 60 % of the session median, stars below 50 %, eccentricity above 0.65 (normal colour-camera frames measure about 0.5, so the old limit of 0.5 flagged a third to two thirds of a session). The red "trailing" badge uses 0.65 too. Scores are about 10–15 points higher for the same frame.</li>
+                <li><strong>Filter groups with fewer than 3 frames</strong> skip the checks against the group median (Auto-Flag's relative mode, the focus and low-star badges); the Auto-Flag sheet says which groups. With an even number of frames the median is now the true median.</li>
+            </ul>
+        </div>
+        <div class="section">
+            <span class="section-label label-added">Added</span>
+            <ul>
+                <li><strong>Right-click a frame in the thumbnail bar</strong> for Show in Finder, Copy File Path, Flag/Deflag, Reject, Undo Reject and Remove from List. On a frame in the orange selection the menu acts on the whole selection.</li>
+            </ul>
+        </div>
+        <div class="section">
+            <span class="section-label label-fixed">Fixed</span>
+            <ul>
+                <li><strong>Clear mono frames no longer turn black after loading</strong> when the folder also has many bright frames (dusk, dawn, cloud) (GitHub issue #10).</li>
+                <li><strong>The Open Folder panel slides down from the main window</strong>, so it can no longer end up behind it.</li>
+            </ul>
+        </div>
+    </div>
+
     <!-- v1.24-beta.3 -->
     <div class="entry">
         <div class="entry-header">
