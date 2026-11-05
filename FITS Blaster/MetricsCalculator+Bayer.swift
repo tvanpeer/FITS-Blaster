@@ -15,8 +15,8 @@ extension MetricsCalculator {
     /// Extract a (2*cropHalf+1)² pixel crop centred on (cx, cy).
     /// Out-of-bounds pixels are filled with 0.
     static func extractCrop(from pixels: UnsafeBufferPointer<Float>,
-                             width: Int, height: Int,
-                             cx: Int, cy: Int, cropHalf: Int) -> [Float] {
+                            width: Int, height: Int,
+                            cx: Int, cy: Int, cropHalf: Int) -> [Float] {
         let side = 2 * cropHalf + 1
         var crop = [Float](repeating: 0, count: side * side)
         for dy in -cropHalf...cropHalf {
@@ -42,9 +42,9 @@ extension MetricsCalculator {
     /// - `.adaptive` (default) estimates weights from the outer-border sky brightness,
     ///   correctly normalising Ha vs OIII; use this for eccentricity measurement.
     static func debayerCropToLuminance(crop: [Float], cropHalf: Int,
-                                        originX: Int, originY: Int,
-                                        pattern: BayerPattern,
-                                        weights: BayerLuminanceWeights = .adaptive) -> [Float] {
+                                       originX: Int, originY: Int,
+                                       pattern: BayerPattern,
+                                       weights: BayerLuminanceWeights = .adaptive) -> [Float] {
         let side = 2 * cropHalf + 1
         let rCol = Int(pattern.rOffset) & 1
         let rRow = (Int(pattern.rOffset) >> 1) & 1

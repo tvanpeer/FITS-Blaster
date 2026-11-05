@@ -210,7 +210,11 @@ struct RenderingTests {
 enum RenderResults {
     static let runDirectory: URL = {
         let repoRoot = URL(filePath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
-        let stamp = Date().formatted(.verbatim("\(year: .defaultDigits)\(month: .twoDigits)\(day: .twoDigits)-\(hour: .twoDigits(clock: .twentyFourHour, hourCycle: .zeroBased))\(minute: .twoDigits)\(second: .twoDigits)",
+        let stamp = Date().formatted(.verbatim("""
+            \(year: .defaultDigits)\(month: .twoDigits)\(day: .twoDigits)-\
+            \(hour: .twoDigits(clock: .twentyFourHour, hourCycle: .zeroBased))\
+            \(minute: .twoDigits)\(second: .twoDigits)
+            """,
                                                timeZone: .current, calendar: .current))
         return repoRoot.appending(path: "tests/render-results/\(stamp)")
     }()

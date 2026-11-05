@@ -22,6 +22,7 @@ a human looking at the app.
 | **Rendering tests on real data** | Colour and brightness of rendered frames | `scripts/run-render-tests.sh` | **New** |
 | **Metric baselines** | Metrics don't change between versions unless we mean them to | `scripts/metric-baselines.py` | **New** |
 | **CLI `--render`** (beta builds only) | Rendering of the shipped binary in the VMs, without the GUI | Part of `scripts/vm-smoke.sh` | **New** |
+| **SwiftLint** | Style and code rules, including the `CLAUDE.md` rules a pattern can check | `scripts/lint.sh` | **New** (2026-11-05) |
 
 ---
 
@@ -527,6 +528,36 @@ about 2.5 s.
   `scripts/vm-smoke-remote.sh`; change both together, with a reason.
 
 ---
+
+## 7. SwiftLint (`scripts/lint.sh`)
+
+SwiftLint comes from Homebrew (`brew install swiftlint`); it is not a project dependency
+and runs neither in Xcode nor in the release pipeline (Tom, 2026-11-05). Run it before a
+commit that touches Swift code; it must report nothing:
+
+```
+scripts/lint.sh                    # exit 0 when there are no new findings
+scripts/lint.sh --write-baseline   # record the current findings as the baseline
+```
+
+The rules are in `.swiftlint.yml` with the reason for each change from the defaults:
+aligned columns allowed (`comma`, `colon`, `opening_brace`, `statement_position` off),
+trailing commas allowed, `= nil` allowed (`@Entry` needs it), short math names (`x`, `dx`,
+`r2`) allowed, lines up to 160 characters. Custom rules flag the `CLAUDE.md` patterns
+(`foregroundColor`, `cornerRadius()`, `DispatchQueue.main.async`,
+`Task.sleep(nanoseconds:)`, `replacingOccurrences`, `ObservableObject`, `AnyView`,
+`NavigationView`, `tabItem`, `showsIndicators: false`, `fontWeight(.bold)`).
+
+`.swiftlint-baseline.json` holds the 104 findings that existed when SwiftLint was
+introduced, all of them size and complexity rules (long functions and types, many
+parameters, large tuples, complex functions; e.g. `ImageStore`, `CLIRunner`,
+`ContentView`, `FITSHeader.parseHeader`). They are not reported; new code is held to the
+default limits. They go away as master-plan steps 10–15 restructure those files; rewrite
+the baseline with `--write-baseline` only after such a change, never to hide a new finding.
+
+A finding SwiftLint gets wrong is silenced on that line with
+`// swiftlint:disable:next <rule>` and a comment saying why (for example `String(decoding:)`
+in `ImageStoreFileOperations.swift`, which repairs invalid UTF-8 on purpose).
 
 ## VMs
 

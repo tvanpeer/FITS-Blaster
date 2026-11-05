@@ -1,0 +1,98 @@
+# SwiftLint configuration for FITS Blaster. Run scripts/lint.sh (SwiftLint from Homebrew:
+# brew install swiftlint); see docs/internal/testing.md. Not run in Xcode or CI (Tom,
+# 2026-11-05). Findings that existed when SwiftLint was introduced are in
+# .swiftlint-baseline.json and are not reported; new code is held to the rules below.
+
+included:
+  - FITS Blaster
+  - FITS Blaster Tests
+  - FITSBlasterQL
+  - FITSBlasterQLThumb
+  - scripts
+excluded:
+  - build
+  - bin
+
+disabled_rules:
+  # Columns are aligned on purpose (`if let t = phaseB  { … }`, `zoomIn:     { … }`,
+  # tables of test values); these rules forbid the extra spaces.
+  - comma
+  - colon
+  - opening_brace
+  - statement_position
+  # A trailing comma in a multi-line list is allowed.
+  - trailing_comma
+  # `@Entry var x: T? = nil` needs its `= nil`; elsewhere either form is fine.
+  - implicit_optional_initialization
+
+identifier_name:
+  # Pixel and measurement code uses math names: i, x, y, dx, cx, r2.
+  min_length: 1
+  excluded:
+    - UD
+
+type_name:
+  excluded:
+    - UD   # the short UserDefaults helper (UserDefaultsHelpers.swift)
+
+line_length:
+  warning: 160
+  error: 200
+
+# The rules of CLAUDE.md (global Swift/SwiftUI guide) that a pattern can check.
+custom_rules:
+  no_foreground_color:
+    name: "foregroundColor"
+    regex: '\.foregroundColor\('
+    message: "Use foregroundStyle() instead of foregroundColor()."
+    severity: warning
+  no_corner_radius:
+    name: "cornerRadius"
+    regex: '\.cornerRadius\('
+    message: "Use clipShape(.rect(cornerRadius:)) instead of cornerRadius()."
+    severity: warning
+  no_dispatch_main_async:
+    name: "DispatchQueue.main.async"
+    regex: 'DispatchQueue\.main\.async'
+    message: "Use Swift concurrency instead of DispatchQueue.main.async."
+    severity: warning
+  no_sleep_nanoseconds:
+    name: "Task.sleep(nanoseconds:)"
+    regex: 'Task\.sleep\(nanoseconds:'
+    message: "Use Task.sleep(for:)."
+    severity: warning
+  no_replacing_occurrences:
+    name: "replacingOccurrences"
+    regex: '\.replacingOccurrences\(of:'
+    message: "Use replacing(_:with:)."
+    severity: warning
+  no_observable_object:
+    name: "ObservableObject"
+    regex: '\bObservableObject\b'
+    message: "Use an @Observable class instead of ObservableObject."
+    severity: warning
+  no_any_view:
+    name: "AnyView"
+    regex: '\bAnyView\('
+    message: "Avoid AnyView unless it is really needed."
+    severity: warning
+  no_navigation_view:
+    name: "NavigationView"
+    regex: '\bNavigationView\b'
+    message: "Use NavigationStack instead of NavigationView."
+    severity: warning
+  no_tab_item:
+    name: "tabItem"
+    regex: '\.tabItem\('
+    message: "Use the Tab API instead of tabItem()."
+    severity: warning
+  no_shows_indicators:
+    name: "showsIndicators"
+    regex: 'showsIndicators:\s*false'
+    message: "Use .scrollIndicators(.hidden)."
+    severity: warning
+  no_font_weight_bold:
+    name: "fontWeight(.bold)"
+    regex: '\.fontWeight\(\.bold\)'
+    message: "Use bold() instead of fontWeight(.bold)."
+    severity: warning

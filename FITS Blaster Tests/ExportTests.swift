@@ -18,9 +18,9 @@ struct ExportTests {
     // MARK: - Helpers
 
     private func makeEntry(path: String,
-                            metrics: FrameMetrics? = nil,
-                            isRejected: Bool = false,
-                            headers: [String: String] = [:]) -> ImageEntry {
+                           metrics: FrameMetrics? = nil,
+                           isRejected: Bool = false,
+                           headers: [String: String] = [:]) -> ImageEntry {
         let entry = ImageEntry(url: URL(fileURLWithPath: path))
         entry.isProcessing = false
         entry.metrics = metrics

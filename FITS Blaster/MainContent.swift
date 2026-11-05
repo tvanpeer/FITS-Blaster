@@ -126,7 +126,13 @@ private struct InfoBar: View {
                 let mpx = store.pipeline.batchMegapixels ?? 0
                 let mps = elapsed > 0 && mpx > 0 ? mpx / elapsed : 0
                 let mpf = n > 0 && mpx > 0 ? mpx / Double(n) : 0
-                Text("\(elapsed, format: .number.precision(.fractionLength(2)))s for \(n) images · \(fps, format: .number.precision(.fractionLength(1))) fps\(mpf > 0 ? " (\(mpf.formatted(.number.precision(.fractionLength(0)))) MP)" : "")\(mps > 0 ? " · \(mps.formatted(.number.precision(.fractionLength(0)))) MP/s" : "")")
+                Text("""
+                    \(elapsed, format: .number.precision(.fractionLength(2)))s for \(n) images · \
+                    \(fps, format: .number.precision(.fractionLength(1))) \
+                    fps\
+                    \(mpf > 0 ? " (\(mpf.formatted(.number.precision(.fractionLength(0)))) MP)" : "")\
+                    \(mps > 0 ? " · \(mps.formatted(.number.precision(.fractionLength(0)))) MP/s" : "")
+                    """)
                     .scaledFont(size: 10, monospaced: true)
                     .foregroundStyle(.secondary)
             }

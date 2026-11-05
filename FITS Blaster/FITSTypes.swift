@@ -25,7 +25,10 @@ enum FITSError: LocalizedError {
             return "Invalid FITS format: \(detail)"
         case .unsupportedBitpix(let value):
             if value < 0 {
-                return "Unsupported image format: floating-point FITS files (BITPIX=\(value)) are not supported. Only integer formats (8, 16, 32-bit) are supported."
+                return """
+                    Unsupported image format: floating-point FITS files (BITPIX=\(value)) are not supported. Only \
+                    integer formats (8, 16, 32-bit) are supported.
+                    """
             }
             return "Unsupported BITPIX value: \(value). Supported values are 8, 16, and 32."
         case .multiChannel(let naxis, let planes):

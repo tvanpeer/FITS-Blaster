@@ -57,7 +57,7 @@ extension FITSReader {
     /// whole file's size when `data` holds only the header (`readIntoBuffer`), so the size
     /// checks see the real file.
     static func parseHeader(from data: Data, fileSize: Int? = nil,
-                                    forPreview: Bool = false) throws -> HeaderInfo {
+                            forPreview: Bool = false) throws -> HeaderInfo {
         let fileSize = fileSize ?? data.count
         guard fileSize >= 2880, data.count >= min(fileSize, 2880) else {
             throw FITSError.invalidFormat("File too small to be a valid FITS file.")

@@ -55,7 +55,7 @@ Most rules come from the 2026-10-17 reviews: `docs/internal/CODE_AUDIT.md` (§N.
 ## Testing
 
 - Unit tests use Swift Testing. New parsing code gets malformed-input tests (§5.20).
-- **Checks before a commit that touches code:** unit tests, render tests and metric baselines. SwiftLint must be clean if it is installed.
+- **Checks before a commit that touches code:** unit tests, render tests and metric baselines, and `scripts/lint.sh` (SwiftLint from Homebrew) must report nothing.
 - **VM tests check what the user sees,** not only that files exist. For example: Quick Look extensions registered (`pluginkit`) and producing a thumbnail (`qlmanage -t`) on every supported macOS version. See `docs/internal/testing.md`.
 - Local `xcodebuild` test builds are coverage-instrumented; scripts pass `ENABLE_CODE_COVERAGE=NO` where the output is compared.
 

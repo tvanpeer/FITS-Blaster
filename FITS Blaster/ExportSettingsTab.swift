@@ -37,7 +37,10 @@ struct ExportSettingsTab: View {
                         Text(style.displayName).tag(style)
                     }
                 }
-                Text("Relative paths strip the longest folder shared by all exported frames, so a single-folder session collapses to bare filenames automatically.")
+                Text("""
+                    Relative paths strip the longest folder shared by all exported frames, so a single-folder session \
+                    collapses to bare filenames automatically.
+                    """)
                     .scaledFont(size: 10)
                     .foregroundStyle(.secondary)
                 Toggle("Include rejected frames by default", isOn: $settings.includeRejectedInExport)
@@ -47,7 +50,11 @@ struct ExportSettingsTab: View {
             }
 
             Section("FITS Header Columns") {
-                Text("Header keys discovered in the currently-loaded FITS files are merged with a curated list of common keys. Dimmed keys are not present in any loaded file (still selectable; empty columns are dropped at export time).")
+                Text("""
+                    Header keys discovered in the currently-loaded FITS files are merged with a curated list of common \
+                    keys. Dimmed keys are not present in any loaded file (still selectable; empty columns are dropped at \
+                    export time).
+                    """)
                     .scaledFont(size: 10)
                     .foregroundStyle(.secondary)
                 HeaderKeyPicker(

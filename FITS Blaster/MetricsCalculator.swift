@@ -25,8 +25,6 @@ struct MetricsCalculator {
     /// Room for this many candidates in the first GPU detection pass.
     static let maxDetectionCandidates = Constants.maxDetectionCandidates
 
-    /// Half-width of the pixel crop extracted around each star candidate.
-
     // The detection pipeline, device and queue are MetalContext's, shared with the
     // stretch: the frame's buffer from Phase A is used without a copy.
 
@@ -258,12 +256,12 @@ struct MetricsCalculator {
     /// and assembles the final FrameMetrics. Called by both the GPU and CPU paths
     /// after their respective detection steps.
     @concurrent private static func measureCandidates(allCandidates: [StarCandidate],
-                                                     pixels: UnsafeBufferPointer<Float>,
-                                                     background: Float, sky: SkyLevels,
-                                                     saturation: Float?,
-                                                     width: Int, height: Int,
-                                                     config: MetricsConfig,
-                                                     bayerPattern: BayerPattern? = nil) async -> FrameMetrics? {
+                                                      pixels: UnsafeBufferPointer<Float>,
+                                                      background: Float, sky: SkyLevels,
+                                                      saturation: Float?,
+                                                      width: Int, height: Int,
+                                                      config: MetricsConfig,
+                                                      bayerPattern: BayerPattern? = nil) async -> FrameMetrics? {
         // σ for SNR and PSF·S. Mono: the frame's σ, as before. Colour: the noise of the
         // luminance the star crops are measured on, from the channel σ's (step 13a).
         // The star fits keep the single background of the whole frame on both: subtracting

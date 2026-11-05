@@ -202,4 +202,3 @@ struct FilterStrip: View {
         .padding(.vertical, 5)
     }
 }
-

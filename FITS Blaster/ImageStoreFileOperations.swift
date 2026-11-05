@@ -483,6 +483,8 @@ extension ImageStore {
         var entries: [(name: String, isDirectory: Bool)] = []
         while let entry = readdir(dir) {
             let name = withUnsafeBytes(of: entry.pointee.d_name) { raw in
+                // Repairs invalid UTF-8 instead of failing, so every entry gets a name.
+                // swiftlint:disable:next optional_data_string_conversion
                 String(decoding: raw.prefix { $0 != 0 }, as: UTF8.self)
             }
             guard !name.hasPrefix(".") else { continue }

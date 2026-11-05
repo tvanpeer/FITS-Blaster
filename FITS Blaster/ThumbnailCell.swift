@@ -103,7 +103,7 @@ struct ThumbnailCell: View {
         } else if let thumbnail = entry.thumbnail {
             Image(nsImage: thumbnail)
                 .resizable()
-                .aspectRatio(contentMode: .fit)
+                .scaledToFit()
                 .rotationEffect(entry.isFlipped ? .degrees(180) : .zero)
                 .clipShape(.rect(cornerRadius: 4))
                 .overlay {

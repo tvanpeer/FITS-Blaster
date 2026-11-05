@@ -422,4 +422,3 @@ final class AppSettings {
         }
     }
 }
-

@@ -16,7 +16,7 @@ struct SortOrderTests {
     // MARK: - Helpers
 
     private func makeEntry(fwhm: Float?, snr: Float? = nil,
-                            filename: String, isRejected: Bool = false) -> ImageEntry {
+                           filename: String, isRejected: Bool = false) -> ImageEntry {
         let entry = ImageEntry(url: URL(fileURLWithPath: "/tmp/\(filename)"))
         entry.isProcessing = false
         if fwhm != nil || snr != nil {

@@ -4,6 +4,14 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-11-05 — SwiftLint
+
+### Under the hood
+- **SwiftLint** (from Homebrew, not a project dependency) checks the app, the tests, both Quick Look targets and the Swift scripts: `scripts/lint.sh`, before every commit that touches Swift code; not in Xcode or the release pipeline. `.swiftlint.yml` adapts the default rules to the project's style (aligned columns, short math names, lines up to 160 characters) and adds custom rules for the `CLAUDE.md` conventions. The 104 size and complexity findings that already existed are recorded in `.swiftlint-baseline.json`; new code is held to the default limits. Described in `docs/internal/testing.md` (section 7).
+- Fixed what it found, without a change in behaviour: aligned parameter lists, long text lines spread over several lines as one multi-line string (the same text), `isDisjoint(with:)`, `scaledToFit()`, enum cases without repeated raw values (the same values), a leftover comment, and in the DMG-background script descriptive names and no `try!` (the image is byte-identical). Renders and metrics are unchanged.
+
+---
+
 ## 2026-11-05 — 1.24 beta 4: better metrics, clear frames no longer black, right-click menu
 
 ### Changed

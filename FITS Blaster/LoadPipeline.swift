@@ -256,7 +256,10 @@ final class LoadPipeline {
                 let names   = skipped.map(\.url.lastPathComponent)
                 let preview = names.prefix(5).joined(separator: ", ")
                 let suffix  = names.count > 5 ? " and \(names.count - 5) more" : ""
-                store.errorMessage = "Skipped \(names.count) file\(names.count == 1 ? "" : "s") FITS Blaster doesn't load (floating-point or multi-channel stacks): \(preview)\(suffix)"
+                store.errorMessage = """
+                    Skipped \(names.count) file\(names.count == 1 ? "" : "s") FITS Blaster doesn't load (floating-point \
+                    or multi-channel stacks): \(preview)\(suffix)
+                    """
             }
             let loaded = newEntries.filter { entry in !skipped.contains { $0 === entry } }
             if !Task.isCancelled {

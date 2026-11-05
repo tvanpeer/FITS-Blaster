@@ -40,7 +40,7 @@ struct FITSReader {
     /// is used in that case rather than vsmsa (multiply+add). Min/max are computed
     /// while the buffer is still warm in cache, saving two passes in the histogram later.
     static func applyScaleAndRange(_ values: UnsafeMutablePointer<Float>, count: Int,
-                                           bscale: Double, bzero: Double) -> (min: Float, max: Float) {
+                                   bscale: Double, bzero: Double) -> (min: Float, max: Float) {
         let bscaleF = Float(bscale)
         let bzeroF  = Float(bzero)
         let n = vDSP_Length(count)

@@ -238,7 +238,7 @@ struct FITSReaderTests {
 
     /// Writes a float FITS file with known pixel values stored big-endian.
     private func makeFloatFITSFile(bitpix: Int, width: Int, height: Int,
-                                    floatValues: [Float], bzero: Double? = nil) throws -> URL {
+                                   floatValues: [Float], bzero: Double? = nil) throws -> URL {
         let pixelCount = width * height
         var values = Array(floatValues.prefix(pixelCount))
         values += [Float](repeating: 0, count: pixelCount - values.count)
@@ -248,8 +248,8 @@ struct FITSReaderTests {
     }
 
     private func makeFITSFile(bitpix: Int, width: Int, height: Int,
-                               bzero: Double? = nil,
-                               pixelBigEndian16: Int16? = nil) throws -> URL {
+                              bzero: Double? = nil,
+                              pixelBigEndian16: Int16? = nil) throws -> URL {
         var pixels = Data(count: width * height * abs(bitpix) / 8)
         if let val = pixelBigEndian16, bitpix == 16, width * height >= 1 {
             pixels.replaceSubrange(0..<2, with: TestFITS.bigEndian([val]))

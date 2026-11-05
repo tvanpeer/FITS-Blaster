@@ -197,10 +197,13 @@ extension MetricsCalculator {
         let inv90  = 1 / (a90  * a90)
         let inv45  = 1 / (a45  * a45)
         let inv135 = 1 / (a135 * a135)
+        // S, C, S2 and D as in the derivation above.
+        // swiftlint:disable identifier_name
         let S  = (inv0 + inv90 + inv45 + inv135) / 2
         let C  = inv0  - inv90
         let S2 = inv45 - inv135
         let D  = (C * C + S2 * S2).squareRoot()
+        // swiftlint:enable identifier_name
         let invMajor2 = (S - D) / 2
         let invMinor2 = (S + D) / 2
         guard invMajor2 > 0, invMinor2 > 0 else { return (0, 0, 0, 0) }

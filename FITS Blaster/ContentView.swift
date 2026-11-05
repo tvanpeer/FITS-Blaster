@@ -271,7 +271,7 @@ struct ContentView: View {
                 }
 
                 // Don't intercept events with command/option/control modifiers.
-                guard mods.intersection([.command, .option, .control]).isEmpty else { return true }
+                guard mods.isDisjoint(with: [.command, .option, .control]) else { return true }
                 guard let key = Self.keyString(from: event) else { return true }
                 return !self.handleKey(key)
             }

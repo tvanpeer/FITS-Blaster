@@ -169,7 +169,10 @@ enum CLIRunner {
             fputs("Filtered out \(nBad) frame\(nBad == 1 ? "" : "s"); keeping \(good.count).\n", stderr)
             if config.isAnyRelativeCheckOn {
                 for (group, count) in store.groupsTooSmallForRelativeChecks {
-                    fputs("note: filter group \(group.rawValue): \(count) frame\(count == 1 ? "" : "s"), relative checks skipped (they need at least \(GroupStats.minimumFramesForRelativeChecks)).\n", stderr)
+                    fputs("""
+                        note: filter group \(group.rawValue): \(count) frame\(count == 1 ? "" : "s"), relative checks \
+                        skipped (they need at least \(GroupStats.minimumFramesForRelativeChecks)).\n
+                        """, stderr)
                 }
             }
             if good.isEmpty {
@@ -230,7 +233,7 @@ enum CLIRunner {
         init(_ args: [String]) {
             // First pass: resolve mode so metric values land in the right field
             for (i, arg) in args.enumerated() {
-                if (arg == "--mode" || arg == "-m"), let val = args[safe: i + 1] {
+                if arg == "--mode" || arg == "-m", let val = args[safe: i + 1] {
                     mode = (val == "abs" || val == "absolute") ? .absolute : .relative
                 }
             }

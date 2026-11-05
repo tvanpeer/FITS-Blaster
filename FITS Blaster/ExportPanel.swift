@@ -58,7 +58,10 @@ struct ExportSheet: View {
 
                 Section {
                     DisclosureGroup(isExpanded: $showHeaderPicker) {
-                        Text("Dimmed keys are not present in any currently loaded file. They are still selectable, but empty columns are dropped at export time (the .txt report notes which were skipped).")
+                        Text("""
+                            Dimmed keys are not present in any currently loaded file. They are still selectable, but empty \
+                            columns are dropped at export time (the .txt report notes which were skipped).
+                            """)
                             .scaledFont(size: 10)
                             .foregroundStyle(.secondary)
                         HeaderKeyPicker(

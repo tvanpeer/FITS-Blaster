@@ -31,7 +31,7 @@ extension ImageStretcher {
     /// Uses per-channel STF clip bounds and MTF stretch, the same method as the
     /// greyscale path. CPU-only; used by the Quick Look preview and thumbnail.
     static func createRGBImage(from pixels: inout [Float], width: Int, height: Int,
-                                maxDisplaySize: Int = 1024) -> NSImage? {
+                               maxDisplaySize: Int = 1024) -> NSImage? {
         let pixelCount = width * height
         guard pixels.count == pixelCount * 3 else { return nil }
 

@@ -97,7 +97,11 @@ private struct ModePicker: View {
             .scaledFont(size: 10)
             .foregroundStyle(.secondary)
             if !smallGroups.isEmpty {
-                Label("Too few frames to compare with a median in \(smallGroupList): relative checks need at least \(GroupStats.minimumFramesForRelativeChecks) frames and skip these groups. Eccentricity and frames without stars are still checked.",
+                Label("""
+                    Too few frames to compare with a median in \(smallGroupList): relative checks need at least \
+                    \(GroupStats.minimumFramesForRelativeChecks) frames and skip these groups. Eccentricity and frames \
+                    without stars are still checked.
+                    """,
                       systemImage: "info.circle")
                     .scaledFont(size: 10)
                     .foregroundStyle(.secondary)

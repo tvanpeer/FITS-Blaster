@@ -196,7 +196,10 @@ struct UISettingsTab: View {
             #if !APPSTORE
             Section("Software Updates") {
                 Toggle("Receive beta releases", isOn: $settings.useBetaUpdateChannel)
-                Text("When enabled, \"Check for Updates\" looks at the beta channel. Beta builds get new features first but may contain bugs. Turn this off to stay on stable releases only.")
+                Text("""
+                    When enabled, \"Check for Updates\" looks at the beta channel. Beta builds get new features first \
+                    but may contain bugs. Turn this off to stay on stable releases only.
+                    """)
                     .scaledFont(size: 10)
                     .foregroundStyle(.secondary)
             }
@@ -242,7 +245,10 @@ struct ImageDisplayTab: View {
                     SizeField(value: $thumbnailSize, text: $thumbnailSizeText,
                               range: AppSettings.thumbnailSizeRange, step: 20, unit: "pt")
                 }
-                Text("The width of the thumbnails in the sidebar; the sidebar follows it, and can be dragged wider. Thumbnails are rendered at this size times the screen's scale, so they stay sharp on Retina screens.")
+                Text("""
+                    The width of the thumbnails in the sidebar; the sidebar follows it, and can be dragged wider. \
+                    Thumbnails are rendered at this size times the screen's scale, so they stay sharp on Retina screens.
+                    """)
                     .scaledFont(size: 10)
                     .foregroundStyle(.secondary)
                 HStack {
@@ -259,14 +265,20 @@ struct ImageDisplayTab: View {
 
             Section("Colour Images") {
                 Toggle("Debayer colour FITS images", isOn: $settings.debayerColorImages)
-                Text("When enabled, images with a Bayer CFA pattern (BAYERPAT/COLORTYP/CFA_PAT header) are displayed in colour, debayered on the GPU. Images that are already loaded are re-rendered when you change this.")
+                Text("""
+                    When enabled, images with a Bayer CFA pattern (BAYERPAT/COLORTYP/CFA_PAT header) are displayed in \
+                    colour, debayered on the GPU. Images that are already loaded are re-rendered when you change this.
+                    """)
                     .scaledFont(size: 10)
                     .foregroundStyle(.secondary)
             }
 
             Section("Quality Metrics") {
                 Toggle("Show metric chips above session chart", isOn: $settings.showMetricChips)
-                Text("Displays a compact chip row (FWHM, Ecc, SNR, Stars, Sky BG, PSF·S) above the chart for the selected frame. All metrics are always visible in the Inspector on the right.")
+                Text("""
+                    Displays a compact chip row (FWHM, Ecc, SNR, Stars, Sky BG, PSF·S) above the chart for the selected \
+                    frame. All metrics are always visible in the Inspector on the right.
+                    """)
                     .scaledFont(size: 10)
                     .foregroundStyle(.secondary)
             }
@@ -278,7 +290,10 @@ struct ImageDisplayTab: View {
                 LabeledContent("Non-flagged frames") {
                     OpacitySlider(value: $settings.dimmedDotOpacity)
                 }
-                Text("Controls how dim rejected and non-flagged dots appear in the session chart when a flagged set is active. Flagged and cursor dots are always full brightness.")
+                Text("""
+                    Controls how dim rejected and non-flagged dots appear in the session chart when a flagged set is \
+                    active. Flagged and cursor dots are always full brightness.
+                    """)
                     .scaledFont(size: 10)
                     .foregroundStyle(.secondary)
             }
@@ -533,13 +548,19 @@ private struct DisplayMemorySlider: View {
                        in: Double(AppSettings.displayMemoryRange.lowerBound)...Double(AppSettings.displayMemoryRange.upperBound),
                        step: Double(AppSettings.displayMemoryStep))
                     .frame(maxWidth: 200)
-                Text("\(settings.displayMemoryPercent) % — \(bytes.formatted(.byteCount(style: .memory))) of \(Int64(physicalMemory).formatted(.byteCount(style: .memory)))")
+                Text("""
+                    \(settings.displayMemoryPercent) % — \(bytes.formatted(.byteCount(style: .memory))) of \
+                    \(Int64(physicalMemory).formatted(.byteCount(style: .memory)))
+                    """)
                     .scaledFont(size: 10, monospaced: true)
                     .foregroundStyle(.secondary)
                     .fixedSize()
             }
         }
-        Text("Above this, the frames you looked at least recently give up their display images and are drawn again from their files when you return to them. Thumbnails and metrics always stay.")
+        Text("""
+            Above this, the frames you looked at least recently give up their display images and are drawn again \
+            from their files when you return to them. Thumbnails and metrics always stay.
+            """)
             .scaledFont(size: 10)
             .foregroundStyle(.secondary)
     }

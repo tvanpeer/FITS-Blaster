@@ -4,9 +4,9 @@
 //
 
 enum AppearanceMode: String, CaseIterable {
-    case system = "system"
-    case light  = "light"
-    case dark   = "dark"
+    case system
+    case light
+    case dark
 
     var label: String {
         switch self {

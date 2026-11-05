@@ -176,7 +176,7 @@ extension ImageStretcher {
     /// Store the result on `ImageEntry.bayerClips` during the grey-pass, then compute
     /// per-folder medians and call `createBayerImage(inputBuffer:clips:)` for the colour pass.
     static func computeBayerClips(_ buffer: MTLBuffer, width: Int, height: Int,
-                                   rOffset: UInt32) -> BayerClips {
+                                  rOffset: UInt32) -> BayerClips {
         let ptr = buffer.contents().assumingMemoryBound(to: Float.self)
         return estimateBayerPerChannelPercentiles(ptr, width: width, height: height, rOffset: rOffset)
     }
