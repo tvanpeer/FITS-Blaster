@@ -26,9 +26,6 @@ struct MetricsCalculator {
     static let maxDetectionCandidates = Constants.maxDetectionCandidates
 
     /// Half-width of the pixel crop extracted around each star candidate.
-    /// 12 → 25×25 crop; covers the ±10-px Moffat fit window plus the ±2-px
-    /// centroid window, with one pixel to spare for bilinear interpolation.
-    private static let cropHalf = 12
 
     // The detection pipeline, device and queue are MetalContext's, shared with the
     // stretch: the frame's buffer from Phase A is used without a copy.
@@ -134,30 +131,75 @@ struct MetricsCalculator {
     private static let contrastRingCapacity = 128
 
     /// How far the pixel at (x, y) stands above its local sky, in units of the local noise:
-    /// (pixel − median) ÷ (1.4826 × MAD) of the pixels at 6–10 px from it at the same position
-    /// of the 2×2 cell (the same colour channel on a raw colour frame). Infinite when the
-    /// ring has no spread and the pixel is above it. `ring` is a reused buffer.
+    /// (pixel − median) ÷ (1.4826 × MAD) of the pixels in the star's ring (`sizes`: 6–10 px
+    /// for stars up to about 4 px, 1.5–2.5 × FWHM for larger ones, step 13i) at the same
+    /// position of the 2×2 cell (the same colour channel on a raw colour frame). Infinite when
+    /// the ring has no spread and the pixel is above it. `ring` is a reused buffer.
     static func localContrast(pixels: UnsafeBufferPointer<Float>, width: Int, height: Int,
-                              x: Int, y: Int, ring: inout [Float]) -> Float {
-        let inner = Constants.contrastRingInner, outer = Constants.contrastRingOuter
+                              x: Int, y: Int, ring: inout [Float],
+                              sizes: StarSizes = .normal) -> Float {
+        let inner2 = sizes.ringInner * sizes.ringInner, outer = sizes.ringOuter, outer2 = outer * outer
         ring.removeAll(keepingCapacity: true)
-        let cell = SkyLevels.cellIndex(x: x, y: y)
-        for py in max(0, y - outer)...min(height - 1, y + outer) {
-            for px in max(0, x - outer)...min(width - 1, x + outer)
-            where SkyLevels.cellIndex(x: px, y: py) == cell {
-                let r2 = (px - x) * (px - x) + (py - y) * (py - y)
-                if r2 >= inner * inner && r2 <= outer * outer { ring.append(pixels[py * width + px]) }
+        // Only the pixels at the same position of the 2×2 cell (same parity as x and y), and
+        // per row only the x range the ring covers: the same samples as testing every pixel
+        // of the square, about 9 × fewer visited (the rings of large stars, step 13i).
+        let firstY = Self.sameParity(max(0, y - outer), as: y)
+        for py in stride(from: firstY, through: min(height - 1, y + outer), by: 2) {
+            let dy2 = (py - y) * (py - y)
+            let reach = Self.integerSquareRoot(outer2 - dy2)
+            let row = py * width
+            for px in stride(from: Self.sameParity(max(0, x - reach), as: x),
+                             through: min(width - 1, x + reach), by: 2) {
+                let dx = px - x
+                if dx * dx + dy2 >= inner2 { ring.append(pixels[row + px]) }
             }
         }
         guard !ring.isEmpty else { return 0 }
-        ring.sort()
-        let median = ring[ring.count / 2]
+        let middle = ring.count / 2
+        let median = Self.orderStatistic(&ring, middle)
         for i in ring.indices { ring[i] = abs(ring[i] - median) }
-        ring.sort()
-        let noise = ring[ring.count / 2] * 1.4826
+        let noise = Self.orderStatistic(&ring, middle) * 1.4826
         let excess = pixels[y * width + x] - median
         guard noise > 0 else { return excess > 0 ? .infinity : 0 }
         return excess / noise
+    }
+
+    /// `value`, or the next number up when its parity differs from `reference`'s.
+    private static func sameParity(_ value: Int, as reference: Int) -> Int {
+        value + ((value ^ reference) & 1)
+    }
+
+    /// The largest integer whose square is at most `n` (0 for negative `n`).
+    static func integerSquareRoot(_ n: Int) -> Int {
+        guard n > 0 else { return 0 }
+        var root = Int(Double(n).squareRoot())
+        while root * root > n { root -= 1 }
+        while (root + 1) * (root + 1) <= n { root += 1 }
+        return root
+    }
+
+    /// The `k`-th smallest value of `values` (0-based), the value `values.sorted()[k]` gives,
+    /// found by selection instead of a full sort; reorders `values`.
+    static func orderStatistic(_ values: inout [Float], _ k: Int) -> Float {
+        values.withUnsafeMutableBufferPointer { v in
+            var low = 0, high = v.count - 1
+            while low < high {
+                // Median of three as pivot; Hoare partition.
+                let mid = low + (high - low) / 2
+                if v[mid] < v[low] { v.swapAt(mid, low) }
+                if v[high] < v[low] { v.swapAt(high, low) }
+                if v[high] < v[mid] { v.swapAt(high, mid) }
+                let pivot = v[mid]
+                var i = low, j = high
+                while i <= j {
+                    while v[i] < pivot { i += 1 }
+                    while pivot < v[j] { j -= 1 }
+                    if i <= j { v.swapAt(i, j); i += 1; j -= 1 }
+                }
+                if k <= j { high = j } else if k >= i { low = i } else { break }
+            }
+            return v[k]
+        }
     }
 
     /// The metrics of a frame without stars (fewer than `minimumStars`, none at all when
@@ -251,15 +293,35 @@ struct MetricsCalculator {
         // the shape fit accepts, and they pulled FWHM, eccentricity, SNR and PSF·S around.
         // Each check takes microseconds, so they run in one loop (§3.8).
 
+        // Each star's ring, fit window and crop follow its own quick FWHM (step 13i): the
+        // fixed 6–10 px ring lies on the flank of stars of 12 px and more. A star whose quick
+        // FWHM fills the normal ±10 px window is measured again with a wider one.
+        func quickFWHM(_ c: StarCandidate) -> Float {
+            let fwhm = Self.measureFWHMOnly(pixels: pixels, width: width, height: height,
+                                            cx: c.x, cy: c.y, sky: sky)
+            guard fwhm > StarSizes.quickWindowLimit else { return fwhm }
+            let wide = Self.measureFWHMOnly(pixels: pixels, width: width, height: height,
+                                            cx: c.x, cy: c.y, sky: sky,
+                                            halfWidth: StarSizes.forStar(fwhm: fwhm).fitHalfWidth)
+            return wide > 0 ? wide : fwhm
+        }
+        // Largest accepted FWHM: 20 px, or 2.5 × the frame's typical star where that is more,
+        // so the long axis of elongated large stars isn't taken for a galaxy (step 13i).
+        let acceptedFWHM = Self.acceptedFWHMRange(
+            typical: Self.typicalQuickFWHM(allCandidates, saturation: saturation, quickFWHM: quickFWHM))
+
         var verifiedCount = 0
-        // The stars to fit, each with its local contrast (used again in phase 2).
-        var shapeCandidates: [(candidate: StarCandidate, contrast: Float)] = []
+        // The stars to fit, each with its local contrast and sizes (used again in phase 2).
+        var shapeCandidates: [(candidate: StarCandidate, contrast: Float, sizes: StarSizes)] = []
         shapeCandidates.reserveCapacity(Constants.topCandidatesForShape)
         var saturated = saturation.map {
             SaturatedStars(pixels: pixels, width: width, height: height, level: $0)
         }
         var ring: [Float] = []
         ring.reserveCapacity(Self.contrastRingCapacity)
+        // Counted stars larger than normal: a wide, noisy star top has several local maxima,
+        // and with a ring sized to the star the second one passes the contrast check too.
+        var largeStars = LargeStarIndex()
         for c in allCandidates {
             switch saturated?.classify(x: c.x, y: c.y) {
             case .newStar:
@@ -271,16 +333,18 @@ struct MetricsCalculator {
             case .sameStar: continue
             default:        break
             }
-            let fwhm = Self.measureFWHMOnly(
-                pixels: pixels, width: width, height: height,
-                cx: c.x, cy: c.y, sky: sky)
-            guard Shape.acceptedFWHM.contains(fwhm) else { continue }
+            let fwhm = quickFWHM(c)
+            guard acceptedFWHM.contains(fwhm) else { continue }
+            let sizes = StarSizes.forStar(fwhm: fwhm)
+            let isLarge = sizes != .normal
+            if isLarge, largeStars.isOnCountedStar(x: c.x, y: c.y) { continue }
             let contrast = Self.localContrast(pixels: pixels, width: width, height: height,
-                                              x: c.x, y: c.y, ring: &ring)
+                                              x: c.x, y: c.y, ring: &ring, sizes: sizes)
             guard contrast >= Constants.countContrast else { continue }
+            if isLarge { largeStars.insert(x: c.x, y: c.y, fwhm: fwhm) }
             verifiedCount += 1
             if shapeCandidates.count < Constants.topCandidatesForShape {
-                shapeCandidates.append((candidate: c, contrast: contrast))
+                shapeCandidates.append((candidate: c, contrast: contrast, sizes: sizes))
             }
         }
 
@@ -308,33 +372,34 @@ struct MetricsCalculator {
         // PSF Signal Weight accumulator: Σ(peakVal) across verified stars.
         var psfFluxSum:  Float = 0
 
-        for (c, contrast) in shapeCandidates {
+        for (c, contrast, sizes) in shapeCandidates {
             let shape: (Float, Float, Float, Float)? = {
                 if let pattern = bayerPattern {
                     let rawCrop = Self.extractCrop(from: pixels, width: width, height: height,
-                                                   cx: c.x, cy: c.y, cropHalf: Self.cropHalf)
+                                                   cx: c.x, cy: c.y, cropHalf: sizes.cropHalf)
                     let rec709Lum = Self.debayerCropToLuminance(
-                        crop: rawCrop, cropHalf: Self.cropHalf,
-                        originX: c.x - Self.cropHalf, originY: c.y - Self.cropHalf,
+                        crop: rawCrop, cropHalf: sizes.cropHalf,
+                        originX: c.x - sizes.cropHalf, originY: c.y - sizes.cropHalf,
                         pattern: pattern, weights: .rec709)
                     let (fwhm, eccRec709, snr, peakVal) = Self.measureShapeFromCrop(
-                        crop: rec709Lum, cropHalf: Self.cropHalf,
-                        background: background, sigma: sigma)
-                    guard Shape.acceptedFWHM.contains(fwhm) else { return nil }
+                        crop: rec709Lum, cropHalf: sizes.cropHalf,
+                        background: background, sigma: sigma, halfWidth: sizes.fitHalfWidth)
+                    guard acceptedFWHM.contains(fwhm) else { return nil }
                     let adaptiveLum = Self.debayerCropToLuminance(
-                        crop: rawCrop, cropHalf: Self.cropHalf,
-                        originX: c.x - Self.cropHalf, originY: c.y - Self.cropHalf,
+                        crop: rawCrop, cropHalf: sizes.cropHalf,
+                        originX: c.x - sizes.cropHalf, originY: c.y - sizes.cropHalf,
                         pattern: pattern, weights: .adaptive)
                     let (_, eccAdaptive, _, _) = Self.measureShapeFromCrop(
-                        crop: adaptiveLum, cropHalf: Self.cropHalf,
-                        background: background, sigma: sigma)
+                        crop: adaptiveLum, cropHalf: sizes.cropHalf,
+                        background: background, sigma: sigma, halfWidth: sizes.fitHalfWidth)
                     let ecc = eccAdaptive > 0 ? eccAdaptive : eccRec709
                     return (fwhm, ecc, snr, peakVal)
                 } else {
                     let (fwhm, ecc, snr, peakVal) = Self.measureShape(
                         pixels: pixels, width: width, height: height,
-                        cx: c.x, cy: c.y, background: background, sigma: sigma)
-                    guard Shape.acceptedFWHM.contains(fwhm) else { return nil }
+                        cx: c.x, cy: c.y, background: background, sigma: sigma,
+                        halfWidth: sizes.fitHalfWidth)
+                    guard acceptedFWHM.contains(fwhm) else { return nil }
                     return (fwhm, ecc, snr, peakVal)
                 }
             }()

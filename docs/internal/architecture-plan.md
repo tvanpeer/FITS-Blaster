@@ -979,7 +979,7 @@ Measured with the current code (after 13g) on all baseline sets, the REJECTED fo
 
 **Result:** as planned (H3 agreed 2026-11-04). One shared constant `Constants.trailingEccentricity = 0.65` for the badge and Auto-Flag's default, `Scale.eccentricityZero = 0.9` in the score. Baselines: only `score` changed, on every frame (+6 to +16, average about +14; flats stay 0); every other metric and every `kept` column unchanged. Auto-Flag with the defaults flags, per set, old → new: Lobster 84 → 23, California 38 → 20, M31 15 → 5, M42 10 s 32 → 1, Gamma Cygni 18 → 0, M42 180 s 5 → 0, Rosette and SHO 1–2 → 0. Tests 408 (2 new: defaults, eccentricity scale); updated: the badge tests (0.66 trailing, 0.65 and 0.55 not), the score tests to the 0.9 end, and the "typical bad frame" fixture's eccentricity from 0.4 to 0.8 (0.4 is a normal frame on the new scale and would score 40). Also removed an unused local (`columnNeighbourBackground` in `measureFWHMOnly`, left over from 13d), the build's only warning. Set 9 in `FWHM-comparison.md`.
 
-### 13i (2026-11-04, open) — large stars (long focal length, oversampled data)
+### 13i (2026-11-04; plan B done 2026-11-05) — large stars (long focal length, oversampled data)
 
 **Found on** four frames from a CDK14 at 2563 mm with a full-frame mono camera (0.30"/px, 9576 × 6388, one frame per filter, no guiding; NGC 253). PixInsight and APP measure FWHM 10.7–13.0 px; we measure 7.4–8.2 px, in a different order (PixInsight and APP: G best, B worst; we: B best, L worst). Eccentricity: PixInsight 0.50–0.60 on L, G and B (elongation coherence 0.91–0.97), we 0.26–0.34. Stars: we 466–866, PixInsight 56–106, APP 136–184.
 
@@ -996,6 +996,42 @@ Measured with the current code (after 13g) on all baseline sets, the REJECTED fo
 2. The synthetic test extended to the other fixed sizes above (crop and fit window at 12–16 px, NMS on wide tops), with and without noise.
 3. A plan: scale the ring (and where needed the crop and fit window) with the star size, e.g. a ring from about 1.5–2 × the `measureFWHMOnly` FWHM, keeping 6–10 px for stars up to about 6 px so the existing sets stay byte-identical (checked with the baselines). Performance: larger rings only on frames with large stars.
 4. A test set from the session, if the owner agrees, under a name without his name.
+
+**Done 2026-11-05:**
+- 40 frames arrived (L, R, G, B × 10; the owner deletes bad frames, so there is no reject list) and the owner agreed to a test set: `ngc253-cdk14` (Test Data "NGC 253 CDK14 C3-61000/LIGHT", PixInsight's ImageAnalysis, its R_0001 star list and APP's table in the set's `reference` folder, outside the repo).
+- Step 1 (R_0001 against PixInsight's 71 stars): we count 1 of them; 65 fail the contrast check (median contrast 5, needed 12). Our fit on them gives 12.8 px (PixInsight 13.0): the fit works, the count check doesn't. 742 of our 873 "stars" lie on the galaxy (knots, quick FWHM 7–10 px), so our frame FWHM of 7.5 px is the knots' size. FWHM rank against PixInsight −0.22…0.08 per filter; APP against PixInsight 0.99–1.00.
+- Step 2 (synthetic, with a scaled ring and fit window): round stars of 10–20 px counted 78–83/81, FWHM within 0.16 px. Elongated (eccentricity 0.6) 18–20 px drop out: the quick check's upper limit of 20 px applies to the long axis.
+- **A frame-level switch (option A) was tried and dropped.** Neither a frame star size (median quick FWHM of the 50 brightest: sky-spread #0040 8.22 px, CDK B_0001 8.00) nor "the brightest stars fail the 6–10 px contrast" separates the CDK frames from cloudy and hazy ones (sky-spread dusk frames and #0040, California's last frames): halos make stars look large. A switch would move cloudy frames onto the large-star path and raise their star count, against 13h.
+- **Siril 1.4.5** (installed with Homebrew; GPL-3 sources read, no code taken) sizes each star from its own profile: inflection points of a σ = 2 px smoothed profile give a width per star, the fitting box is 3.7 × that width, symmetry checks reject lopsided sources, and a Gaussian with free background is fitted. On CDK14 its FWHM ranks agree with PixInsight at 0.98–1.00 and it counts 93–152 stars (PixInsight 41–137, APP 131–189). On our other sets Siril and we rank frames alike (FWHM 0.95–1.00; Rosette and SHO both 0.92–1.00 against PixInsight) and our star counts are closer to PixInsight than Siril's (Siril 30–50 % of PixInsight on Rosette and SHO). Exception: sky-spread (cloudy frames), ours against Siril 0.47.
+
+**Plan B: size the ring and the fit window per star (approved by Tom 2026-11-05 with these factors; done, see the results below)**
+
+Keep detection, the 13c count calibration (contrast ≥ 12) and the Moffat fit; only the fixed pixel sizes become per-star, from the star's own quick FWHM *w* (`measureFWHMOnly`, already computed for every candidate before the contrast check):
+- Contrast ring: inner max(6, round(1.5 *w*)), outer max(10, round(2.5 *w*)). Stars up to *w* = 4 px keep exactly 6–10 px. On R_0001 this gives FWHM 12.27 px (PixInsight 12.97), eccentricity 0.45 (0.49); L_0001 15.61 px (16.36), 0.54 (0.57); 65 of 70 PixInsight stars counted (simulated).
+- Fit window (`moffatHalfWidth`): max(10, round(1.5 *w*)), and the colour crop half-side fit + 2. Unchanged up to *w* ≈ 6.7 px.
+- Quick-FWHM window and upper limit: when *w* comes out near the 10-step window, measure again with a window of 1.5 *w*; the accepted upper limit becomes max(20, 2.5 × the frame's typical *w*) so elongated large stars aren't dropped (synthetic 18–20 px case). Exact rule fixed with the synthetic test.
+- The star count stays as it is (Tom, 2026-11-05: leave the galaxy knots for a separate investigation).
+
+**Expected effect:** frames whose stars measure up to 4 px: byte-identical (most sets). California, M42, lobster-cloud and the cloudy sky-spread frames (quick FWHM 4–9 px): the ring grows for their larger stars, so counts and FWHM move — to be measured, not assumed. CDK14: FWHM and eccentricity close to PixInsight.
+
+**Performance:** no new pass over the frame (*w* is already computed). Larger rings only for stars above 4 px: on CDK14 about 15 × the ring samples for those candidates; estimated a few tens of ms per CDK frame, nothing on normal frames. Measured with `BenchmarkTests`; budget ≤ 5 % load time on the normal sets. Metal not needed.
+
+**Steps:**
+1. Commit the test set `ngc253-cdk14` with today's metrics as its baseline (they record the problem, like M42's).
+2. Implement behind the per-star sizes; synthetic tests 3–20 px, round and elongated, with and without noise (permanent unit tests replacing `TmpLargeStarTests`).
+3. Run every baseline and list the changes per set, before committing anything. Checks:
+   - CDK14: FWHM rank against PixInsight ≥ 0.9 per filter, FWHM within 10 % of PixInsight, eccentricity rank ≥ 0.8.
+   - Cloudy frames still caught: Auto-Flag with its defaults on lobster-cloud (Tom's cull list in `testdata.py`) and sky-spread flags the same frames as before, or Tom accepts the difference.
+   - Render tests unchanged (stretch is not involved).
+4. Tom decides on the changes; then baselines updated with the reason in the CHANGELOG, as for 13c–13h.
+
+**Decisions for Tom:** the factors (1.5–2.5 × for the ring, 1.5 × for the fit window); whether a rise in star count on cloudy frames is acceptable if FWHM gets closer to PixInsight there (decided after step 3 with the numbers).
+
+**Results of plan B (2026-11-05, accepted by Tom):**
+- CDK14: FWHM within 2–4 % of PixInsight; FWHM rank against PixInsight L 0.90, R 0.99, G 1.00, B 1.00 (APP 0.83–0.99); eccentricity rank L 0.72, R 0.85, G 0.87, B 0.99. L stays below the 0.8 target: accepted for now, on the later list. Star count 551–1001 (galaxy knots still counted; left for a separate investigation). The standard filter keeps 30 of 40 (10 above eccentricity 0.5; PixInsight 0.50–0.60).
+- Other sets: star count median −2.5 % to +1.1 % per set, FWHM within 0.05 px, eccentricity within 0.005, frame order kept (rank old~new 0.88–1.00). M42 SNR −9.5 %; its rank against PixInsight PSF SNR (M42 10 s, `DEBAYERED-10/ImageAnalysis-psf200.csv`) 0.73 → 0.74, so a level shift, accepted. Auto-Flag defaults flag the same frames on lobster-cloud, California, M42, Gamma Cygni and M31; sky-spread #0005 is no longer flagged (eccentricity 0.667 → 0.644). Standard filter: California 48 → 41, Gamma Cygni 15 → 14, M31 night 24 → 25, M42 180 s 3 → 4, sky-spread 3 → 4. Renders unchanged. Baselines updated.
+- Synthetic (`LargeStarTests`): round stars of 3–20 px counted 77–80 of 81 (the test requires ≥ 75), FWHM within 5 %; elongated (eccentricity 0.6) within 0.05.
+- Speed: the larger rings first cost +25 % (California) and +160 % (Rosette R). The ring scan now visits only the ring's own pixels and uses selection instead of sorts, with identical values. Remaining: California +4 %, Rosette R +25 % (about 3 ms per frame; faint candidates with a noisy quick FWHM above 4 px get the larger ring), CDK14 +27 %. Tom accepted this (option A) over limiting the larger ring to candidates near the frame's typical star size (a behaviour change). Ring on the GPU stays a later option.
 
 ---
 

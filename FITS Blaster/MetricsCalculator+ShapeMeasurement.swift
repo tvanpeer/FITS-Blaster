@@ -44,10 +44,12 @@ extension MetricsCalculator {
     }
 
     /// The quick FWHM check above, after the neighbour pre-filter (`hasStarNeighbours`).
+    /// `halfWidth`: steps fitted on each side of the centre (`StarSizes.fitHalfWidth`).
     static func measureFWHMOnly(pixels: UnsafeBufferPointer<Float>,
                                 width: Int, height: Int,
                                 cx: Int, cy: Int,
-                                sky: SkyLevels) -> Float {
+                                sky: SkyLevels,
+                                halfWidth: Int = Shape.moffatHalfWidth) -> Float {
         let rowStart = cy * width
         guard cy >= 0 && cy < height,
               cx >= 0 && cx < width,
@@ -74,7 +76,7 @@ extension MetricsCalculator {
         guard hasStarNeighbours(pixels: pixels, width: width, height: height, cx: cx, cy: cy, sky: sky)
         else { return 0 }
 
-        let halfW    = Shape.moffatHalfWidth
+        let halfW    = halfWidth
         let minFrac  = Shape.moffatMinimumFraction
         var num: Float = 0, den: Float = 0
 
@@ -100,19 +102,19 @@ extension MetricsCalculator {
     /// Compute FWHM, eccentricity, and aperture SNR for a single star in the whole frame.
     /// See `measureShape(in:cx:cy:background:sigma:)`.
     static func measureShape(pixels: UnsafeBufferPointer<Float>, width: Int, height: Int,
-                             cx: Int, cy: Int, background: Float,
-                             sigma: Float) -> (fwhm: Float, eccentricity: Float, snr: Float, peakVal: Float) {
+                             cx: Int, cy: Int, background: Float, sigma: Float,
+                             halfWidth: Int = Shape.moffatHalfWidth) -> (fwhm: Float, eccentricity: Float, snr: Float, peakVal: Float) {
         measureShape(in: FramePixels(pixels: pixels, width: width, height: height),
-                     cx: cx, cy: cy, background: background, sigma: sigma)
+                     cx: cx, cy: cy, background: background, sigma: sigma, halfWidth: halfWidth)
     }
 
     /// FWHM, eccentricity, SNR, and peakVal from a pre-extracted crop centred on the star.
     /// See `measureShape(in:cx:cy:background:sigma:)`.
     static func measureShapeFromCrop(crop: [Float], cropHalf: Int,
-                                     background: Float,
-                                     sigma: Float) -> (fwhm: Float, eccentricity: Float, snr: Float, peakVal: Float) {
+                                     background: Float, sigma: Float,
+                                     halfWidth: Int = Shape.moffatHalfWidth) -> (fwhm: Float, eccentricity: Float, snr: Float, peakVal: Float) {
         measureShape(in: CropPixels(crop: crop, side: 2 * cropHalf + 1),
-                     cx: cropHalf, cy: cropHalf, background: background, sigma: sigma)
+                     cx: cropHalf, cy: cropHalf, background: background, sigma: sigma, halfWidth: halfWidth)
     }
 
     /// Compute FWHM, eccentricity, and aperture SNR for the star at (cx, cy) in `grid`.
@@ -134,8 +136,12 @@ extension MetricsCalculator {
     ///
     /// **peakVal:** Background-subtracted sub-pixel peak, returned so callers can
     /// compute PSF Signal Weight without re-deriving it from the fit coefficients.
+    ///
+    /// `halfWidth`: steps fitted on each side of the centre along each direction
+    /// (`StarSizes.fitHalfWidth`: 10 for stars up to about 6.7 px, 1.5 × FWHM above; 13i).
     static func measureShape<Grid: PixelGrid>(in grid: Grid, cx: Int, cy: Int, background: Float,
-                                              sigma: Float) -> (fwhm: Float, eccentricity: Float, snr: Float, peakVal: Float) {
+                                              sigma: Float,
+                                              halfWidth: Int = Shape.moffatHalfWidth) -> (fwhm: Float, eccentricity: Float, snr: Float, peakVal: Float) {
         let width = grid.width, height = grid.height
         let peakIndex = cy * width + cx
         guard peakIndex >= 0 && peakIndex < grid.count else { return (0, 0, 0, 0) }
@@ -165,13 +171,13 @@ extension MetricsCalculator {
         // Fit Moffat α along four directions: 0°, 90°, 45°, 135°.
         let rt2: Float = 1 / Float(2).squareRoot()
         guard let a0   = fitMoffatAlpha(grid, centX: centX, centY: centY, peakVal: peakVal,
-                                        background: background, dx: 1, dy: 0),
+                                        background: background, dx: 1, dy: 0, halfWidth: halfWidth),
               let a90  = fitMoffatAlpha(grid, centX: centX, centY: centY, peakVal: peakVal,
-                                        background: background, dx: 0, dy: 1),
+                                        background: background, dx: 0, dy: 1, halfWidth: halfWidth),
               let a45  = fitMoffatAlpha(grid, centX: centX, centY: centY, peakVal: peakVal,
-                                        background: background, dx: rt2, dy: rt2),
+                                        background: background, dx: rt2, dy: rt2, halfWidth: halfWidth),
               let a135 = fitMoffatAlpha(grid, centX: centX, centY: centY, peakVal: peakVal,
-                                        background: background, dx: -rt2, dy: rt2)
+                                        background: background, dx: -rt2, dy: rt2, halfWidth: halfWidth)
         else { return (0, 0, 0, 0) }
 
         // Reconstruct true principal-axis α values from four directional measurements.
@@ -222,8 +228,8 @@ extension MetricsCalculator {
     /// Returns the Moffat α parameter in pixels, or nil on failure.
     private static func fitMoffatAlpha<Grid: PixelGrid>(_ grid: Grid, centX: Float, centY: Float,
                                                         peakVal: Float, background: Float,
-                                                        dx: Float, dy: Float) -> Float? {
-        let halfW    = Shape.moffatHalfWidth
+                                                        dx: Float, dy: Float, halfWidth: Int) -> Float? {
+        let halfW    = halfWidth
         let minFrac  = Shape.moffatMinimumFraction
         var num: Float = 0, den: Float = 0
 

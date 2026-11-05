@@ -4,6 +4,19 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-11-05 — Large stars measured correctly (long focal length, step 13i)
+
+### Fixed
+- **Frames with large stars (FWHM above about 8 px) got a FWHM that was far too low.** On a CDK14 at 2563 mm (0.30″/px) with stars of 11–17 px we measured 7.4–8.2 px, in the wrong order, because the real stars failed the star check and the frame's FWHM came from smaller sources (knots in the galaxy). The check compares a star with a ring of sky at 6–10 px from its centre; on a large star that ring lies on the star itself. Now the ring, the fit window and the colour crop scale with each star's own width (ring 1.5–2.5 × its FWHM, fit window 1.5 ×), as Siril's star finder sizes each star from its own profile. On that session our FWHM is now within 2–4 % of PixInsight's and ranks the frames as PixInsight does (0.90–1.00 per filter); eccentricity too (0.85–0.99 for R, G and B; 0.72 for L, to look at later).
+- On normal frames the numbers move a little, because stars from about 5 px get the larger ring as well: star counts −2.5 % to +1 % (median per set), FWHM within 0.05 px, eccentricity within 0.005, and the order of the frames stays the same. M42 (OSC, 10 s and 180 s) measures about 10 % lower SNR; its ranking against PixInsight's PSF SNR is unchanged (0.73 → 0.74). Auto-Flag with its defaults flags the same frames on lobster-cloud, California, M42, Gamma Cygni and M31; on sky-spread #0005 is no longer flagged (eccentricity 0.667 → 0.644).
+
+### Under the hood
+- `StarSizes` (per-star ring, fit half-width and crop from the quick FWHM; stars up to 4 px keep 6–10 px, ±10 and 25 × 25); the quick FWHM is measured again with a wider window when it comes out near the window's edge; the accepted FWHM goes up to 2.5 × the frame's typical star (at least 20 px), so elongated large stars aren't dropped; `LargeStarIndex` stops a second local maximum on a large star's top from counting as another star. A frame-level switch was tried first and dropped: cloud halos make a frame's stars look large too.
+- Metric baselines updated for every set with these changes (standard filter: California keeps 41 frames instead of 48, Gamma Cygni 14 instead of 15, M31 night 25 instead of 24, M42 180 s 4 instead of 3, sky-spread 4 instead of 3; ngc253-cdk14 keeps 30 of 40, the other 10 above the eccentricity limit 0.5, where PixInsight measures 0.50–0.60). Renders are unchanged. New `LargeStarTests`: sizes, the duplicate check and synthetic frames with round and elongated stars of 3–20 px.
+- Speed (`BenchmarkTests`, Release): California 2.11 → 2.19 s (+4 %), Rosette R 0.24 → 0.30 s (+25 %, about 3 ms per frame: most faint candidates measure wider than 4 px and get the larger ring), CDK14 3.4 → 4.3 s. The ring now visits only its own pixels (same 2×2 cell position, per row only the x range inside the ring) and takes median and MAD by selection instead of two sorts: the same values (a unit test compares it with the old scan), and without that the larger rings cost +25 % on California and +160 % on Rosette. Accepted by Tom; moving the ring to the GPU stays on the list for later.
+
+---
+
 ## 2026-11-05 — Test set for large stars (ngc253-cdk14)
 
 ### Under the hood
