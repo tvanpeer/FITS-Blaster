@@ -70,5 +70,11 @@
     "commit": "55be2de (with uncommitted changes)",
     "macOS": "27.0.1",
     "updated": "2026-11-04T12:03:03"
+  },
+  "sky-spread": {
+    "app": "FITS Blaster.app 1.24-beta.3 (212)",
+    "commit": "2ee8660 (with uncommitted changes)",
+    "macOS": "27.0.1",
+    "updated": "2026-11-05T10:48:59"
   }
 }

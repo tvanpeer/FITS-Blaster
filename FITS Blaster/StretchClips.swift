@@ -32,6 +32,30 @@ struct GreyClips: Sendable, Equatable {
         let midtone     = ImageStretcher.mtfMidtone(shadowClip: low, highClip: high, background: background)
         return GreyClips(low: low, high: high, midtone: midtone, background: background)
     }
+
+    /// The lowest display level (0–1) the shared stretch may give a frame's sky: 32/255,
+    /// half the 25 % target. A frame whose sky would render darker keeps its own stretch.
+    static let minimumSharedSkyLevel: Float = 32.0 / 255.0
+
+    /// The display level (0–1) these clips give a sky `background` value: clipped to
+    /// [low, high], then the MTF with `midtone`, as the stretch kernels do.
+    func displayLevel(of value: Float) -> Float {
+        let range = high - low
+        guard range > 0 else { return 0 }
+        let x = max(0, min(1, (value - low) / range))
+        guard x > 0 else { return 0 }
+        let m = midtone
+        return max(0, min(1, (m - 1) * x / ((2 * m - 1) * x - m)))
+    }
+
+    /// Whether a frame with these (its own) clips keeps its own stretch instead of the
+    /// group's `shared` clips: when the shared clips would render its sky below
+    /// `minimumSharedSkyLevel`. With many bright frames in a group (dusk, dawn, cloud) the
+    /// shared low clip can lie above the sky of the clear frames, which then turned black
+    /// (GitHub issue #10).
+    func keepsOwnStretch(under shared: GreyClips) -> Bool {
+        shared.displayLevel(of: background) < Self.minimumSharedSkyLevel
+    }
 }
 
 // MARK: - BayerClips

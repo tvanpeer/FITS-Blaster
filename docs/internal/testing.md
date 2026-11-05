@@ -280,6 +280,7 @@ The **typical frame** is the one with the median background in its folder.
 | Sample set (published zip, unpacked each run) | R, G and B within **4** levels of each other, each within **63 ± 6** |
 | M31 night, California, Gamma Cygni 03-04 (`--full`) | Same |
 | Rosette R, G, B — mono (`--full`) | Background within **63 ± 6** |
+| Sh2 201 Hα, set `sky-spread` — mono (`--full`) | **Every** frame's background at least **26** (the shared-stretch limit 32/255 less the 6 levels of measuring room) |
 
 **Why these limits** (measured 2026-10-13, typical frame R/G/B):
 
@@ -298,6 +299,11 @@ fails on the sample set, California and Gamma Cygni.
 
 Every other frame is **only reported**, not tested: real frames differ
 (clouds, twilight, a brightening sky), and a limit there would be arbitrary.
+The exception is `sky-spread` (GitHub issue #10): 9 mono Hα frames, clear sky
+beside much brighter dusk frames. The shared grey stretch used to put the clear
+frames' sky below its low clip (0/255, black); since the fix a frame the shared
+clips would render below 32/255 keeps its own stretch, so no frame may be darker
+than that.
 
 ### Output
 
@@ -355,7 +361,10 @@ scripts/metric-baselines.py --smoke-results tests/smoke-results/<run>      # CSV
 Datasets: the sample set (unpacked from the published zip), the M31 night,
 California, Gamma Cygni 03-04, Rosette R, G and B, and ASI294MM SHO (mono
 narrowband H/O/S, `.fit` files, single-letter filter names; added 2026-10-21),
-and M42 10 s and 180 s (OSC, one night, two exposure times; added 2026-10-25).
+and M42 10 s and 180 s (OSC, one night, two exposure times; added 2026-10-25),
+and `sky-spread` (9 mono Hα frames from GitHub issue #10, clear sky beside dusk
+frames; added 2026-11-05; the frames' owner agreed to them being kept for testing,
+they stay outside the repo).
 The M42 baselines were known to be wrong across exposure times (star count and
 SNR fell at 180 s; `FWHM-comparison.md` set 3). Since master-plan steps 13a and
 13b (2026-11-01) SNR, PSF·S and the score are higher at 180 s; the star count is

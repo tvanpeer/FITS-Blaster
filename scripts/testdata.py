@@ -41,12 +41,18 @@ DATASETS = {
     # #3–#9, #28, #47, #53, #55–#58, #61, #85, #100–#103. The test set for the
     # cloudy-frame defaults of Auto-Flag.
     "lobster-cloud": "LBN 537 (Lobster Claw) IMX571/2025-11-12_L-Enhance/LIGHT",
+    # Mono Hα (ASI1600MM), 9 frames from one night of GitHub issue #10: clear sky
+    # (#0000, #0020, #0027, sky 1,850–2,100 ADU) beside brighter dusk frames (#0005–
+    # #0008). The shared grey stretch (median clips, low clip 4,710 ADU) put the clear
+    # frames' sky and nebula below the low clip: 0/255 before the fix, #0068 at 23/255;
+    # #0040 is the frame at the shared level (64/255).
+    "sky-spread": "Sh2 201 Ha ASI1600MM (issue 10)/LIGHT",
 }
 
 # The sets RenderingTests reads: the sample set, plus the rest with --full.
 RENDER_QUICK = ["sample-m31"]
 RENDER_FULL = ["sample-m31", "m31-night", "california", "gamma-cygni-0304",
-               "rosette-r", "rosette-g", "rosette-b"]
+               "rosette-r", "rosette-g", "rosette-b", "sky-spread"]
 
 FITS_EXTENSIONS = {".fits", ".fit", ".fts"}
 

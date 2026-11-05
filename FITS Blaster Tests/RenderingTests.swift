@@ -47,6 +47,10 @@ enum RenderTestData {
         "NGC 2244-Rosette_Nebula original/G",
         "NGC 2244-Rosette_Nebula original/B"
     ]
+
+    /// Mono folder with clear-sky and much brighter dusk frames (GitHub issue #10, set
+    /// "sky-spread"): the shared stretch made the clear frames' sky black.
+    static let skySpreadFolder = "Sh2 201 Ha ASI1600MM (issue 10)/LIGHT"
 }
 
 // MARK: - Tests
@@ -111,6 +115,24 @@ struct RenderingTests {
         let level = typical.background[1]
         #expect(abs(level - Self.targetLevel) <= Self.maxLevelOffset,
                 "typical frame \(typical.name) background \(level), target \(Self.targetLevel) ± \(Self.maxLevelOffset)")
+    }
+
+    /// A frame's sky may not render darker than the shared-stretch limit (32/255), less the
+    /// level offset the other checks allow for measuring the median of a rendered image.
+    static let minimumSkyLevel = 32 - maxLevelOffset
+
+    @Test("A mono folder with a wide sky spread renders no frame's sky near black (issue #10)",
+          .enabled(if: RenderTestData.full, "Set FB_TEST_DATA_FULL=1 for the large folders"))
+    func skySpreadFolder() async throws {
+        let root = try #require(RenderTestData.root)
+        let relativePath = RenderTestData.skySpreadFolder
+        let frames = await renderFolder(root.appending(path: relativePath), colour: false)
+        try #require(frames.count == 9, "expected 9 frames in \(relativePath), rendered \(frames.count)")
+        _ = report(frames, label: relativePath)
+        for frame in frames {
+            #expect(frame.background[1] >= Self.minimumSkyLevel,
+                    "\(frame.name) background \(frame.background[1]), at least \(Self.minimumSkyLevel)")
+        }
     }
 
     // MARK: - Checks

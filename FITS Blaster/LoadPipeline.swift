@@ -998,7 +998,8 @@ final class LoadPipeline {
     ///
     /// Groups with fewer than two images are skipped — a single image is already as
     /// consistent as it can be. Bayer images (handled by the colour normalisation path)
-    /// are always excluded.
+    /// are always excluded. A frame whose sky the shared clips would render below
+    /// `GreyClips.minimumSharedSkyLevel` keeps its own stretch (`keepsOwnStretch(under:)`).
     private func normalizeGreyStretch(_ entries: [ImageEntry],
                                       maxDisplaySize: Int,
                                       maxThumbnailSize: Int) async {
@@ -1015,9 +1016,16 @@ final class LoadPipeline {
                 guard groupEntries.count >= 2 else { continue }
                 let clips = GreyClips.median(of: groupEntries.compactMap(\.greyClips))
                 guard clips.isValid else { continue }
+                // A frame whose sky the shared clips would render too dark keeps its own
+                // stretch: its Phase A image, made with its own clips (GitHub issue #10).
+                let sharedEntries = groupEntries.filter { entry in
+                    guard let own = entry.greyClips else { return true }
+                    return !own.keepsOwnStretch(under: clips)
+                }
+                guard !sharedEntries.isEmpty else { continue }
                 group.addTask { [weak self] in
                     guard let self else { return }
-                    await self.renderGroupWithSharedGreyClips(groupEntries, clips: clips,
+                    await self.renderGroupWithSharedGreyClips(sharedEntries, clips: clips,
                                                               maxDisplaySize: maxDisplaySize,
                                                               maxThumbnailSize: maxThumbnailSize)
                 }

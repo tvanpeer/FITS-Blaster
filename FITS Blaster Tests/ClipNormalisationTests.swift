@@ -72,6 +72,47 @@ struct ClipNormalisationTests {
         #expect(shared.midtone == expected)
     }
 
+    // MARK: - Own stretch when the shared clips render the sky too dark (issue #10)
+
+    @Test("Display level: below the low clip 0, the background at 25 %, the high clip 1")
+    func displayLevel() {
+        let clips = greyClips(low: 4131, high: 11408, background: 4624)
+        #expect(clips.displayLevel(of: 1856) == 0)
+        #expect(abs(clips.displayLevel(of: 4624) - 0.25) < 0.001)
+        #expect(clips.displayLevel(of: 11408) == 1)
+        #expect(clips.displayLevel(of: 65504) == 1)
+        let x = (5000 - clips.low) / (clips.high - clips.low)
+        #expect(abs(clips.displayLevel(of: 5000) - mtf(x, midtone: clips.midtone)) < 1e-6)
+    }
+
+    // Clips measured on the Night 2 frames of issue #10 (100 Hα frames); the shared clips
+    // are their median: low 4131, high 11408, background 4624.
+    @Test("A frame keeps its own stretch only when the shared clips render its sky below 32/255")
+    func keepsOwnStretch() {
+        let shared = greyClips(low: 4131.2, high: 11408, background: 4624)
+        // Clear sky (#0020): below the shared low clip, would be black.
+        #expect(greyClips(low: 1676.8, high: 11408, background: 1856).keepsOwnStretch(under: shared))
+        // Just above the shared low clip (#0047): 2/255, still too dark.
+        #expect(greyClips(low: 3740.8, high: 5264, background: 4144).keepsOwnStretch(under: shared))
+        // The group's own level (#0054) and brighter frames keep the shared stretch.
+        #expect(!greyClips(low: 4131.2, high: 6192, background: 4624).keepsOwnStretch(under: shared))
+        #expect(!greyClips(low: 11091.2, high: 13824, background: 12032).keepsOwnStretch(under: shared))
+    }
+
+    @Test("The limit is exactly 32/255: just below keeps its own stretch, at the limit shares")
+    func ownStretchLimit() {
+        let shared = greyClips(low: 1000, high: 9000, background: 1400)
+        // Invert the MTF: the sky value the shared clips render at level y.
+        func value(at y: Float) -> Float {
+            let m = shared.midtone
+            let x = m * y / ((2 * m - 1) * y - (m - 1))
+            return shared.low + x * (shared.high - shared.low)
+        }
+        let limit = GreyClips.minimumSharedSkyLevel
+        #expect(greyClips(low: 0, high: 9000, background: value(at: limit - 0.002)).keepsOwnStretch(under: shared))
+        #expect(!greyClips(low: 0, high: 9000, background: value(at: limit + 0.002)).keepsOwnStretch(under: shared))
+    }
+
     // MARK: - BayerClips.median
 
     @Test("Median of one Bayer image returns that image's clips")

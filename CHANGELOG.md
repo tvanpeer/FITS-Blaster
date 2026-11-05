@@ -4,6 +4,17 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-11-05 — Clear frames no longer turn black after loading (GitHub issue #10)
+
+### Fixed
+- **Mono frames went dark after loading** when a folder had many bright frames (dusk, dawn, cloud) next to clear ones. Since 1.23 the frames of one folder and filter share one stretch, taken from the median of their stretch values; with half the night bright, that shared stretch clipped the clear frames' sky to black and only the stars were left. Now a frame keeps its own stretch when the shared one would render its sky darker than 32/255 (half the usual sky level). The other frames keep the shared stretch, so bright frames still stand out. On the reported night (100 Hα frames) 49 frames were black; now none are. Colour frames are unchanged.
+
+### Under the hood
+- `GreyClips.displayLevel(of:)` and `keepsOwnStretch(under:)`; the grey normalisation pass leaves such frames out of the shared re-render, so they keep their image from the first pass (made with their own clips). In the existing mono test sets no frame comes near the limit (darkest sky 49/255), so their renders and all metric baselines are unchanged.
+- New test set `sky-spread`: 9 frames from the reported night, chosen so that, as on the whole night, the clear frames' sky and nebula went black (with the owner's permission; the frames stay outside the repo), with a metric baseline and a rendering test that every frame's sky is at least 26/255. Unit tests for the limit.
+
+---
+
 ## 2026-11-04 — Right-click menu in the thumbnail bar
 
 ### Added
