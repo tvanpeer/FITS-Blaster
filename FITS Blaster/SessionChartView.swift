@@ -41,12 +41,7 @@ struct SessionChartView: View {
             if data.points.isEmpty {
                 ChartPlaceholder(selectedMetric: selectedMetric)
             } else {
-                ChartBody(
-                    chartEntries: data.entries,
-                    chartPoints: data.points,
-                    groupMedians: data.medians,
-                    selectedMetric: selectedMetric
-                )
+                ChartBody(data: data, selectedMetric: selectedMetric)
             }
         }
         .background(.background)
@@ -188,9 +183,8 @@ private struct ChartPlaceholder: View {
 // MARK: - ChartBody
 
 private struct ChartBody: View {
-    let chartEntries: [ImageEntry]
-    let chartPoints: [(index: Int, entry: ImageEntry, value: Double)]
-    let groupMedians: [(group: FilterGroup, median: Double)]
+    /// The frames, points, medians and y-range, built by `SessionChartData.make`.
+    let data: SessionChartData
     let selectedMetric: Metric
 
     @Environment(ImageStore.self) private var store
@@ -203,30 +197,6 @@ private struct ChartBody: View {
     @State private var pendingFlag: [ImageEntry] = []
     @State private var showFlagConfirm = false
 
-    // MARK: - Y-axis domain
-
-    /// Computed from the visible data so the chart fills the available height.
-    /// Starts 10% below the minimum value (never below 0) and ends 10% above the
-    /// maximum. Handles the single-frame case with a symmetric range so the dot/bar
-    /// sits in the centre rather than overflowing the 0…1 fallback.
-    private var yAxisDomain: ClosedRange<Double> {
-        let pointValues  = chartPoints.map(\.value)
-        let medianValues = groupMedians.map(\.median)
-        let allValues    = pointValues + medianValues
-        guard let minVal = allValues.min(), let maxVal = allValues.max() else {
-            return 0...1
-        }
-        guard minVal < maxVal else {
-            let padding = max(abs(minVal) * 0.20, 0.5)
-            return max(0, minVal - padding)...(minVal + padding)
-        }
-        let range   = maxVal - minVal
-        let padding = max(range * 0.10, 0.01)
-        let lower   = max(0, minVal - padding)
-        let upper   = maxVal + padding
-        return lower...upper
-    }
-
     // MARK: - Body
 
     var body: some View {
@@ -235,19 +205,21 @@ private struct ChartBody: View {
         // wouldn't otherwise trigger a re-render.
         let selectedID = store.selectedEntry?.id
         Chart {
-            ForEach(groupMedians, id: \.group) { item in
+            ForEach(data.medians, id: \.group) { item in
                 RuleMark(y: .value("Median", item.median))
                     .foregroundStyle(item.group.color.opacity(0.40))
                     .lineStyle(StrokeStyle(lineWidth: 1, dash: [5, 4]))
             }
 
-            ForEach(chartPoints, id: \.entry.id) { item in
+            ForEach(data.points, id: \.entry.id) { item in
                 let isCursor = item.entry.id == selectedID
-                let isFlagged = store.flaggedEntryIDs.contains(item.entry.id)
-                let hasFlaggedSet = !store.flaggedEntryIDs.isEmpty
-                let opacity: Double = if item.entry.isRejected { settings.rejectedDotOpacity }
-                    else if hasFlaggedSet && !isFlagged && !isCursor { settings.dimmedDotOpacity }
-                    else { 1.0 }
+                let state = SessionChartData.DotState(
+                    isCursor: isCursor,
+                    isFlagged: store.flaggedEntryIDs.contains(item.entry.id),
+                    hasFlaggedFrames: !store.flaggedEntryIDs.isEmpty,
+                    isRejected: item.entry.isRejected)
+                let opacity = SessionChartData.dotOpacity(state, rejectedOpacity: settings.rejectedDotOpacity,
+                                                          dimmedOpacity: settings.dimmedDotOpacity)
                 let color: Color = isCursor ? .white : item.entry.filterGroup.color
 
                 if settings.chartUseBars {
@@ -278,10 +250,10 @@ private struct ChartBody: View {
                 }
             }
         }
-        // Points sit at their frame's index in chartEntries; frames without a value
+        // Points sit at their frame's index in data.entries; frames without a value
         // (still processing, no stars) have no point but still take a place (CODE_AUDIT §5.9).
-        .chartXScale(domain: 0...max(2, chartEntries.count + 1))
-        .chartYScale(domain: yAxisDomain)
+        .chartXScale(domain: 0...max(2, data.entries.count + 1))
+        .chartYScale(domain: data.yDomain)
         .chartYAxis {
             AxisMarks(values: .automatic(desiredCount: 4)) { _ in
                 AxisGridLine().foregroundStyle(.secondary.opacity(0.25))
@@ -298,7 +270,6 @@ private struct ChartBody: View {
                     .onTapGesture { location in
                         handleTap(at: location, proxy: proxy, geo: geo)
                     }
-                    .accessibilityAddTraits(.isButton)
                     .gesture(
                         DragGesture(minimumDistance: 6)
                             .onChanged { value in
@@ -317,6 +288,15 @@ private struct ChartBody: View {
                 dragTooltip(proxy: proxy, geo: geo)
             }
         }
+        // VoiceOver: one element with a summary and an audio graph that steps through the
+        // frames. The click-and-drag layer is for the pointer only; with VoiceOver frames are
+        // selected in the sidebar (step 10a).
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Session chart, \(selectedMetric.displayName)")
+        .accessibilityValue(data.accessibilitySummary(metric: selectedMetric))
+        .accessibilityChartDescriptor(SessionChartAudioGraph(
+            metric: selectedMetric, points: data.audioGraphPoints(),
+            frameCount: data.entries.count, yDomain: data.yDomain))
         .alert("Select \(pendingFlag.count) Frame\(pendingFlag.count == 1 ? "" : "s")?",
                isPresented: $showFlagConfirm) {
             Button("Select") {
@@ -354,10 +334,9 @@ private struct ChartBody: View {
     private func handleTap(at location: CGPoint, proxy: ChartProxy, geo: GeometryProxy) {
         guard let plotFrame = proxy.plotFrame else { return }
         let xInPlot = location.x - geo[plotFrame].minX
-        guard let frameNumber: Int = proxy.value(atX: xInPlot, as: Int.self) else { return }
-        let index = frameNumber - 1
-        guard chartEntries.indices.contains(index) else { return }
-        store.selectedEntry = chartEntries[index]
+        guard let frameNumber: Int = proxy.value(atX: xInPlot, as: Int.self),
+              let entry = data.entry(atFrame: frameNumber) else { return }
+        store.selectedEntry = entry
     }
 
     // MARK: - Drag tooltip
@@ -366,10 +345,9 @@ private struct ChartBody: View {
         guard let currentX = dragCurrentX, let plotFrame = proxy.plotFrame else { return nil }
         let plotRect = geo[plotFrame]
         let xInPlot = currentX - plotRect.minX
-        guard let frameNumber: Int = proxy.value(atX: xInPlot, as: Int.self) else { return nil }
-        let index = frameNumber - 1
-        guard chartEntries.indices.contains(index),
-              let value = selectedMetric.value(from: chartEntries[index].metrics) else { return nil }
+        guard let frameNumber: Int = proxy.value(atX: xInPlot, as: Int.self),
+              let entry = data.entry(atFrame: frameNumber),
+              let value = selectedMetric.value(from: entry.metrics) else { return nil }
         let label = "\(selectedMetric.shortLabel): \(selectedMetric.formattedValue(value))"
         let clampedX = max(50, min(currentX, geo.size.width - 50))
         return (label: label, x: clampedX)
@@ -400,11 +378,7 @@ private struct ChartBody: View {
         guard let startFrame: Int = proxy.value(atX: minX, as: Int.self),
               let endFrame:   Int = proxy.value(atX: maxX, as: Int.self) else { return }
 
-        let lo = max(0,                    min(startFrame, endFrame) - 1)
-        let hi = min(chartEntries.count - 1, max(startFrame, endFrame) - 1)
-        guard lo <= hi else { return }
-
-        let candidates = Array(chartEntries[lo...hi]).filter { !$0.isRejected }
+        let candidates = data.flagCandidates(fromFrame: startFrame, toFrame: endFrame)
         guard !candidates.isEmpty else { return }
         pendingFlag     = candidates
         showFlagConfirm = true

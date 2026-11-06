@@ -4,8 +4,8 @@
 //
 //  The lists the sidebar and chart show are built once per change (performance audit P2,
 //  P3; CODE_AUDIT §7.5b, §8.5, §9.11): the shared filter grouping and median, the stored
-//  sidebar sections (equal to the filtering the sidebar did while drawing), and the chart's
-//  data snapshot.
+//  sidebar sections (equal to the filtering the sidebar did while drawing). The chart's
+//  data snapshot is tested in SessionChartDataTests.
 //
 
 import Foundation
@@ -88,16 +88,4 @@ struct SessionListsTests {
         #expect(store.listRevision > before)
     }
 
-    // MARK: - Chart data
-
-    @Test("Chart data: frames without a value keep their place, medians from the group statistics")
-    func chartData() {
-        let a = entry("Ha", fwhm: 2), b = entry("Ha", fwhm: nil), c = entry("Ha", fwhm: 4)
-        let store = store([a, b, c])
-        let data = SessionChartData.make(store: store, metric: .fwhm, folderPaths: [])
-        #expect(data.entries.map(\.id) == [a.id, b.id, c.id])
-        #expect(data.points.map(\.index) == [0, 2])
-        #expect(data.points.map(\.value) == [2, 4])
-        #expect(data.medians.map(\.group) == [.ha])
-    }
 }

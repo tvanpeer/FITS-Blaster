@@ -681,6 +681,28 @@ per repeat (about half a view per second at the default repeat), tuned by eye. 3
 
 **Risk**: low-medium.
 
+### Step 10 plan (2026-11-05)
+
+Agreed by Tom on 2026-11-05. Four parts, one commit each. No engine code changes, so renders and metrics stay byte-identical. Performance: no measurable effect (a table lookup per key press; the chart helpers do today's work in another place).
+
+**10a — chart logic into `SessionChartData`.** The y-axis range (`yAxisDomain`), the dot style (cursor, dimmed, rejected) and the conversion of a tap or drag position to frames move out of `SessionChartView` into `SessionChartData`. The y-range is computed once with the data instead of on every body pass. VoiceOver (Tom, 2026-11-06, after a test): Swift Charts bundles the dots into ranges, so per-dot labels never reach VoiceOver; instead the chart is one element with a summary (frames, median, lowest, highest) and an audio graph (`AXChartDescriptor`) with one point per frame (file name, frame number, value), and the click layer is hidden from VoiceOver. Tests: `SessionChartDataTests` (the existing chart test moves there).
+
+**10b — `KeyDispatcher` and one key-binding table.** Today the list of shortcuts exists four times (ContentView's tables, Settings' conflict lists, the menu items with 12 focused values, the recorder) and key strings become `KeyEquivalent`s three ways.
+- `KeyBinding.all`: one row per action (label, key path to the key, ⇧ key path for ⌘ shortcuts, plain or ⌘); one special-key mapping (↑ ↓ ← → ⇱ ⇲); `KeyEquivalent.fromSetting` as the only `KeyEquivalent` builder.
+- `KeyBindings`: a `Sendable` value with every key and ⇧ flag, the dispatcher's input and the one focused value for the menus.
+- `KeyDispatcher.action(for:bindings:)`: pure; the order of checks stays as it is (system shortcuts, text field, ⌘(⇧), ⇧ + previous/next, ⌥ + arrow, no other modifiers, plain keys and the "+" alias). Kept as they are: ⇧ + a plain key does its plain action; Undo in toggle-reject mode lets the key through.
+- ContentView keeps the window check and carrying out the actions. Settings keeps its hand-written rows; the conflict lists come from the table. The recorder keeps its own rules and uses the shared special-key mapping.
+- **Behaviour change (Tom: yes):** menu items bound to an arrow, Home or End key show the right glyph; they showed the first character only.
+- Tests: `KeyDispatcherTests` (every row with default and changed keys, ⇧ variants, extend selection, pan, other modifiers, text field, ⌃⌘F, "+" alias, table complete and without duplicates).
+
+**10c — Auto-Flag sheet.** `AutoRejectThreshold.all` next to `AutoRejectConfig` drives one generic `ThresholdSection` instead of seven copies; texts, ranges and steps unchanged. The preview count is computed when the settings change instead of in `body` (Tom: yes). Tests: `AutoRejectThresholdTests` (every check once, defaults inside their range and on a step, value texts as today).
+
+**10d — accessibility.**
+- Thumbnails: one label from a pure function (file name, filter, score, badge problem, flagged, rejected, flipped, processing / could not load); `.isSelected` for the cursor and the orange range selection.
+- Main image: "Frame, <file name>" plus flagged / rejected; label only, no new visible marker (Tom).
+- Non-colour cues only when macOS "Differentiate without color" is on (Tom): a ★ in top-third badges and a dashed outline for the orange selection. Flagged (checkmark), rejected (✕), badge problems (icon) and rejected chart dots (faded) already have one.
+- Tests: `ThumbnailAccessibilityTests`; 👤 a VoiceOver pass over the sidebar and the main image, and a look with Differentiate without color on.
+
 ---
 
 ## Step 11 — Reject and undo file operations

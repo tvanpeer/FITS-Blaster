@@ -4,6 +4,18 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-11-06 — Session chart logic in tested helpers (step 10a)
+
+### Added
+- **VoiceOver reads the session chart:** it is one element with a summary ("Session chart, FWHM: 39 frames, median 3.3 px, lowest 2.9 px, highest 4.1 px") and an audio graph. VoiceOver's chart details (VO-⇧-M) play the values as tones and step through the frames, each read with its file name, frame number and value. Before, VoiceOver found an unlabelled button and ranges of frame numbers.
+
+### Under the hood
+- The chart's y-axis range, dot opacity, the frames under a click or drag and the VoiceOver summary moved from the view into `SessionChartData`, the audio graph is `SessionChartAudioGraph`, with tests (`SessionChartDataTests`). The y-axis range is now worked out once with the chart data instead of on every redraw. The chart looks and behaves the same.
+- The step 10 plan (chart, key handling, Auto-Flag sheet, accessibility) is written down in `docs/internal/architecture-plan.md`, with Tom's answers.
+- `.swiftlint-baseline.json`: two findings in `SessionChartView` are gone (the file is now under 400 lines and has no large tuple).
+
+---
+
 ## 2026-11-06 — Beta builds check the beta feed again (issue #11)
 
 ### Fixed
