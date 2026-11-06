@@ -2,9 +2,11 @@
 """
 generate-appcast.py
 
-Generates or updates site/appcast.xml with a new Sparkle release entry.
-Called from the GitHub Actions release workflow after the DMG is notarised
-and signed with the Sparkle EdDSA key.
+Adds a new Sparkle release entry to the site's appcasts. A beta goes into
+site/appcast-beta.xml; a stable release goes into site/appcast.xml and also into
+site/appcast-beta.xml, so beta users are offered the next stable release (issue #11:
+beta builds always read the beta feed). Called from the GitHub Actions release
+workflow after the DMG is notarised and signed with the Sparkle EdDSA key.
 
 Usage:
     python3 scripts/generate-appcast.py \
@@ -83,7 +85,7 @@ def build_item(version: str, build: str, dmg_url: str, signature: str,
 APPCAST_TEMPLATE = """<?xml version="1.0" encoding="utf-8"?>
 <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
     <channel>
-        <title>FITS Blaster Updates</title>
+        <title>{title}</title>
         <link>https://astrophoto-app.com</link>
         <description>Release notes for FITS Blaster</description>
         <language>en-us</language>
@@ -97,14 +99,51 @@ def is_beta(version: str) -> bool:
     return 'beta' in version
 
 
+FEED_TITLES = {
+    'appcast.xml': 'FITS Blaster Updates',
+    'appcast-beta.xml': 'FITS Blaster Beta Updates',
+}
+
+
+def feeds_for(version: str) -> list[str]:
+    """The appcast files a release goes into: betas only into the beta feed, stable
+    releases into both, so a beta build (which always reads the beta feed) is offered them."""
+    return ['appcast-beta.xml'] if is_beta(version) else ['appcast.xml', 'appcast-beta.xml']
+
+
+def add_item(appcast_path: str, item: str, title: str) -> None:
+    """Inserts `item` as the first entry of the appcast at `appcast_path` (created when missing)."""
+    if os.path.exists(appcast_path):
+        with open(appcast_path, encoding='utf-8') as f:
+            existing = f.read()
+        # Insert new item after the <language> line
+        marker = '</language>'
+        idx = existing.find(marker)
+        if idx >= 0:
+            insert_pos = idx + len(marker)
+            updated = existing[:insert_pos] + '\n' + item + existing[insert_pos:]
+        else:
+            # Fallback: insert before </channel>
+            updated = existing.replace('    </channel>',
+                                       item + '\n    </channel>')
+    else:
+        updated = APPCAST_TEMPLATE.format(title=title, items=item)
+
+    os.makedirs(os.path.dirname(appcast_path), exist_ok=True)
+    with open(appcast_path, 'w', encoding='utf-8') as f:
+        f.write(updated)
+
+
 def main():
-    parser = argparse.ArgumentParser(description='Generate or update Sparkle appcast.xml')
+    parser = argparse.ArgumentParser(description='Add a release to the Sparkle appcasts')
     parser.add_argument('--version', required=True, help='Marketing version, e.g. 1.22 or 1.23-beta.1')
     parser.add_argument('--build', required=True, help='Build number (CURRENT_PROJECT_VERSION), e.g. 166')
     parser.add_argument('--dmg-url', required=True)
     parser.add_argument('--signature', required=True)
     parser.add_argument('--dmg-size', required=True, type=int)
     parser.add_argument('--release-notes-file', required=True)
+    parser.add_argument('--site-dir', default=os.path.join(os.path.dirname(__file__), '..', 'site'),
+                        help='Folder with the appcasts (default: the repository\'s site/)')
     args = parser.parse_args()
 
     with open(args.release_notes_file, encoding='utf-8') as f:
@@ -114,32 +153,10 @@ def main():
     new_item = build_item(args.version, args.build, args.dmg_url, args.signature,
                           args.dmg_size, release_html)
 
-    # Beta versions go to appcast-beta.xml, stable to appcast.xml
-    filename = 'appcast-beta.xml' if is_beta(args.version) else 'appcast.xml'
-    appcast_path = os.path.join(os.path.dirname(__file__), '..', 'site', filename)
-    appcast_path = os.path.normpath(appcast_path)
-
-    if os.path.exists(appcast_path):
-        with open(appcast_path, encoding='utf-8') as f:
-            existing = f.read()
-        # Insert new item after the <language> line
-        marker = '</language>'
-        idx = existing.find(marker)
-        if idx >= 0:
-            insert_pos = idx + len(marker)
-            updated = existing[:insert_pos] + '\n' + new_item + existing[insert_pos:]
-        else:
-            # Fallback: insert before </channel>
-            updated = existing.replace('    </channel>',
-                                       new_item + '\n    </channel>')
-    else:
-        updated = APPCAST_TEMPLATE.format(items=new_item)
-
-    os.makedirs(os.path.dirname(appcast_path), exist_ok=True)
-    with open(appcast_path, 'w', encoding='utf-8') as f:
-        f.write(updated)
-
-    print(f'Updated {appcast_path} with v{args.version}')
+    for filename in feeds_for(args.version):
+        appcast_path = os.path.normpath(os.path.join(args.site_dir, filename))
+        add_item(appcast_path, new_item, FEED_TITLES[filename])
+        print(f'Updated {appcast_path} with v{args.version}')
 
 
 if __name__ == '__main__':

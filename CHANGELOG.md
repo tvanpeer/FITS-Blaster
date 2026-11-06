@@ -4,6 +4,21 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-11-06 — Beta builds check the beta feed again (issue #11)
+
+### Fixed
+- **A beta could say "1.23.1 is the newest version"** instead of offering the next beta. Two causes: the first build that ran on a Mac saved its own default for "Receive beta releases", so a beta installed after a stable version inherited "off"; and the switch showed the value loaded at launch while the update check read the stored one, so a change made in another copy (copies share their settings) made them disagree.
+- **Beta builds now always check the beta feed.** Their Settings show a line about it instead of the switch.
+- **Stable builds keep the "Receive beta releases" switch**, off until the user turns it on. It is no longer written at launch, and the switch and the update check read the same stored value. The old setting is not read, because its value was often written automatically: a stable user who had turned it on starts with it off once.
+- **Stable releases also go into the beta feed** (`scripts/generate-appcast.py`, `release.yml`), so beta users are offered the next stable release and move to it.
+
+### Under the hood
+- New `UpdateChannel` (the feed decision) and `SoftwareUpdatesSection` (the Settings section); `AppSettings.useBetaUpdateChannel` removed. Tests in `UpdateChannelTests`. Checked in a macOS 27.3 beta VM: before the fix, the two failing cases reproduced the report; after it, all cases read the right feed and the switch follows changes made by another copy.
+- The beta page and the release guide on the site describe the new behaviour (deployed with the next release).
+- `.swiftlint-baseline.json`: four existing size findings got smaller (AppSettings, SettingsView) and are recorded with their new sizes.
+
+---
+
 ## 2026-11-05 — SwiftLint
 
 ### Under the hood
