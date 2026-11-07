@@ -4,6 +4,17 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-11-07 — Auto-Flag checks from one table (step 10c)
+
+### Changed
+- **Settings → Session Chart Brightness explains the sliders correctly.** The note said both sliders apply only while frames are flagged; rejected frames are always dimmed, also when flagged or selected (issue #12, where a reporter's slider was at full brightness).
+
+### Under the hood
+- **One table of Auto-Flag checks** (`AutoRejectThreshold.all`) drives one generic section in the Auto-Flag sheet instead of seven copies. Texts, ranges, steps, defaults and order are unchanged. Tests in `AutoRejectThresholdTests`: every check once, the modes per check, defaults inside their range and on a step, and the value texts.
+- **The sheet's preview count is worked out outside `body`:** when the thresholds change and, while a folder loads, every 250 ms and once at the end (as the session chart). The sheet no longer redraws for every metric that arrives. `AutoRejectConfig` is `Equatable`.
+
+---
+
 ## 2026-11-06 — One table for the keyboard shortcuts (step 10b)
 
 ### Changed

@@ -262,8 +262,8 @@ struct ImageDisplayTab: View {
                     OpacitySlider(value: $settings.dimmedDotOpacity)
                 }
                 Text("""
-                    Controls how dim rejected and non-flagged dots appear in the session chart when a flagged set is \
-                    active. Flagged and cursor dots are always full brightness.
+                    Rejected frames are always drawn at the first brightness, also when flagged or selected. Non-flagged \
+                    frames are dimmed only while some frames are flagged. Flagged frames and the current frame are otherwise at full brightness.
                     """)
                     .scaledFont(size: 10)
                     .foregroundStyle(.secondary)

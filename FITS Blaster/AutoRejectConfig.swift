@@ -4,7 +4,7 @@
 //
 
 /// Thresholds for one-click quality-based frame rejection.
-struct AutoRejectConfig: Sendable {
+struct AutoRejectConfig: Equatable, Sendable {
     enum Mode: String, CaseIterable, Sendable {
         case relative = "Relative"
         case absolute = "Absolute"
