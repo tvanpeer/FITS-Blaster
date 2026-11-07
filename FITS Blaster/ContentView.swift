@@ -100,57 +100,13 @@ struct ContentView: View {
         return settings.showInspector ? max(960, sidebar + 400 + 260) : max(700, sidebar + 400)
     }
 
-    // MARK: - Key dispatch tables
+    // MARK: - Key actions
 
-    /// Every configurable action the key monitor can trigger.
-    private enum NavAction {
-        case selectAll, deselectAll, invertSelection, selectAllRejected
-        case first, last, previous, next
-        case reject, undo
-        case flag, deflagAll
-        case toggleMode, remove, debayer
-        case playPause, flip
-        case zoomIn, zoomOut, zoomToFit, zoomActualSize
-    }
-
-    /// ⌘(⇧)+key bindings: KeyPath to the key string, KeyPath to the shift flag, action.
-    /// Adding a new ⌘ shortcut is a single line here — no edits to installKeyMonitor.
-    private static let cmdKeyBindings:
-        [(key: KeyPath<AppSettings, String>, shift: KeyPath<AppSettings, Bool>, action: NavAction)] = [
-        (\.selectAllKey,         \.selectAllShift,         .selectAll),
-        (\.deselectAllKey,       \.deselectAllShift,       .deselectAll),
-        (\.invertSelectionKey,   \.invertSelectionShift,   .invertSelection),
-        (\.selectAllRejectedKey, \.selectAllRejectedShift, .selectAllRejected),
-    ]
-
-    /// Plain-key bindings (no modifier): KeyPath to the key string, action.
-    /// Adding a new navigation shortcut is a single line here — no edits to handleKey.
-    private static let plainKeyBindings:
-        [(key: KeyPath<AppSettings, String>, action: NavAction)] = [
-        (\.firstImageKey,  .first),
-        (\.lastImageKey,   .last),
-        (\.prevImageKey,   .previous),
-        (\.nextImageKey,   .next),
-        (\.rejectKey,      .reject),
-        (\.undoKey,        .undo),
-        (\.flagKey,        .flag),
-        (\.deflagAllKey,   .deflagAll),
-        (\.playPauseKey,   .playPause),
-        (\.flipKey,        .flip),
-        (\.toggleModeKey,  .toggleMode),
-        (\.removeKey,      .remove),
-        (\.debayerKey,     .debayer),
-        (\.zoomInKey,         .zoomIn),
-        (\.zoomOutKey,        .zoomOut),
-        (\.zoomToFitKey,      .zoomToFit),
-        (\.zoomActualSizeKey, .zoomActualSize),
-    ]
-
-    /// Executes a `NavAction` against the current store/settings state.
+    /// Executes a `KeyAction` against the current store/settings state.
     /// Returns false only for bindings that should not consume the event
     /// (e.g. `undo` when toggle-reject mode is on).
     @discardableResult
-    private func dispatch(_ action: NavAction) -> Bool {
+    private func perform(_ action: KeyAction) -> Bool {
         switch action {
         case .selectAll:         store.selectAllVisible()
         case .deselectAll:       store.deselectAll()
@@ -215,65 +171,28 @@ struct ContentView: View {
                 guard let window = hostingWindow, event.window === window else { return true }
                 self.viewer.isKeyRepeat = event.isARepeat
 
-                // System shortcuts first, so a configured plain key doesn't swallow them.
-                switch SystemKeyShortcut.match(event) {
+                let press = KeyInput(event, isTextInputFocused: NSApp.keyWindow?.firstResponder is NSText)
+                switch KeyDispatcher.dispatch(press, bindings: KeyBindings(settings: self.settings)) {
+                case .notHandled, .passToSystem:
+                    return true
                 case .toggleFullScreen:
                     // Same route as View → Enter Full Screen: the key window via the responder chain.
                     return !NSApp.sendAction(#selector(NSWindow.toggleFullScreen(_:)), to: nil, from: nil)
-                case .passToSystem:
-                    return true
-                case nil:
-                    break
-                }
-
-                // Don't steal from text inputs.
-                guard !(NSApp.keyWindow?.firstResponder is NSText) else { return true }
-
-                let mods = event.modifierFlags
-                let shift = mods.contains(.shift)
-
-                // ⌘(⇧) + configured key — selection shortcuts.
-                // Use charactersIgnoringModifiers for reliable key matching across
-                // keyboard layouts and macOS versions (Cmd+A can produce "\x01" via
-                // event.characters on some systems).
-                if mods.contains(.command),
-                   !mods.contains(.option),
-                   !mods.contains(.control),
-                   let key = event.charactersIgnoringModifiers?.lowercased() {
-                    if let binding = Self.cmdKeyBindings.first(where: {
-                        self.settings[keyPath: $0.key] == key &&
-                        self.settings[keyPath: $0.shift] == shift
-                    }) {
-                        self.dispatch(binding.action)
-                        return false
-                    }
-                }
-
-                // ⇧ + configured nav key — extend selection.
-                if shift, !mods.contains(.command), !mods.contains(.option), !mods.contains(.control) {
-                    if let key = Self.keyString(from: event) {
-                        if key == self.settings.prevImageKey {
-                            self.store.extendSelectionPrevious(in: self.sidebarNavigationEntries)
-                            return false
-                        }
-                        if key == self.settings.nextImageKey {
-                            self.store.extendSelectionNext(in: self.sidebarNavigationEntries)
-                            return false
-                        }
-                    }
-                }
-
-                // ⌥ + arrow key — pan the image (the plain arrows navigate frames).
-                if mods.intersection([.command, .option, .control, .shift]) == .option,
-                   let direction = Self.panDirection(of: event) {
+                case .action(let action, .command):
+                    self.perform(action)
+                    return false
+                case .action(let action, .plain):
+                    return !self.perform(action)
+                case .extendSelectionPrevious:
+                    self.store.extendSelectionPrevious(in: self.sidebarNavigationEntries)
+                    return false
+                case .extendSelectionNext:
+                    self.store.extendSelectionNext(in: self.sidebarNavigationEntries)
+                    return false
+                case .pan(let direction):
                     self.viewer.panKeyDown(direction, isRepeat: event.isARepeat)
                     return false
                 }
-
-                // Don't intercept events with command/option/control modifiers.
-                guard mods.isDisjoint(with: [.command, .option, .control]) else { return true }
-                guard let key = Self.keyString(from: event) else { return true }
-                return !self.handleKey(key)
             }
             return passThrough ? event : nil
         }
@@ -281,7 +200,7 @@ struct ContentView: View {
             MainActor.assumeIsolated {
                 // The release of an arrow key in this window ends a pan, with or without ⌥
                 // still down (it may be let go first).
-                if event.window === hostingWindow, let direction = Self.panDirection(of: event) {
+                if event.window === hostingWindow, let direction = KeyDispatcher.panDirection(of: event.specialKey) {
                     self.viewer.panKeyUp(direction)
                 }
             }
@@ -298,47 +217,6 @@ struct ContentView: View {
             NSEvent.removeMonitor(monitor)
             keyUpMonitor = nil
         }
-    }
-
-    /// The pan direction of an arrow key; nil for every other key.
-    private static func panDirection(of event: NSEvent) -> PanDirection? {
-        switch event.specialKey {
-        case .leftArrow:  .left
-        case .rightArrow: .right
-        case .upArrow:    .up
-        case .downArrow:  .down
-        default:          nil
-        }
-    }
-
-    /// Converts an NSEvent to the key-string format used by AppSettings (e.g. "↑", "x", " ").
-    private static func keyString(from event: NSEvent) -> String? {
-        if let special = event.specialKey {
-            switch special {
-            case .upArrow:    return "↑"
-            case .downArrow:  return "↓"
-            case .leftArrow:  return "←"
-            case .rightArrow: return "→"
-            case .home:       return "⇱"
-            case .end:        return "⇲"
-            default:          return nil
-            }
-        }
-        return event.characters?.lowercased()
-    }
-
-    /// Looks up the matching plain-key binding and dispatches it.
-    /// Returns true if a binding matched and the event should be consumed.
-    @discardableResult
-    private func handleKey(_ key: String) -> Bool {
-        if let binding = Self.plainKeyBindings.first(where: { settings[keyPath: $0.key] == key }) {
-            return dispatch(binding.action)
-        }
-        // "+" is ⇧= on a US keyboard: with Zoom In on "=" it zooms in too, unless it has a key of its own.
-        if key == "+", settings.zoomInKey == "=" {
-            return dispatch(.zoomIn)
-        }
-        return false
     }
 
 }

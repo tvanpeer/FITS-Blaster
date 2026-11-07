@@ -30,13 +30,8 @@ extension FocusedValues {
     /// (`recolorImages`) on change.
     @Entry var debayerColorBinding: Binding<Bool>? = nil
 
-    /// The raw key string for "Toggle Simple/Geek Mode", so the View menu command can
-    /// display the correct user-configured shortcut.
-    @Entry var toggleModeKeyString: String? = nil
-
-    /// The raw key string for "Toggle Colour Images", so the View menu command can
-    /// display the correct user-configured shortcut.
-    @Entry var debayerKeyString: String? = nil
+    /// The active window's shortcut keys, so the menu items show the configured keys.
+    @Entry var keyBindings: KeyBindings? = nil
 
     /// Zoom and pan of the active window's image viewer, with their keys (View menu).
     @Entry var viewerCommands: ViewerCommandSet? = nil
@@ -51,20 +46,4 @@ extension FocusedValues {
     @Entry var selectAllRejectedAction: FocusedAction? = nil
     @Entry var toggleFlagAction: FocusedAction? = nil
     @Entry var deflagAllAction: FocusedAction? = nil
-
-    /// Key strings for the flag shortcuts, so menu commands show the correct letters.
-    @Entry var flagKeyString: String? = nil
-    @Entry var deflagAllKeyString: String? = nil
-
-    /// Key strings for the selection shortcuts, so menu commands can show the correct letter.
-    @Entry var selectAllKeyString: String? = nil
-    @Entry var deselectAllKeyString: String? = nil
-    @Entry var invertSelectionKeyString: String? = nil
-    @Entry var selectAllRejectedKeyString: String? = nil
-
-    /// Shift flags for the selection shortcuts (true = ⌘⇧, false = ⌘).
-    @Entry var selectAllShiftFV: Bool? = nil
-    @Entry var deselectAllShiftFV: Bool? = nil
-    @Entry var invertSelectionShiftFV: Bool? = nil
-    @Entry var selectAllRejectedShiftFV: Bool? = nil
 }

@@ -40,109 +40,88 @@ struct UISettingsTab: View {
     var body: some View {
         @Bindable var settings = settings
 
-        // Plain keys (no modifier) — only conflict with each other.
-        let plainKeys: [(label: String, key: Binding<String>)] = [
-            ("First Image",             $settings.firstImageKey),
-            ("Last Image",              $settings.lastImageKey),
-            ("Previous Image",          $settings.prevImageKey),
-            ("Next Image",              $settings.nextImageKey),
-            ("Reject",                  $settings.rejectKey),
-            ("Undo",                    $settings.undoKey),
-            ("Flag / Deflag",           $settings.flagKey),
-            ("Deflag All",              $settings.deflagAllKey),
-            ("Toggle Simple/Geek Mode", $settings.toggleModeKey),
-            ("Remove from List",        $settings.removeKey),
-            ("Toggle Colour Images",    $settings.debayerKey),
-            ("Play / Pause",            $settings.playPauseKey),
-            ("Flip 180\u{00B0}",            $settings.flipKey),
-            ("Zoom In",                 $settings.zoomInKey),
-            ("Zoom Out",                $settings.zoomOutKey),
-            ("Zoom to Fit",             $settings.zoomToFitKey),
-            ("Actual Size",             $settings.zoomActualSizeKey),
-        ]
-        // Cmd keys — only conflict with each other.
-        let cmdKeys: [(label: String, key: Binding<String>)] = [
-            ("Select All",              $settings.selectAllKey),
-            ("Deselect All",            $settings.deselectAllKey),
-            ("Inverse Selection",       $settings.invertSelectionKey),
-            ("Select All Rejected",     $settings.selectAllRejectedKey),
-        ]
+        // The other keys of the same kind (plain or ⌘): a key already in use there is refused.
+        let others: (KeyAction) -> [Binding<String>] = { action in
+            let kind = KeyBinding.binding(for: action).kind
+            return KeyBinding.all.filter { $0.kind == kind && $0.action != action }
+                .map { $settings[dynamicMember: $0.key] }
+        }
 
         Form {
             Section("Navigation") {
                 LabeledContent("First Image") {
                     KeyRecorderButton(keyString: $settings.firstImageKey,
-                                      conflictingKeys: plainKeys.filter { $0.label != "First Image" }.map(\.key))
+                                      conflictingKeys: others(.first))
                 }
                 LabeledContent("Last Image") {
                     KeyRecorderButton(keyString: $settings.lastImageKey,
-                                      conflictingKeys: plainKeys.filter { $0.label != "Last Image" }.map(\.key))
+                                      conflictingKeys: others(.last))
                 }
                 LabeledContent("Previous Image") {
                     KeyRecorderButton(keyString: $settings.prevImageKey,
-                                      conflictingKeys: plainKeys.filter { $0.label != "Previous Image" }.map(\.key))
+                                      conflictingKeys: others(.previous))
                 }
                 LabeledContent("Next Image") {
                     KeyRecorderButton(keyString: $settings.nextImageKey,
-                                      conflictingKeys: plainKeys.filter { $0.label != "Next Image" }.map(\.key))
+                                      conflictingKeys: others(.next))
                 }
                 Toggle("Single key reject/undo (toggle)", isOn: $settings.useToggleReject)
                 LabeledContent(settings.useToggleReject ? "Reject / Undo" : "Reject Image") {
                     KeyRecorderButton(keyString: $settings.rejectKey,
-                                      conflictingKeys: plainKeys.filter { $0.label != "Reject" }.map(\.key))
+                                      conflictingKeys: others(.reject))
                 }
                 if !settings.useToggleReject {
                     LabeledContent("Undo Rejection") {
                         KeyRecorderButton(keyString: $settings.undoKey,
-                                          conflictingKeys: plainKeys.filter { $0.label != "Undo" }.map(\.key))
+                                          conflictingKeys: others(.undo))
                     }
                 }
                 LabeledContent("Flag / Deflag") {
                     KeyRecorderButton(keyString: $settings.flagKey,
-                                      conflictingKeys: plainKeys.filter { $0.label != "Flag / Deflag" }.map(\.key))
+                                      conflictingKeys: others(.flag))
                 }
                 LabeledContent("Deflag All") {
                     KeyRecorderButton(keyString: $settings.deflagAllKey,
-                                      conflictingKeys: plainKeys.filter { $0.label != "Deflag All" }.map(\.key))
+                                      conflictingKeys: others(.deflagAll))
                 }
                 LabeledContent("Toggle Simple/Geek Mode") {
                     KeyRecorderButton(keyString: $settings.toggleModeKey,
-                                      conflictingKeys: plainKeys.filter { $0.label != "Toggle Simple/Geek Mode" }.map(\.key))
+                                      conflictingKeys: others(.toggleMode))
                 }
                 LabeledContent("Remove from List") {
                     KeyRecorderButton(keyString: $settings.removeKey,
-                                      conflictingKeys: plainKeys.filter { $0.label != "Remove from List" }.map(\.key))
+                                      conflictingKeys: others(.remove))
                 }
                 LabeledContent("Toggle Colour Images") {
                     KeyRecorderButton(keyString: $settings.debayerKey,
-                                      conflictingKeys: plainKeys.filter { $0.label != "Toggle Colour Images" }.map(\.key))
+                                      conflictingKeys: others(.debayer))
                 }
                 LabeledContent("Play / Pause") {
                     KeyRecorderButton(keyString: $settings.playPauseKey,
-                                      conflictingKeys: plainKeys.filter { $0.label != "Play / Pause" }.map(\.key))
+                                      conflictingKeys: others(.playPause))
                 }
                 LabeledContent("Flip 180\u{00B0}") {
                     KeyRecorderButton(keyString: $settings.flipKey,
-                                      conflictingKeys: plainKeys.filter { $0.label != "Flip 180\u{00B0}" }.map(\.key))
+                                      conflictingKeys: others(.flip))
                 }
             }
 
             Section("Zoom and Pan") {
                 LabeledContent("Zoom In") {
                     KeyRecorderButton(keyString: $settings.zoomInKey,
-                                      conflictingKeys: plainKeys.filter { $0.label != "Zoom In" }.map(\.key))
+                                      conflictingKeys: others(.zoomIn))
                 }
                 LabeledContent("Zoom Out") {
                     KeyRecorderButton(keyString: $settings.zoomOutKey,
-                                      conflictingKeys: plainKeys.filter { $0.label != "Zoom Out" }.map(\.key))
+                                      conflictingKeys: others(.zoomOut))
                 }
                 LabeledContent("Zoom to Fit") {
                     KeyRecorderButton(keyString: $settings.zoomToFitKey,
-                                      conflictingKeys: plainKeys.filter { $0.label != "Zoom to Fit" }.map(\.key))
+                                      conflictingKeys: others(.zoomToFit))
                 }
                 LabeledContent("Actual Size (1×)") {
                     KeyRecorderButton(keyString: $settings.zoomActualSizeKey,
-                                      conflictingKeys: plainKeys.filter { $0.label != "Actual Size" }.map(\.key))
+                                      conflictingKeys: others(.zoomActualSize))
                 }
                 LabeledContent("Pan") {
                     Text("⌥ + arrow keys")
@@ -155,28 +134,28 @@ struct UISettingsTab: View {
                     SelectionShortcutRow(
                         keyString: $settings.selectAllKey,
                         usesShift: $settings.selectAllShift,
-                        conflictingKeys: cmdKeys.filter { $0.label != "Select All" }.map(\.key)
+                        conflictingKeys: others(.selectAll)
                     )
                 }
                 LabeledContent("Deselect All") {
                     SelectionShortcutRow(
                         keyString: $settings.deselectAllKey,
                         usesShift: $settings.deselectAllShift,
-                        conflictingKeys: cmdKeys.filter { $0.label != "Deselect All" }.map(\.key)
+                        conflictingKeys: others(.deselectAll)
                     )
                 }
                 LabeledContent("Inverse Selection") {
                     SelectionShortcutRow(
                         keyString: $settings.invertSelectionKey,
                         usesShift: $settings.invertSelectionShift,
-                        conflictingKeys: cmdKeys.filter { $0.label != "Inverse Selection" }.map(\.key)
+                        conflictingKeys: others(.invertSelection)
                     )
                 }
                 LabeledContent("Select All Rejected") {
                     SelectionShortcutRow(
                         keyString: $settings.selectAllRejectedKey,
                         usesShift: $settings.selectAllRejectedShift,
-                        conflictingKeys: cmdKeys.filter { $0.label != "Select All Rejected" }.map(\.key)
+                        conflictingKeys: others(.selectAllRejected)
                     )
                 }
             }

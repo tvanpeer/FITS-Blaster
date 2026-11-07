@@ -19,8 +19,6 @@ struct ContentFocusedValues: ViewModifier {
             // App-level
             .focusedSceneValue(\.simpleModeBinding,     $bindableSettings.isSimpleMode)
             .focusedSceneValue(\.debayerColorBinding,   $bindableSettings.debayerColorImages)
-            .focusedSceneValue(\.toggleModeKeyString,   settings.toggleModeKey)
-            .focusedSceneValue(\.debayerKeyString,      settings.debayerKey)
             .focusedSceneValue(\.openFolderAction,      FocusedAction { store.openFolderRequested = true })
             .focusedSceneValue(\.viewerCommands, ViewerCommandSet(
                 zoomIn:     { settings.zoomScale = ViewerZoom.zoomedIn(from: settings.zoomScale) },
@@ -37,17 +35,7 @@ struct ContentFocusedValues: ViewModifier {
             .focusedSceneValue(\.selectAllRejectedAction,     FocusedAction { store.selectAllRejected() })
             .focusedSceneValue(\.toggleFlagAction,            FocusedAction { store.toggleFlagSelected() })
             .focusedSceneValue(\.deflagAllAction,             FocusedAction { store.deflagAll() })
-            // Key strings
-            .focusedSceneValue(\.flagKeyString,               settings.flagKey)
-            .focusedSceneValue(\.deflagAllKeyString,          settings.deflagAllKey)
-            .focusedSceneValue(\.selectAllKeyString,          settings.selectAllKey)
-            .focusedSceneValue(\.deselectAllKeyString,        settings.deselectAllKey)
-            .focusedSceneValue(\.invertSelectionKeyString,    settings.invertSelectionKey)
-            .focusedSceneValue(\.selectAllRejectedKeyString,  settings.selectAllRejectedKey)
-            // Shift flags
-            .focusedSceneValue(\.selectAllShiftFV,            settings.selectAllShift)
-            .focusedSceneValue(\.deselectAllShiftFV,          settings.deselectAllShift)
-            .focusedSceneValue(\.invertSelectionShiftFV,      settings.invertSelectionShift)
-            .focusedSceneValue(\.selectAllRejectedShiftFV,    settings.selectAllRejectedShift)
+            // The configured keys, for the menu items' shortcuts
+            .focusedSceneValue(\.keyBindings, KeyBindings(settings: settings))
     }
 }

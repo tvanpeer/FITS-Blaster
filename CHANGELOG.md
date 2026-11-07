@@ -4,6 +4,18 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-11-06 — One table for the keyboard shortcuts (step 10b)
+
+### Changed
+- **Menu items show arrow, Home and End keys correctly.** When Flag, Select All or another of these menu items is bound to such a key, the menu showed a wrong character instead of the arrow.
+
+### Under the hood
+- **One table of shortcuts** (`KeyBinding`) replaces four copies: the key monitor's two tables, the conflict lists in Settings, and the menu items' twelve focused values (now one `KeyBindings` value). One mapping of the arrows, Home and End to key strings, shared by the key monitor and the shortcut recorder, and one way to show a key in a menu.
+- **`KeyDispatcher`** decides what a key press does, in the same order as before: system shortcuts, text fields, ⌘ shortcuts, ⇧ + previous/next, ⌥ + arrow, plain keys and the "+" alias. ContentView keeps the window check and carries out the action. Tests in `KeyDispatcherTests`: every bound key, changed keys, ⇧ variants, extending the selection, panning, other modifiers, text fields, ⌃⌘F, the table and the menu keys.
+- `.swiftlint-baseline.json`: five findings in ContentView and the shortcut recorder are gone, and the SettingsView size finding is smaller.
+
+---
+
 ## 2026-11-06 — Session chart logic in tested helpers (step 10a)
 
 ### Added

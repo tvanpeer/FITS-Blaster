@@ -24,16 +24,13 @@ final class KeyRecorderNSView: NSView {
     }
 
     override func keyDown(with event: NSEvent) {
-        // Check function-key area (arrow keys, etc.)
+        // Special keys: the arrows, Home and End are recorded (the same key strings as the
+        // key monitor uses, KeyBinding); other special keys go on.
         if let specialKey = event.specialKey {
-            switch specialKey {
-            case .upArrow:    onKeyCapture?("↑")
-            case .downArrow:  onKeyCapture?("↓")
-            case .leftArrow:  onKeyCapture?("←")
-            case .rightArrow: onKeyCapture?("→")
-            case .home:       onKeyCapture?("⇱")
-            case .end:        onKeyCapture?("⇲")
-            default:          super.keyDown(with: event)
+            if let key = KeyBinding.settingString(for: specialKey) {
+                onKeyCapture?(key)
+            } else {
+                super.keyDown(with: event)
             }
             return
         }

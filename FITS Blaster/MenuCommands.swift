@@ -57,10 +57,10 @@ struct SettingsMenuCommand: View {
 /// ContentView's onChange(of: settings.debayerColorImages) re-renders the loaded images.
 struct DebayerColourCommand: View {
     @FocusedValue(\.debayerColorBinding) var debayerColor
-    @FocusedValue(\.debayerKeyString) var keyString
+    @FocusedValue(\.keyBindings) var keyBindings
 
     var body: some View {
-        let equiv: KeyEquivalent = keyString.flatMap(\.first).map { KeyEquivalent($0) } ?? KeyEquivalent("c")
+        let equiv = KeyEquivalent.menuKey(for: .debayer, in: keyBindings, default: "c")
         Button(debayerColor?.wrappedValue == true ? "✓ Colour Images" : "Colour Images") {
             debayerColor?.wrappedValue.toggle()
         }
@@ -83,12 +83,11 @@ struct OpenFolderCommand: View {
 /// Selects all visible frames in the active window.
 struct SelectAllCommand: View {
     @FocusedValue(\.selectAllAction)   var action
-    @FocusedValue(\.selectAllKeyString) var keyString
-    @FocusedValue(\.selectAllShiftFV)   var usesShift
+    @FocusedValue(\.keyBindings) var keyBindings
 
     var body: some View {
-        let equiv: KeyEquivalent = keyString.flatMap(\.first).map { KeyEquivalent($0) } ?? KeyEquivalent("a")
-        let mods: EventModifiers = usesShift == true ? [.command, .shift] : .command
+        let equiv = KeyEquivalent.menuKey(for: .selectAll, in: keyBindings, default: "a")
+        let mods: EventModifiers = keyBindings?.usesShift(.selectAll) == true ? [.command, .shift] : .command
         Button("Select All") { action?() }
             .disabled(action == nil)
             .keyboardShortcut(equiv, modifiers: mods)
@@ -98,12 +97,11 @@ struct SelectAllCommand: View {
 /// Deselects all frames.
 struct DeselectAllCommand: View {
     @FocusedValue(\.deselectAllAction)   var action
-    @FocusedValue(\.deselectAllKeyString) var keyString
-    @FocusedValue(\.deselectAllShiftFV)   var usesShift
+    @FocusedValue(\.keyBindings) var keyBindings
 
     var body: some View {
-        let equiv: KeyEquivalent = keyString.flatMap(\.first).map { KeyEquivalent($0) } ?? KeyEquivalent("d")
-        let mods: EventModifiers = usesShift == true ? [.command, .shift] : .command
+        let equiv = KeyEquivalent.menuKey(for: .deselectAll, in: keyBindings, default: "d")
+        let mods: EventModifiers = keyBindings?.usesShift(.deselectAll) == true ? [.command, .shift] : .command
         Button("Deselect All") { action?() }
             .disabled(action == nil)
             .keyboardShortcut(equiv, modifiers: mods)
@@ -113,12 +111,11 @@ struct DeselectAllCommand: View {
 /// Inverts the selection within visible frames.
 struct InvertSelectionCommand: View {
     @FocusedValue(\.invertSelectionAction)   var action
-    @FocusedValue(\.invertSelectionKeyString) var keyString
-    @FocusedValue(\.invertSelectionShiftFV)   var usesShift
+    @FocusedValue(\.keyBindings) var keyBindings
 
     var body: some View {
-        let equiv: KeyEquivalent = keyString.flatMap(\.first).map { KeyEquivalent($0) } ?? KeyEquivalent("i")
-        let mods: EventModifiers = usesShift == true ? [.command, .shift] : .command
+        let equiv = KeyEquivalent.menuKey(for: .invertSelection, in: keyBindings, default: "i")
+        let mods: EventModifiers = keyBindings?.usesShift(.invertSelection) == true ? [.command, .shift] : .command
         Button("Inverse Selection") { action?() }
             .disabled(action == nil)
             .keyboardShortcut(equiv, modifiers: mods)
@@ -128,12 +125,11 @@ struct InvertSelectionCommand: View {
 /// Selects all rejected frames in the active window (⌘R by default).
 struct SelectAllRejectedCommand: View {
     @FocusedValue(\.selectAllRejectedAction)   var action
-    @FocusedValue(\.selectAllRejectedKeyString) var keyString
-    @FocusedValue(\.selectAllRejectedShiftFV)   var usesShift
+    @FocusedValue(\.keyBindings) var keyBindings
 
     var body: some View {
-        let equiv: KeyEquivalent = keyString.flatMap(\.first).map { KeyEquivalent($0) } ?? KeyEquivalent("r")
-        let mods: EventModifiers = usesShift == true ? [.command, .shift] : .command
+        let equiv = KeyEquivalent.menuKey(for: .selectAllRejected, in: keyBindings, default: "r")
+        let mods: EventModifiers = keyBindings?.usesShift(.selectAllRejected) == true ? [.command, .shift] : .command
         Button("Select All Rejected") { action?() }
             .disabled(action == nil)
             .keyboardShortcut(equiv, modifiers: mods)
@@ -143,10 +139,10 @@ struct SelectAllRejectedCommand: View {
 /// Toggles the flag state of the current selection.
 struct ToggleFlagCommand: View {
     @FocusedValue(\.toggleFlagAction) var action
-    @FocusedValue(\.flagKeyString) var keyString
+    @FocusedValue(\.keyBindings) var keyBindings
 
     var body: some View {
-        let equiv: KeyEquivalent = keyString.flatMap(\.first).map { KeyEquivalent($0) } ?? KeyEquivalent("f")
+        let equiv = KeyEquivalent.menuKey(for: .flag, in: keyBindings, default: "f")
         Button("(De)flag") { action?() }
             .disabled(action == nil)
             .keyboardShortcut(equiv, modifiers: [])
@@ -156,10 +152,10 @@ struct ToggleFlagCommand: View {
 /// Removes all entries from the flagged set.
 struct DeflagAllCommand: View {
     @FocusedValue(\.deflagAllAction) var action
-    @FocusedValue(\.deflagAllKeyString) var keyString
+    @FocusedValue(\.keyBindings) var keyBindings
 
     var body: some View {
-        let equiv: KeyEquivalent = keyString.flatMap(\.first).map { KeyEquivalent($0) } ?? KeyEquivalent("d")
+        let equiv = KeyEquivalent.menuKey(for: .deflagAll, in: keyBindings, default: "d")
         Button("Deflag All") { action?() }
             .disabled(action == nil)
             .keyboardShortcut(equiv, modifiers: [])
@@ -182,10 +178,10 @@ struct CheckForUpdatesView: View {
 /// Toggles Simple/Geek mode from the View menu using the focused window's binding.
 struct SimpleModeCommand: View {
     @FocusedValue(\.simpleModeBinding) var isSimpleMode
-    @FocusedValue(\.toggleModeKeyString) var keyString
+    @FocusedValue(\.keyBindings) var keyBindings
 
     var body: some View {
-        let equiv: KeyEquivalent = keyString.flatMap(\.first).map { KeyEquivalent($0) } ?? KeyEquivalent("g")
+        let equiv = KeyEquivalent.menuKey(for: .toggleMode, in: keyBindings, default: "g")
         Button(isSimpleMode?.wrappedValue == true ? "✓ Simple Mode" : "Simple Mode") {
             isSimpleMode?.wrappedValue.toggle()
         }

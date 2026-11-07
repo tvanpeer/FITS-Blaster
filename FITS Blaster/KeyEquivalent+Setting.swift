@@ -26,4 +26,10 @@ extension KeyEquivalent {
             return KeyEquivalent(character)
         }
     }
+
+    /// The menu item's key equivalent for `action` in the focused window's bindings;
+    /// `fallback` when no window is focused or the action has no usable key.
+    static func menuKey(for action: KeyAction, in bindings: KeyBindings?, default fallback: Character) -> KeyEquivalent {
+        bindings.flatMap { fromSetting($0.key(action)) } ?? KeyEquivalent(fallback)
+    }
 }

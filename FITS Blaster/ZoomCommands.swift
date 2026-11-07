@@ -34,14 +34,6 @@ struct ZoomCommands: View {
 
     /// The menu's key equivalent for a configured key string ("↑" etc. as arrow keys).
     private static func key(_ keyString: String?, default fallback: Character) -> KeyEquivalent {
-        switch keyString {
-        case "↑": .upArrow
-        case "↓": .downArrow
-        case "←": .leftArrow
-        case "→": .rightArrow
-        case "⇱": .home
-        case "⇲": .end
-        default: KeyEquivalent(keyString?.first ?? fallback)
-        }
+        keyString.flatMap(KeyEquivalent.fromSetting) ?? KeyEquivalent(fallback)
     }
 }
