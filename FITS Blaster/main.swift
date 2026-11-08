@@ -5,24 +5,18 @@
 //  Program entry point. Dispatches to CLI (headless) mode or the normal SwiftUI
 //  app depending on how the binary was invoked.
 //
-//  CLI mode is triggered when any argument starts with /, ~ or -- (a folder path
-//  or an explicit flag). Single-dash macOS system arguments such as
-//  -NSDocumentRevisionsDebugMode or -ApplePersistenceIgnoreState are never matched.
+//  CLI mode: see `CLIArguments.isCLIInvocation` (one of the CLI's options, a path
+//  starting with / or ~, or a relative path to a folder that exists). macOS's own
+//  arguments such as -NSDocumentRevisionsDebugMode YES open the window.
 //
 
 import Foundation
 import AppKit
 import SwiftUI
 
-private func isCLIArg(_ s: String) -> Bool {
-    // Folder paths start with / or ~; long flags with --; short flags are exactly -<letter>.
-    // Excludes macOS system args like -NSDocumentRevisionsDebugMode (multi-char after dash).
-    s.hasPrefix("/") || s.hasPrefix("~") || s.hasPrefix("--") ||
-    (s.count == 2 && s.hasPrefix("-") && s.last?.isLetter == true)
-}
-
 #if !APPSTORE
-let headless = CommandLine.arguments.dropFirst().contains(where: isCLIArg)
+let headless = CLIArguments.isCLIInvocation(Array(CommandLine.arguments.dropFirst()),
+                                             currentDirectory: .currentDirectory())
 #else
 let headless = false
 #endif

@@ -754,6 +754,29 @@ Agreed by Tom on 2026-11-08. Two parts, one commit each. No engine code changes,
 
 **Risk**: low. **Behaviour**: scripts that relied on unknown flags being ignored now get an error. That is intended.
 
+### Step 12 plan (2026-11-08)
+
+Agreed by Tom on 2026-11-08. Two parts, one commit each. No engine code, so renders and metrics stay byte-identical (the metric baselines run through the CLI and also check the CSV); Metal not involved; no performance effect. App Store build unchanged (no CLI).
+
+**12a — arguments (§5.10, §4.4, CLI part of §9.11).**
+- `CLIArguments` (own file, pure, tested without running the CLI): one pass; each flag takes its value; exactly one argument is left, the folder, absolute, `~` or relative (to the current directory). `-m` may come after the thresholds.
+- `main.swift` uses the same rule for CLI mode: an argument that is one of the CLI's flags (or starts with `--`), or a folder that exists. macOS's own arguments (`-NSDocumentRevisionsDebugMode YES`) still open the window.
+- Usage error (exit 1, names the problem, points to `--help`): unknown flag, missing or non-numeric value, bad `-m`/`-P` value, no folder, two folders, `--score` in relative mode (Tom: error, was a warning).
+- `~` and `~/…` expanded with `URL.homeDirectory` (`~otheruser/…` no longer); folder check with URL resource values instead of `ObjCBool`.
+- Duplicates: the CLI's private `anyEnabled` → `AutoRejectConfig.isAnyCheckOn`; `AutoRejectConfig.allDisabled`; one `rel|relative|abs|absolute` parser for `-m` and `-P`.
+- Done 2026-11-08: the CLI's Auto-Flag settings are built by `CLIArguments.autoRejectConfig` and the CSV filter is `CLIRunner.framesToExport`, out of `run`. CSVs checked byte-identical to the 11b binary on the Sh2 201 set (unfiltered, absolute and relative filters); the metric baselines pass.
+
+**12b — results and exit codes (§5.11, §5.12).**
+- `CLIRunner.run` returns an exit code; `main.swift` calls `exit` with it.
+- Exit codes, documented in `--help`: 0 fine; 1 usage error or folder missing, unreadable or without FITS files; 2 CSV or renders not written; 3 no frame passes the filter (CSV with only the header row; decision 6); 4 CSV written but some files could not be read. Both 3 and 4: 3 (Tom).
+- Files that could not be read (including the skipped floating-point stacks) are listed on stderr, up to 10 with the reason, then "and N more".
+- A filtered run leaves files that could not be read out of the CSV, with a message saying so (Tom); an unfiltered run keeps them as rows without metric values, as now. Before, they passed the filter (no metrics to fail) and ended up in the keep-list.
+- `--help`: exit codes and relative folders.
+
+**Tests**: `CLIArgumentsTests` (`-o` before the folder, relative folder, `-m` after thresholds, unknown flag, missing value, bad number, bad mode, two folders, no folder, `--score` relative, the CLI-mode rule incl. macOS's own arguments); `CLIRunTests` on temporary folders (no frame passes → header-only CSV, code 3; a broken file → listed, code 4, out of the filtered CSV with a message; a normal run gives the same CSV as before); `vm-smoke-remote.sh`: `-o` before the folder, relative folder, unknown flag (1), no frame passes (3).
+
+**Site**: the FAQ's "must start with / or ~" goes on the FAQ list for stable 1.24.
+
 ---
 
 ## Step 13 — Behaviour changes (need decisions)

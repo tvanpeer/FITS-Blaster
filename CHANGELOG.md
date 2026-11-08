@@ -4,6 +4,21 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-11-08 — Command line read in one pass (step 12a)
+
+### Changed
+- **The folder can come anywhere on the command line, and can be relative.** Options take their values first, and the one argument left is the folder, so `-o ~/keep.csv ~/Astro/M31` works (before, the output path was taken for the folder), and `cd ~/Astro && "…/FITS Blaster" M31/LIGHT` works too (before, a relative folder opened the window). `-m` may come after the thresholds. The CSV is the same as before.
+- **Mistakes on the command line are usage errors** (exit 1, with the problem named) instead of being ignored: an unknown option (`--fwmh`), a missing or non-numeric value (`-f abc`, `-f -e 0.5`), a mode other than rel or abs (`-m foo`, `-P full`; before, silently relative), no folder, two folders, and `--score` in relative mode (before, a warning). A script that relied on an unknown option being ignored now stops with an error.
+- `~` and `~/…` are the home folder; `~otheruser/…` is no longer expanded.
+
+### Under the hood
+- `CLIArguments` reads the command line, builds the Auto-Flag settings and decides between the CLI and the window (`main.swift`); macOS's own arguments (`-NSDocumentRevisionsDebugMode YES`) still open the window. A folder through a symlink still counts as a folder (URL resource values don't follow a symlink, so it is resolved first).
+- `AutoRejectConfig.allDisabled`; the CLI uses `isAnyCheckOn` instead of its own copy; one rel/abs parser for `-m` and `-P` (CODE_AUDIT §5.10, §5.12, §4.4, CLI part of §9.11).
+- Tests in `CLIArgumentsTests`; `vm-smoke-remote.sh` checks `-o` before the folder, a relative folder and an unknown option.
+- The SwiftLint baseline loses five CLI entries; `CLIRunner.run` is still over the length limit until 12b.
+
+---
+
 ## 2026-11-08 — Rejecting and undoing many frames without freezing the window (step 11b)
 
 ### Changed

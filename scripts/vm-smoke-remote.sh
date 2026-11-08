@@ -226,6 +226,32 @@ if [ $STATUS -eq 0 ] && [ -f "$WORK/out/filtered.csv" ]; then
 else
     fail "filtered run: exit $STATUS (see filtered.stderr)"
 fi
+
+# Step 12a: the command line read in one pass.
+"$EXE" -o "$WORK/out/before.csv" "$SAMPLE_DIR" >/dev/null 2>"$WORK/out/before.stderr"
+STATUS=$?
+if [ $STATUS -eq 0 ] && cmp -s "$WORK/out/before.csv" "$WORK/out/all.csv"; then
+    pass "-o before the folder: exit 0, same CSV as the unfiltered run"
+else
+    fail "-o before the folder: exit $STATUS (see before.stderr)"
+fi
+
+(cd "$(dirname "$SAMPLE_DIR")" && "$EXE" "$(basename "$SAMPLE_DIR")" -o "$WORK/out/relative.csv" \
+    >/dev/null 2>"$WORK/out/relative.stderr")
+STATUS=$?
+if [ $STATUS -eq 0 ] && cmp -s "$WORK/out/relative.csv" "$WORK/out/all.csv"; then
+    pass "relative folder: exit 0, same CSV as the unfiltered run"
+else
+    fail "relative folder: exit $STATUS (see relative.stderr)"
+fi
+
+"$EXE" "$SAMPLE_DIR" --fwmh 1.5 -o "$WORK/out/typo.csv" >/dev/null 2>"$WORK/out/typo.stderr"
+STATUS=$?
+if [ $STATUS -eq 1 ] && grep -q "unknown option '--fwmh'" "$WORK/out/typo.stderr" && [ ! -f "$WORK/out/typo.csv" ]; then
+    pass "unknown option: usage error, exit 1, no CSV"
+else
+    fail "unknown option: exit $STATUS, $(head -1 "$WORK/out/typo.stderr")"
+fi
 fi  # not an App Store build
 
 # ── Rendering (beta builds only) ─────────────────────────────────────────────

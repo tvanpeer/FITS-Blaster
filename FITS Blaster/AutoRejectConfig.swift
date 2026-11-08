@@ -46,6 +46,19 @@ struct AutoRejectConfig: Equatable, Sendable {
     var useScore: Bool = false
     var scoreFloor: Double = 40   // stored as Double for direct Slider binding
 
+    /// Every check off (the CLI turns on only the checks given on the command line).
+    static var allDisabled: AutoRejectConfig {
+        var config = AutoRejectConfig()
+        config.useFWHM = false
+        config.useEccentricity = false
+        config.useStarCount = false
+        config.useSNR = false
+        config.useSkyBackground = false
+        config.usePSF = false
+        config.useScore = false
+        return config
+    }
+
     /// True when at least one check is on in the current mode (the score check only counts
     /// in absolute mode). A frame without stars fails every check (step 13g).
     var isAnyCheckOn: Bool {
