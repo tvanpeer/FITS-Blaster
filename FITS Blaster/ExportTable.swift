@@ -69,10 +69,11 @@ struct ExportTable {
 
     // MARK: - CSV / TSV
 
-    /// One line per row, cells separated by the format's delimiter.
-    func delimited(_ format: ExportFormat) -> String {
+    /// One line per row, cells separated by the format's delimiter. Without `includesRows`
+    /// only the header row (the CLI when no frame passes the filter, step 12b).
+    func delimited(_ format: ExportFormat, includesRows: Bool = true) -> String {
         let delimiter = format.delimiter
-        let lines: [String] = ([columns] + rows).map { row in
+        let lines: [String] = ([columns] + (includesRows ? rows : [])).map { row in
             let cells: [String] = row.map { format == .tsv ? Self.tsvCell($0) : Self.csvCell($0) }
             return cells.joined(separator: delimiter)
         }

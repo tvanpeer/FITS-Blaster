@@ -4,6 +4,22 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-11-08 — Command line: exit codes, files that could not be read (step 12b)
+
+### Changed
+- **When no frame passes the filter, the CSV has only the header row and the exit code is 3.** Before, every frame was written, with exit code 0, so a script using the CSV as a keep-list stacked the bad frames. The header has the same columns as an unfiltered run.
+- **Files that could not be read are listed on stderr** (up to 10, with the reason, then "and N more"), including floating-point and multi-channel stacks, and the exit code is 4. Before, they were not mentioned and the exit code was 0.
+- **A filtered run leaves files that could not be read out of the CSV**, with a note saying how many. Before, they passed the filter (they had no values to fail a check) and ended up in the keep-list. An unfiltered run still lists them as rows without values.
+- **Exit codes:** 0 done; 1 usage error, or the folder is missing, can't be read or has no FITS files; 2 the CSV could not be written; 3 no frame passes the filter; 4 the CSV was written but some files could not be read. When both 3 and 4 apply, 3. They are in `--help`, with a line about relative folders.
+
+### Under the hood
+- `CLIRunner.run(arguments:currentDirectory:)` returns a `CLIExitCode` instead of calling `exit`; `run` is split into scan, measure, renders, the list of files that could not be read and the CSV (CODE_AUDIT §5.11, §5.12). The CSV for normal runs is unchanged (checked byte for byte against the 12a binary on the Sh2 201 set: unfiltered, absolute and relative filters, and with `-r -S -P abs -H`).
+- `ExportTable.delimited(_:includesRows:)` for the header-only CSV.
+- Tests in `CLIRunTests` (the CLI run in-process on temporary folders); the star-field test frame moved to `TestFITS.starFieldData` (was copied in two test files). `vm-smoke-remote.sh` checks the "no frame passes" case.
+- The SwiftLint baseline has no CLI entries any more.
+
+---
+
 ## 2026-11-08 — Command line read in one pass (step 12a)
 
 ### Changed

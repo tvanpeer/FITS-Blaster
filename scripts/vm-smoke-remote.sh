@@ -252,6 +252,16 @@ if [ $STATUS -eq 1 ] && grep -q "unknown option '--fwmh'" "$WORK/out/typo.stderr
 else
     fail "unknown option: exit $STATUS, $(head -1 "$WORK/out/typo.stderr")"
 fi
+
+# Step 12b: no frame passes (FWHM ceiling 0.1 px) → only the header row, exit 3.
+"$EXE" "$SAMPLE_DIR" -m abs -f 0.1 -o "$WORK/out/none.csv" >/dev/null 2>"$WORK/out/none.stderr"
+STATUS=$?
+if [ $STATUS -eq 3 ] && [ "$(data_rows "$WORK/out/none.csv")" = "0" ] \
+   && [ "$(head -1 "$WORK/out/none.csv")" = "$(head -1 "$WORK/out/all.csv")" ]; then
+    pass "no frame passes: exit 3, only the header row"
+else
+    fail "no frame passes: exit $STATUS (see none.stderr)"
+fi
 fi  # not an App Store build
 
 # ── Rendering (beta builds only) ─────────────────────────────────────────────

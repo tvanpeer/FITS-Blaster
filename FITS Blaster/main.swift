@@ -24,8 +24,9 @@ let headless = false
 #if !APPSTORE
 if headless {
     Task { @MainActor in
-        await CLIRunner.run()
-        exit(0)
+        let code = await CLIRunner.run(arguments: Array(CommandLine.arguments.dropFirst()),
+                                       currentDirectory: .currentDirectory())
+        exit(code.rawValue)
     }
     RunLoop.main.run()
 } else {

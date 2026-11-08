@@ -772,6 +772,7 @@ Agreed by Tom on 2026-11-08. Two parts, one commit each. No engine code, so rend
 - Files that could not be read (including the skipped floating-point stacks) are listed on stderr, up to 10 with the reason, then "and N more".
 - A filtered run leaves files that could not be read out of the CSV, with a message saying so (Tom); an unfiltered run keeps them as rows without metric values, as now. Before, they passed the filter (no metrics to fail) and ended up in the keep-list.
 - `--help`: exit codes and relative folders.
+- Done 2026-11-08: the header-only CSV takes its columns from all frames, so a script sees the same columns. Broken file passing the filter confirmed on the 12a binary (10 rows for 9 frames, exit 0) before the change. CSVs byte-identical to the 12a binary in four normal cases on the Sh2 201 set.
 
 **Tests**: `CLIArgumentsTests` (`-o` before the folder, relative folder, `-m` after thresholds, unknown flag, missing value, bad number, bad mode, two folders, no folder, `--score` relative, the CLI-mode rule incl. macOS's own arguments); `CLIRunTests` on temporary folders (no frame passes → header-only CSV, code 3; a broken file → listed, code 4, out of the filtered CSV with a message; a normal run gives the same CSV as before); `vm-smoke-remote.sh`: `-o` before the folder, relative folder, unknown flag (1), no frame passes (3).
 

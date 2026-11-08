@@ -21,65 +21,101 @@ import Foundation
 @MainActor
 enum CLIRunner {
 
+    /// The CSV text and how it came about.
+    private struct CSVExport {
+        let content: String
+        let rows: Int
+        /// Filter checks were given and no frame passed them: the CSV has only the header row.
+        let nothingPassed: Bool
+    }
+
     // MARK: - Entry point
 
-    static func run() async {
-        let args = Array(CommandLine.arguments.dropFirst())
-
+    /// Runs the CLI with `args` (without the program name) and returns the exit code
+    /// (step 12b, CODE_AUDIT §5.11, §5.12).
+    static func run(arguments args: [String], currentDirectory: URL) async -> CLIExitCode {
         if args.isEmpty || args.contains(where: CLIArguments.helpFlags.contains) {
             printUsage()
-            exit(args.isEmpty ? 1 : 0)
+            return args.isEmpty ? .usage : .success
         }
-
         let options: CLIArguments
         do {
-            options = try CLIArguments.parse(args, currentDirectory: .currentDirectory())
+            options = try CLIArguments.parse(args, currentDirectory: currentDirectory)
         } catch {
             printError(error.message)
-            exit(1)
+            return .usage
         }
-        let folderStr = options.folderArgument
-        let folderURL = options.folder
-        guard CLIArguments.isFolder(folderURL) else {
-            printError("'\(folderStr)' is not a directory")
-            exit(1)
+        guard CLIArguments.isFolder(options.folder) else {
+            printError("'\(options.folderArgument)' is not a directory")
+            return .usage
         }
+        guard let collected = scan(options) else { return .usage }
+        let store = await measure(collected, options: options)
 
-        let config = options.autoRejectConfig
+        #if BETA || DEBUG
+        if let renderURL = options.renderURL,
+           !writeRenders(store.entries, to: renderURL, typicalOnly: options.renderTypicalOnly) {
+            return .writeFailed
+        }
+        #endif
 
-        // Scan
-        fputs("Scanning \(folderURL.lastPathComponent)…\n", stderr)
+        let unreadable = unreadableFiles(in: store)
+        report(unreadable)
+        let export = csv(for: store, options: options)
+        let csvURL = options.outputURL ?? options.folder.appending(component: "frames.csv")
+        do {
+            try export.content.write(to: csvURL, atomically: true, encoding: .utf8)
+        } catch {
+            fputs("error: could not write '\(csvURL.path(percentEncoded: false))': \(error.localizedDescription)\n", stderr)
+            return .writeFailed
+        }
+        print(csvURL.path(percentEncoded: false))
+        fputs("Exported \(plural(export.rows, "row")) → \(csvURL.lastPathComponent)\n", stderr)
 
+        if export.nothingPassed { return .nothingPassed }
+        return unreadable.isEmpty ? .success : .unreadableFiles
+    }
+
+    // MARK: - Scan and measure
+
+    /// The FITS files in the folder; nil (with the error printed) when there are none or
+    /// the folder can't be read.
+    private static func scan(_ options: CLIArguments) -> [(url: URL, subfolderPath: String)]? {
+        fputs("Scanning \(options.folder.lastPathComponent)…\n", stderr)
         let collected = ImageStore.collectFITSURLs(
-            in: folderURL,
+            in: options.folder,
             relativePath: "",
             excludedNames: [],
             includeSubfolders: options.subfolders,
             includeRejected: options.includeRejected)
-
-        guard !collected.isEmpty else {
-            // Check whether the directory itself is inaccessible — a common cause is macOS TCC
-            // blocking access to iCloud Drive (~/Library/Mobile Documents/…). Fix: grant
-            // FITS Blaster Full Disk Access in System Settings → Privacy & Security.
-            if (try? FileManager.default.contentsOfDirectory(
-                    at: folderURL, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles])) == nil {
-                fputs("""
-                    error: cannot read '\(folderStr)' — permission denied.
-                    If the folder is on iCloud Drive, grant FITS Blaster Full Disk Access in
-                    System Settings → Privacy & Security → Full Disk Access.
-                    """, stderr)
-                exit(1)
-            }
-            printError("no FITS files found in '\(folderStr)'")
-            exit(1)
+        guard collected.isEmpty else {
+            fputs("Found \(plural(collected.count, "file")). Computing metrics…\n", stderr)
+            return collected
         }
-        fputs("Found \(collected.count) file\(collected.count == 1 ? "" : "s"). Computing metrics…\n", stderr)
+        // Check whether the directory itself is inaccessible — a common cause is macOS TCC
+        // blocking access to iCloud Drive (~/Library/Mobile Documents/…). Fix: grant
+        // FITS Blaster Full Disk Access in System Settings → Privacy & Security.
+        if (try? FileManager.default.contentsOfDirectory(
+                at: options.folder, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles])) == nil {
+            fputs("""
+                error: cannot read '\(options.folderArgument)' — permission denied.
+                If the folder is on iCloud Drive, grant FITS Blaster Full Disk Access in
+                System Settings → Privacy & Security → Full Disk Access.
 
+                """, stderr)
+        } else {
+            printError("no FITS files found in '\(options.folderArgument)'")
+        }
+        return nil
+    }
+
+    /// Loads the files and computes the metrics. Without --render nothing is shown, so the
+    /// pipeline makes no display images or thumbnails and skips the grey normalisation
+    /// re-read (§7.7).
+    private static func measure(_ collected: [(url: URL, subfolderPath: String)],
+                                options: CLIArguments) async -> ImageStore {
         // The same rule as Open Folder in the app.
         let rejectedURLs: Set<URL> = options.includeRejected ? RejectedFolder.rejectedURLs(in: collected) : []
-
-        // Load + compute metrics. Without --render nothing is shown, so the pipeline makes no
-        // display images or thumbnails and skips the grey normalisation re-read (§7.7).
         let store = ImageStore()
         #if BETA || DEBUG
         // --render needs the images, with the colour renders the app makes with Colour on.
@@ -87,76 +123,102 @@ enum CLIRunner {
         #else
         let render = false
         #endif
-        store.pipeline.openFiles(collected, rejectedURLs: rejectedURLs, rootFolderName: folderURL.lastPathComponent,
-                        debayerColorImages: render, rendersImages: render)
+        store.pipeline.openFiles(collected, rejectedURLs: rejectedURLs, rootFolderName: options.folder.lastPathComponent,
+                                 debayerColorImages: render, rendersImages: render)
         await store.pipeline.waitForProcessing()
         fputs("Done.\n", stderr)
-
-        #if BETA || DEBUG
-        if let renderURL = options.renderURL {
-            do {
-                let count = try CLIRenderer.write(store.entries, to: renderURL, typicalOnly: options.renderTypicalOnly)
-                fputs("Rendered \(count) PNG\(count == 1 ? "" : "s") → \(renderURL.path(percentEncoded: false))\n", stderr)
-            } catch {
-                fputs("error: could not write renders to '\(renderURL.path(percentEncoded: false))': \(error.localizedDescription)\n", stderr)
-                exit(2)
-            }
-        }
-        #endif
-
-        // Resolve output URL
-        let csvURL = options.outputURL ?? folderURL.appending(component: "frames.csv")
-
-        let frames = framesToExport(from: store, config: config, includeRejected: options.includeRejected)
-
-        let content = ImageStore.exportContent(
-            frames: frames,
-            format: .csv,
-            includeRejected: options.includeRejected,
-            headerKeys: options.headerKeys ?? ExportHeaderKeys.defaults,
-            pathStyle: options.pathStyle)
-
-        do {
-            try content.write(to: csvURL, atomically: true, encoding: .utf8)
-        } catch {
-            fputs("error: could not write '\(csvURL.path(percentEncoded: false))': \(error.localizedDescription)\n", stderr)
-            exit(2)
-        }
-
-        print(csvURL.path(percentEncoded: false))
-        fputs("Exported \(frames.count) row\(frames.count == 1 ? "" : "s") → \(csvURL.lastPathComponent)\n", stderr)
+        return store
     }
 
-    /// The frames for the CSV: without filter checks every frame (rejected ones only with
-    /// -r); with checks the frames that pass them.
-    private static func framesToExport(from store: ImageStore, config: AutoRejectConfig,
-                                       includeRejected: Bool) -> [ImageEntry] {
-        // Filter: previewAutoReject returns the BAD frames (those failing the thresholds).
-        // We export the complement — the frames that are NOT flagged as bad.
-        let baseFrames = includeRejected ? store.entries : store.entries.filter { !$0.isRejected }
-        if config.isAnyCheckOn {
-            let badIDs = Set(store.previewAutoReject(config: config).map { $0.id })
-            let good = baseFrames.filter { !badIDs.contains($0.id) }
-            let nBad = badIDs.count
-            fputs("Filtered out \(nBad) frame\(nBad == 1 ? "" : "s"); keeping \(good.count).\n", stderr)
-            if config.isAnyRelativeCheckOn {
-                for (group, count) in store.groupsTooSmallForRelativeChecks {
-                    fputs("""
-                        note: filter group \(group.rawValue): \(count) frame\(count == 1 ? "" : "s"), relative checks \
-                        skipped (they need at least \(GroupStats.minimumFramesForRelativeChecks)).\n
-                        """, stderr)
-                }
-            }
-            if good.isEmpty {
-                fputs("warning: no frames passed the filter criteria; exporting all \(baseFrames.count) frame\(baseFrames.count == 1 ? "" : "s").\n", stderr)
-                return baseFrames
-            }
-            return good
+    #if BETA || DEBUG
+    /// --render: PNGs and backgrounds.csv. False (with the error printed) when they can't be written.
+    private static func writeRenders(_ entries: [ImageEntry], to renderURL: URL, typicalOnly: Bool) -> Bool {
+        do {
+            let count = try CLIRenderer.write(entries, to: renderURL, typicalOnly: typicalOnly)
+            fputs("Rendered \(plural(count, "PNG")) → \(renderURL.path(percentEncoded: false))\n", stderr)
+            return true
+        } catch {
+            fputs("error: could not write renders to '\(renderURL.path(percentEncoded: false))': \(error.localizedDescription)\n", stderr)
+            return false
         }
-        return baseFrames
+    }
+    #endif
+
+    // MARK: - Files that could not be read
+
+    /// The files without measurements (they could not be read), then the files left out
+    /// because of their format (floating-point or multi-channel stacks), with the reason.
+    static func unreadableFiles(in store: ImageStore) -> [(fileName: String, reason: String)] {
+        let failed = store.entries.filter { $0.metrics == nil }
+            .map { (fileName: $0.fileName, reason: $0.errorMessage ?? "could not be measured") }
+        let skipped = store.pipeline.skippedUnsupported
+            .map { (fileName: $0.fileName, reason: "floating-point or multi-channel stack, not supported") }
+        return failed + skipped
+    }
+
+    /// "warning: 2 files could not be read:", one line per file (at most `maxListed`),
+    /// then "and N more".
+    static func unreadableMessage(_ files: [(fileName: String, reason: String)], maxListed: Int = 10) -> String {
+        var lines = ["warning: \(plural(files.count, "file")) could not be read:"]
+        lines += files.prefix(maxListed).map { "  \($0.fileName) — \($0.reason)" }
+        if files.count > maxListed { lines.append("  and \(files.count - maxListed) more") }
+        return lines.joined(separator: "\n")
+    }
+
+    private static func report(_ unreadable: [(fileName: String, reason: String)]) {
+        guard !unreadable.isEmpty else { return }
+        fputs(unreadableMessage(unreadable) + "\n", stderr)
+    }
+
+    // MARK: - CSV
+
+    /// The CSV: every frame without filter checks (rejected ones only with -r); with checks
+    /// the frames that pass them. When none passes, only the header row, with the columns
+    /// all frames would have had.
+    private static func csv(for store: ImageStore, options: CLIArguments) -> CSVExport {
+        let config = options.autoRejectConfig
+        let baseFrames = options.includeRejected ? store.entries : store.entries.filter { !$0.isRejected }
+        let frames = config.isAnyCheckOn ? passingFrames(baseFrames, store: store, config: config) : baseFrames
+        let nothingPassed = config.isAnyCheckOn && frames.isEmpty
+        if nothingPassed {
+            fputs("warning: no frame passes the filter; the CSV has only the header row.\n", stderr)
+        }
+        let table = ExportTable(frames: nothingPassed ? baseFrames : frames, includeRejected: options.includeRejected,
+                                headerKeys: options.headerKeys ?? ExportHeaderKeys.defaults,
+                                pathStyle: options.pathStyle)
+        return CSVExport(content: table.delimited(.csv, includesRows: !nothingPassed),
+                         rows: nothingPassed ? 0 : frames.count, nothingPassed: nothingPassed)
+    }
+
+    /// The frames that pass the checks. Files that could not be read have no measurements
+    /// to judge, so they are left out too, with a note (Tom, 2026-11-08; before, they passed).
+    private static func passingFrames(_ baseFrames: [ImageEntry], store: ImageStore,
+                                      config: AutoRejectConfig) -> [ImageEntry] {
+        // previewAutoReject returns the frames that fail the checks.
+        let badIDs = Set(store.previewAutoReject(config: config).map(\.id))
+        let unmeasured = baseFrames.filter { $0.metrics == nil }
+        let good = baseFrames.filter { !badIDs.contains($0.id) && $0.metrics != nil }
+        fputs("Filtered out \(plural(badIDs.count, "frame")); keeping \(good.count).\n", stderr)
+        if !unmeasured.isEmpty {
+            fputs("note: left out of the CSV: \(plural(unmeasured.count, "file")) that could not be read.\n", stderr)
+        }
+        if config.isAnyRelativeCheckOn {
+            for (group, count) in store.groupsTooSmallForRelativeChecks {
+                fputs("""
+                    note: filter group \(group.rawValue): \(plural(count, "frame")), relative checks \
+                    skipped (they need at least \(GroupStats.minimumFramesForRelativeChecks)).\n
+                    """, stderr)
+            }
+        }
+        return good
     }
 
     // MARK: - Helpers
+
+    /// "1 frame", "3 frames".
+    private static func plural(_ count: Int, _ noun: String) -> String {
+        "\(count) \(noun)\(count == 1 ? "" : "s")"
+    }
 
     private static func printError(_ message: String) {
         fputs("error: \(message)\nRun with --help for usage.\n", stderr)
@@ -165,6 +227,8 @@ enum CLIRunner {
     private static func printUsage() {
         fputs("""
         Usage: FITS\\ Blaster.app/Contents/MacOS/FITS\\ Blaster <folder> [options]
+
+        The folder can be absolute, start with ~, or be relative to the current folder.
 
           -o, --output <path>         CSV output file  [default: <folder>/frames.csv]
           -S, --subfolders            Include files from subfolders
@@ -179,7 +243,8 @@ enum CLIRunner {
           -p, --psf <n>               PSF weight: multiplier (rel) or floor (abs)
           -q, --score <n>             Quality score floor  [absolute mode only]
 
-        When filter criteria are given, only the best frames are exported.
+        When filter criteria are given, only the frames that pass every check are exported;
+        files that could not be read are left out.
 
           -P, --path-style rel|abs    Path format in CSV  [default: relative]
           -H, --headers KEY1,KEY2,…   FITS header columns to include
@@ -187,6 +252,13 @@ enum CLIRunner {
           -h, --help                  Show this help
 
         Progress is written to stderr. The CSV path is written to stdout.
+
+        Exit codes:
+          0  done
+          1  usage error, or the folder is missing, can't be read or has no FITS files
+          2  the CSV could not be written
+          3  no frame passes the filter; the CSV has only the header row
+          4  the CSV was written, but some files could not be read (listed on stderr)
 
         """, stderr)
     }

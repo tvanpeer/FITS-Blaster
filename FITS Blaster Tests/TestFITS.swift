@@ -97,6 +97,29 @@ enum TestFITS {
         return data
     }
 
+    /// A 16-bit 256×256 FITS file with a flat background and ten round Gaussian stars (a
+    /// frame needs at least `MetricsCalculator.Constants.minimumStars` to be measured,
+    /// step 13g). `seed` varies the stars' brightness and size.
+    static func starFieldData(seed: Int, extraCards: [String] = []) -> Data {
+        let width = 256, height = 256
+        var pixels = [Float](repeating: 1000, count: width * height)
+        let stars = [(60, 70), (180, 60), (120, 150), (200, 200), (40, 210),
+                     (30, 30), (220, 120), (90, 110), (150, 220), (230, 30)]
+        for (i, (cx, cy)) in stars.enumerated() {
+            let amplitude = Float(6000 + 900 * ((i + seed) % 4))
+            let sigma: Float = 2.0 + 0.3 * Float((i + seed) % 3)
+            for y in max(0, cy - 12)...min(height - 1, cy + 12) {
+                for x in max(0, cx - 12)...min(width - 1, cx + 12) {
+                    let d2 = Float((x - cx) * (x - cx) + (y - cy) * (y - cy))
+                    pixels[y * width + x] += amplitude * exp(-d2 / (2 * sigma * sigma))
+                }
+            }
+        }
+        let stored = pixels.map { Int16(bitPattern: UInt16(min(65535, $0.rounded())) &- 32768) }
+        let cards = imageCards(bitpix: 16, width: width, height: height, bzero: 32768, extraCards: extraCards)
+        return fileData(cards: cards, pixels: bigEndian(stored))
+    }
+
     /// Writes `data` to a new file in the temporary directory. The caller removes it.
     static func write(_ data: Data, fileName: String = "\(UUID().uuidString).fits",
                       in folder: URL = FileManager.default.temporaryDirectory) throws -> URL {
