@@ -1117,6 +1117,19 @@ Keep detection, the 13c count calibration (contrast ≥ 12) and the Moffat fit; 
 
 **Risk**: medium (signing and entitlements). One change at a time, each checked in a VM.
 
+### Step 14 plan (2026-11-08)
+
+Agreed by Tom on 2026-11-08. Five parts, one commit each. No engine code: renders and metrics stay byte-identical; Metal not involved; no performance effect. Each entitlement change is checked by comparing the signed entitlements (`codesign -d --entitlements`) of the Debug, Release and App Store products before and after, with a table in the CHANGELOG. 👤 checks are prepared by Claude as step-by-step instructions (Tom, 2026-11-08).
+
+Found while planning: neither Quick Look target sets `CODE_SIGN_ENTITLEMENTS`; both inherit the project-level setting, which is `FITSBlasterQLThumb.entitlements` in Debug/Release and the app's App Store entitlements in the App Store configuration. The 1.23.1 App Store build (208) shipped both extensions with user-selected read-write and app-scope bookmarks. On Tom's Mac only FITS Blaster exports `gov.nasa.gsfc.fits` (macOS doesn't declare it; AstroBlink, QuickFits and our Quick Look extensions import it). The duplicated `useBetaUpdateChannel` key was already removed with issue #11 (`UpdateChannel`).
+
+- **14a — Quick Look entitlements (§6.1).** Each extension its own entitlements file with only `app-sandbox`, in every configuration; the project-level `CODE_SIGN_ENTITLEMENTS` and the extensions' `ENABLE_USER_SELECTED_FILES` removed. Check: VM smoke test on all VMs (website and App Store dev builds: registered, thumbnail); 👤 Quick Look preview in Finder (27 VM).
+  Done 2026-11-08: all four VMs pass with both builds (fb-26 App Store rerun after an scp drop); Tom checked the preview on 27.3 beta. The smoke test's render check now treats "unknown option '--render'" (stable builds since 12a) as SKIP.
+- **14b — website-build entitlements (§6.3).** Not sandboxed, so user-selected files, bookmarks, network client and Sparkle's mach-lookup exceptions are removed; no entitlements left, so no entitlements file; `ENABLE_USER_SELECTED_FILES` removed. Check: VM smoke test; 👤 Sparkle update in a VM (a dev build marked 1.24-beta.3 is offered beta.4 and installs it).
+- **14c — Info.plist (§6.5, §6.4).** FITS type to `UTImportedTypeDeclarations`. App Store build: a build step in the App Store configuration only removes the `SU*` keys from the built Info.plist (one Info.plist). Tom 2026-11-08: 1.23.1 is in the App Store, no review running; ships with the 1.24 App Store submission. Check: VM smoke test (both builds); PlistBuddy on both products; 👤 Quick Look and Open With on Tom's Mac (AstroBlink, QuickFits installed); 👤 Validate in Xcode's Organizer, no upload.
+- **14d — Sparkle (§4.6).** Delegate `@MainActor`; "Check for Updates…" disabled while a check runs (a `@MainActor @Observable` model watching `canCheckForUpdates`). Check: unit test with a stand-in updater; 👤 menu item greyed during a check.
+- **14e — release scripts (§9.11, §4.4).** `scripts/_common.py` with `is_beta` and the CHANGELOG entry split (outputs byte-identical, generated in a temporary copy). `make-dmg-background.swift` without `lockFocus` (regenerated PNG pixel-identical; committed PNG unchanged). One `scripts/make-dmg.sh` (the layout with background, used by the release workflow and by `build-release.sh`, which Tom keeps for a personal test DMG); `build-dmg.sh` removed. The workflow change is checked at the next beta release (the DMG step comes before notarisation and publishing, so a failure publishes nothing).
+
 ---
 
 ## Step 15 — Feature folders, naming, constants

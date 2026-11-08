@@ -4,6 +4,20 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-11-08 — Quick Look extensions hold only the sandbox (step 14a)
+
+### Changed
+- **The Quick Look extensions now hold only the app sandbox.** They read untrusted files from Finder, so they get the least access; Quick Look itself gives them the file being previewed. Neither extension had its own entitlements setting: both used the project-wide one, which in the App Store build was the main app's. So the App Store extensions (also in 1.23.1, build 208) could read and write files the user chose and keep bookmarks, and the website build's could read them. Signed entitlements, checked on local Debug, Release and App Store builds: both extensions had sandbox plus user-selected read-only (website) or sandbox plus user-selected read-only and read-write plus bookmarks (App Store); now only sandbox. FITS Blaster.app itself is unchanged.
+
+### Fixed
+- The VM smoke test failed its rendering check on stable builds since step 12a: they now reject `--render` as an unknown option (exit 1) instead of ignoring it, so the check reports SKIP again for that message.
+
+### Under the hood
+- Each extension has `CODE_SIGN_ENTITLEMENTS` pointing to its own file in every configuration; the project-level setting (the thumbnail extension's file in Debug/Release, the app's App Store file in App Store) and the extensions' `ENABLE_USER_SELECTED_FILES` are removed (CODE_AUDIT §6.1).
+- VM smoke test on macOS 15.8.2, 26.7.2, 27.2 and 27.3 beta, website and App Store builds: extensions registered, `qlmanage` thumbnail made, no crashes; Quick Look preview and icon-view thumbnails checked by hand on 27.3 beta (App Store build).
+
+---
+
 ## 2026-11-08 — Command line: exit codes, files that could not be read (step 12b)
 
 ### Changed

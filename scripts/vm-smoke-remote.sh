@@ -265,8 +265,9 @@ fi
 fi  # not an App Store build
 
 # ── Rendering (beta builds only) ─────────────────────────────────────────────
-# The CLI --render option exists only in beta builds (BETA compilation condition);
-# stable builds ignore it like any unknown option and write no backgrounds.csv.
+# The CLI --render option exists only in beta builds (BETA compilation condition).
+# Stable builds reject it as an unknown option (exit 1, since step 12a; before, they
+# ignored it with exit 0) and write no backgrounds.csv.
 # Limits are the same as in RenderingTests.swift — change both together.
 section "Rendering (CLI --render, beta builds only)"
 TARGET_LEVEL=63
@@ -279,7 +280,7 @@ else
 "$EXE" "$SAMPLE_DIR" --render "$RENDER" -o "$WORK/out/render.csv" >/dev/null 2>"$WORK/out/render.stderr"
 STATUS=$?
 if [ ! -f "$RENDER/backgrounds.csv" ]; then
-    if [ $STATUS -eq 0 ]; then
+    if [ $STATUS -eq 0 ] || { [ $STATUS -eq 1 ] && grep -q "unknown option '--render'" "$WORK/out/render.stderr"; }; then
         skip "--render is not in this build (only beta builds have it)"
     else
         fail "render run: exit $STATUS (see render.stderr)"
