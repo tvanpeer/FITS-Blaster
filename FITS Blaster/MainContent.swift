@@ -116,28 +116,36 @@ private struct InfoBar: View {
 
     var body: some View {
         HStack {
-            if let preparation = store.pipeline.preparation {
-                LoadPreparationView(preparation: preparation)
-            } else if store.pipeline.restretchingMessage != nil {
-                // A colour toggle (a batch too): only its own bars, not Loaded / Metrics.
-                BatchProgressBar(store: store, showLoadedMetrics: false)
-            } else if store.pipeline.isBatchProcessing {
-                BatchProgressBar(store: store, showLoadedMetrics: true)
-            } else if let elapsed = store.pipeline.batchElapsed {
-                let n   = store.pipeline.batchImageCount ?? 0
-                let fps = elapsed > 0 ? Double(n) / elapsed : 0
-                let mpx = store.pipeline.batchMegapixels ?? 0
-                let mps = elapsed > 0 && mpx > 0 ? mpx / elapsed : 0
-                let mpf = n > 0 && mpx > 0 ? mpx / Double(n) : 0
-                Text("""
-                    \(elapsed, format: .number.precision(.fractionLength(2)))s for \(n) images · \
-                    \(fps, format: .number.precision(.fractionLength(1))) \
-                    fps\
-                    \(mpf > 0 ? " (\(mpf.formatted(.number.precision(.fractionLength(0)))) MP)" : "")\
-                    \(mps > 0 ? " · \(mps.formatted(.number.precision(.fractionLength(0)))) MP/s" : "")
-                    """)
-                    .scaledFont(size: 10, monospaced: true)
-                    .foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 3) {
+                if let preparation = store.pipeline.preparation {
+                    LoadPreparationView(preparation: preparation)
+                } else if store.pipeline.restretchingMessage != nil {
+                    // A colour toggle (a batch too): only its own bars, not Loaded / Metrics.
+                    BatchProgressBar(store: store, showLoadedMetrics: false)
+                } else if store.pipeline.isBatchProcessing {
+                    BatchProgressBar(store: store, showLoadedMetrics: true)
+                } else if store.frameMoves.progress == nil, let elapsed = store.pipeline.batchElapsed {
+                    let n   = store.pipeline.batchImageCount ?? 0
+                    let fps = elapsed > 0 ? Double(n) / elapsed : 0
+                    let mpx = store.pipeline.batchMegapixels ?? 0
+                    let mps = elapsed > 0 && mpx > 0 ? mpx / elapsed : 0
+                    let mpf = n > 0 && mpx > 0 ? mpx / Double(n) : 0
+                    Text("""
+                        \(elapsed, format: .number.precision(.fractionLength(2)))s for \(n) images · \
+                        \(fps, format: .number.precision(.fractionLength(1))) \
+                        fps\
+                        \(mpf > 0 ? " (\(mpf.formatted(.number.precision(.fractionLength(0)))) MP)" : "")\
+                        \(mps > 0 ? " · \(mps.formatted(.number.precision(.fractionLength(0)))) MP/s" : "")
+                        """)
+                        .scaledFont(size: 10, monospaced: true)
+                        .foregroundStyle(.secondary)
+                }
+                // A batch reject or undo (step 11b), below the load bars when both run.
+                if let moves = store.frameMoves.progress {
+                    ProgressBarRow(label: moves.kind == .reject ? "Rejecting" : "Restoring",
+                                   value: moves.done, total: moves.total,
+                                   color: moves.kind == .reject ? .red : .green)
+                }
             }
 
             Spacer()

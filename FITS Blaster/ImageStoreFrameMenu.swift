@@ -42,7 +42,7 @@ extension ImageStore {
 
     /// Undoes the rejection of the frames that are rejected.
     func frameMenuUndoReject(_ targets: [ImageEntry]) {
-        targets.filter(\.isRejected).forEach { undoRejectEntry($0) }
+        undoRejectEntries(targets)
     }
 
     /// Takes the frames out of the list; the files stay on disk. The cursor moves only

@@ -111,11 +111,13 @@ extension ImageStore {
 
     // MARK: - Reject
 
-    func rejectSelected() {
+    /// Rejects the orange selection, or the cursor frame. With `previousOrder` (the key),
+    /// the cursor then moves on from that order when its frame was hidden.
+    func rejectSelected(advancingFrom previousOrder: [ImageEntry]? = nil) {
         if !markedForRejectionIDs.isEmpty {
-            rejectEntries(entries.filter { markedForRejectionIDs.contains($0.id) })
+            rejectEntries(entries.filter { markedForRejectionIDs.contains($0.id) }, advancingFrom: previousOrder)
         } else if let entry = selectedEntry {
-            rejectEntries([entry])
+            rejectEntries([entry], advancingFrom: previousOrder)
         }
     }
 
@@ -123,17 +125,20 @@ extension ImageStore {
         rejectEntries([entry])
     }
 
-    /// Rejects each entry. Entries whose folder the sandbox hasn't granted wait in a
-    /// `folderAccessRequest` for the first such folder; the others are rejected now.
-    func rejectEntries(_ entriesToReject: [ImageEntry]) {
-        var waiting: [ImageEntry] = []
-        for entry in entriesToReject where !entry.isRejected {
-            if moveToRejected(entry) == .needsFolderAccess { waiting.append(entry) }
+    /// Rejects the entries that aren't rejected or being moved yet. Two or more go as a
+    /// batch off the main actor (`moveBatch`); a single one moves now. An entry whose
+    /// folder the sandbox hasn't granted waits in a `folderAccessRequest`.
+    func rejectEntries(_ entriesToReject: [ImageEntry], advancingFrom previousOrder: [ImageEntry]? = nil) {
+        let toReject = entriesToReject.filter { !$0.isRejected && !frameMoves.movingIDs.contains($0.id) }
+        if toReject.count > 1 {
+            moveBatch(toReject, kind: .reject, advancingFrom: previousOrder)
+            return
         }
-        if let first = waiting.first, folderAccessRequest == nil {
-            folderAccessRequest = FolderAccessRequest(folder: first.url.deletingLastPathComponent(),
-                                                      entryIDs: waiting.map(\.id))
+        if let entry = toReject.first, moveToRejected(entry) == .needsFolderAccess, folderAccessRequest == nil {
+            folderAccessRequest = FolderAccessRequest(folder: entry.url.deletingLastPathComponent(),
+                                                      entryIDs: [entry.id])
         }
+        if let previousOrder { advanceCursorIfNeeded(from: previousOrder) }
     }
 
     private enum MoveResult { case moved, failed, needsFolderAccess }
@@ -166,8 +171,9 @@ extension ImageStore {
             updateVisibilityFilteredEntries()
             return .moved
         } catch {
-            if canAsk, Self.isPermissionDenied(error) { return .needsFolderAccess }
-            errorMessage = "Failed to reject \(entry.fileName): \(error.localizedDescription)"
+            let failure = FrameMover.failure(moving: originalURL, error: error)
+            if canAsk, failure.permissionDenied { return .needsFolderAccess }
+            errorMessage = "Failed to reject \(entry.fileName): \(failure.reason)"
             return .failed
         }
     }
@@ -329,13 +335,25 @@ extension ImageStore {
 
     // MARK: - Undo reject
 
-    func undoRejectSelected() {
+    /// Undoes the rejection of the orange selection, or of the cursor frame.
+    func undoRejectSelected(advancingFrom previousOrder: [ImageEntry]? = nil) {
         if !markedForRejectionIDs.isEmpty {
-            entries.filter { markedForRejectionIDs.contains($0.id) && $0.isRejected }
-                   .forEach { undoRejectEntry($0) }
-        } else if let entry = selectedEntry, entry.isRejected {
-            undoRejectEntry(entry)
+            undoRejectEntries(entries.filter { markedForRejectionIDs.contains($0.id) }, advancingFrom: previousOrder)
+        } else if let entry = selectedEntry {
+            undoRejectEntries([entry], advancingFrom: previousOrder)
         }
+    }
+
+    /// Undoes the rejection of the entries that are rejected and not being moved. Two or
+    /// more go as a batch off the main actor (`moveBatch`); a single one moves now.
+    func undoRejectEntries(_ entriesToRestore: [ImageEntry], advancingFrom previousOrder: [ImageEntry]? = nil) {
+        let toRestore = entriesToRestore.filter { $0.isRejected && !frameMoves.movingIDs.contains($0.id) }
+        if toRestore.count > 1 {
+            moveBatch(toRestore, kind: .restore, advancingFrom: previousOrder)
+            return
+        }
+        if let entry = toRestore.first { undoRejectEntry(entry) }
+        if let previousOrder { advanceCursorIfNeeded(from: previousOrder) }
     }
 
     /// Removes the REJECTED folder once the last file has been moved out of it. Only a
@@ -368,7 +386,7 @@ extension ImageStore {
 
             Self.removeFolderIfEmpty(currentURL.deletingLastPathComponent())
         } catch {
-            errorMessage = "Failed to undo rejection of \(entry.fileName): \(error.localizedDescription)"
+            errorMessage = "Failed to undo rejection of \(entry.fileName): \(FrameMover.failure(moving: currentURL, error: error).reason)"
         }
     }
 
@@ -431,24 +449,16 @@ extension ImageStore {
         guard let listing = listDirectory(folder) else { return [] }
 
         var results: [(URL, String)] = []
-        let sorted = listing.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
-
-        for (name, isDir) in sorted {
+        for scanItem in FolderScanItem.sorted(listing, in: folder, includeRejected: includeRejected) {
+            let name = scanItem.name, isDir = scanItem.isDirectory
+            if let rejectedFile = scanItem.rejectedFile {
+                // The parent's relativePath, so rejected files appear alongside their
+                // siblings in the sidebar rather than in a separate section.
+                results.append((rejectedFile, relativePath))
+                continue
+            }
             let item = folder.appending(component: name, directoryHint: isDir ? .isDirectory : .notDirectory)
             if isDir {
-                // REJECTED is handled before the includeSubfolders gate so it is picked up
-                // at every depth (root, and inside each subfolder) when includeRejected is on.
-                if RejectedFolder.isRejectedFolder(name: name) {
-                    if includeRejected {
-                        // Use the parent's relativePath so rejected files appear alongside
-                        // their siblings in the sidebar rather than in a separate section.
-                        results += collectFITSURLs(in: item, relativePath: relativePath,
-                                                   excludedNames: [],
-                                                   includeSubfolders: false,
-                                                   includeRejected: false)
-                    }
-                    continue
-                }
                 guard includeSubfolders else { continue }
                 // Skip any user-configured exclusion names (case-insensitive).
                 guard !excludedNames.contains(name.lowercased()) else { continue }

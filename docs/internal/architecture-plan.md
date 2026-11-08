@@ -736,6 +736,8 @@ Agreed by Tom on 2026-11-08. Two parts, one commit each. No engine code changes,
 - The batch task is owned by `ImageStore`; frames being moved are in a set, and a second reject or undo of a frame still moving is skipped.
 - Tests: 40 temporary files with one locked (immutable) file → the message names it and the other 39 move; undo restores every file and removes the empty REJECTED folder; a frame removed during the move; a second reject while moving.
 - Performance: one list rebuild per batch instead of one per frame, one bookmark lookup per folder instead of per frame. One-off timing of a 500-file reject before and after.
+- Measured 2026-11-08 (500 small frames, one-off test, not kept): local disk — main actor blocked 1.02 s (reject) / 1.33 s (undo) before, < 1 ms after, batch 0.17 s / 0.16 s; SMB (Astrofotografie) — frozen 38 s / 84 s before, < 2 ms after, batch 35 s / 33 s.
+- Added during the test (Tom, 2026-11-08): short failure reasons (a file locked in Finder said "no permission to access REJECTED"; locked no longer counts as a folder-permission problem), also for a single frame; rejected frames sorted in by name with their folder's frames when a folder is opened (`FolderScanItem`), instead of after them.
 - 👤 Checks: reject and undo of many frames on a local disk, on the external drive and on SMB (Tom's Mac Studio "Astrofotografie" volume).
 
 ---

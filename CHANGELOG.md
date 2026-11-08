@@ -4,6 +4,21 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-11-08 — Rejecting and undoing many frames without freezing the window (step 11b)
+
+### Changed
+- **Rejecting or undoing several frames at once no longer freezes the window.** The files move in the background, with a "Rejecting" or "Restoring" progress bar in the info bar, where the load progress is shown. The frames show as rejected (or restored) when the whole batch has moved, and then the cursor moves on as before. A single frame still moves at once, as before. Measured with 500 frames: on a local disk the window was blocked for 1.0 s (reject) and 1.3 s (undo), now for less than a millisecond, and the batch takes 0.17 s; on a network share (SMB) the window was frozen for 38 s and 84 s, now it stays usable while the batch takes about 35 s.
+- **Frames that can't be moved are listed in one message**, for example "3 of 40 frames could not be moved to REJECTED:", with up to 5 file names and the reason, then "and N more". Before, each failure replaced the previous message, so only the last one was shown.
+- **The reason in a failed reject or undo is short and correct.** A file locked in Finder (Get Info → Locked) now says "the file is locked (Finder: Get Info → Locked)". Before, macOS's own text named the file twice and said there was no permission to access REJECTED, which was wrong. Other common failures read "no permission to change this folder", "a file with this name is already there" or "the file is no longer there". This also applies to a single frame. In the App Store build a locked file no longer leads to the folder-access question, which could not help.
+- **Rejected frames keep their place when a folder is reopened.** With "Include REJECTED folder" on, the frames in a REJECTED folder are now sorted in with the folder's other frames by name. Before, they came after all of them (and after the subfolders whose names sort before "REJECTED"), so the order after reopening differed from the order during the session. The CLI lists the files in the same new order. The same name in the folder and in REJECTED: the folder's file comes first.
+
+### Under the hood
+- Batch rejects and undos go through `ImageStore.moveBatch`: folder access is started once per folder instead of once per frame, the list is rebuilt once instead of once per frame, and empty REJECTED folders are removed once per folder. The file work is in `FrameMover`, the progress and the frames being moved in `FrameMoves`. A reject or undo of a frame that is still being moved is skipped; batches run one after another; Reset stops a running batch (CODE_AUDIT §5.14).
+- Tests in `BatchRejectTests`: a batch of 40 with one locked file, a single locked frame, undo of a batch, a frame removed during the batch, a second reject while moving, batches in order, and the message format. `RejectedFolderPathTests` checks that rejected frames are sorted in by name; the sorting is in the new `FolderScanItem`.
+- The SwiftLint baseline has the new lengths of `ImageStore.swift` and `ImageStoreFileOperations.swift`.
+
+---
+
 ## 2026-11-08 — One place for the REJECTED folder rules (step 11a)
 
 ### Under the hood

@@ -117,14 +117,17 @@ struct ContentView: View {
         case .previous:          viewer.stopPlayback(); store.selectPrevious(in: sidebarNavigationEntries)
         case .next:              viewer.stopPlayback(); store.selectNext(in: sidebarNavigationEntries)
         case .reject:
+            // The cursor moves on when the frames show as rejected: at once for one frame,
+            // when the batch ends for several (step 11b).
             let preReject = sidebarNavigationEntries
-            if settings.useToggleReject { store.toggleRejectSelected() } else { store.rejectSelected() }
-            store.advanceCursorIfNeeded(from: preReject)
+            if settings.useToggleReject {
+                store.toggleRejectSelected(advancingFrom: preReject)
+            } else {
+                store.rejectSelected(advancingFrom: preReject)
+            }
         case .undo:
             guard !settings.useToggleReject else { return false }
-            let preUndo = sidebarNavigationEntries
-            store.undoRejectSelected()
-            store.advanceCursorIfNeeded(from: preUndo)
+            store.undoRejectSelected(advancingFrom: sidebarNavigationEntries)
         case .flag:
             let preFlag = sidebarNavigationEntries
             store.toggleFlagSelected()

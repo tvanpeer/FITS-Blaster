@@ -62,4 +62,29 @@ struct RejectedFolderPathTests {
         #expect(collected.count == files.count)
         #expect(names == ["c.fits", "e.fits", "f.fits"])
     }
+
+    @Test("Rejected frames are sorted in with their folder's frames by name, not after them")
+    func rejectedInNameOrder() throws {
+        let root = FileManager.default.temporaryDirectory.appending(component: UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let fm = FileManager.default
+        for dir in ["REJECTED", "B/REJECTED"] {
+            try fm.createDirectory(at: root.appending(path: dir), withIntermediateDirectories: true)
+        }
+        let files = ["2025#0001.fits", "REJECTED/2025#0002.fits", "2025#0010.fits", "REJECTED/2025#0011.fits",
+                     "REJECTED/2025#0010.fits", "B/x2.fits", "B/REJECTED/x1.fits", "C.fits", "REJECTED/D.fits"]
+        for file in files { try Data([0]).write(to: root.appending(path: file)) }
+
+        let collected = ImageStore.collectFITSURLs(in: root, relativePath: "", excludedNames: [],
+                                                   includeSubfolders: true, includeRejected: true)
+        let paths = collected.map { item in
+            (RejectedFolder.isInRejectedFolder(item.url) ? "R:" : "") + item.subfolderPath + "/" + item.url.lastPathComponent
+        }
+        #expect(paths == ["/2025#0001.fits", "R:/2025#0002.fits", "/2025#0010.fits", "R:/2025#0010.fits",
+                          "R:/2025#0011.fits", "R:B/x1.fits", "B/x2.fits", "/C.fits", "R:/D.fits"])
+
+        let withoutRejected = ImageStore.collectFITSURLs(in: root, relativePath: "", excludedNames: [],
+                                                         includeSubfolders: true, includeRejected: false)
+        #expect(withoutRejected.map(\.url.lastPathComponent) == ["2025#0001.fits", "2025#0010.fits", "x2.fits", "C.fits"])
+    }
 }

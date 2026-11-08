@@ -31,6 +31,8 @@ final class ImageStore {
 
     /// Loads and re-renders the entries; holds the batch state the progress UI shows.
     let pipeline = LoadPipeline()
+    /// Batch rejects and undos: progress, frames being moved, the task (step 11b).
+    let frameMoves = FrameMoves()
 
     /// Keeps the display images within the memory budget; without a limit (the default,
     /// and the command line and tests) every image stays.
@@ -445,6 +447,7 @@ final class ImageStore {
     func reset() {
         // Stop all work first, so a running load can't add frames to the new session (§3.1).
         pipeline.reset()
+        frameMoves.cancel()
         displayMemory.reset()
         entries = []
         rejectionVisibility = .all
@@ -622,17 +625,21 @@ final class ImageStore {
     }
 
     /// Toggles rejection for the range selection, or the cursor entry if no range is active.
-    func toggleRejectSelected() {
+    func toggleRejectSelected(advancingFrom previousOrder: [ImageEntry]? = nil) {
         if !markedForRejectionIDs.isEmpty {
             let batch = entries.filter { markedForRejectionIDs.contains($0.id) }
             if batch.allSatisfy({ $0.isRejected }) {
-                batch.forEach { undoRejectEntry($0) }
+                undoRejectEntries(batch, advancingFrom: previousOrder)
             } else {
-                batch.filter { !$0.isRejected }.forEach { rejectEntry($0) }
+                rejectEntries(batch, advancingFrom: previousOrder)
             }
         } else {
             guard let entry = selectedEntry else { return }
-            if entry.isRejected { undoRejectSelected() } else { rejectSelected() }
+            if entry.isRejected {
+                undoRejectSelected(advancingFrom: previousOrder)
+            } else {
+                rejectSelected(advancingFrom: previousOrder)
+            }
         }
     }
 }
