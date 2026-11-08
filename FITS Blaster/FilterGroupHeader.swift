@@ -35,6 +35,12 @@ struct FilterGroupHeader: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 5)
         .background(.regularMaterial)
+        // One item for VoiceOver: "Filter L, 12 frames, median FWHM 3.2 pixels, median score 72" (10d).
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(FrameAccessibility.filterHeaderLabel(group: group, frameCount: entryCount,
+                                                                 medianFWHM: stats?.medianFWHM,
+                                                                 medianScore: stats?.medianScore))
+        .accessibilityAddTraits(.isHeader)
     }
 }
 
@@ -60,5 +66,8 @@ struct FolderFilterSubHeader: View {
         .padding(.trailing, 12)
         .padding(.vertical, 3)
         .background(.quinary)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(FrameAccessibility.filterHeaderLabel(group: group, frameCount: count))
+        .accessibilityAddTraits(.isHeader)
     }
 }

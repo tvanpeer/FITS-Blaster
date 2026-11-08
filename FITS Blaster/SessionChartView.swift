@@ -77,6 +77,7 @@ private struct ChartHeader: View {
     @Binding var selectedMetric: Metric
     @Environment(AppSettings.self) private var settings
     @Environment(ImageStore.self) private var store
+    @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
 
     var body: some View {
         HStack(spacing: 4) {
@@ -111,9 +112,7 @@ private struct ChartHeader: View {
 
             ForEach(store.activeFilterGroups) { group in
                 HStack(spacing: 3) {
-                    Circle()
-                        .fill(group.color)
-                        .frame(width: 7, height: 7)
+                    FilterLegendMark(group: group, showsShape: differentiateWithoutColor && !settings.chartUseBars)
                     Text(group.rawValue)
                         .scaledFont(size: 9)
                         .foregroundStyle(.secondary)
@@ -191,6 +190,9 @@ private struct ChartBody: View {
     @Environment(AppSettings.self) private var settings
     /// The app's text-size setting; axis labels take a Font, not the scaledFont modifier.
     @Environment(\.fontSizeMultiplier) private var fontScale
+    /// macOS "Differentiate without color": a shape per filter group (step 10d).
+    @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
+    @Environment(\.colorScheme) private var colorScheme
 
     @State private var dragStartX: CGFloat?
     @State private var dragCurrentX: CGFloat?
@@ -200,10 +202,12 @@ private struct ChartBody: View {
     // MARK: - Body
 
     var body: some View {
-        // Capture outside the Chart{} builder — @ChartContentBuilder closures don't
-        // participate in SwiftUI's @Observable tracking, so selectedEntry changes
-        // wouldn't otherwise trigger a re-render.
-        let selectedID = store.selectedEntry?.id
+        // Read everything outside the Chart{} builder: @ChartContentBuilder closures don't take part
+        // in @Observable tracking, so changes read inside would not redraw (bars ↔ dots, 10d).
+        let selectedID = store.selectedEntry?.id, flaggedIDs = store.flaggedEntryIDs
+        let useBars = settings.chartUseBars
+        let rejectedOpacity = settings.rejectedDotOpacity, dimmedOpacity = settings.dimmedDotOpacity
+        let showsShapes = differentiateWithoutColor && !useBars  // shapes for dots only, not bars
         Chart {
             ForEach(data.medians, id: \.group) { item in
                 RuleMark(y: .value("Median", item.median))
@@ -215,19 +219,29 @@ private struct ChartBody: View {
                 let isCursor = item.entry.id == selectedID
                 let state = SessionChartData.DotState(
                     isCursor: isCursor,
-                    isFlagged: store.flaggedEntryIDs.contains(item.entry.id),
-                    hasFlaggedFrames: !store.flaggedEntryIDs.isEmpty,
+                    isFlagged: flaggedIDs.contains(item.entry.id),
+                    hasFlaggedFrames: !flaggedIDs.isEmpty,
                     isRejected: item.entry.isRejected)
-                let opacity = SessionChartData.dotOpacity(state, rejectedOpacity: settings.rejectedDotOpacity,
-                                                          dimmedOpacity: settings.dimmedDotOpacity)
-                let color: Color = isCursor ? .white : item.entry.filterGroup.color
+                let opacity = SessionChartData.dotOpacity(state, rejectedOpacity: rejectedOpacity,
+                                                          dimmedOpacity: dimmedOpacity)
+                let color: Color = isCursor ? .primary : item.entry.filterGroup.chartColor(
+                    differentiateWithoutColor: showsShapes, colorScheme: colorScheme)
 
-                if settings.chartUseBars {
+                if useBars {
                     BarMark(
                         x: .value("Frame", item.index + 1),
                         y: .value(selectedMetric.displayName, item.value)
                     )
                     .foregroundStyle(color)
+                    .opacity(opacity)
+                } else if showsShapes {
+                    PointMark(
+                        x: .value("Frame", item.index + 1),
+                        y: .value(selectedMetric.displayName, item.value)
+                    )
+                    .foregroundStyle(color)
+                    .symbol(item.entry.filterGroup.chartSymbol.shape)
+                    .symbolSize(isCursor ? FilterSymbol.cursorDotSize : FilterSymbol.dotSize)
                     .opacity(opacity)
                 } else {
                     PointMark(

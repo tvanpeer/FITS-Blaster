@@ -91,7 +91,10 @@ private struct FrameDetail: View {
                 .padding(.horizontal)
                 .padding(.vertical, 4)
             Divider()
-            ImageViewer(entryID: entry.id, displayImage: image, isFlipped: entry.isFlipped)
+            ImageViewer(entryID: entry.id, displayImage: image, isFlipped: entry.isFlipped,
+                        accessibilityLabel: FrameAccessibility.mainImageLabel(
+                            fileName: entry.fileName, isFlagged: store.flaggedEntryIDs.contains(entry.id),
+                            isRejected: entry.isRejected))
                 .opacity(isDimmed ? 0.4 : 1)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 

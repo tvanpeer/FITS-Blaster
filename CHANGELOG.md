@@ -4,6 +4,25 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-11-07 — VoiceOver labels and Differentiate without color (step 10d)
+
+### Added
+- **VoiceOver reads every thumbnail as one item:** file name, filter, score, "top third" or the badge problem (trailing stars, focus problem, low star count), and flagged, rejected, flipped, loading or could not load. The current frame and the orange selection are announced as selected. Before, VoiceOver read the parts separately or not at all.
+- **The current frame's dot or bar in the session chart is visible in light mode:** it is drawn in the text colour (black in light mode, white in dark mode) instead of always white, which disappeared on the light background.
+- **VoiceOver names the main image:** "Frame, <file name>", plus flagged and rejected.
+- **VoiceOver reads a folder header in the thumbnail list as "Folder B, 20 frames, expanded"** (or collapsed). Before, it said only "folder B 20".
+- **VoiceOver reads a filter header in the thumbnail list as "Filter L, 12 frames, median FWHM 3.2 pixels, median score 72"**, the medians only where the header shows them. Before, it read the parts separately ("L", "12", "3.2px", "▸72").
+- **With macOS "Differentiate without color" on** (System Settings → Accessibility → Display), top-third score badges show a ★ before the score, and the orange selection outline is dashed while the blue cursor outline stays solid. With the setting off nothing changes.
+- **With "Differentiate without color" on, every filter group has its own dot shape in the session chart,** the same in every session, with larger dots and the shapes in the legend: L circle, R square, G triangle, B diamond, Ha pentagon, OIII plus, SII cross, Hβ asterisk; HO, SO, SHO, Quad-NB and Unfiltered the outlined circle, square, triangle, diamond and pentagon. The dots then also use colours with at least 6:1 contrast against the chart's background, keeping their hue: lighter in dark mode (R and Ha salmon, SHO lilac), darker in light mode (Quad-NB olive, SO and G forest green), so every shape stays visible, also with colour blindness. Bar mode is unchanged.
+
+### Fixed
+- **Switching the session chart between bars and dots takes effect right away.** Before, the chart only redrew after something else changed, such as the theme. The same applied to the two brightness settings for rejected and dimmed frames. The chart now reads these settings where SwiftUI notices their changes.
+
+### Under the hood
+- The labels come from `FrameAccessibility`, the chart shapes from `FilterSymbol` and `FilterGroup.chartSymbol`, the high-contrast colours from `FilterGroup.chartColor`, the legend mark is `FilterLegendMark`. Tests in `FrameAccessibilityTests`, including that all 13 filter groups have different shapes and that every high-contrast colour has at least 6:1 contrast in both modes.
+
+---
+
 ## 2026-11-07 — Auto-Flag checks from one table (step 10c)
 
 ### Changed

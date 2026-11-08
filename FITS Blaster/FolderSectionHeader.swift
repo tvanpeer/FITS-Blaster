@@ -34,5 +34,9 @@ struct FolderSectionHeader: View {
             .background(.regularMaterial)
         }
         .buttonStyle(.plain)
+        // One item for VoiceOver: "Folder B, 20 frames, expanded" (step 10d).
+        .accessibilityLabel(FrameAccessibility.folderHeaderLabel(name: folderGroup.folderDisplayName,
+                                                                 frameCount: visibleCount))
+        .accessibilityValue(FrameAccessibility.folderHeaderValue(isCollapsed: isCollapsed))
     }
 }

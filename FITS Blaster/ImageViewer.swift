@@ -15,6 +15,8 @@ struct ImageViewer: View {
     let entryID: UUID
     let displayImage: NSImage
     let isFlipped: Bool
+    /// VoiceOver's label for the image: "Frame, <file name>" plus flagged / rejected (step 10d).
+    let accessibilityLabel: String
 
     @Environment(ViewerState.self) private var viewer
     @Environment(AppSettings.self) private var settings
@@ -92,7 +94,7 @@ struct ImageViewer: View {
                 }
                 // The tap needs its location, so it can't be a Button; tell VoiceOver instead.
                 .accessibilityAddTraits(.isButton)
-                .accessibilityLabel("Frame")
+                .accessibilityLabel(accessibilityLabel)
                 .accessibilityHint("Sets the zoom anchor at the clicked point, or clears it when clicked again")
         }
         .scrollPosition($scrollPos)

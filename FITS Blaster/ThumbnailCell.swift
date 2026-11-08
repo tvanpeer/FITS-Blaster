@@ -18,6 +18,33 @@ struct ThumbnailCell: View {
     let groupStats: GroupStats?
 
     @Environment(AppSettings.self) private var settings
+    /// macOS "Differentiate without color": a ★ on top-third badges and a dashed outline
+    /// for the orange selection (step 10d).
+    @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
+
+    /// The badge's values: shown in Geek mode for a frame with metrics.
+    private struct Badge {
+        let score: Int
+        let problem: BadgeProblem?
+        let isTopThird: Bool
+    }
+
+    private var badge: Badge? {
+        guard !settings.isSimpleMode, let metrics = entry.metrics, metrics.hasData else { return nil }
+        let topThirdFloor = groupStats?.topThirdScoreFloor ?? Int.max
+        return Badge(score: metrics.qualityScore, problem: metrics.badgeProblem(stats: groupStats),
+                     isTopThird: metrics.qualityScore >= topThirdFloor)
+    }
+
+    private var accessibilityLabel: String {
+        let badge = badge
+        let loadState: FrameAccessibility.LoadState =
+            entry.isProcessing ? .loading : entry.thumbnail == nil ? .failed : .loaded
+        return FrameAccessibility.Thumbnail(
+            fileName: entry.fileName, filter: entry.filterName, score: badge?.score, problem: badge?.problem,
+            isTopThird: badge?.isTopThird ?? false, isFlagged: isFlagged, isRejected: entry.isRejected,
+            isFlipped: entry.isFlipped, loadState: loadState).label
+    }
 
     var body: some View {
         VStack(spacing: 4) {
@@ -41,14 +68,11 @@ struct ThumbnailCell: View {
                             .padding(4)
                     }
                 }
-                if !settings.isSimpleMode, let metrics = entry.metrics, metrics.hasData {
-                    let stats = groupStats
-                    let problem = metrics.badgeProblem(stats: stats)
-                    let topThirdFloor = stats?.topThirdScoreFloor ?? Int.max
-                    QualityBadge(score: metrics.qualityScore,
-                                 color: metrics.badgeColor(problem: problem,
-                                                           isTopThird: metrics.qualityScore >= topThirdFloor),
-                                 problem: problem,
+                if let badge, let metrics = entry.metrics {
+                    QualityBadge(score: badge.score,
+                                 color: metrics.badgeColor(problem: badge.problem, isTopThird: badge.isTopThird),
+                                 problem: badge.problem,
+                                 showsStar: differentiateWithoutColor && badge.problem == nil && badge.isTopThird,
                                  tooltipText: metrics.tooltipString)
                 }
             }
@@ -86,9 +110,15 @@ struct ThumbnailCell: View {
         .overlay(
             RoundedRectangle(cornerRadius: 6)
                 .stroke(isMarkedForRejection ? Color.orange :
-                        isCursor ? Color.accentColor : Color.clear, lineWidth: 2)
+                        isCursor ? Color.accentColor : Color.clear,
+                        style: StrokeStyle(lineWidth: 2,
+                                           dash: differentiateWithoutColor && isMarkedForRejection ? [5, 3] : []))
         )
         .frame(maxWidth: .infinity)
+        // One VoiceOver element per frame; the cursor and the orange selection are "selected".
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(accessibilityLabel)
+        .accessibilityAddTraits(isCursor || isMarkedForRejection ? .isSelected : [])
     }
 
     @ViewBuilder
