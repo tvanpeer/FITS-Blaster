@@ -215,11 +215,7 @@ final class LoadPipeline {
             var newEntries: [ImageEntry] = []
             for item in validItems {
                 let isRejected = rejectedURLs.contains(item.url)
-                let computedOriginalURL: URL? = isRejected
-                    ? item.url.deletingLastPathComponent()  // …/Ha/REJECTED/
-                               .deletingLastPathComponent() // …/Ha/
-                               .appending(component: item.url.lastPathComponent) // …/Ha/image.fits
-                    : nil
+                let computedOriginalURL: URL? = isRejected ? RejectedFolder.originalURL(for: item.url) : nil
                 let entry = ImageEntry(url: item.url, originalURL: computedOriginalURL,
                                        directoryBookmark: store.bookmark(for: item.url))
                 entry.subfolderPath = item.subfolderPath

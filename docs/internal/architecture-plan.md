@@ -720,6 +720,24 @@ Agreed by Tom on 2026-11-05. Four parts, one commit each. No engine code changes
 
 **Risk**: medium (moves user files). 👤 Checks: reject/undo of many frames on a local disk and on SMB.
 
+### Step 11 plan (2026-11-08)
+
+Agreed by Tom on 2026-11-08. Two parts, one commit each. No engine code changes, so renders and metrics stay byte-identical; Metal not involved.
+
+**11a — `RejectedFolder` (§9.8).** Plain functions, no app state: the folder name, `isRejectedFolder(name)` (case-insensitive, as now), `rejectedURL(for:)` (destination of a move), `originalURL(for:)` (the way back) and `rejectedURLs(in:)`. Used by the move, the folder scan, the load pipeline and the CLI (which already shares `ImageStore.rejectedURLs` with the app). No behaviour change. Tests: case variants, nested folders, both path directions, app and CLI pick the same files from a test tree.
+
+**11b — batch reject and undo (§5.14).**
+- One reject and one undo function for any number of frames, used by R, U, toggle-reject, the frame menu and the frames waiting for folder access. Folder access is started once per folder (`accessFolders(for:)`).
+- **Single frames stay synchronous on the main actor, as today** (Tom: yes), so a quick second R always reaches the advanced cursor. Batches of 2 or more frames move off the main actor; the results are applied back by frame ID (a frame removed from the list meanwhile is skipped), the list is rebuilt once, empty REJECTED folders are removed once per folder.
+- **A batch shows as rejected (or restored) when all its files have moved** (Tom: yes); then the cursor advances as today.
+- **Progress** (Tom): a "Rejecting" or "Restoring" bar with "n / total" in the info bar, where the load progress bars are, not a separate window; below the load bars if a load runs at the same time.
+- **Errors** (Tom: yes): one message, e.g. "3 of 40 frames could not be moved to REJECTED:", up to 5 lines "a.fits — <reason>", then "and N more". A single frame keeps today's text.
+- The sandbox folder question (App Store build) works as today.
+- The batch task is owned by `ImageStore`; frames being moved are in a set, and a second reject or undo of a frame still moving is skipped.
+- Tests: 40 temporary files with one locked (immutable) file → the message names it and the other 39 move; undo restores every file and removes the empty REJECTED folder; a frame removed during the move; a second reject while moving.
+- Performance: one list rebuild per batch instead of one per frame, one bookmark lookup per folder instead of per frame. One-off timing of a 500-file reject before and after.
+- 👤 Checks: reject and undo of many frames on a local disk, on the external drive and on SMB (Tom's Mac Studio "Astrofotografie" volume).
+
 ---
 
 ## Step 12 — CLI

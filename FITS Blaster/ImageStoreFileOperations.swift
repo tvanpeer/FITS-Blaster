@@ -152,9 +152,8 @@ extension ImageStore {
         defer { if access.didStart { access.url.stopAccessingSecurityScopedResource() } }
 
         let originalURL = entry.url
-        let parentDir = originalURL.deletingLastPathComponent()
-        let rejectedDir = parentDir.appending(path: "REJECTED", directoryHint: .isDirectory)
-        let destinationURL = rejectedDir.appending(component: originalURL.lastPathComponent)
+        let rejectedDir = RejectedFolder.folder(for: originalURL)
+        let destinationURL = RejectedFolder.rejectedURL(for: originalURL)
 
         do {
             if Self.isDirectory(rejectedDir) == nil {
@@ -439,7 +438,7 @@ extension ImageStore {
             if isDir {
                 // REJECTED is handled before the includeSubfolders gate so it is picked up
                 // at every depth (root, and inside each subfolder) when includeRejected is on.
-                if name.caseInsensitiveCompare("REJECTED") == .orderedSame {
+                if RejectedFolder.isRejectedFolder(name: name) {
                     if includeRejected {
                         // Use the parent's relativePath so rejected files appear alongside
                         // their siblings in the sidebar rather than in a separate section.
@@ -510,14 +509,6 @@ extension ImageStore {
                         includeSubfolders: includeSubfolders, includeRejected: includeRejected)
     }
 
-    /// The collected files whose immediate parent folder is named REJECTED.
-    nonisolated static func rejectedURLs(in collected: [(url: URL, subfolderPath: String)]) -> Set<URL> {
-        Set(collected.filter {
-            $0.url.deletingLastPathComponent().lastPathComponent
-                .caseInsensitiveCompare("REJECTED") == .orderedSame
-        }.map(\.url))
-    }
-
     // MARK: - Open folder
 
     /// True when this folder was opened or dropped before in this session; the caller
@@ -546,7 +537,7 @@ extension ImageStore {
         }
         knownRootURLs.insert(folderURL)
         rootFolderName = folderURL.lastPathComponent
-        pipeline.openFiles(collected, rejectedURLs: includeRejected ? Self.rejectedURLs(in: collected) : [],
+        pipeline.openFiles(collected, rejectedURLs: includeRejected ? RejectedFolder.rejectedURLs(in: collected) : [],
                   rootFolderName: folderURL.lastPathComponent,
                   maxDisplaySize: settings.maxDisplaySize,
                   maxThumbnailSize: settings.thumbnailRenderSize,
@@ -588,7 +579,7 @@ extension ImageStore {
         let distinctNames = Set(rootNames.values)
         let folderRootName = distinctNames.count == 1 ? distinctNames.first ?? "" : ""
         if !folderRootName.isEmpty { rootFolderName = folderRootName }
-        pipeline.openFiles(collected, rejectedURLs: includeRejected ? Self.rejectedURLs(in: collected) : [],
+        pipeline.openFiles(collected, rejectedURLs: includeRejected ? RejectedFolder.rejectedURLs(in: collected) : [],
                            rootFolderName: folderRootName, rootFolderNames: rootNames,
                            maxDisplaySize: settings.maxDisplaySize,
                            maxThumbnailSize: settings.thumbnailRenderSize,

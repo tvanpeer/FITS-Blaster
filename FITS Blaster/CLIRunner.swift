@@ -127,7 +127,7 @@ enum CLIRunner {
         fputs("Found \(collected.count) file\(collected.count == 1 ? "" : "s"). Computing metrics…\n", stderr)
 
         // The same rule as Open Folder in the app.
-        let rejectedURLs: Set<URL> = options.includeRejected ? ImageStore.rejectedURLs(in: collected) : []
+        let rejectedURLs: Set<URL> = options.includeRejected ? RejectedFolder.rejectedURLs(in: collected) : []
 
         // Load + compute metrics. Without --render nothing is shown, so the pipeline makes no
         // display images or thumbnails and skips the grey normalisation re-read (§7.7).

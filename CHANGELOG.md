@@ -4,6 +4,15 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-11-08 — One place for the REJECTED folder rules (step 11a)
+
+### Under the hood
+- **The REJECTED folder rules are in one place, `RejectedFolder`:** the folder name, the "is this a REJECTED folder" test (in any case), where a rejected frame goes and where it came from, and which scanned files are rejected. The move, the folder scan, the load pipeline and the CLI all use it; before, each wrote these rules out itself (CODE_AUDIT §9.8). No change in behaviour.
+- Tests in `RejectedFolderPathTests`: name in any case, both path directions, only files directly in REJECTED, and the scan and the rule agree on a test folder tree.
+- The SwiftLint baseline has the new lengths of `ImageStoreFileOperations.swift` and `LoadPipeline.swift`, which got shorter.
+
+---
+
 ## 2026-11-07 — VoiceOver labels and Differentiate without color (step 10d)
 
 ### Added

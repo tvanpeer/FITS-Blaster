@@ -4,7 +4,7 @@
 //
 //  ImageStore.openFolder(at:) and openFolders: the folder scan off the main thread, REJECTED
 //  handling, "already loaded", an empty folder, several folders at once; and the shared helpers
-//  rejectedURLs(in:), isDirectory and FITSFile.
+//  RejectedFolder.rejectedURLs(in:), isDirectory and FITSFile.
 //
 
 import Foundation
@@ -88,7 +88,7 @@ struct OpenFolderTests {
             (URL(fileURLWithPath: "/n/REJECTED/b.fits"), ""),
             (URL(fileURLWithPath: "/n/Ha/rejected/c.fits"), "Ha"),
         ]
-        #expect(ImageStore.rejectedURLs(in: collected)
+        #expect(RejectedFolder.rejectedURLs(in: collected)
                 == [URL(fileURLWithPath: "/n/REJECTED/b.fits"), URL(fileURLWithPath: "/n/Ha/rejected/c.fits")])
     }
 
