@@ -23,6 +23,8 @@ import re
 from datetime import datetime, timezone
 from email.utils import format_datetime
 
+from _common import is_beta
+
 
 def markdown_to_html(md: str) -> str:
     """Minimal Markdown-to-HTML for release notes (headers, bullets, bold)."""
@@ -93,10 +95,6 @@ APPCAST_TEMPLATE = """<?xml version="1.0" encoding="utf-8"?>
     </channel>
 </rss>
 """
-
-
-def is_beta(version: str) -> bool:
-    return 'beta' in version
 
 
 FEED_TITLES = {

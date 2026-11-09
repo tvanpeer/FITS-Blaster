@@ -99,16 +99,8 @@ jobs:
           else
             APP_NAME="FITS Blaster.app"
           fi
-          create-dmg \
-            --volname "FITS Blaster Installer" \
-            --volicon "resources/Book of Galaxies.icns" \
-            --background "resources/installer-background.png" \
-            --window-pos 200 120 \
-            --window-size 800 400 \
-            --icon "$APP_NAME" 200 185 \
-            --app-drop-link 600 185 \
-            "$RUNNER_TEMP/FITS-Blaster-${VERSION}.dmg" \
-            "$RUNNER_TEMP/export/$APP_NAME"
+          # The layout is in scripts/make-dmg.sh, shared with build-release.sh.
+          bash scripts/make-dmg.sh "$RUNNER_TEMP/export/$APP_NAME" "$RUNNER_TEMP/FITS-Blaster-${VERSION}.dmg"
           echo "DMG_PATH=$RUNNER_TEMP/FITS-Blaster-${VERSION}.dmg" >> "$GITHUB_ENV"
 
       - name: Notarise

@@ -4,6 +4,15 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-11-09 — One DMG layout, shared release-script helpers (step 14e)
+
+### Under the hood
+- `scripts/make-dmg.sh` holds the installer DMG layout (volume name and icon, background, window, icon positions, Applications link). The release workflow and `build-release.sh` both call it; `build-dmg.sh` is removed (its copy had lost the background). `build-release.sh` stays for a DMG made on this Mac, for example to send someone a test build. Checked: a beta DMG made with the script has the same files, background and volume icon (identical checksums) and icon positions as the published 1.24-beta.4 DMG. The workflow change is first used at the next beta release; the DMG step comes before notarising and publishing (CODE_AUDIT §9.11).
+- `scripts/_common.py` holds `is_beta` (was in `update-site.py` and `generate-appcast.py`) and the CHANGELOG entry split (was in `release-notes.py` and `update-site.py`). Checked: release notes, appcasts, changelog, index and beta pages come out identical for a beta and a stable version, apart from the appcast's publication time.
+- `make-dmg-background.swift` draws into a 2× Display P3 bitmap instead of using the deprecated `NSImage.lockFocus`, which took the scale and colour space from the screen (CODE_AUDIT §4.4). Its output differs from the old script's by at most 3 of 255 levels (average colour the same to within 0.05); the committed `installer-background.png` is unchanged. Even the old script no longer reproduced that PNG exactly on macOS 27 (text rendering).
+
+---
+
 ## 2026-11-09 — "Check for Updates…" follows Sparkle (step 14d)
 
 ### Changed

@@ -1,7 +1,8 @@
 #!/bin/bash
 # build-release.sh -- Full release build: archive -> export -> DMG -> (optional) notarise
 #
-# Mirrors the GitHub Actions release workflow exactly.
+# Makes the DMG with scripts/make-dmg.sh, like the GitHub Actions release workflow
+# (which also names beta builds "FITS Blaster Beta.app"; this script doesn't).
 #
 # Requirements:
 #   Xcode (Developer ID certificate in your login keychain)
@@ -59,18 +60,7 @@ echo "==> Exported FITS Blaster $VERSION"
 
 # Step 3: Create DMG
 echo "==> Creating $DMG_NAME..."
-[ -f "$DMG_PATH" ] && rm "$DMG_PATH"
-
-create-dmg \
-    --volname "FITS Blaster Installer" \
-    --volicon "resources/Book of Galaxies.icns" \
-    --background "resources/installer-background.png" \
-    --window-pos 200 120 \
-    --window-size 800 400 \
-    --icon "FITS Blaster.app" 200 185 \
-    --app-drop-link 600 185 \
-    "$DMG_PATH" \
-    "$APP_PATH"
+bash scripts/make-dmg.sh "$APP_PATH" "$DMG_PATH"
 
 # Stamp the custom icon onto the DMG so Finder shows it before mounting.
 ICON_PATH="$(pwd)/resources/Book of Galaxies.icns"

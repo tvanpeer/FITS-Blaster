@@ -10,16 +10,16 @@ Default N = 3.
 Run from the repository root:
     python3 scripts/release-notes.py 3
 """
-import re
 import sys
+
+from _common import changelog_entries
 
 n = int(sys.argv[1]) if len(sys.argv) > 1 else 3
 
 with open('CHANGELOG.md', encoding='utf-8') as f:
     text = f.read()
 
-blocks = re.split(r'\n---\n', text)
-entries = [b.strip() for b in blocks if b.strip().startswith('## ')]
+entries = changelog_entries(text)
 
 selected = entries[:n]
 

@@ -18,6 +18,8 @@ Run from the repository root:
 import re
 import sys
 
+from _common import changelog_entries, is_beta
+
 
 # ---------------------------------------------------------------------------
 # Markdown helpers
@@ -46,13 +48,7 @@ def parse_entries(path):
     with open(path, encoding='utf-8') as f:
         text = f.read()
 
-    blocks = re.split(r'\n---\n', text)
-
-    for block in blocks:
-        block = block.strip()
-        if not block.startswith('## '):
-            continue
-
+    for block in changelog_entries(text):
         lines = block.splitlines()
         m = re.match(r'^## (\d{4}-\d{2}-\d{2}) — (.+)$', lines[0])
         if not m:
@@ -207,9 +203,6 @@ def update_index_html(path, version):
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
-
-def is_beta(version: str) -> bool:
-    return 'beta' in version
 
 
 def beta_button_html(version=None):

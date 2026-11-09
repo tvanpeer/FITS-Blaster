@@ -11,9 +11,21 @@ let height: CGFloat = 400
 let out = "installer-background.png"
 
 // ── Canvas ────────────────────────────────────────────────────────────────────
-let image = NSImage(size: NSSize(width: width, height: height))
-image.lockFocus()
-guard let ctx = NSGraphicsContext.current?.cgContext else { fatalError() }
+// A 2× bitmap (1600×800 pixels for 800×400 points) in Display P3, drawn into directly
+// instead of with the deprecated NSImage.lockFocus, which took the scale and colour space
+// from the Mac's screen (step 14e). The committed PNG is 2× Display P3 too.
+let scale: CGFloat = 2
+guard let rep = NSBitmapImageRep(bitmapDataPlanes: nil,
+                                 pixelsWide: Int(width * scale), pixelsHigh: Int(height * scale),
+                                 bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
+                                 colorSpaceName: .calibratedRGB, bytesPerRow: 0, bitsPerPixel: 0)?
+        .retagging(with: .displayP3)
+else { fatalError("Could not make the bitmap") }
+rep.size = NSSize(width: width, height: height)   // before the context, so it draws at 2×
+guard let context = NSGraphicsContext(bitmapImageRep: rep) else { fatalError("Could not make the context") }
+NSGraphicsContext.saveGraphicsState()
+NSGraphicsContext.current = context
+let ctx = context.cgContext
 
 // ── Gradient background (#08091a → #12103a) ───────────────────────────────────
 let colorSpace = CGColorSpaceCreateDeviceRGB()
@@ -90,12 +102,8 @@ drawText("Drag FITS Blaster to the Applications folder to install",
          color: NSColor(white: 0.3, alpha: 1))
 
 // ── Save ──────────────────────────────────────────────────────────────────────
-image.unlockFocus()
-guard
-    let tiff = image.tiffRepresentation,
-    let rep  = NSBitmapImageRep(data: tiff),
-    let png  = rep.representation(using: .png, properties: [:])
-else { fatalError("PNG conversion failed") }
+NSGraphicsContext.restoreGraphicsState()
+guard let png = rep.representation(using: .png, properties: [:]) else { fatalError("PNG conversion failed") }
 
 let url = URL(fileURLWithPath: out)
 do {
