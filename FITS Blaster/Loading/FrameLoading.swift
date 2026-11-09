@@ -51,7 +51,7 @@ enum FrameLoading {
     /// Renders a single frame in colour with the given shared clip bounds: from `proxy`, the
     /// averages kept from Phase A (no file read, the same bytes), or else by reading the
     /// file again. Called by `LoadPipeline.renderFolderInColour`.
-    @concurrent static func recolorBayerEntry(
+    @concurrent static func recolourBayerEntry(
         url: URL, rOffset: UInt32, clips: BayerClips,
         maxDisplaySize: Int, maxThumbnailSize: Int,
         proxy: ColourProxy? = nil
@@ -123,7 +123,7 @@ enum FrameLoading {
     @concurrent static func loadFast(url: URL,
                                      maxDisplaySize: Int = 1024,
                                      maxThumbnailSize: Int = 120,
-                                     debayerColorImages: Bool = false,
+                                     debayerColourImages: Bool = false,
                                      rendersImages: Bool = true) async -> FastLoadResult {
         let didStart = url.startAccessingSecurityScopedResource()
         defer { if didStart { url.stopAccessingSecurityScopedResource() } }
@@ -169,7 +169,7 @@ enum FrameLoading {
                                                            maxDisplaySize: maxDisplaySize,
                                                            bayerPattern: meta.bayerPattern)
             let bayerClips: BayerClips?
-            if debayerColorImages, let pattern = meta.bayerPattern {
+            if debayerColourImages, let pattern = meta.bayerPattern {
                 bayerClips = ImageStretcher.computeBayerClips(bufferResult.metalBuffer,
                                                               width: meta.width, height: meta.height,
                                                               rOffset: pattern.rOffset)
@@ -257,7 +257,7 @@ struct FastLoadResult {
     let width:       Int
     let height:      Int
     /// Per-channel Bayer clip bounds computed during the grey-pass.
-    /// `nil` for non-Bayer images or when `debayerColorImages` is false.
+    /// `nil` for non-Bayer images or when `debayerColourImages` is false.
     let bayerClips:  BayerClips?
     /// Greyscale clip bounds for non-Bayer images, used by the post-batch normalisation pass.
     let greyClips:   GreyClips?

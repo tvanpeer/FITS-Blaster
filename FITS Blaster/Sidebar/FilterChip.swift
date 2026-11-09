@@ -7,7 +7,7 @@ import SwiftUI
 
 struct FilterChip: View {
     let label: String
-    let color: Color
+    let colour: Color
     let isSelected: Bool
     let action: () -> Void
 
@@ -17,8 +17,8 @@ struct FilterChip: View {
                 .scaledFont(size: 9, weight: .bold)
                 .padding(.horizontal, 7)
                 .padding(.vertical, 3)
-                .background(isSelected ? color : color.opacity(0.15))
-                .foregroundStyle(isSelected ? .white : color)
+                .background(isSelected ? colour : colour.opacity(0.15))
+                .foregroundStyle(isSelected ? .white : colour)
                 .clipShape(.rect(cornerRadius: 4))
         }
         .buttonStyle(.plain)

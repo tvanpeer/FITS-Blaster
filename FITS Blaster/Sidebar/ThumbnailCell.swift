@@ -70,7 +70,7 @@ struct ThumbnailCell: View {
                 }
                 if let badge, let metrics = entry.metrics {
                     QualityBadge(score: badge.score,
-                                 color: metrics.badgeColor(problem: badge.problem, isTopThird: badge.isTopThird),
+                                 colour: metrics.badgeColour(problem: badge.problem, isTopThird: badge.isTopThird),
                                  problem: badge.problem,
                                  showsStar: differentiateWithoutColor && badge.problem == nil && badge.isTopThird,
                                  tooltipText: metrics.tooltipString)

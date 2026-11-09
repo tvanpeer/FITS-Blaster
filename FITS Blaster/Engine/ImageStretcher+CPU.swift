@@ -166,8 +166,8 @@ extension ImageStretcher {
         let thumbH = max(1, Int(CGFloat(h) * scale))
 
         let colorSpace = cgImage.colorSpace ?? CGColorSpaceCreateDeviceGray()
-        let isColor = colorSpace.numberOfComponents > 1
-        let bitmapInfo = isColor
+        let isColour = colorSpace.numberOfComponents > 1
+        let bitmapInfo = isColour
             ? CGBitmapInfo(rawValue: CGImageAlphaInfo.noneSkipLast.rawValue)
             : CGBitmapInfo(rawValue: CGImageAlphaInfo.none.rawValue)
         guard let ctx = CGContext(

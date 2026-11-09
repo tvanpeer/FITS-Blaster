@@ -25,10 +25,10 @@ extension FocusedValues {
     /// Exposes `AppSettings.isSimpleMode` as a Binding so menu commands can toggle it.
     @Entry var simpleModeBinding: Binding<Bool>? = nil
 
-    /// Exposes `AppSettings.debayerColorImages` as a Binding so the View menu command
+    /// Exposes `AppSettings.debayerColourImages` as a Binding so the View menu command
     /// can toggle it. ContentView watches this value and re-renders the loaded images
-    /// (`recolorImages`) on change.
-    @Entry var debayerColorBinding: Binding<Bool>? = nil
+    /// (`recolourImages`) on change.
+    @Entry var debayerColourBinding: Binding<Bool>? = nil
 
     /// The active window's shortcut keys, so the menu items show the configured keys.
     @Entry var keyBindings: KeyBindings? = nil

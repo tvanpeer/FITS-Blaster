@@ -185,13 +185,13 @@ struct FilterStrip: View {
     var body: some View {
         WrappingChips(spacing: 5) {
             FilterChip(label: "All",
-                       color: .accentColor,
+                       colour: .accentColor,
                        isSelected: store.sidebarFilterGroup == nil) {
                 store.sidebarFilterGroup = nil
             }
             ForEach(store.activeFilterGroups) { group in
                 FilterChip(label: group.rawValue,
-                           color: group.color,
+                           colour: group.colour,
                            isSelected: store.sidebarFilterGroup == group) {
                     store.sidebarFilterGroup =
                         store.sidebarFilterGroup == group ? nil : group

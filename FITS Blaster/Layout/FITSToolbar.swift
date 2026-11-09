@@ -36,12 +36,12 @@ struct FITSToolbar: View {
             .help("Remove all loaded images from the list")
 
             Button {
-                settings.debayerColorImages.toggle()
+                settings.debayerColourImages.toggle()
             } label: {
                 Label {
-                    Text(settings.debayerColorImages ? "Colour" : "Grey")
+                    Text(settings.debayerColourImages ? "Colour" : "Grey")
                 } icon: {
-                    if settings.debayerColorImages {
+                    if settings.debayerColourImages {
                         Image(systemName: "camera.filters")
                             .symbolRenderingMode(.palette)
                             .foregroundStyle(Color.red, Color.green, Color.blue)
@@ -51,7 +51,7 @@ struct FITSToolbar: View {
                     }
                 }
             }
-            .help(settings.debayerColorImages ? "Switch to greyscale" : "Switch to colour")
+            .help(settings.debayerColourImages ? "Switch to greyscale" : "Switch to colour")
 
             PlaybackControls()
 

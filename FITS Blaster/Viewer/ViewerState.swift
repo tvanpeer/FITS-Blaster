@@ -71,10 +71,10 @@ final class ViewerState {
     /// Used by the sidebar thumbnail to draw the viewport indicator box.
     private(set) var viewportFraction: CGRect = ViewerState.fullFrame
 
-    /// Fractional position of the viewport center (0–1 in both axes).
+    /// Fractional position of the viewport centre (0–1 in both axes).
     /// Stored so that navigating to the next image can restore the same relative scroll position.
     /// Only read when the frame changes, so not observed (performance audit P4).
-    @ObservationIgnored private(set) var viewportCenter: CGPoint = .zero
+    @ObservationIgnored private(set) var viewportCentre: CGPoint = .zero
 
     /// A change of the viewport fraction smaller than this (in every component) is not
     /// written: it moves the viewport box by less than a pixel on any thumbnail, and each
@@ -96,7 +96,7 @@ final class ViewerState {
         if Self.isVisibleChange(from: viewportFraction, to: fraction) {
             viewportFraction = fraction
         }
-        viewportCenter = CGPoint(
+        viewportCentre = CGPoint(
             x: (geo.contentOffset.x + geo.containerSize.width  / 2) / cw,
             y: (geo.contentOffset.y + geo.containerSize.height / 2) / ch
         )
@@ -125,12 +125,12 @@ final class ViewerState {
     // MARK: - Zoom anchor
 
     /// Normalized image coordinates (0–1) of the user-set zoom anchor.
-    /// When non-nil, zoom changes center on this point rather than the viewport center.
+    /// When non-nil, zoom changes centre on this point rather than the viewport centre.
     /// Persists across image navigation (same field → same sky position).
     var zoomAnchor: CGPoint? = nil
 
     /// Toggled by the scope button to ask ImageViewer to scroll the anchor into the centre.
-    var centerOnAnchorTrigger: Bool = false
+    var centreOnAnchorTrigger: Bool = false
 
     /// Toggled by the "Fit" button to ask ImageViewer to scale the image to fill the container.
     var fitToContainerTrigger: Bool = false
@@ -182,7 +182,7 @@ final class ViewerState {
         displayStretch = 1.0
         stopPlayback()
         viewportFraction = Self.fullFrame
-        viewportCenter = .zero
+        viewportCentre = .zero
         zoomAnchor = nil
     }
 }

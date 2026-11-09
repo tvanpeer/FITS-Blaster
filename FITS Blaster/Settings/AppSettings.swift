@@ -267,8 +267,8 @@ final class AppSettings {
     /// debayered on the GPU and displayed in colour: each displayed pixel averages the
     /// R, G and B pixels of whole 2×2 Bayer cells (`bayerDebayerAndStretch`).
     /// When false, Bayer images are displayed as greyscale (raw sensor data).
-    var debayerColorImages: Bool = false {
-        didSet { UserDefaults.standard.set(debayerColorImages, forKey: "debayerColorImages") }
+    var debayerColourImages: Bool = false {
+        didSet { UserDefaults.standard.set(debayerColourImages, forKey: "debayerColorImages") }
     }
 
     /// Subfolder names (case-insensitive, exact match) that are never recursed into.
@@ -360,7 +360,7 @@ final class AppSettings {
         includeSubfolders       = UD.bool(   "includeSubfolders",      default: includeSubfolders)
         includeRejectedFolder   = UD.bool(   "includeRejectedFolder",  default: includeRejectedFolder)
         excludedSubfolderNames  = UD.strings("excludedSubfolderNames", default: excludedSubfolderNames)
-        debayerColorImages      = UD.bool(   "debayerColorImages",     default: debayerColorImages)
+        debayerColourImages     = UD.bool(   "debayerColorImages",     default: debayerColourImages)
         zoomScale               = UD.double( "zoomScale",              default: zoomScale)
         targetBackground        = UD.double( "targetBackground",       default: targetBackground)
         playbackSpeed           = UD.double( "playbackSpeed",          default: playbackSpeed)

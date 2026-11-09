@@ -235,7 +235,7 @@ struct ImageDisplayTab: View {
             }
 
             Section("Colour Images") {
-                Toggle("Debayer colour FITS images", isOn: $settings.debayerColorImages)
+                Toggle("Debayer colour FITS images", isOn: $settings.debayerColourImages)
                 Text("""
                     When enabled, images with a Bayer CFA pattern (BAYERPAT/COLORTYP/CFA_PAT header) are displayed in \
                     colour, debayered on the GPU. Images that are already loaded are re-rendered when you change this.

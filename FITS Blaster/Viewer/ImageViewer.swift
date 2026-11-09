@@ -8,8 +8,8 @@ import SwiftUI
 /// Displays a stretched FITS image inside a scroll view with pinch-to-zoom support.
 ///
 /// Scroll position is preserved across image navigation: `entryID` changes trigger
-/// a programmatic scroll to the stored center fraction in `ViewerState`.
-/// Zoom from the slider keeps the viewport center fixed by adjusting the scroll offset
+/// a programmatic scroll to the stored centre fraction in `ViewerState`.
+/// Zoom from the slider keeps the viewport centre fixed by adjusting the scroll offset
 /// proportionally before the next layout pass.
 struct ImageViewer: View {
     let entryID: UUID
@@ -115,8 +115,8 @@ struct ImageViewer: View {
             guard let geo = lastGeo else { return }
             let cw = displayImage.size.width  * settings.zoomScale
             let ch = displayImage.size.height * settings.zoomScale
-            let x = viewer.viewportCenter.x * cw - geo.containerSize.width  / 2
-            let y = viewer.viewportCenter.y * ch - geo.containerSize.height / 2
+            let x = viewer.viewportCentre.x * cw - geo.containerSize.width  / 2
+            let y = viewer.viewportCentre.y * ch - geo.containerSize.height / 2
             scrollPos.scrollTo(x: max(0, x), y: max(0, y))
         }
         // The shown zoom (slider, keys and pinch): at the end of a pinch the slider takes
@@ -125,7 +125,7 @@ struct ImageViewer: View {
             guard let geo = lastGeo, geo.containerSize.width > 0 else { return }
             adjustScroll(to: newZoom, from: oldZoom, geo: geo)
         }
-        .onChange(of: viewer.centerOnAnchorTrigger) { _, _ in
+        .onChange(of: viewer.centreOnAnchorTrigger) { _, _ in
             guard let geo = lastGeo, geo.containerSize.width > 0 else { return }
             adjustScroll(to: settings.zoomScale, from: settings.zoomScale, geo: geo)
         }

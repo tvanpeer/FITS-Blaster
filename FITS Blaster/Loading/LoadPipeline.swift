@@ -93,7 +93,7 @@ final class LoadPipeline {
     /// Set to the full entry count when a restretch pass begins; 0 at all other times.
     var batchRestretchTotal: Int = 0
     var batchRestretchCount: Int = 0
-    /// Tracks per-channel clip sampling before colour rendering begins (recolorImages path).
+    /// Tracks per-channel clip sampling before colour rendering begins (recolourImages path).
     var batchSamplingTotal: Int = 0
     var batchSamplingCount: Int = 0
 
@@ -195,7 +195,7 @@ final class LoadPipeline {
                    rootFolderNames: [URL: String] = [:],
                    maxDisplaySize: Int = 1024, maxThumbnailSize: Int = 120,
                    metricsConfig: MetricsConfig = MetricsConfig(),
-                   debayerColorImages: Bool = false,
+                   debayerColourImages: Bool = false,
                    rendersImages: Bool = true) {
         enqueueBatch { pipeline, store in
             // Taken when the batch starts, not when it was queued: an earlier batch may
@@ -241,7 +241,7 @@ final class LoadPipeline {
                                            maxDisplaySize: maxDisplaySize,
                                            maxThumbnailSize: maxThumbnailSize,
                                            metricsConfig: metricsConfig,
-                                           debayerColorImages: debayerColorImages,
+                                           debayerColourImages: debayerColourImages,
                                            rendersImages: rendersImages)
             // Frames Phase A left out (unsupported format), named in one message — also after
             // Cancel (the ones found so far), but not after Reset: then none of this load's
@@ -260,7 +260,7 @@ final class LoadPipeline {
             let loaded = newEntries.filter { entry in !skipped.contains { $0 === entry } }
             if !Task.isCancelled {
                 let pending = greyPending.filter { entry in !skipped.contains { $0 === entry } }
-                await pipeline.normalizeGreyStretch(pending, maxDisplaySize: maxDisplaySize,
+                await pipeline.normaliseGreyStretch(pending, maxDisplaySize: maxDisplaySize,
                                                     maxThumbnailSize: maxThumbnailSize)
             }
             return loaded.isEmpty ? nil : loaded
@@ -292,7 +292,7 @@ final class LoadPipeline {
         regenerateSizes(maxDisplaySize: settings.maxDisplaySize,
                         maxThumbnailSize: settings.thumbnailRenderSize,
                         metricsConfig: settings.effectiveMetricsConfig,
-                        debayer: settings.debayerColorImages)
+                        debayer: settings.debayerColourImages)
     }
 
     /// `regenerateSizes(settings:)` with the values passed in (also used by the tests, which
@@ -328,7 +328,7 @@ final class LoadPipeline {
                                            maxDisplaySize: maxDisplaySize,
                                            maxThumbnailSize: maxThumbnailSize,
                                            metricsConfig: .off,
-                                           debayerColorImages: debayer)
+                                           debayerColourImages: debayer)
             // Restore metric values from cache now that Phase A is done.
             for entry in entriesToProcess {
                 if let cached = entry.cachedMetrics {
@@ -336,7 +336,7 @@ final class LoadPipeline {
                 }
             }
             if !Task.isCancelled {
-                await pipeline.normalizeGreyStretch(greyPending,
+                await pipeline.normaliseGreyStretch(greyPending,
                                                     maxDisplaySize: maxDisplaySize,
                                                     maxThumbnailSize: maxThumbnailSize)
             }
@@ -607,14 +607,14 @@ final class LoadPipeline {
     func processParallel(_ entriesToProcess: [ImageEntry], selectFirst: Bool,
                          maxDisplaySize: Int = 1024, maxThumbnailSize: Int = 120,
                          metricsConfig: MetricsConfig = MetricsConfig(),
-                         debayerColorImages: Bool = false,
+                         debayerColourImages: Bool = false,
                          rendersImages: Bool = true) async -> [ImageEntry] {
 
         // Reset colour counters for this pass so a grey-mode pass never shows a stale
         // Restretching bar from a previous session. When debayering, set the total
         // upfront to the full entry count so the bar stays visible for the entire load
         // rather than flickering in/out as each folder completes.
-        batchRestretchTotal  = debayerColorImages ? entriesToProcess.count : 0
+        batchRestretchTotal  = debayerColourImages ? entriesToProcess.count : 0
         batchRestretchCount = 0
         // The colour renders of this load show only while no colour toggle came since.
         let generation = renderGeneration
@@ -628,14 +628,14 @@ final class LoadPipeline {
 
         // Pre-group entries by folder so each folder's colour task can access its siblings.
         // Only built when colour debayering is enabled — avoids the allocation otherwise.
-        let folderEntriesMap: [String: [ImageEntry]] = debayerColorImages
+        let folderEntriesMap: [String: [ImageEntry]] = debayerColourImages
             ? Dictionary(grouping: entriesToProcess, by: \.qualifiedFolderPath)
             : [:]
         let folderTracker = FolderTracker(grouping: entriesToProcess)
         // Folder by folder, so each folder is read completely before the next one starts.
         let ordered = Self.groupedByFolder(entriesToProcess)
         // Mono folders whose grey normalisation ran during the load.
-        var normalizedFolders: Set<String> = []
+        var normalisedFolders: Set<String> = []
         var folderEntries: [ImageEntry] = []
         let proxies = colourProxies
 
@@ -657,9 +657,9 @@ final class LoadPipeline {
                         }
                         activeCount = 0
                         if !Task.isCancelled {
-                            await normalizeGreyStretch(folderEntries, maxDisplaySize: maxDisplaySize,
+                            await normaliseGreyStretch(folderEntries, maxDisplaySize: maxDisplaySize,
                                                        maxThumbnailSize: maxThumbnailSize)
-                            normalizedFolders.insert(last.qualifiedFolderPath)
+                            normalisedFolders.insert(last.qualifiedFolderPath)
                         }
                     }
                     folderEntries = []
@@ -681,7 +681,7 @@ final class LoadPipeline {
                     let fast = await FrameLoading.loadFast(url: url,
                                                    maxDisplaySize: maxDisplaySize,
                                                    maxThumbnailSize: maxThumbnailSize,
-                                                   debayerColorImages: debayerColorImages,
+                                                   debayerColourImages: debayerColourImages,
                                                    rendersImages: rendersImages)
                     // Only these values go to the main actor; `fast` itself, with its
                     // Metal buffer, stays with Phase B below (CODE_AUDIT §3.3).
@@ -726,7 +726,7 @@ final class LoadPipeline {
                     // colour render if it fits the budget: the folder's colour render then
                     // needs no second read of the file (a 7 GB night doesn't stay in the
                     // file cache). Without room the frame is read again, as before.
-                    if debayerColorImages, bayerClips != nil, let buffer = fast.metalBuffer,
+                    if debayerColourImages, bayerClips != nil, let buffer = fast.metalBuffer,
                        let pattern = fast.bayerPattern {
                         let (w, h) = ImageStretcher.bayerDisplaySize(width: fast.width, height: fast.height,
                                                                      maxDisplaySize: maxDisplaySize)
@@ -749,7 +749,7 @@ final class LoadPipeline {
                     // rather than waiting for the entire batch (including Phase B) to
                     // finish, by which time the cache may have been evicted.
                     var colourTask: Task<Void, Never>? = nil
-                    if debayerColorImages {
+                    if debayerColourImages {
                         let folderDone = await folderTracker.complete(path: path)
                         if folderDone, !Task.isCancelled, let fEntries = folderEntriesMap[path] {
                             colourTask = await self?.spawnColourRender(fEntries, generation: generation,
@@ -801,7 +801,7 @@ final class LoadPipeline {
         await proxies.discardAll()
 
         store?.updateGroupStatistics()
-        return entriesToProcess.filter { !normalizedFolders.contains($0.qualifiedFolderPath) }
+        return entriesToProcess.filter { !normalisedFolders.contains($0.qualifiedFolderPath) }
     }
 
     /// The entries grouped by folder: the folders in the order they first appear, each
@@ -834,15 +834,15 @@ final class LoadPipeline {
     ///
     /// A batch: during a load it runs after the load, so it also covers the frames that
     /// weren't loaded yet when colour was toggled (CODE_AUDIT §3.2); Cancel stops it.
-    func recolorImages(settings: AppSettings) {
-        recolorImages(debayer: settings.debayerColorImages,
+    func recolourImages(settings: AppSettings) {
+        recolourImages(debayer: settings.debayerColourImages,
                       maxDisplaySize: settings.maxDisplaySize,
                       maxThumbnailSize: settings.thumbnailRenderSize)
     }
 
-    /// `recolorImages(settings:)` with the values passed in (also used by the tests, which
+    /// `recolourImages(settings:)` with the values passed in (also used by the tests, which
     /// mustn't change the app's saved settings).
-    func recolorImages(debayer: Bool, maxDisplaySize: Int, maxThumbnailSize: Int) {
+    func recolourImages(debayer: Bool, maxDisplaySize: Int, maxThumbnailSize: Int) {
         guard let store else { return }
         // Nothing to do without Bayer frames, unless a running load may still add some.
         guard processingTask != nil || store.entries.contains(where: { $0.isBayer }) else { return }
@@ -874,7 +874,7 @@ final class LoadPipeline {
         }
     }
 
-    /// The colour-on part of `recolorImages`: samples the clips that are missing, then
+    /// The colour-on part of `recolourImages`: samples the clips that are missing, then
     /// renders each folder in colour as soon as its clips are all known.
     private func renderBayerEntriesInColour(_ bayerEntries: [ImageEntry], generation: Int,
                                             maxDisplaySize: Int, maxThumbnailSize: Int) async {
@@ -950,7 +950,7 @@ final class LoadPipeline {
         await waitForSpawned(phaseB: [], colour: colourTasks)
     }
 
-    /// The colour-off part of `recolorImages`: shows the grey renders, re-rendering the
+    /// The colour-off part of `recolourImages`: shows the grey renders, re-rendering the
     /// Bayer frames that have none cached. Metrics and histograms are unchanged.
     private func renderBayerEntriesInGrey(_ bayerEntries: [ImageEntry], generation: Int,
                                           maxDisplaySize: Int, maxThumbnailSize: Int) async {
@@ -999,7 +999,7 @@ final class LoadPipeline {
     /// consistent as it can be. Bayer images (handled by the colour normalisation path)
     /// are always excluded. A frame whose sky the shared clips would render below
     /// `GreyClips.minimumSharedSkyLevel` keeps its own stretch (`keepsOwnStretch(under:)`).
-    private func normalizeGreyStretch(_ entries: [ImageEntry],
+    private func normaliseGreyStretch(_ entries: [ImageEntry],
                                       maxDisplaySize: Int,
                                       maxThumbnailSize: Int) async {
         let greyEntries = entries.filter { !$0.isBayer && $0.greyClips != nil }
@@ -1069,7 +1069,7 @@ final class LoadPipeline {
     /// Renders one folder group's Bayer images in colour using the per-channel median of
     /// the individual `bayerClips` already computed during Phase A or sampling.
     ///
-    /// Called from `processParallel` and `recolorImages` as soon as all entries in a
+    /// Called from `processParallel` and `recolourImages` as soon as all entries in a
     /// folder complete their clip computation. Frames with a colour proxy from Phase A are
     /// rendered from it, without reading their file again.
     /// Updates `batchRestretchCount` so the Restretching bar advances smoothly.
@@ -1095,7 +1095,7 @@ final class LoadPipeline {
            bayerEntries.contains(where: { $0 === selected }),
            selected.cachedColourDisplay == nil,
            let pattern = selected.bayerPattern,
-           let (display, thumb) = await FrameLoading.recolorBayerEntry(
+           let (display, thumb) = await FrameLoading.recolourBayerEntry(
                url: selected.url, rOffset: pattern.rOffset, clips: sharedClips,
                maxDisplaySize: maxDisplaySize, maxThumbnailSize: maxThumbnailSize,
                proxy: await colourProxies.take(selected.id)) {
@@ -1131,7 +1131,7 @@ final class LoadPipeline {
             // The current URL: the frame may have been rejected (moved) since (§3.9).
             let url = await entry.url
             guard let pattern = item.bayerPattern,
-                  let (display, thumb) = await FrameLoading.recolorBayerEntry(
+                  let (display, thumb) = await FrameLoading.recolourBayerEntry(
                       url: url, rOffset: pattern.rOffset, clips: sharedClips,
                       maxDisplaySize: maxDisplaySize, maxThumbnailSize: maxThumbnailSize,
                       proxy: await proxies.take(item.id)

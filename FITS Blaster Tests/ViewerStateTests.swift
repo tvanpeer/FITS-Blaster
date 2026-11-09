@@ -101,7 +101,7 @@ struct ViewerStateTests {
         #expect(viewer.displayStretch == 1.0)
         #expect(viewer.zoomAnchor == nil)
         #expect(viewer.viewportFraction == ViewerState.fullFrame)
-        #expect(viewer.viewportCenter == .zero)
+        #expect(viewer.viewportCentre == .zero)
         #expect(!viewer.isPlaying)
     }
 
@@ -125,7 +125,7 @@ struct ViewerStateTests {
                                        content: CGSize(width: 2000, height: 1000),
                                        container: CGSize(width: 1000, height: 500)))
         #expect(viewer.viewportFraction == CGRect(x: 0.25, y: 0.25, width: 0.5, height: 0.5))
-        #expect(viewer.viewportCenter == CGPoint(x: 0.5, y: 0.5))
+        #expect(viewer.viewportCentre == CGPoint(x: 0.5, y: 0.5))
     }
 
     @Test("A container larger than the content clamps the fraction to the full frame")
@@ -143,7 +143,7 @@ struct ViewerStateTests {
         viewer.updateViewport(geometry(offset: .zero, content: .zero,
                                        container: CGSize(width: 1000, height: 500)))
         #expect(viewer.viewportFraction == ViewerState.fullFrame)
-        #expect(viewer.viewportCenter == .zero)
+        #expect(viewer.viewportCentre == .zero)
     }
 
     @Test("A change below the tolerance isn't written; the centre still is")
@@ -160,7 +160,7 @@ struct ViewerStateTests {
         }
         #expect(!notified)
         #expect(viewer.viewportFraction == written)
-        #expect(viewer.viewportCenter.x == CGFloat(1005 + 500) / 10_000)
+        #expect(viewer.viewportCentre.x == CGFloat(1005 + 500) / 10_000)
     }
 
     @Test("A visible change is written and notifies observers")

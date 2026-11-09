@@ -47,7 +47,7 @@ struct DisplayMemoryBudgetTests {
 
     private func load(_ files: [(url: URL, subfolderPath: String)], colour: Bool = false) async -> ImageStore {
         let store = ImageStore()
-        store.pipeline.openFiles(files, metricsConfig: .off, debayerColorImages: colour)
+        store.pipeline.openFiles(files, metricsConfig: .off, debayerColourImages: colour)
         await store.pipeline.waitForProcessing()
         return store
     }
@@ -243,7 +243,7 @@ struct DisplayMemoryBudgetTests {
         store.selectedEntry = store.entries[0]
         for entry in store.entries.dropFirst() { entry.dropDisplayImages() }
 
-        store.pipeline.recolorImages(debayer: false, maxDisplaySize: 1024, maxThumbnailSize: 120)
+        store.pipeline.recolourImages(debayer: false, maxDisplaySize: 1024, maxThumbnailSize: 120)
         await store.pipeline.waitForProcessing()
 
         for (entry, expected) in zip(store.entries, loadGrey) {
@@ -268,7 +268,7 @@ struct DisplayMemoryBudgetTests {
         store.selectedEntry = store.entries[0]
         for entry in store.entries.dropFirst() { entry.dropDisplayImages() }
 
-        store.pipeline.recolorImages(debayer: true, maxDisplaySize: 1024, maxThumbnailSize: 120)
+        store.pipeline.recolourImages(debayer: true, maxDisplaySize: 1024, maxThumbnailSize: 120)
         await store.pipeline.waitForProcessing()
 
         for (entry, expected) in zip(store.entries, reference.entries) {

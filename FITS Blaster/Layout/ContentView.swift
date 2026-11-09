@@ -60,9 +60,9 @@ struct ContentView: View {
                 // Only the app limits the display images; the command line keeps them all.
                 store.displayMemory.limitBytes = AppSettings.displayMemoryBytes(percent: percent)
             }
-            .onChange(of: settings.debayerColorImages) { _, _ in
+            .onChange(of: settings.debayerColourImages) { _, _ in
                 guard !store.entries.isEmpty else { return }
-                store.pipeline.recolorImages(settings: settings)
+                store.pipeline.recolourImages(settings: settings)
             }
             .onChange(of: settings.isSimpleMode) { _, isSimple in
                 if !isSimple {
@@ -135,7 +135,7 @@ struct ContentView: View {
         case .deflagAll: store.deflagAll()
         case .toggleMode:  settings.isSimpleMode.toggle()
         case .remove:      store.removeSelected()
-        case .debayer:     settings.debayerColorImages.toggle()
+        case .debayer:     settings.debayerColourImages.toggle()
         case .playPause:
             if viewer.isPlaying {
                 viewer.stopPlayback()

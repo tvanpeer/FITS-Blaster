@@ -552,7 +552,7 @@ extension ImageStore {
                   maxDisplaySize: settings.maxDisplaySize,
                   maxThumbnailSize: settings.thumbnailRenderSize,
                   metricsConfig: settings.effectiveMetricsConfig,
-                  debayerColorImages: settings.debayerColorImages)
+                  debayerColourImages: settings.debayerColourImages)
     }
 
     /// Scans several folders chosen together in the open panel and loads them as one batch,
@@ -594,7 +594,7 @@ extension ImageStore {
                            maxDisplaySize: settings.maxDisplaySize,
                            maxThumbnailSize: settings.thumbnailRenderSize,
                            metricsConfig: settings.effectiveMetricsConfig,
-                           debayerColorImages: settings.debayerColorImages)
+                           debayerColourImages: settings.debayerColourImages)
     }
 
     /// The sidebar section name of each folder: its own name, or "parent/name" when another
@@ -675,7 +675,7 @@ extension ImageStore {
                       maxDisplaySize: settings.maxDisplaySize,
                       maxThumbnailSize: settings.thumbnailRenderSize,
                       metricsConfig: settings.effectiveMetricsConfig,
-                      debayerColorImages: settings.debayerColorImages)
+                      debayerColourImages: settings.debayerColourImages)
         }
     }
 

@@ -47,7 +47,7 @@ struct DisplaySizeChangeTests {
         let store = ImageStore()
         store.pipeline.openFiles(try writeBayerFiles(3, in: folder), maxDisplaySize: smallSize,
                                  maxThumbnailSize: thumbnailSize, metricsConfig: .off,
-                                 debayerColorImages: colour)
+                                 debayerColourImages: colour)
         await store.pipeline.waitForProcessing()
         return store
     }
@@ -89,7 +89,7 @@ struct DisplaySizeChangeTests {
         defer { try? FileManager.default.removeItem(at: folder) }
         // Loaded in colour, then grey: both renders are cached at the small size.
         let store = try await load(folder, colour: true)
-        store.pipeline.recolorImages(debayer: false, maxDisplaySize: smallSize, maxThumbnailSize: thumbnailSize)
+        store.pipeline.recolourImages(debayer: false, maxDisplaySize: smallSize, maxThumbnailSize: thumbnailSize)
         await store.pipeline.waitForProcessing()
         #expect(store.entries.allSatisfy { width($0.cachedColourDisplay) == smallSize })
 
@@ -100,7 +100,7 @@ struct DisplaySizeChangeTests {
             #expect(entry.cachedColourDisplay == nil)
         }
 
-        store.pipeline.recolorImages(debayer: true, maxDisplaySize: largeSize, maxThumbnailSize: thumbnailSize)
+        store.pipeline.recolourImages(debayer: true, maxDisplaySize: largeSize, maxThumbnailSize: thumbnailSize)
         await store.pipeline.waitForProcessing()
         for entry in store.entries {
             #expect(entry.displayImage === entry.cachedColourDisplay)

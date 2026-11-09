@@ -7,75 +7,6 @@
 
 import SwiftUI
 
-// MARK: - Config
-
-/// Subset of AppSettings needed for metrics computation.
-/// Plain Sendable value type for safe capture in nonisolated background tasks.
-/// Metrics are all on (Geek mode) or all off (Simple mode, and passes that only
-/// re-render images); there are no per-metric switches.
-struct MetricsConfig: Sendable, Equatable {
-    var computeMetrics: Bool = true
-
-    /// Simple mode: no star detection, star metrics hidden.
-    static let off = MetricsConfig(computeMetrics: false)
-
-    /// True when star detection has to run.
-    var needsStarDetection: Bool { computeMetrics }
-}
-
-// MARK: - Badge Problem
-
-/// A detected quality defect used to drive the two-tier thumbnail badge system.
-enum BadgeProblem {
-    /// Stars significantly more elongated than round — trailing or collimation issue.
-    case trailing
-    /// FWHM significantly above the filter-group median — focus failure or poor seeing.
-    case focusFail
-    /// Star count well below the filter-group median — haze, thin cloud, or dew.
-    case lowStars
-
-    var systemImage: String {
-        switch self {
-        case .trailing:  "arrow.up.right"
-        case .focusFail: "scope"
-        case .lowStars:  "cloud.fill"
-        }
-    }
-}
-
-// MARK: - Group Statistics
-
-/// Per-filter-group summary statistics used for relative threshold comparisons
-/// in badge colouring and auto-reject.
-///
-/// The medians are true medians: for an even number of frames the mean of the two middle
-/// values (CODE_AUDIT §5.16, step 13).
-struct GroupStats: Equatable {
-    let medianFWHM: Double?
-    let medianEccentricity: Double?
-    let medianStarCount: Double?
-    let medianSNR: Double?
-    let medianScore: Double?
-    let medianSkyBackground: Double?
-    let medianPSFSignalWeight: Double?
-    /// Frames the medians come from: the group's frames with metrics and stars.
-    let frameCount: Int
-    /// Minimum score required to place a frame in the top third of this group.
-    /// Nil when the group has fewer than three frames with score data.
-    let topThirdScoreFloor: Int?
-    /// True for narrowband and OSC multi-narrowband groups.
-    let isNarrowband: Bool
-
-    /// Fewest frames for checks against the group median: in a smaller group a bad frame
-    /// sets much of its own yardstick (CODE_AUDIT §5.16).
-    static let minimumFramesForRelativeChecks = 3
-
-    /// Whether checks against the group median apply: Auto-Flag's and the command line's
-    /// relative mode, and the focus-fail and low-star badges. Absolute checks (eccentricity,
-    /// absolute mode, frames without stars) apply to every group.
-    var allowsRelativeChecks: Bool { frameCount >= Self.minimumFramesForRelativeChecks }
-}
-
 // MARK: - Metrics
 
 /// Quality metrics computed from raw FITS pixel data via Accelerate heuristics.
@@ -127,7 +58,7 @@ struct FrameMetrics: Sendable {
     // MARK: Badge
 
     /// Simple score-based colour for inline metric displays (inspector, etc.)
-    var scoreColor: Color {
+    var scoreColour: Color {
         switch qualityScore {
         case 80...: .green
         case 60...: .yellow
@@ -175,7 +106,7 @@ struct FrameMetrics: Sendable {
     /// - Amber: low star count.
     /// - Green: no problem and frame is in the top third of its group by score.
     /// - Grey: no problem detected, not in top third.
-    func badgeColor(problem: BadgeProblem?, isTopThird: Bool) -> Color {
+    func badgeColour(problem: BadgeProblem?, isTopThird: Bool) -> Color {
         if let problem {
             return switch problem {
             case .trailing, .focusFail: .red

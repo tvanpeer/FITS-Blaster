@@ -69,7 +69,7 @@ struct ZoomControl: View {
         .tooltip("Zoom to fit")
         if viewer.zoomAnchor != nil {
             Button("Centre on anchor", systemImage: "scope") {
-                viewer.centerOnAnchorTrigger.toggle()
+                viewer.centreOnAnchorTrigger.toggle()
             }
             .labelStyle(.iconOnly)
             .buttonStyle(.borderless)

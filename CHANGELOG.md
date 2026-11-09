@@ -4,6 +4,15 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-11-09 — One spelling in the code, files named after their types (step 15b)
+
+### Under the hood
+- Our own identifiers use British spelling, as the app's text does (CODE_AUDIT §9.15): `debayerColourImages`, `recolourImages`, `recolourBayerEntry`, `chartColour`, `badgeColour`, `scoreColour`, the high-contrast chart colours, `normaliseGreyStretch`, `normalisedFolders`, `viewportCentre`, `centreOnAnchorTrigger`, and the `colour` properties of filter groups, filter chips, quality badges and progress rows. Apple's names (`Color`, `colorScheme`, `differentiateWithoutColor`, `.accentColor`) and the stored settings key `"debayerColorImages"` stay, so nobody's settings change.
+- `ExportPanel.swift` is `ExportSheet.swift`, after the type it holds; `FilterGroup+ChartColor.swift` is `FilterGroup+ChartColour.swift`. `MetricsConfig`, `GroupStats` and `BadgeProblem` move out of `FrameMetrics.swift` into their own files (Engine, Session and Inspector).
+- No behaviour change: clean builds of Debug, Release and App Store without warnings; unit tests, render tests and metric baselines pass; the SwiftLint findings are the same.
+
+---
+
 ## 2026-11-09 — Source files in feature folders (step 15a)
 
 ### Under the hood

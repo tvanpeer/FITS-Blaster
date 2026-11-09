@@ -16,11 +16,11 @@ struct FilterLegendMark: View {
     var body: some View {
         if showsShape {
             group.chartSymbol.shape
-                .fill(group.chartColor(differentiateWithoutColor: true, colorScheme: colorScheme))
+                .fill(group.chartColour(differentiateWithoutColor: true, colorScheme: colorScheme))
                 .frame(width: 9, height: 9)
         } else {
             Circle()
-                .fill(group.color)
+                .fill(group.colour)
                 .frame(width: 7, height: 7)
         }
     }

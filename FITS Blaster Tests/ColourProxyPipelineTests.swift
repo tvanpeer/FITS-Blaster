@@ -57,7 +57,7 @@ struct ColourProxyPipelineTests {
         let store = ImageStore()
         store.pipeline.colourProxies = ColourProxies(limitBytes: limit)
         store.pipeline.openFiles(files, maxDisplaySize: Self.displaySize, metricsConfig: .off,
-                                 debayerColorImages: colour)
+                                 debayerColourImages: colour)
         await store.pipeline.waitForProcessing()
         var pixels: [String: [UInt8]] = [:]
         for entry in store.entries {
@@ -136,7 +136,7 @@ struct ColourProxyPipelineTests {
         defer { try? FileManager.default.removeItem(at: root) }
         let store = ImageStore()
         store.pipeline.openFiles(try writeFolder("A", count: Self.frames, in: root),
-                                 maxDisplaySize: Self.displaySize, metricsConfig: .off, debayerColorImages: true)
+                                 maxDisplaySize: Self.displaySize, metricsConfig: .off, debayerColourImages: true)
         await Task.yield()
         store.pipeline.cancelProcessing()
         await store.pipeline.waitForProcessing()

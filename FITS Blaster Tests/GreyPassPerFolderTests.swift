@@ -145,7 +145,7 @@ struct GreyPassPerFolderTests {
 
         let pending = await store.pipeline.processParallel(first + second, selectFirst: false,
                                                            maxDisplaySize: Self.displaySize,
-                                                           metricsConfig: .off, debayerColorImages: true)
+                                                           metricsConfig: .off, debayerColourImages: true)
         #expect(ids(pending) == ids(first + second))
         for entry in first + second {
             guard case .colour = entry.colourRecipe else {

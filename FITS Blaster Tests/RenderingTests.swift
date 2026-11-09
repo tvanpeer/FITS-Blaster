@@ -169,7 +169,7 @@ struct RenderingTests {
         let collected = ImageStore.collectFITSURLs(in: folder, relativePath: "",
                                                    excludedNames: [], includeSubfolders: false)
         let store = ImageStore()
-        store.pipeline.openFiles(collected, rootFolderName: folder.lastPathComponent, debayerColorImages: colour)
+        store.pipeline.openFiles(collected, rootFolderName: folder.lastPathComponent, debayerColourImages: colour)
         await store.pipeline.waitForProcessing()
         return store.entries.compactMap { entry in
             guard let image = entry.displayImage,

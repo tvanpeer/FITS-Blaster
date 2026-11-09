@@ -109,9 +109,9 @@ struct FrameAccessibilityTests {
 
     // MARK: - Chart colours
 
-    /// WCAG contrast of `color` against a grey background with sRGB value `background`.
-    private func contrast(_ color: Color, onGrey background: Double) -> Double {
-        let c = color.resolve(in: EnvironmentValues())
+    /// WCAG contrast of `colour` against a grey background with sRGB value `background`.
+    private func contrast(_ colour: Color, onGrey background: Double) -> Double {
+        let c = colour.resolve(in: EnvironmentValues())
         let luminance = 0.2126 * Double(c.linearRed) + 0.7152 * Double(c.linearGreen) + 0.0722 * Double(c.linearBlue)
         let bg = background <= 0.04045 ? background / 12.92 : pow((background + 0.055) / 1.055, 2.4)
         let (lighter, darker) = luminance > bg ? (luminance, bg) : (bg, luminance)
@@ -121,8 +121,8 @@ struct FrameAccessibilityTests {
     @Test("With Differentiate without color every chart colour has at least 6:1 contrast", arguments: FilterGroup.allCases)
     func highContrast(group: FilterGroup) {
         // The window background on macOS 27: #1E1E1E in dark mode, white in light mode.
-        let dark = group.chartColor(differentiateWithoutColor: true, colorScheme: .dark)
-        let light = group.chartColor(differentiateWithoutColor: true, colorScheme: .light)
+        let dark = group.chartColour(differentiateWithoutColor: true, colorScheme: .dark)
+        let light = group.chartColour(differentiateWithoutColor: true, colorScheme: .light)
         #expect(contrast(dark, onGrey: 0x1E / 255.0) >= 5.99, "\(group) dark")
         #expect(contrast(light, onGrey: 1.0) >= 5.99, "\(group) light")
     }
@@ -130,8 +130,8 @@ struct FrameAccessibilityTests {
     @Test("Without the setting the chart keeps the group's own colour")
     func normalColour() {
         for group in FilterGroup.allCases {
-            #expect(group.chartColor(differentiateWithoutColor: false, colorScheme: .dark) == group.color)
-            #expect(group.chartColor(differentiateWithoutColor: false, colorScheme: .light) == group.color)
+            #expect(group.chartColour(differentiateWithoutColor: false, colorScheme: .dark) == group.colour)
+            #expect(group.chartColour(differentiateWithoutColor: false, colorScheme: .light) == group.colour)
         }
     }
 }

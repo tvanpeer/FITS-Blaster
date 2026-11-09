@@ -48,7 +48,7 @@ enum FilterGroup: String, CaseIterable, Identifiable, Hashable {
 
     /// Colour used for chart dots, sidebar group headers, and filter strip chips.
     /// Values are chosen to be distinguishable in both light and dark mode.
-    var color: Color {
+    var colour: Color {
         switch self {
         case .luminance:  return Color(white: 0.60)
         case .red:        return Color(red: 0.85, green: 0.20, blue: 0.20)

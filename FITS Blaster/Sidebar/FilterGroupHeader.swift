@@ -13,7 +13,7 @@ struct FilterGroupHeader: View {
     var body: some View {
         HStack(spacing: 5) {
             Circle()
-                .fill(group.color)
+                .fill(group.colour)
                 .frame(width: 8, height: 8)
             Text(group.rawValue)
                 .scaledFont(size: 10, weight: .bold)
@@ -53,7 +53,7 @@ struct FolderFilterSubHeader: View {
     var body: some View {
         HStack(spacing: 4) {
             Circle()
-                .fill(group.color)
+                .fill(group.colour)
                 .frame(width: 6, height: 6)
             Text(group.rawValue)
                 .scaledFont(size: 9, weight: .bold)

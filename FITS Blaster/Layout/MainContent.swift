@@ -144,7 +144,7 @@ private struct InfoBar: View {
                 if let moves = store.frameMoves.progress {
                     ProgressBarRow(label: moves.kind == .reject ? "Rejecting" : "Restoring",
                                    value: moves.done, total: moves.total,
-                                   color: moves.kind == .reject ? .red : .green)
+                                   colour: moves.kind == .reject ? .red : .green)
                 }
             }
 
@@ -190,16 +190,16 @@ private struct BatchProgressBar: View {
         let total = store.entries.count
         VStack(alignment: .leading, spacing: 3) {
             if showLoadedMetrics {
-                ProgressBarRow(label: "Loaded", value: loadedCount, total: total, color: .teal)
+                ProgressBarRow(label: "Loaded", value: loadedCount, total: total, colour: .teal)
                 if !settings.isSimpleMode {
-                    ProgressBarRow(label: "Metrics", value: metricsCount, total: total, color: .indigo)
+                    ProgressBarRow(label: "Metrics", value: metricsCount, total: total, colour: .indigo)
                 }
             }
             if store.pipeline.batchSamplingTotal > 0 {
-                ProgressBarRow(label: "Sampling", value: store.pipeline.batchSamplingCount, total: store.pipeline.batchSamplingTotal, color: .mint)
+                ProgressBarRow(label: "Sampling", value: store.pipeline.batchSamplingCount, total: store.pipeline.batchSamplingTotal, colour: .mint)
             }
             if store.pipeline.batchRestretchTotal > 0 {
-                ProgressBarRow(label: "Restretching", value: store.pipeline.batchRestretchCount, total: store.pipeline.batchRestretchTotal, color: .orange)
+                ProgressBarRow(label: "Restretching", value: store.pipeline.batchRestretchCount, total: store.pipeline.batchRestretchTotal, colour: .orange)
             }
         }
         .task {
@@ -216,7 +216,7 @@ private struct ProgressBarRow: View {
     let label: String
     let value: Int
     let total: Int
-    let color: Color
+    let colour: Color
 
     private var fraction: Double {
         total > 0 ? min(1, Double(value) / Double(total)) : 0
@@ -229,10 +229,10 @@ private struct ProgressBarRow: View {
                 .foregroundStyle(.secondary)
                 .frame(width: 64, alignment: .trailing)
             Capsule()
-                .fill(color.opacity(0.2))
+                .fill(colour.opacity(0.2))
                 .overlay(alignment: .leading) {
                     Capsule()
-                        .fill(color)
+                        .fill(colour)
                         .scaleEffect(x: fraction, anchor: .leading)
                         .animation(.linear(duration: 0.2), value: fraction)
                 }

@@ -45,11 +45,11 @@ struct RenderGenerationTests {
 
     private func load(_ files: [(url: URL, subfolderPath: String)], colour: Bool, into store: ImageStore) {
         store.pipeline.openFiles(files, maxDisplaySize: displaySize, maxThumbnailSize: thumbnailSize,
-                                 metricsConfig: .off, debayerColorImages: colour)
+                                 metricsConfig: .off, debayerColourImages: colour)
     }
 
-    private func recolor(_ store: ImageStore, colour: Bool) {
-        store.pipeline.recolorImages(debayer: colour, maxDisplaySize: displaySize,
+    private func recolour(_ store: ImageStore, colour: Bool) {
+        store.pipeline.recolourImages(debayer: colour, maxDisplaySize: displaySize,
                                      maxThumbnailSize: thumbnailSize)
     }
 
@@ -70,8 +70,8 @@ struct RenderGenerationTests {
         await store.pipeline.waitForProcessing()
         #expect(store.entries.allSatisfy { $0.isBayer && showsGrey($0) })
 
-        recolor(store, colour: true)
-        recolor(store, colour: false)
+        recolour(store, colour: true)
+        recolour(store, colour: false)
         await store.pipeline.waitForProcessing()
 
         #expect(store.entries.allSatisfy(showsGrey))
@@ -87,8 +87,8 @@ struct RenderGenerationTests {
         await store.pipeline.waitForProcessing()
         #expect(store.entries.allSatisfy(showsColour))
 
-        recolor(store, colour: false)
-        recolor(store, colour: true)
+        recolour(store, colour: false)
+        recolour(store, colour: true)
         await store.pipeline.waitForProcessing()
 
         #expect(store.entries.allSatisfy(showsColour))
@@ -100,7 +100,7 @@ struct RenderGenerationTests {
         defer { try? FileManager.default.removeItem(at: folder) }
         let store = ImageStore()
         load(try writeBayerFiles(6, in: folder), colour: false, into: store)
-        recolor(store, colour: true)        // the load hasn't added a single frame yet
+        recolour(store, colour: true)        // the load hasn't added a single frame yet
         await store.pipeline.waitForProcessing()
 
         #expect(store.entries.count == 6)
@@ -113,7 +113,7 @@ struct RenderGenerationTests {
         defer { try? FileManager.default.removeItem(at: folder) }
         let store = ImageStore()
         load(try writeBayerFiles(6, in: folder), colour: true, into: store)
-        recolor(store, colour: false)
+        recolour(store, colour: false)
         await store.pipeline.waitForProcessing()
 
         #expect(store.entries.count == 6)
@@ -128,9 +128,9 @@ struct RenderGenerationTests {
         load(try writeBayerFiles(4, in: folder), colour: false, into: store)
         await store.pipeline.waitForProcessing()
 
-        recolor(store, colour: true)
-        recolor(store, colour: false)
-        recolor(store, colour: true)
+        recolour(store, colour: true)
+        recolour(store, colour: false)
+        recolour(store, colour: true)
         await store.pipeline.waitForProcessing()
 
         #expect(store.entries.allSatisfy(showsColour))
@@ -144,7 +144,7 @@ struct RenderGenerationTests {
         load(try writeBayerFiles(4, in: folder), colour: false, into: store)
         await store.pipeline.waitForProcessing()
 
-        recolor(store, colour: true)
+        recolour(store, colour: true)
         let render = store.pipeline.processingTask
         store.reset()
         await render?.value
@@ -157,7 +157,7 @@ struct RenderGenerationTests {
     @Test("A colour toggle without Bayer frames and without a load does nothing")
     func toggleWithoutBayerFrames() {
         let store = ImageStore()
-        recolor(store, colour: true)
+        recolour(store, colour: true)
         #expect(!store.pipeline.isBatchProcessing)
         #expect(store.pipeline.processingTask == nil)
     }

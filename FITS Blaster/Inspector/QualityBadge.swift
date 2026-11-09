@@ -7,7 +7,7 @@ import SwiftUI
 
 struct QualityBadge: View {
     let score: Int
-    let color: Color
+    let colour: Color
     let problem: BadgeProblem?
     /// A ★ before the score: a top-third frame with "Differentiate without color" on.
     var showsStar = false
@@ -27,7 +27,7 @@ struct QualityBadge: View {
         }
         .padding(.horizontal, 3)
         .padding(.vertical, 1)
-        .background(color)
+        .background(colour)
         .clipShape(.rect(cornerRadius: 3))
         .foregroundStyle(.white)
         .padding(4)

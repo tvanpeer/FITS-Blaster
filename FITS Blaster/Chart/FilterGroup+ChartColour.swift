@@ -1,5 +1,5 @@
 //
-//  FilterGroup+ChartColor.swift
+//  FilterGroup+ChartColour.swift
 //  FITS Blaster
 //
 //  The session chart's dot and legend colours (step 10d). Normally the group's own colour.
@@ -14,13 +14,13 @@ import SwiftUI
 extension FilterGroup {
 
     /// The colour of this group's dots and legend mark.
-    func chartColor(differentiateWithoutColor: Bool, colorScheme: ColorScheme) -> Color {
-        guard differentiateWithoutColor else { return color }
-        return colorScheme == .dark ? darkHighContrastColor : lightHighContrastColor
+    func chartColour(differentiateWithoutColor: Bool, colorScheme: ColorScheme) -> Color {
+        guard differentiateWithoutColor else { return colour }
+        return colorScheme == .dark ? darkHighContrastColour : lightHighContrastColour
     }
 
     /// At least 6:1 against #1E1E1E. G, OIII, SII, SO and Quad-NB already were.
-    var darkHighContrastColor: Color {
+    var darkHighContrastColour: Color {
         switch self {
         case .luminance:  Color(white: 0.61)
         case .red:        Color(red: 0.904, green: 0.490, blue: 0.490)
@@ -30,12 +30,12 @@ extension FilterGroup {
         case .ho:         Color(red: 0.896, green: 0.430, blue: 0.875)
         case .sho:        Color(red: 0.751, green: 0.501, blue: 0.955)
         case .unfiltered: Color(white: 0.61)
-        case .green, .oiii, .sii, .so, .quadNB: color
+        case .green, .oiii, .sii, .so, .quadNB: colour
         }
     }
 
     /// At least 6:1 against white. SHO already was.
-    var lightHighContrastColor: Color {
+    var lightHighContrastColour: Color {
         switch self {
         case .luminance:  Color(white: 0.388)
         case .red:        Color(red: 0.749, green: 0.141, blue: 0.141)
@@ -49,7 +49,7 @@ extension FilterGroup {
         case .so:         Color(red: 0.078, green: 0.442, blue: 0.286)
         case .quadNB:     Color(red: 0.463, green: 0.381, blue: 0.041)
         case .unfiltered: Color(white: 0.388)
-        case .sho:        color
+        case .sho:        colour
         }
     }
 }

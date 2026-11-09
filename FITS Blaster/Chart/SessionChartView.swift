@@ -132,7 +132,7 @@ private struct FolderFilterStrip: View {
 
     var body: some View {
         WrappingChips(spacing: 4) {
-            FilterChip(label: "All", color: .accentColor,
+            FilterChip(label: "All", colour: .accentColor,
                        isSelected: selectedFolderPaths.isEmpty) {
                 selectedFolderPaths = []
             }
@@ -140,7 +140,7 @@ private struct FolderFilterStrip: View {
                 let displayName = store.groupedByFolderAndFilter
                     .first { $0.folderPath == path }?.folderDisplayName ?? path
                 FilterChip(label: displayName.isEmpty ? "Root" : displayName,
-                           color: .accentColor,
+                           colour: .accentColor,
                            isSelected: selectedFolderPaths.contains(path)) {
                     if selectedFolderPaths.contains(path) {
                         selectedFolderPaths.remove(path)
@@ -211,7 +211,7 @@ private struct ChartBody: View {
         Chart {
             ForEach(data.medians, id: \.group) { item in
                 RuleMark(y: .value("Median", item.median))
-                    .foregroundStyle(item.group.color.opacity(0.40))
+                    .foregroundStyle(item.group.colour.opacity(0.40))
                     .lineStyle(StrokeStyle(lineWidth: 1, dash: [5, 4]))
             }
 
@@ -224,7 +224,7 @@ private struct ChartBody: View {
                     isRejected: item.entry.isRejected)
                 let opacity = SessionChartData.dotOpacity(state, rejectedOpacity: rejectedOpacity,
                                                           dimmedOpacity: dimmedOpacity)
-                let color: Color = isCursor ? .primary : item.entry.filterGroup.chartColor(
+                let colour: Color = isCursor ? .primary : item.entry.filterGroup.chartColour(
                     differentiateWithoutColor: showsShapes, colorScheme: colorScheme)
 
                 if useBars {
@@ -232,14 +232,14 @@ private struct ChartBody: View {
                         x: .value("Frame", item.index + 1),
                         y: .value(selectedMetric.displayName, item.value)
                     )
-                    .foregroundStyle(color)
+                    .foregroundStyle(colour)
                     .opacity(opacity)
                 } else if showsShapes {
                     PointMark(
                         x: .value("Frame", item.index + 1),
                         y: .value(selectedMetric.displayName, item.value)
                     )
-                    .foregroundStyle(color)
+                    .foregroundStyle(colour)
                     .symbol(item.entry.filterGroup.chartSymbol.shape)
                     .symbolSize(isCursor ? FilterSymbol.cursorDotSize : FilterSymbol.dotSize)
                     .opacity(opacity)
@@ -248,7 +248,7 @@ private struct ChartBody: View {
                         x: .value("Frame", item.index + 1),
                         y: .value(selectedMetric.displayName, item.value)
                     )
-                    .foregroundStyle(color)
+                    .foregroundStyle(colour)
                     .symbolSize(isCursor ? 40 : 28)
                     .opacity(opacity)
                 }

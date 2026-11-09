@@ -47,7 +47,7 @@ struct DisplayRecipeTests {
     private func load(_ files: [(url: URL, subfolderPath: String)], colour: Bool) async -> ImageStore {
         let store = ImageStore()
         store.pipeline.openFiles(files, maxDisplaySize: Self.displaySize, metricsConfig: .off,
-                                 debayerColorImages: colour)
+                                 debayerColourImages: colour)
         await store.pipeline.waitForProcessing()
         return store
     }
@@ -126,7 +126,7 @@ struct DisplayRecipeTests {
         let folder = try makeFolder()
         defer { try? FileManager.default.removeItem(at: folder) }
         let store = await load(try writeFiles(3, bayer: true, in: folder), colour: false)
-        store.pipeline.recolorImages(debayer: true, maxDisplaySize: Self.displaySize, maxThumbnailSize: 120)
+        store.pipeline.recolourImages(debayer: true, maxDisplaySize: Self.displaySize, maxThumbnailSize: 120)
         await store.pipeline.waitForProcessing()
         for entry in store.entries {
             #expect(entry.displayImage === entry.cachedColourDisplay)

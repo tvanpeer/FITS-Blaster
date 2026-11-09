@@ -54,17 +54,17 @@ struct SettingsMenuCommand: View {
 }
 
 /// Toggles colour debayering from the View menu.
-/// ContentView's onChange(of: settings.debayerColorImages) re-renders the loaded images.
+/// ContentView's onChange(of: settings.debayerColourImages) re-renders the loaded images.
 struct DebayerColourCommand: View {
-    @FocusedValue(\.debayerColorBinding) var debayerColor
+    @FocusedValue(\.debayerColourBinding) var debayerColour
     @FocusedValue(\.keyBindings) var keyBindings
 
     var body: some View {
         let equiv = KeyEquivalent.menuKey(for: .debayer, in: keyBindings, default: "c")
-        Button(debayerColor?.wrappedValue == true ? "✓ Colour Images" : "Colour Images") {
-            debayerColor?.wrappedValue.toggle()
+        Button(debayerColour?.wrappedValue == true ? "✓ Colour Images" : "Colour Images") {
+            debayerColour?.wrappedValue.toggle()
         }
-        .disabled(debayerColor == nil)
+        .disabled(debayerColour == nil)
         .keyboardShortcut(equiv, modifiers: [])
     }
 }

@@ -18,7 +18,7 @@ struct ContentFocusedValues: ViewModifier {
         content
             // App-level
             .focusedSceneValue(\.simpleModeBinding,     $bindableSettings.isSimpleMode)
-            .focusedSceneValue(\.debayerColorBinding,   $bindableSettings.debayerColorImages)
+            .focusedSceneValue(\.debayerColourBinding,   $bindableSettings.debayerColourImages)
             .focusedSceneValue(\.openFolderAction,      FocusedAction { store.openFolderRequested = true })
             .focusedSceneValue(\.viewerCommands, ViewerCommandSet(
                 zoomIn:     { settings.zoomScale = ViewerZoom.zoomedIn(from: settings.zoomScale) },
