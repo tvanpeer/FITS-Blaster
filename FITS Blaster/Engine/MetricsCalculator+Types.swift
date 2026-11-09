@@ -60,6 +60,9 @@ extension MetricsCalculator {
         /// and Auto-Flag's default limit. Normal frames measure about 0.5 on colour and 0.4
         /// on mono; elongated ones 0.65 and up, trails 0.9 and up (step 13h).
         static let trailingEccentricity     = 0.65
+        /// FWHM above this many times the filter group's median counts as out of focus:
+        /// the orange "focus fail" badge and Auto-Flag's default relative FWHM limit (step 15d).
+        static let focusFailFWHMMultiplier  = 1.5
         /// Inner and outer radius (pixels) of the ring that gives the local sky and noise.
         static let contrastRingInner       = 6
         static let contrastRingOuter       = 10

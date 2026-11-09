@@ -291,39 +291,13 @@ struct ImageDisplayTab: View {
 
         // A new display size needs every frame rendered again from its file; a new
         // thumbnail size only needs new thumbnails from the display images in memory.
+        // The window keeps its size: only the user resizes it (Tom, 2026-11-09; before, a
+        // new display size also resized the main window to fit).
         if displayChanged {
             if !store.entries.isEmpty { store.pipeline.regenerateSizes(settings: settings) }
-            resizeMainWindow(toFit: clampedDisplay)
         } else if thumbnailChanged, !store.entries.isEmpty {
             store.pipeline.regenerateThumbnails(settings: settings)
         }
-    }
-
-    private func resizeMainWindow(toFit maxSize: Int) {
-        guard let screen = NSScreen.main else { return }
-        let visible = screen.visibleFrame
-
-        let sidebarW:   CGFloat = 165
-        let inspectorW: CGFloat = settings.showInspector ? 260 : 0
-        let chromeH:    CGFloat = 90
-
-        let wantedW = sidebarW + CGFloat(maxSize) + inspectorW + 20
-        let wantedH = CGFloat(maxSize) + chromeH
-
-        let newW = min(wantedW, visible.width)
-        let newH = min(wantedH, visible.height)
-
-        guard let window = NSApplication.shared.windows.first(where: {
-            $0.isVisible && $0.title != "Settings"
-        }) else { return }
-
-        var frame = window.frame
-        frame.size.width  = max(newW, settings.showInspector ? 960 : 700)
-        frame.size.height = max(newH, 400)
-        frame.origin.y    = window.frame.maxY - frame.size.height
-        frame = frame.intersection(visible)
-
-        window.setFrame(frame, display: true, animate: true)
     }
 }
 
@@ -442,16 +416,7 @@ private struct SizeField: View {
 private struct DynamicTypeSizePicker: View {
     @Binding var selection: DynamicTypeSize
 
-    /// Display font size for each step — purely visual, not tied to actual pt values.
-    private let steps: [(size: DynamicTypeSize, fontSize: CGFloat)] = [
-        (.xSmall,   10),
-        (.small,    12),
-        (.medium,   14),
-        (.large,    17),
-        (.xLarge,   20),
-        (.xxLarge,  23),
-        (.xxxLarge, 27),
-    ]
+    private let steps = TextSizeStep.all
 
     var body: some View {
         HStack(spacing: 0) {
@@ -461,7 +426,7 @@ private struct DynamicTypeSizePicker: View {
                     selection = step.size
                 } label: {
                     Text("A")
-                        .font(.system(size: step.fontSize))
+                        .font(.system(size: step.pickerFontSize))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 3)
                         .background(isSelected ? Color.accentColor : Color.clear)

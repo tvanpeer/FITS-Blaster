@@ -14,7 +14,7 @@ struct AutoRejectConfig: Equatable, Sendable {
 
     // FWHM
     var useFWHM: Bool = true
-    var fwhmMultiplier: Double = 1.5     // relative: reject if FWHM > multiplier × group median
+    var fwhmMultiplier: Double = MetricsCalculator.Constants.focusFailFWHMMultiplier   // relative: reject if FWHM > multiplier × group median
     var absoluteFWHM: Double = 3.5       // absolute: reject if FWHM (px) exceeds this
 
     // Eccentricity — same threshold in both modes (inherently absolute). The default is the

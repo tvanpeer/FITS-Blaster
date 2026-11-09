@@ -72,7 +72,7 @@ struct FitsBlasterApp: App {
     }
 
     var body: some Scene {
-        WindowGroup(id: "main") {
+        WindowGroup(id: WindowID.main) {
             ContentView()
                 .onAppear {
                     appDelegate.openURLsHandler = { [store, settings] urls in
@@ -150,7 +150,7 @@ struct FitsBlasterApp: App {
             }
         }
 
-        Window("Settings", id: "settings") {
+        Window("Settings", id: WindowID.settings) {
             SettingsView()
                 .environment(settings)
                 .environment(store)

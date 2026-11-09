@@ -4,6 +4,19 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-11-09 — The window keeps its size; the last small duplicates (step 15d)
+
+### Changed
+- **Changing Max display size no longer resizes the main window.** Only you resize it, by dragging its edges or corners (Tom, 2026-11-09). Before, Apply set the window to fit one image at the new size, cut off at the screen's edge instead of moved, so on a wide screen it often seemed to do nothing.
+
+### Under the hood
+- Window → Main Window finds the main window with `MainWindow.find`, by window id instead of a lookup written out in two places (one by id, one by title); the window ids are named in `WindowID` (CODE_AUDIT §9.11). A logging test build showed the lookup picks the main window, not AppKit's hidden helper window.
+- One text-size table (`TextSizeStep`) for the font scaling and the Settings picker, instead of three lists that had to agree; the stored setting is unchanged. Tested in `TextSizeStepTests`.
+- The "focus fail" badge and Auto-Flag's relative FWHM default share `focusFailFWHMMultiplier` (1.5 × the group median). The low-star badge (0.40, narrowband 0.30) stays looser than Auto-Flag's 0.50 on purpose, now written down at the badge.
+- No behaviour change: clean builds without warnings; unit tests (536), render tests and metric baselines pass; `AppSettings.swift` is now within SwiftLint's length limits, so its two baseline entries are gone.
+
+---
+
 ## 2026-11-09 — Named sizes, web addresses and timing (step 15c)
 
 ### Under the hood

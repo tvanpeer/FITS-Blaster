@@ -86,12 +86,14 @@ struct FrameMetrics: Sendable {
         guard let stats, stats.allowsRelativeChecks else { return nil }
 
         // Focus failure: FWHM significantly above the group median.
-        if let fwhm = fwhm, let medFWHM = stats.medianFWHM, Double(fwhm) > medFWHM * 1.5 {
+        if let fwhm = fwhm, let medFWHM = stats.medianFWHM, Double(fwhm) > medFWHM * MetricsCalculator.Constants.focusFailFWHMMultiplier {
             return .focusFail
         }
 
         // Low star count: haze or cloud. Narrowband frames naturally have fewer
-        // stars so use a tighter relative threshold (30 % vs 40 %).
+        // stars so use a tighter relative threshold (30 % vs 40 %). Deliberately looser than
+        // Auto-Flag's star-count default (0.50 since step 13h): the badge warns of clear
+        // problems at a glance, Auto-Flag is the stricter cull (Tom, 2026-11-09).
         if let stars = starCount, let medStars = stats.medianStarCount {
             let threshold = stats.isNarrowband ? 0.30 : 0.40
             if Double(stars) < medStars * threshold { return .lowStars }

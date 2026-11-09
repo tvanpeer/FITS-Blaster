@@ -17,13 +17,11 @@ struct MainWindowCommand: View {
 
     var body: some View {
         Button("Main Window") {
-            if let win = NSApp.windows.first(where: {
-                $0.identifier?.rawValue != "settings" && ($0.isVisible || $0.isMiniaturized)
-            }) {
+            if let win = MainWindow.find() {
                 win.deminiaturize(nil)
                 win.makeKeyAndOrderFront(nil)
             } else {
-                openWindow(id: "main")
+                openWindow(id: WindowID.main)
             }
         }
         .keyboardShortcut("n", modifiers: .command)
@@ -47,7 +45,7 @@ struct SettingsMenuCommand: View {
 
     var body: some View {
         Button("Settings…") {
-            openWindow(id: "settings")
+            openWindow(id: WindowID.settings)
         }
         .keyboardShortcut(",", modifiers: .command)
     }
