@@ -7,8 +7,8 @@
 //  filters frames by quality criteria, and writes a CSV identical to the in-app export.
 //
 //  File access notes:
-//  - The direct-distribution build has com.apple.security.app-sandbox removed from
-//    FITS Blaster.entitlements so arbitrary paths can be opened.
+//  - The direct-distribution build is not sandboxed (no entitlements file since step 14b),
+//    so arbitrary paths can be opened.
 //  - macOS TCC still protects iCloud Drive (~/Library/Mobile Documents/…). Grant FITS
 //    Blaster Full Disk Access in System Settings → Privacy & Security → Full Disk Access
 //    to allow CLI access to iCloud Drive folders.

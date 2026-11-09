@@ -4,6 +4,17 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-11-08 — No sandbox-only entitlements in the website version (step 14b)
+
+### Changed
+- **The website version no longer lists entitlements that only mean something in a sandbox.** It isn't sandboxed, so user-selected file access, app-scope bookmarks, network client and Sparkle's two mach-lookup exceptions did nothing; they only hid how the app really works and would have become broad exceptions if the sandbox were ever turned on. The app now has no entitlements of its own (CODE_AUDIT §6.3). The App Store version and the Quick Look extensions are unchanged.
+
+### Under the hood
+- `FITS Blaster.entitlements` is removed, with the Debug and Release `CODE_SIGN_ENTITLEMENTS` and `ENABLE_USER_SELECTED_FILES` settings. Checked by comparing the signed entitlements of the Debug, Release and App Store products before and after.
+- VM smoke test on macOS 15.8.2, 26.7.2, 27.2 and 27.3 beta with a local beta build marked 1.24-beta.3 (212). On 27.2, checked by hand: reject and undo work without the removed entitlements, and Sparkle offered 1.24-beta.4 (213) from the beta feed and installed it.
+
+---
+
 ## 2026-11-08 — Quick Look extensions hold only the sandbox (step 14a)
 
 ### Changed
