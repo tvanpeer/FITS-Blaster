@@ -11,6 +11,8 @@
 import Foundation
 import Sparkle
 
+/// Main-actor isolated, as Sparkle calls its delegate on the main thread (step 14d, CODE_AUDIT §4.6).
+@MainActor
 final class BetaChannelUpdaterDelegate: NSObject, SPUUpdaterDelegate {
     /// Sparkle calls this on every update check. It reads the stored choice at that moment,
     /// the same value the Settings switch shows, so the two can't disagree (issue #11).

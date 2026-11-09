@@ -49,14 +49,22 @@ struct FitsBlasterApp: App {
     @State private var viewer = ViewerState()
     #if !APPSTORE
     private static let updaterDelegate = BetaChannelUpdaterDelegate()
-    private let updaterController = SPUStandardUpdaterController(
-        startingUpdater: true,
-        updaterDelegate: FitsBlasterApp.updaterDelegate,
-        userDriverDelegate: nil
-    )
+    private let updaterController: SPUStandardUpdaterController
+    /// Disables "Check for Updates…" while a check runs (step 14d).
+    @State private var updateCheck: UpdateCheckState
     #endif
 
     init() {
+        #if !APPSTORE
+        let controller = SPUStandardUpdaterController(
+            startingUpdater: true,
+            updaterDelegate: FitsBlasterApp.updaterDelegate,
+            userDriverDelegate: nil
+        )
+        updaterController = controller
+        _updateCheck = State(initialValue: UpdateCheckState(source: controller.updater,
+                                                            keyPath: \.canCheckForUpdates))
+        #endif
         // NSInitialToolTipDelay is an undocumented AppKit UserDefaults key (milliseconds).
         // Default is ~1500 ms; 500 ms feels more responsive without being distracting.
         // Registered as a default, so a value set elsewhere isn't overwritten on every launch.
@@ -108,7 +116,7 @@ struct FitsBlasterApp: App {
             }
             CommandGroup(replacing: .appInfo) {
                 #if !APPSTORE
-                CheckForUpdatesView(updater: updaterController.updater)
+                CheckForUpdatesView(updater: updaterController.updater, state: updateCheck)
                 Divider()
                 #endif
                 Button("About FITS Blaster") {

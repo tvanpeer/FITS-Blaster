@@ -163,14 +163,17 @@ struct DeflagAllCommand: View {
 }
 
 #if !APPSTORE
-/// Menu item that triggers a manual update check via Sparkle.
+/// Menu item that triggers a manual update check via Sparkle; disabled while a check
+/// runs (step 14d, CODE_AUDIT §4.6).
 struct CheckForUpdatesView: View {
     let updater: SPUUpdater
+    let state: UpdateCheckState
 
     var body: some View {
         Button("Check for Updates…") {
             updater.checkForUpdates()
         }
+        .disabled(!state.canCheck)
     }
 }
 #endif

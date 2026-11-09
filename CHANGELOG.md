@@ -4,6 +4,17 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-11-09 — "Check for Updates…" follows Sparkle (step 14d)
+
+### Changed
+- **"Check for Updates…" is greyed out while Sparkle can't start a check**: while it fetches the update information or downloads in the background (CODE_AUDIT §4.6). Once an update is shown, Sparkle allows the item again on purpose: choosing it brings the update window to the front instead of starting a second check.
+
+### Under the hood
+- `UpdateCheckState`, a small `@MainActor @Observable` model, follows Sparkle's `canCheckForUpdates` (key-value observing; Sparkle 2.9.1 sets it off when a session starts and on again when the update is shown or the session ends); the app owns it next to the updater controller. Tests in `UpdateCheckStateTests` with a stand-in updater.
+- The Sparkle delegate `BetaChannelUpdaterDelegate` is marked `@MainActor` explicitly; Sparkle calls it on the main thread. The duplicated `useBetaUpdateChannel` key from the audit was already gone (issue #11, `UpdateChannel`).
+
+---
+
 ## 2026-11-09 — FITS type imported; no Sparkle settings in the App Store version (step 14c)
 
 ### Changed
