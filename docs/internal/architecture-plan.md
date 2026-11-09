@@ -1164,6 +1164,37 @@ FITS Blaster/
 
 **Risk**: low for the code; check both Quick Look targets, `release.yml` and `scripts/build-beta.sh` for hard-coded paths. Clean build of all configurations and both extensions.
 
+### Step 15 plan (2026-11-09)
+
+Agreed by Tom on 2026-11-09. Four parts, one commit each. Only file locations, names and constants change: renders and metrics stay byte-identical, no performance effect, Metal not involved. Checks for each part: unit tests, render tests, metric baselines, clean build of Debug, Release and App Store, `scripts/lint.sh`. Already done before this step: concurrency limits named in `LoadPipeline` (step 6), the 300 ms toolbar delay gone, the eccentricity limit shared by badge and Auto-Flag (13h), the Sparkle key duplicate (issue #11).
+
+- **15a — feature folders.** `git mv` only, into App, Layout, Keyboard, Session, Loading, Viewer, Sidebar, Chart, Inspector, Export, AutoReject, Settings, Updates, Engine, CLI (Info.plist, assets, privacy manifest and App Store entitlements stay at the top). The Quick Look `membershipExceptions` get the new paths; the lint baseline is regenerated (only paths may change); the stray, git-ignored `default.profraw` goes. The test folder stays flat (Tom). Extra check: Quick Look smoke test on fb-27-beta.
+- **15b — names (§9.15).** British spelling for our own identifiers (about 15, e.g. `debayerColorImages` → `debayerColourImages`, `normalizeGreyStretch` → `normaliseGreyStretch`, `viewportCenter` → `viewportCentre`); Apple's names and the UserDefaults key strings stay. `ExportPanel.swift` → `ExportSheet.swift`; `MetricsConfig`, `GroupStats`, `BadgeProblem` in their own files; `FilterGroup+ChartColor.swift` follows the spelling.
+- **15c — constants (§9.14).** `DisplayDefaults` (1024 display, 120 thumbnail); `AppLinks` (Ko-fi, FAQ, bug report, feeds; the stable feed read from Info.plist `SUFeedURL`); the info bar's 200 ms refresh named, with its reason.
+- **15d — small duplicates (§9.11).** One main-window lookup (menu and Settings); one text-size table (multiplier and picker); the focus-fail badge's 1.5 × median FWHM shares Auto-Flag's FWHM default constant. The low-star badge (0.40, narrowband 0.30) stays different from Auto-Flag's 0.50 on purpose (Tom, 2026-11-09): the badge warns of clear problems, Auto-Flag is the stricter cull; written down at the badge.
+
+---
+
+## Step 16 — Rejected files that other programs skip
+
+Added by Tom on 2026-11-09; plan agreed the same day. After step 15, in a 1.24 beta.
+
+**Why**: PixInsight's WBPP can take a directory and then uses every FITS file it finds in it and its subfolders, REJECTED included; folders can't be left out. A file whose extension isn't a FITS extension is skipped. Changing a header keyword instead would change the image files, which Tom doesn't want.
+
+**Changes**
+- New setting, off by default, in Settings next to "Include REJECTED folder": "Rename rejected files so other programs skip them".
+- With it on, a reject moves `x.fits` to `REJECTED/x.fits.rejected` (the original extension stays in the name: `.fit`, `.fts` too; suffix `.rejected`, Tom). Undo always restores `x.fits`, also when the setting was turned off in between.
+- Opening a folder with "Include REJECTED folder": files in REJECTED with the suffix are recognised, shown as rejected under their normal name; files without it as now. The CLI's `-r` follows the same rule. Outside REJECTED a `.rejected` file is ignored.
+- Files already in REJECTED keep their names when the setting is turned on; only new rejects get the suffix (Tom: no one-time rename command).
+- Exports that include rejected frames show the real path (`REJECTED/x.fits.rejected`) (Tom).
+- A name that already exists in REJECTED: the frame stays and is named in the error message (batch: the one message of 11b).
+- The rule lives in `RejectedFolder` (both directions), used by the single-frame and batch moves, the folder scan, the loader and the CLI.
+- Trade-off: Finder's Quick Look doesn't preview renamed files (no longer the FITS type); FITS Blaster shows them as usual.
+
+**Tests**: names both ways for `.fits`, `.fit`, `.fts` in any case; reject and undo, single and batch, setting on and off; setting turned off between reject and undo; name clash; reopening a folder with old and new names; CLI `-r`. 👤 WBPP on the directory skips the renamed files.
+
+**Risk**: low. No change to renders, metrics or behaviour with the setting off; no performance effect (the same single move, to another name).
+
 ---
 
 ## When

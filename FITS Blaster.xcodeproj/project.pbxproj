@@ -67,14 +67,14 @@
 		653AE5F22F85810D008BBC9C /* Exceptions for "FITS Blaster" folder in "FITSBlasterQL" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
-				BayerPattern.swift,
-				FITSHeader.swift,
-				FITSReader.swift,
-				FITSTypes.swift,
-				ImageStretcher.swift,
-				"ImageStretcher+CPU.swift",
-				QuickLookRendering.swift,
-				StretchClips.swift,
+				"Engine/BayerPattern.swift",
+				"Engine/FITSHeader.swift",
+				"Engine/FITSReader.swift",
+				"Engine/FITSTypes.swift",
+				"Engine/ImageStretcher.swift",
+				"Engine/ImageStretcher+CPU.swift",
+				"Engine/QuickLookRendering.swift",
+				"Engine/StretchClips.swift",
 			);
 			target = 653AE5D72F857C71008BBC9C /* FITSBlasterQL */;
 		};
@@ -95,14 +95,14 @@
 		653AE6122F859FBC008BBC9C /* Exceptions for "FITS Blaster" folder in "FITSBlasterQLThumb" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
-				BayerPattern.swift,
-				FITSHeader.swift,
-				FITSReader.swift,
-				FITSTypes.swift,
-				ImageStretcher.swift,
-				"ImageStretcher+CPU.swift",
-				QuickLookRendering.swift,
-				StretchClips.swift,
+				"Engine/BayerPattern.swift",
+				"Engine/FITSHeader.swift",
+				"Engine/FITSReader.swift",
+				"Engine/FITSTypes.swift",
+				"Engine/ImageStretcher.swift",
+				"Engine/ImageStretcher+CPU.swift",
+				"Engine/QuickLookRendering.swift",
+				"Engine/StretchClips.swift",
 			);
 			target = 653AE5F82F859C2B008BBC9C /* FITSBlasterQLThumb */;
 		};

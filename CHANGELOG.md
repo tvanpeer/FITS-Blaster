@@ -4,6 +4,16 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-11-09 — Source files in feature folders (step 15a)
+
+### Under the hood
+- The 131 source files of the app move from one flat folder into feature folders: App, Layout, Keyboard, Session, Loading, Viewer, Sidebar, Chart, Inspector, Export, AutoReject, Settings, Updates, Engine and CLI. Info.plist, the assets, the privacy manifest and the App Store entitlements stay at the top. Moved with `git mv`, so each file keeps its history; no code changed. The test folder stays flat.
+- The Quick Look extensions' list of shared files points to `Engine/`; the SwiftLint baseline has the new paths (the same 91 entries otherwise). An empty, git-ignored `default.profraw` left from a coverage run is removed.
+- Checked: clean builds of Debug, Release and App Store without warnings; unit tests, render tests and metric baselines pass; Quick Look smoke test on macOS 27.3 beta (both extensions registered, thumbnail made).
+- The master plan has the agreed plans for step 15 and the new step 16 (rejected files renamed so PixInsight's WBPP skips them).
+
+---
+
 ## 2026-11-09 — One DMG layout, shared release-script helpers (step 14e)
 
 ### Under the hood
