@@ -272,6 +272,7 @@
 				65BA7E8E2F52EE16002B50D4 /* Frameworks */,
 				65BA7E8F2F52EE16002B50D4 /* Resources */,
 				653AE5EC2F857C72008BBC9C /* Embed Foundation Extensions */,
+				0CBB1DFB4CD7C84A380E9D5D /* Remove Sparkle keys (App Store) */,
 			);
 			buildRules = (
 			);
@@ -385,6 +386,29 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		0CBB1DFB4CD7C84A380E9D5D /* Remove Sparkle keys (App Store) */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)",
+			);
+			name = "Remove Sparkle keys (App Store)";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(DERIVED_FILE_DIR)/sparkle-keys-removed.stamp",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# App Store build only: remove Sparkle's SU* keys from the built Info.plist. They describe\n# the website build's updater, which the App Store build doesn't contain (step 14c, CODE_AUDIT §6.4).\n# Script sandboxing is off for the App Store configuration only, so this can edit the\n# processed Info.plist; Debug and Release just write the stamp.\nif [ \"$CONFIGURATION\" = \"App Store\" ]; then\n    PLIST=\"$TARGET_BUILD_DIR/$INFOPLIST_PATH\"\n    for key in $(/usr/libexec/PlistBuddy -c Print \"$PLIST\" | sed -n 's/^    \\(SU[A-Za-z]*\\) = .*/\\1/p'); do\n        /usr/libexec/PlistBuddy -c \"Delete :$key\" \"$PLIST\"\n    done\n    if /usr/libexec/PlistBuddy -c Print \"$PLIST\" | grep -q '^    SU'; then\n        echo \"error: Sparkle keys left in $PLIST\"\n        exit 1\n    fi\nfi\ntouch \"$DERIVED_FILE_DIR/sparkle-keys-removed.stamp\"\n";
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		653AE5D42F857C71008BBC9C /* Sources */ = {
@@ -641,6 +665,7 @@
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 6GBJ9SAJ6Y;
 				ENABLE_APP_SANDBOX = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_INCOMING_NETWORK_CONNECTIONS = NO;
 				ENABLE_OUTGOING_NETWORK_CONNECTIONS = NO;

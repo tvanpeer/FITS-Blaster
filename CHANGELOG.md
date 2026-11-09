@@ -4,6 +4,18 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-11-09 — FITS type imported; no Sparkle settings in the App Store version (step 14c)
+
+### Changed
+- **FITS Blaster declares the FITS file type as imported instead of exported.** It doesn't own the FITS format; declaring it as exported could conflict with other astronomy apps that declare it too, making Open With and Quick Look less predictable (CODE_AUDIT §6.5). Other apps such as AstroBlink and QuickFits already import it. Files still show as "FITS Image", open in FITS Blaster and get Quick Look previews and thumbnails.
+- **The App Store version no longer contains Sparkle's update settings** (`SUFeedURL`, `SUPublicEDKey` and three more) in its Info.plist. They describe the website version's updater, which the App Store version doesn't have, and App Review could question them (CODE_AUDIT §6.4). The website version keeps them.
+
+### Under the hood
+- A Run Script phase, "Remove Sparkle keys (App Store)", deletes every top-level `SU…` key from the built Info.plist in the App Store configuration and stops the build if one is left; Debug and Release only write its stamp file. Script sandboxing is off for the App Store configuration only, so the script can edit the processed Info.plist. There is still one Info.plist.
+- Checked: the built Debug and Release apps keep all five keys, the App Store app and an App Store archive have none (also after an incremental rebuild); entitlements unchanged; the App Store archive passed Validate App in Xcode's Organizer (as 1.24 (214), set for that archive only; not uploaded). VM smoke test on macOS 15.8.2, 26.7.2, 27.2 and 27.3 beta, website and App Store builds; on 27.3 beta, checked by hand: Kind "FITS Image", Open With lists FITS Blaster, double-click opens it, Quick Look preview.
+
+---
+
 ## 2026-11-08 — No sandbox-only entitlements in the website version (step 14b)
 
 ### Changed
