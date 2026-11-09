@@ -16,7 +16,7 @@ extension ImageStretcher {
     /// Scaling is done on the UInt8 buffer with vImageScale before creating the CGImage,
     /// avoiding an expensive full-res CGImage → CGContext round-trip.
     static func createImage(from pixels: inout [Float], width: Int, height: Int,
-                            maxDisplaySize: Int = 1024) -> NSImage? {
+                            maxDisplaySize: Int = DisplayDefaults.displaySize) -> NSImage? {
         guard !pixels.isEmpty else { return nil }
         let (shadowClip, highClip, midtone) = pixels.withUnsafeBufferPointer { buf in
             computeSTFClips(buf.baseAddress!, count: buf.count)
@@ -31,7 +31,7 @@ extension ImageStretcher {
     /// Uses per-channel STF clip bounds and MTF stretch, the same method as the
     /// greyscale path. CPU-only; used by the Quick Look preview and thumbnail.
     static func createRGBImage(from pixels: inout [Float], width: Int, height: Int,
-                               maxDisplaySize: Int = 1024) -> NSImage? {
+                               maxDisplaySize: Int = DisplayDefaults.displaySize) -> NSImage? {
         let pixelCount = width * height
         guard pixels.count == pixelCount * 3 else { return nil }
 
@@ -155,7 +155,7 @@ extension ImageStretcher {
     }
 
     /// Create a small thumbnail using CGContext
-    static func createThumbnail(from displayImage: NSImage, maxSize: Int = 120) -> NSImage? {
+    static func createThumbnail(from displayImage: NSImage, maxSize: Int = DisplayDefaults.thumbnailPixelSize) -> NSImage? {
         guard let cgImage = displayImage.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
             return nil
         }

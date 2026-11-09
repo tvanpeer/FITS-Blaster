@@ -187,9 +187,9 @@ struct ImageDisplayTab: View {
     @Environment(AppSettings.self) private var settings
     @Environment(ImageStore.self) private var store
 
-    @State private var displaySize: Int = 1024
+    @State private var displaySize: Int = DisplayDefaults.displaySize
     @State private var thumbnailSize: Int = 180
-    @State private var displaySizeText: String = "1024"
+    @State private var displaySizeText = String(DisplayDefaults.displaySize)
     @State private var thumbnailSizeText: String = "180"
 
     private var parsedDisplaySize: Int {

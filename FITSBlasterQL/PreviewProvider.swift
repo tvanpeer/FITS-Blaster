@@ -19,7 +19,7 @@ class PreviewProvider: QLPreviewProvider, QLPreviewingController {
         // Read at 2048 and show at 1024: the read takes every Nth pixel, and a smaller read
         // size would give odd N for typical sensors, which mixes the colours of a raw Bayer
         // frame into a checkerboard (decided 2026-10-26, not changed in step 8).
-        let nsImage = try QuickLookRendering.image(of: url, readSize: 2048, displaySize: 1024)
+        let nsImage = try QuickLookRendering.image(of: url, readSize: 2048, displaySize: DisplayDefaults.displaySize)
         guard let image = nsImage,
               let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
             throw CocoaError(.fileReadCorruptFile)

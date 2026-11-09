@@ -124,7 +124,7 @@ final class AppSettings {
 
     // MARK: - Image Sizes
 
-    var maxDisplaySize: Int = 1024 {
+    var maxDisplaySize: Int = DisplayDefaults.displaySize {
         didSet { UserDefaults.standard.set(maxDisplaySize, forKey: "maxDisplaySize") }
     }
     /// The shown width of a sidebar thumbnail, in points; the sidebar's width follows it

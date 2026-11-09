@@ -121,8 +121,8 @@ enum FrameLoading {
     /// bounds. The metrics come from the same buffer, so they are the same; without grey
     /// clips the grey normalisation pass has nothing to re-read.
     @concurrent static func loadFast(url: URL,
-                                     maxDisplaySize: Int = 1024,
-                                     maxThumbnailSize: Int = 120,
+                                     maxDisplaySize: Int = DisplayDefaults.displaySize,
+                                     maxThumbnailSize: Int = DisplayDefaults.thumbnailPixelSize,
                                      debayerColourImages: Bool = false,
                                      rendersImages: Bool = true) async -> FastLoadResult {
         let didStart = url.startAccessingSecurityScopedResource()

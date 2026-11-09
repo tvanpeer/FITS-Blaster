@@ -127,7 +127,7 @@ struct FitsBlasterApp: App {
                             attributes: [
                                 .font: NSFont.systemFont(ofSize: NSFont.smallSystemFontSize),
                                 .foregroundColor: NSColor.secondaryLabelColor,
-                                .link: URL(string: "https://ko-fi.com/tomvp") as Any
+                                .link: URL(string: AppLinks.kofi) as Any
                             ]
                         )
                     ])
@@ -138,12 +138,12 @@ struct FitsBlasterApp: App {
             }
             CommandGroup(replacing: .help) {
                 Button("FITS Blaster Help") {
-                    if let url = URL(string: "https://astrophoto-app.com/faq.html") {
+                    if let url = URL(string: AppLinks.faq) {
                         NSWorkspace.shared.open(url)
                     }
                 }
                 Button("Ask Support") {
-                    if let url = URL(string: "https://github.com/tvanpeer/FITS-Blaster/issues/new?template=bug_report.md") {
+                    if let url = URL(string: AppLinks.bugReport) {
                         NSWorkspace.shared.open(url)
                     }
                 }

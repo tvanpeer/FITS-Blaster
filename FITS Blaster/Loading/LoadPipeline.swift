@@ -193,7 +193,8 @@ final class LoadPipeline {
                    rejectedURLs: Set<URL> = [],
                    rootFolderName: String = "",
                    rootFolderNames: [URL: String] = [:],
-                   maxDisplaySize: Int = 1024, maxThumbnailSize: Int = 120,
+                   maxDisplaySize: Int = DisplayDefaults.displaySize,
+                   maxThumbnailSize: Int = DisplayDefaults.thumbnailPixelSize,
                    metricsConfig: MetricsConfig = MetricsConfig(),
                    debayerColourImages: Bool = false,
                    rendersImages: Bool = true) {
@@ -605,7 +606,8 @@ final class LoadPipeline {
     /// normalisation is still due: the caller runs it after the load, as before.
     @discardableResult
     func processParallel(_ entriesToProcess: [ImageEntry], selectFirst: Bool,
-                         maxDisplaySize: Int = 1024, maxThumbnailSize: Int = 120,
+                         maxDisplaySize: Int = DisplayDefaults.displaySize,
+                         maxThumbnailSize: Int = DisplayDefaults.thumbnailPixelSize,
                          metricsConfig: MetricsConfig = MetricsConfig(),
                          debayerColourImages: Bool = false,
                          rendersImages: Bool = true) async -> [ImageEntry] {

@@ -20,9 +20,6 @@
 import Foundation
 
 enum UpdateChannel {
-    static let stableFeedURL = "https://astrophoto-app.com/appcast.xml"
-    static let betaFeedURL   = "https://astrophoto-app.com/appcast-beta.xml"
-
     /// The user's choice in a stable build's Settings; absent until the switch is flipped.
     static let receiveBetasKey = "receiveBetaReleases"
 
@@ -44,7 +41,7 @@ enum UpdateChannel {
 
     /// The feed an update check reads.
     static func feedURL(version: String, defaults: UserDefaults) -> String {
-        usesBetaFeed(version: version, defaults: defaults) ? betaFeedURL : stableFeedURL
+        usesBetaFeed(version: version, defaults: defaults) ? AppLinks.betaFeed : AppLinks.stableFeed
     }
 }
 #endif

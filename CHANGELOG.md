@@ -4,6 +4,16 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-11-09 — Named sizes, web addresses and timing (step 15c)
+
+### Under the hood
+- `DisplayDefaults` holds the default display size (1024 px) and the thumbnail pixel size for loads without settings (120 px: the command line and tests); they were written out in nine places, including the Quick Look preview. The Quick Look extensions compile the file too (CODE_AUDIT §9.14).
+- `AppLinks` holds the Ko-fi, help, bug-report and update-feed addresses. The stable feed is read from Info.plist's `SUFeedURL`, so it is written down once; a new test checks the address the app ends up with.
+- The info bar's Loaded/Metrics counts are taken every 200 ms as a named constant, with the reason: counting walks every frame, so the bar polls instead of redrawing on every frame's change.
+- No behaviour change: clean builds without warnings; unit tests (535), render tests and metric baselines pass; Quick Look smoke test on macOS 27.3 beta; the SwiftLint baseline has `LoadPipeline.swift`'s new length.
+
+---
+
 ## 2026-11-09 — One spelling in the code, files named after their types (step 15b)
 
 ### Under the hood

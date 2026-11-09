@@ -68,6 +68,7 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				"Engine/BayerPattern.swift",
+				"Engine/DisplayDefaults.swift",
 				"Engine/FITSHeader.swift",
 				"Engine/FITSReader.swift",
 				"Engine/FITSTypes.swift",
@@ -96,6 +97,7 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				"Engine/BayerPattern.swift",
+				"Engine/DisplayDefaults.swift",
 				"Engine/FITSHeader.swift",
 				"Engine/FITSReader.swift",
 				"Engine/FITSTypes.swift",

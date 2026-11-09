@@ -34,31 +34,31 @@ struct UpdateChannelTests {
     @Test("Without a stored choice, a beta build reads the beta feed and a stable build the stable feed")
     func noChoice() {
         let defaults = makeDefaults()
-        #expect(UpdateChannel.feedURL(version: "1.24-beta.4", defaults: defaults) == UpdateChannel.betaFeedURL)
-        #expect(UpdateChannel.feedURL(version: "1.23.1", defaults: defaults) == UpdateChannel.stableFeedURL)
+        #expect(UpdateChannel.feedURL(version: "1.24-beta.4", defaults: defaults) == AppLinks.betaFeed)
+        #expect(UpdateChannel.feedURL(version: "1.23.1", defaults: defaults) == AppLinks.stableFeed)
     }
 
     @Test("A stable build follows the stored choice")
     func stableFollowsChoice() {
         let defaults = makeDefaults()
         defaults.set(true, forKey: UpdateChannel.receiveBetasKey)
-        #expect(UpdateChannel.feedURL(version: "1.23.1", defaults: defaults) == UpdateChannel.betaFeedURL)
+        #expect(UpdateChannel.feedURL(version: "1.23.1", defaults: defaults) == AppLinks.betaFeed)
         defaults.set(false, forKey: UpdateChannel.receiveBetasKey)
-        #expect(UpdateChannel.feedURL(version: "1.23.1", defaults: defaults) == UpdateChannel.stableFeedURL)
+        #expect(UpdateChannel.feedURL(version: "1.23.1", defaults: defaults) == AppLinks.stableFeed)
     }
 
     @Test("A beta build reads the beta feed whatever is stored (case B and D of issue #11)")
     func betaIgnoresChoice() {
         let defaults = makeDefaults()
         defaults.set(false, forKey: UpdateChannel.receiveBetasKey)
-        #expect(UpdateChannel.feedURL(version: "1.24-beta.4", defaults: defaults) == UpdateChannel.betaFeedURL)
+        #expect(UpdateChannel.feedURL(version: "1.24-beta.4", defaults: defaults) == AppLinks.betaFeed)
     }
 
     @Test("The old key, written automatically by earlier versions, is not read")
     func oldKeyIgnored() {
         let defaults = makeDefaults()
         defaults.set(true, forKey: "useBetaUpdateChannel")
-        #expect(UpdateChannel.feedURL(version: "1.23.1", defaults: defaults) == UpdateChannel.stableFeedURL)
+        #expect(UpdateChannel.feedURL(version: "1.23.1", defaults: defaults) == AppLinks.stableFeed)
     }
 
     @Test("The check reads the stored value at the moment of checking")
@@ -76,6 +76,12 @@ struct UpdateChannelTests {
         _ = AppSettings()
         let after = UserDefaults.standard.object(forKey: UpdateChannel.receiveBetasKey) as? Bool
         #expect(before == after)
+    }
+
+    @Test("The stable feed comes from Info.plist's SUFeedURL; the beta feed sits next to it")
+    func feedAddresses() {
+        #expect(AppLinks.stableFeed == "https://astrophoto-app.com/appcast.xml")
+        #expect(AppLinks.betaFeed == "https://astrophoto-app.com/appcast-beta.xml")
     }
 }
 #endif

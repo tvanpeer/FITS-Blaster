@@ -186,6 +186,11 @@ private struct BatchProgressBar: View {
     @State private var loadedCount: Int = 0
     @State private var metricsCount: Int = 0
 
+    /// How often the Loaded and Metrics counts are taken. Counting walks every frame, so
+    /// the bar polls five times a second instead of redrawing on every frame's change;
+    /// fast enough that the counts look live (step 15c, CODE_AUDIT §9.14).
+    private static let countInterval: Duration = .milliseconds(200)
+
     var body: some View {
         let total = store.entries.count
         VStack(alignment: .leading, spacing: 3) {
@@ -206,7 +211,7 @@ private struct BatchProgressBar: View {
             repeat {
                 loadedCount  = store.entries.count { !$0.isProcessing }
                 metricsCount = store.entries.count { $0.metrics != nil }
-                try? await Task.sleep(for: .milliseconds(200))
+                try? await Task.sleep(for: Self.countInterval)
             } while !Task.isCancelled
         }
     }
