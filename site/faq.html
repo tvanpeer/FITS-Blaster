@@ -485,14 +485,14 @@
     <details>
         <summary>What does the Score badge mean?</summary>
         <div class="answer">
-            <p>Each frame receives a coloured badge based on how its metrics compare to the rest of the session:</p>
+            <p>Each frame's badge shows its score, coloured by the worst problem found, compared with the other frames of the same filter group:</p>
             <ul>
-                <li><strong>Green</strong> — the frame is within normal range for this session</li>
-                <li><strong>Amber</strong> — one metric is noticeably worse than average (trailing, focus drift, low star count)</li>
-                <li><strong>Red</strong> — the frame is significantly below average and is a candidate for rejection</li>
-                <li><strong>Grey</strong> — metrics could not be computed (no stars detected, or saturated field)</li>
+                <li><strong>Red</strong> — trailing (elongated stars) or a focus problem (FWHM well above the group's median)</li>
+                <li><strong>Amber</strong> — a low star count compared with the group (haze, thin cloud, dew)</li>
+                <li><strong>Green</strong> — no problem found, and the score is in the top third of the group</li>
+                <li><strong>Grey</strong> — no problem found, not in the top third</li>
             </ul>
-            <p>The badge priority is: trailing stars → focus failure → low star count.</p>
+            <p>When a frame has more than one problem, the badge shows the first of: trailing stars → focus failure → low star count. The exact limits are on the <a href="score.html#badges">Scores</a> page.</p>
         </div>
     </details>
 
@@ -500,7 +500,7 @@
         <summary>What is FWHM?</summary>
         <div class="answer">
             <p>Full Width at Half Maximum — a measure of how sharp (tightly focused) the stars are. It is the diameter of a star profile at half its peak brightness, in sensor pixels. Lower is better: a well-focused session might have FWHM 3–5 px, while a poorly-focused or turbulent frame might be 8–10 px or more.</p>
-            <p>FITS Blaster fits a Moffat β=4 profile (the same default as PixInsight's SubframeSelector) independently along the X and Y axes, then reports the geometric mean. Results agree with PixInsight Moffat4 within ±10% under typical conditions.</p>
+            <p>FITS Blaster fits a Moffat β=4 profile (the same default as PixInsight's SubframeSelector) along four directions (0°, 45°, 90° and 135°), reconstructs the star's major and minor axes from them, and reports the geometric mean of the two. Results agree with PixInsight Moffat4 within ±10% under typical conditions.</p>
         </div>
     </details>
 
@@ -543,7 +543,7 @@
                 <li><strong>Different PSF models:</strong> FITS Blaster and PixInsight use Moffat β=4; Siril fits β as a free parameter (typically 3–4). When β &lt; 4, Siril's free-β fit finds a tighter core and reports a lower FWHM.</li>
                 <li><strong>Gaussian vs Moffat:</strong> A Gaussian PSF has lighter wings than a Moffat profile, so Gaussian FWHM estimates are often slightly larger.</li>
                 <li><strong>Units:</strong> Siril reports FWHM in arcseconds by default. To convert: <code>FWHM (px) = FWHM (″) / plate_scale</code>, where <code>plate_scale = 206.265 × pixel_size_µm / focal_length_mm</code>.</li>
-                <li><strong>1D vs 2D fitting:</strong> FITS Blaster fits two independent 1D profiles and takes their geometric mean. PixInsight and Siril fit a full 2D PSF simultaneously.</li>
+                <li><strong>1D vs 2D fitting:</strong> FITS Blaster fits 1D profiles in four directions and combines them into the star's two axes. PixInsight and Siril fit a full 2D PSF simultaneously.</li>
             </ul>
             <p>For frame ranking (the primary use case), absolute accuracy matters less than consistency. FITS Blaster is self-consistent within a session and correlates reliably with actual image quality.</p>
         </div>

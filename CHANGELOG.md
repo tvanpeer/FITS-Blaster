@@ -4,6 +4,22 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-11-10 — Website: bullets laid out as text, corrections
+
+### Fixed
+- **The beta page and the changelog lay out each bullet as one paragraph.** A bullet with bold text, plain text and `code` was split into side-by-side columns (each bullet was a CSS flex container); now it wraps as running text next to its dash.
+
+### Changed
+- **Privacy policy:** the In-App Purchases section is removed (the app has none), and the bookmarks paragraph says what the app does: it keeps a security-scoped bookmark per opened folder only while it runs, in memory; nothing is stored.
+- **FAQ:** the score badge colours now match the app and the Scores page (red trailing or focus problem, amber low star count, green top third, grey otherwise), and FWHM is described as fitted in four directions, not along the X and Y axes.
+- **Home page:** "Auto-select" is called Auto-Flag, as in the app.
+
+### Under the hood
+- `guide-releases.html` (the release cheat sheet) moves from `site/` to `docs/internal/`: it was published but not linked from any page.
+- First part of a review of the whole site against 1.24; the 1.24 changes (metrics, Open Folder panel, ⌘-click, command line, rename setting, keys) follow on a separate branch for stable 1.24.
+
+---
+
 ## 2026-11-10 — 1.24 beta 5: no freeze when rejecting many frames, files PixInsight skips, VoiceOver
 
 ### Added
