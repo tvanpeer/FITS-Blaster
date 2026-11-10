@@ -259,9 +259,9 @@
 <div class="container">
 
     <h1 id="top">How the Quality Score Works</h1>
-    <p class="meta">FITS Blaster &nbsp;·&nbsp; Last updated: October 2026</p>
+    <p class="meta">FITS Blaster &nbsp;·&nbsp; Last updated: November 2026</p>
 
-    <p>The quality score is a single integer from <strong>0 to 100</strong> that summarises the optical quality of a FITS frame. It is a weighted average of up to four individual metrics: FWHM, eccentricity, SNR, and star count. Only metrics for which a value was successfully measured contribute; their weights are renormalised so they always sum to 1.0 regardless of which subset is active. In Geek mode all four are always computed, so all four always contribute.</p>
+    <p>The quality score is a single integer from <strong>0 to 100</strong> that summarises the optical quality of a FITS frame. It is a weighted average of up to four individual metrics: FWHM, eccentricity, SNR, and star count. Only metrics for which a value was successfully measured contribute; their weights are renormalised so they always sum to 1.0 regardless of which subset is active. In Geek mode all four are computed for every frame with at least 10 stars; a frame with fewer (thick cloud, dew, a closed cap, a flat) scores 0.</p>
     <p><strong>PSF Signal Weight</strong> and <strong>Sky Background</strong> are additional metrics shown in the inspector and session chart, but they are not included in the composite score.</p>
 
     <nav class="toc">
@@ -289,31 +289,40 @@
 
     <p>The factor 1.4826 makes MAD a consistent estimator of the standard deviation for normally-distributed noise. A floor equal to 0.01&nbsp;% of the sampled data range is applied to avoid division by zero on pathological data.</p>
 
-    <p>The detection <strong>threshold</strong> is set at background&nbsp;+&nbsp;5&nbsp;σ, so only genuine stars (5-sigma detections) are considered.</p>
+    <p><strong>Colour (OSC/Bayer) cameras:</strong> the background and σ are measured separately for each of the four positions of the 2&nbsp;×&nbsp;2 Bayer cell, so the colour of the sky (a red or green cast) doesn't count as noise. The Sky BG value shown in the app is still the background over all pixels.</p>
+
+    <p>The detection <strong>threshold</strong> is set at background&nbsp;+&nbsp;5&nbsp;σ (per Bayer position on colour cameras).</p>
 
     <!-- ── Step 2 ── -->
     <h2 id="detection">Step 2 — Star Detection</h2>
 
-    <p>Stars are detected as <strong>local maxima</strong> above the 5&nbsp;σ threshold.</p>
+    <p>Star <strong>candidates</strong> are the <strong>local maxima</strong> above the 5&nbsp;σ threshold. Not every candidate is a star; the next step decides which ones count.</p>
 
     <h3>GPU path (default on Apple Silicon)</h3>
-    <p>A Metal compute kernel scans the <strong>full frame</strong> in parallel. Each thread checks whether its pixel is above the threshold and is strictly greater than all 8 neighbours. Candidates are written to a compact shared buffer (capped at 50&nbsp;000 entries). The GPU step takes roughly 3–8&nbsp;ms for a 16–50&nbsp;MP image.</p>
+    <p>A Metal compute kernel scans the <strong>full frame</strong> in parallel. Each thread checks whether its pixel is above the threshold and is strictly greater than all 8 neighbours. Candidates are written to a compact shared buffer with room for 50&nbsp;000; a frame with more gets a second pass with room for all of them. The GPU step takes roughly 3–8&nbsp;ms for a 16–50&nbsp;MP image.</p>
 
     <h3>CPU fallback</h3>
     <p>When Metal is unavailable, a vectorised scan covers a <strong>4&nbsp;096&nbsp;×&nbsp;4&nbsp;096 centre crop</strong>. Each row is pre-filtered; rows where no pixel exceeds the threshold are skipped entirely (~50× faster than a naïve full-scan for typical star fields).</p>
 
-    <p>The detected star count is what is reported as the <strong>star-count metric</strong>.</p>
+    <h3>Which candidates count as stars</h3>
+    <p>Every candidate is checked. It counts as a <strong>star</strong> when:</p>
+    <ul>
+        <li>a quick profile check accepts it: all four neighbours carry part of the peak (a hot pixel stands alone) and its width is plausible, and</li>
+        <li>its peak stands at least <strong>12 × the local noise</strong> above the <strong>local sky</strong>, measured in a ring of 6–10&nbsp;px around it (wider for large stars). This keeps noise peaks on nebulosity out, and matches the stars PixInsight detects (within about ±15&nbsp;% on the test frames).</li>
+    </ul>
+    <p><strong>Saturated stars</strong> (clipped tops) count once each, but aren't measured. The number of stars is the <strong>star-count metric</strong>.</p>
+    <p>A frame with <strong>fewer than 10 stars</strong> has no stars to measure: FWHM, eccentricity, SNR and PSF Signal Weight stay empty, and the score is 0.</p>
 
     <!-- ── Step 3 ── -->
     <h2 id="shape">Step 3 — Per-Star Shape Measurement</h2>
 
-    <p>Up to 200 of the brightest candidates are selected for shape fitting. Because the <strong>median</strong> is used to summarise each metric, occasional saturated stars at the top of the brightness ranking have negligible effect on the result.</p>
+    <p>The <strong>200 brightest stars</strong> (unsaturated, as counted in Step&nbsp;2) are fitted. Each star's fit window and ring follow its own size, so large stars (long focal lengths, FWHM of 8&nbsp;px and more) are measured as accurately as small ones.</p>
 
     <h3>Sub-pixel centroid</h3>
     <p>A 5&nbsp;×&nbsp;5 intensity-weighted window gives a sub-pixel centroid (cx,&nbsp;cy) and a bilinearly-interpolated peak value.</p>
 
     <h3>FWHM and eccentricity — four-direction Moffat fit</h3>
-    <p>A <strong>Moffat β&nbsp;=&nbsp;4 profile</strong> (the PixInsight standard) is fitted along <strong>four directions</strong> — 0°, 45°, 90°, 135° — through the sub-pixel centroid, using a ±10-pixel window and a linearised weighted regression:</p>
+    <p>A <strong>Moffat β&nbsp;=&nbsp;4 profile</strong> (the PixInsight standard) is fitted along <strong>four directions</strong> — 0°, 45°, 90°, 135° — through the sub-pixel centroid, using a ±10-pixel window (1.5&nbsp;× the FWHM for stars larger than about 6.7&nbsp;px) and a linearised weighted regression:</p>
 
     <pre>z = (A/I)^(1/4) − 1  =  t²/α²   →   α = √(Σ w·t⁴ / Σ w·z·t²)</pre>
 
@@ -335,7 +344,7 @@ D           =  √(C² + S₂²)
 
     <pre>FWHM = √(FWHM_major × FWHM_minor)</pre>
 
-    <p>Units are <strong>pixels</strong>. Values below 0.5&nbsp;px (hot pixels) or above 20&nbsp;px (pathological blobs) are rejected.</p>
+    <p>Units are <strong>pixels</strong>. Values below 0.5&nbsp;px (hot pixels) or above 20&nbsp;px (galaxy cores, nebula knots, blends) are rejected; in frames whose typical star is large, the upper limit is 2.5&nbsp;× that size.</p>
 
     <p><strong>Eccentricity</strong> follows directly from the same principal axes:</p>
 
@@ -355,14 +364,15 @@ D           =  √(C² + S₂²)
     </ul>
     <p>Bilinear demosaicking preserves the full crop resolution — eccentricity precision on OSC cameras is equivalent to a mono camera.</p>
 
-    <h3>SNR — aperture photometry</h3>
-    <p>A circular aperture of radius r&nbsp;=&nbsp;2&nbsp;×&nbsp;FWHM is placed at the centroid. The background-subtracted flux inside the aperture (I_net) and the pixel count (n_ap) are summed:</p>
+    <h3>SNR — the star's total light</h3>
+    <p>SNR is the star's <strong>total light</strong>, from the fitted Moffat profile, in units of the sky noise:</p>
 
-    <pre>SNR = I_net / √(I_net + n_ap · σ²_sky)</pre>
+    <pre>SNR = A · π · α_major · α_minor / (β − 1) / σ_sky        (β = 4)</pre>
 
-    <p>This is the standard simplified CCD equation (Merline &amp; Howell 1995). Without a known camera gain, the result is a proportional proxy that correctly <strong>ranks frames relative to each other</strong> within a session on the same camera.</p>
+    <p>where <code>A</code> is the background-subtracted peak. Because it uses the total light rather than the peak, SNR follows <strong>exposure, transparency and sky brightness</strong> without repeating the seeing (a sharper star has a higher peak, but not more light). It is the closest equivalent of PixInsight's PSF SNR. The numbers are on their own scale: session medians of roughly 1&nbsp;000–10&nbsp;000.</p>
 
-    <p>The <strong>median</strong> FWHM, eccentricity, and SNR across all accepted candidates are used as the frame values.</p>
+    <h3>Frame values</h3>
+    <p>The frame's <strong>SNR</strong> is the median over all fitted stars. Its <strong>FWHM</strong> and <strong>eccentricity</strong> are the medians over the <strong>bright</strong> fitted stars (local contrast of at least 40, or the 20 with the highest contrast when fewer reach it): on faint stars noise makes the fit wider and more elongated.</p>
 
     <!-- ── PSF-SW ── -->
     <h2 id="psfsw">PSF Signal Weight (PSF-SW)</h2>
@@ -383,7 +393,7 @@ D           =  √(C² + S₂²)
     <ul>
         <li><strong>High PSF-SW</strong> — good transparency and/or good seeing. Stars are bright and sharp relative to the sky noise.</li>
         <li><strong>Low PSF-SW</strong> — haze, thin cloud, poor seeing, or high sky background. The frame was photon-starved or the PSF was bloated.</li>
-        <li><strong>Unlike SNR</strong>, PSF-SW is not diluted by a large aperture — it uses the star's peak, not its total aperture flux.</li>
+        <li><strong>Compared with SNR:</strong> SNR uses each star's total light, PSF-SW its peak. Both drop with haze and thin cloud; only PSF-SW also drops with poorer seeing.</li>
     </ul>
 
     <p>PSF-SW is available in the session chart (the <strong>PSF·S</strong> button), the inspector, and the sidebar sort menu. It does <strong>not</strong> contribute to the composite quality score — it is a supplemental metric intended to inform integration decisions.</p>
@@ -393,25 +403,25 @@ D           =  √(C² + S₂²)
     <!-- ── Step 4 ── -->
     <h2 id="composite">Step 4 — Composite Score</h2>
 
-    <p>Each metric is converted to a normalised sub-score <strong>s ∈ [0, 1]</strong> using a piecewise-linear mapping:</p>
+    <p>Each metric is converted to a normalised sub-score <strong>s ∈ [0, 1]</strong>:</p>
 
     <table>
         <tr><th>Metric</th><th>Weight</th><th>Ideal</th><th>Bad at</th><th>Formula</th></tr>
         <tr><td>FWHM</td><td>35&nbsp;%</td><td>≤&nbsp;2&nbsp;px</td><td>≥&nbsp;7&nbsp;px</td><td><code>clamp(1 − (FWHM − 2) / 5, 0, 1)</code></td></tr>
-        <tr><td>Eccentricity</td><td>35&nbsp;%</td><td>0</td><td>≥&nbsp;0.5</td><td><code>clamp(1 − e / 0.5, 0, 1)</code></td></tr>
-        <tr><td>SNR</td><td>20&nbsp;%</td><td>≥&nbsp;200</td><td>≤&nbsp;10</td><td><code>clamp((SNR − 10) / 190, 0, 1)</code></td></tr>
+        <tr><td>Eccentricity</td><td>35&nbsp;%</td><td>0</td><td>≥&nbsp;0.9</td><td><code>clamp(1 − e / 0.9, 0, 1)</code></td></tr>
+        <tr><td>SNR</td><td>20&nbsp;%</td><td>≥&nbsp;20&nbsp;000</td><td>≤&nbsp;100</td><td><code>clamp(log₁₀(SNR / 100) / log₁₀(200), 0, 1)</code></td></tr>
         <tr><td>Star count</td><td>10&nbsp;%</td><td>≥&nbsp;500</td><td>0</td><td><code>clamp(log₁₀(n + 1) / log₁₀(501), 0, 1)</code></td></tr>
     </table>
 
-    <p>Star count uses a <strong>log scale</strong> so that a frame with 50 stars is not penalised as harshly as a frame with 0 stars.</p>
+    <p>Star count and SNR use a <strong>log scale</strong>, so a frame with half the stars or half the light loses a fixed number of points rather than most of them. Eccentricity scores 0 only at 0.9, where star trails measure: normal frames measure about 0.4 (mono) to 0.5 (colour cameras).</p>
 
     <p>The weighted average of the available sub-scores is scaled to 0–100 and rounded down:</p>
 
     <pre>score = ⌊ (Σ wᵢ · sᵢ) / (Σ wᵢ) × 100 ⌋</pre>
 
-    <p>If a metric could not be measured for a frame, it is left out and the remaining weights are rescaled. If none could be measured (for example, no stars were detected), the score is 0.</p>
+    <p>If a metric could not be measured for a frame, it is left out and the remaining weights are rescaled. A frame with fewer than 10 stars scores 0.</p>
 
-    <p>Sky background and PSF Signal Weight are not part of the score. Because the score uses fixed thresholds and is driven mostly by star shape, haze or thin cloud may lower it only slightly. To catch those frames, use the Sky BG or PSF Signal Weight criteria in Auto-Flag, or sort or chart by those metrics.</p>
+    <p>Sky background and PSF Signal Weight are not part of the score. Because the score is driven mostly by star shape (70&nbsp;%), haze or thin cloud lowers it less than its SNR and star count. Auto-Flag's SNR and star-count checks, both on by default, catch those frames; the Sky BG and PSF Signal Weight criteria can be added.</p>
 
     <!-- ── Badge colours ── -->
     <h2 id="badges">Badge Colours</h2>
@@ -420,13 +430,14 @@ D           =  √(C² + S₂²)
 
     <table>
         <tr><th>Colour</th><th>Condition</th></tr>
-        <tr><td><strong style="color:#ff5555;">Red</strong></td><td>Eccentricity &gt;&nbsp;0.5 (trailing), or FWHM &gt;&nbsp;1.5&nbsp;× group median (focus failure)</td></tr>
-        <tr><td><strong style="color:#d98c00;">Amber</strong></td><td>Star count &lt;&nbsp;40&nbsp;% of group median (&lt;&nbsp;30&nbsp;% for narrowband filters)</td></tr>
+        <tr><td><strong style="color:#ff5555;">Red</strong></td><td>Eccentricity &gt;&nbsp;0.65 (trailing), or FWHM &gt;&nbsp;1.5&nbsp;× group median (focus failure)</td></tr>
+        <tr><td><strong style="color:#d98c00;">Amber</strong></td><td>Star count &lt;&nbsp;40&nbsp;% of group median (&lt;&nbsp;30&nbsp;% for narrowband filters), or fewer than 10 stars</td></tr>
         <tr><td><strong style="color:#44cc66;">Green</strong></td><td>No problem detected and score is in the top third of the filter group</td></tr>
         <tr><td><strong style="color:#8c8c8c;">Grey</strong></td><td>No problem detected, not in top third</td></tr>
     </table>
 
-    <p>Group medians are computed separately for each filter group (Hα, OIII, etc.) so that narrowband frames with naturally lower star counts are not unfairly compared against broadband frames.</p>
+    <p>Group medians are computed separately for each filter group (Hα, OIII, etc.) so that narrowband frames with naturally lower star counts are not unfairly compared against broadband frames. In a group with fewer than 3 frames, the median says too little, so only the trailing and fewer-than-10-stars badges apply there.</p>
+    <p>Badges appear in Geek mode, where the metrics are measured. With macOS <strong>Differentiate without color</strong> on, top-third badges also show a ★.</p>
 
     <a href="#top" class="top-link">↑ Back to top</a>
 </div>

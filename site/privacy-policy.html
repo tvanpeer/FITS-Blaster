@@ -170,7 +170,7 @@
     <h2>What data the app accesses</h2>
 
     <p><strong style="color:#c8c8e0;">Your image files</strong><br>
-    The app reads FITS image files from folders you explicitly open. It never modifies, copies, or transmits your files; the only change it makes on disk is moving frames you reject into a <code>REJECTED</code> subfolder, and back if you undo. The Mac App Store version is sandboxed by macOS and can only reach the folders you choose. The version downloaded from astrophoto-app.com is not sandboxed, so that its command-line mode can read folder paths you type, but it likewise only reads the folders you open.</p>
+    The app reads FITS image files from folders you explicitly open. It never modifies, copies, or transmits your files; the only change it makes on disk is moving frames you reject into a <code>REJECTED</code> subfolder, and back if you undo (with <code>.rejected</code> added to their names, if you turn that option on in Settings). The Mac App Store version is sandboxed by macOS and can only reach the folders you choose. The version downloaded from astrophoto-app.com is not sandboxed, so that its command-line mode can read folder paths you type, but it likewise only reads the folders you open.</p>
 
     <p><strong style="color:#c8c8e0;">Your preferences</strong><br>
     Settings such as key bindings, display options, and window layout are stored locally in your Mac's standard user preferences (macOS UserDefaults). This data never leaves your device.</p>

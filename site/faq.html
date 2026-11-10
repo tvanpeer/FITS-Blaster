@@ -288,7 +288,7 @@
 <div class="container">
 
     <h1 id="top">Frequently Asked Questions</h1>
-    <p class="meta">FITS Blaster &nbsp;·&nbsp; Last updated: October 2026</p>
+    <p class="meta">FITS Blaster &nbsp;·&nbsp; Last updated: November 2026</p>
 
     <nav class="toc">
         <p>Jump to section</p>
@@ -338,7 +338,7 @@
         <summary>Can I try FITS Blaster without my own images?</summary>
         <div class="answer">
             <p>Yes. Download the <a href="samples/FITS-Blaster-Sample-M31.zip">M31 sample set</a> (255 MB zip): eight raw 120 s light frames of the Andromeda Galaxy from one night, taken with a one-shot colour camera (ATR2600C, RGGB Bayer pattern) on a William Optics Zenithstar 73.</p>
-            <p>Unzip it, click <strong>Open Folder…</strong> in the toolbar, click <strong>Open Folder…</strong> again in the options popover, and select the <code>FITS-Blaster-Sample-M31</code> folder. The included <code>README.txt</code> lists how PixInsight's SubframeSelector rates each frame, so you can compare its ranking with FITS Blaster's. Two frames were taken through thin cloud.</p>
+            <p>Unzip it, click <strong>Open Folder…</strong> in the toolbar, select the <code>FITS-Blaster-Sample-M31</code> folder and click <strong>Open</strong>. The included <code>README.txt</code> lists how PixInsight's SubframeSelector rates each frame, so you can compare its ranking with FITS Blaster's. Two frames were taken through thin cloud.</p>
         </div>
     </details>
 
@@ -352,7 +352,7 @@
         <div class="answer">
             <p>There are three ways to load images into FITS Blaster:</p>
             <ol>
-                <li><strong>Open Folder… button or ⌘O</strong> — a small popover appears with two options: <strong>Include files from subfolders</strong> and <strong>Include REJECTED folder</strong> (loads previously rejected frames, marked as rejected). Click <strong>Open Folder…</strong> in the popover, then choose the folder. The options start from your defaults in Settings → Files &amp; Folders; changes in the popover apply to this folder only.</li>
+                <li><strong>Open Folder… button or ⌘O</strong> — the folder panel opens with two checkboxes: <strong>Include files from subfolders</strong> and <strong>Include REJECTED folder</strong> (loads previously rejected frames, marked as rejected). Choose one folder or several and click <strong>Open</strong>. The checkboxes start from your defaults in Settings → Files &amp; Folders; changes in the panel apply to this time only.</li>
                 <li><strong>Drag &amp; drop onto the window</strong> — drag a folder or any number of FITS files from Finder and drop them onto the FITS Blaster window.</li>
                 <li><strong>Drag &amp; drop onto the app icon</strong> — drag files or a folder onto the FITS Blaster icon in the Dock or in Finder to open them directly, even if the app is not running yet.</li>
             </ol>
@@ -391,7 +391,7 @@
     <details>
         <summary>Can I open images from subfolders?</summary>
         <div class="answer">
-            <p>Yes. Click <strong>Open Folder…</strong> (or press ⌘O) and turn on <strong>Include files from subfolders</strong> in the popover. FITS Blaster will scan recursively and display each subfolder as a separate section in the sidebar. By default, calibration folders (FLAT, DARK, BIAS, CALIB) are skipped automatically; you can customise the exclusion list in Settings → Files &amp; Folders.</p>
+            <p>Yes. Click <strong>Open Folder…</strong> (or press ⌘O) and turn on <strong>Include files from subfolders</strong> in the folder panel. FITS Blaster will scan recursively and display each subfolder as a separate section in the sidebar. By default, calibration folders (FLAT, DARK, BIAS, CALIB) are skipped automatically; you can customise the exclusion list in Settings → Files &amp; Folders.</p>
         </div>
     </details>
 
@@ -407,7 +407,7 @@
         <summary>Should I use colour or greyscale display?</summary>
         <div class="answer">
             <p><strong>Greyscale</strong> loads and renders much faster and is usually all you need for judging star shape, focus, and trailing. FITS Blaster always loads greyscale first, so you can start culling immediately regardless of display mode.</p>
-            <p><strong>Colour</strong> mode debayers OSC (one-shot colour) images and shows them in full colour, which can be useful for checking gradients, satellite trails, or colour artefacts. Colour rendering takes roughly 2–3× longer per image. Both the colour and greyscale versions are kept in memory once loaded, so switching between them is instant.</p>
+            <p><strong>Colour</strong> mode debayers OSC (one-shot colour) images and shows them in full colour, which can be useful for checking gradients, satellite trails, or colour artefacts. Colour rendering takes roughly 2–3× longer per image. Both the colour and greyscale versions are kept in memory once loaded, so switching between them is instant. With very large sessions, the frames you looked at least recently give up their display images when the memory limit is reached (Settings → Display → Memory) and are drawn again when you return to them.</p>
             <p>Mono (greyscale) cameras are always displayed in greyscale regardless of the display setting.</p>
         </div>
     </details>
@@ -415,7 +415,7 @@
     <details>
         <summary>Does FITS Blaster modify my images?</summary>
         <div class="answer">
-            <p>Never. FITS Blaster is strictly read-only. Pixel data is loaded into a separate display buffer; the original files are never written to. The only file operation FITS Blaster performs is moving rejected frames into a <code>REJECTED/</code> subfolder — and that move is fully undoable.</p>
+            <p>Never. FITS Blaster is strictly read-only. Pixel data is loaded into a separate display buffer; the original files are never written to. The only file operation FITS Blaster performs is moving rejected frames into a <code>REJECTED/</code> subfolder — and that move is fully undoable. With <strong>Rename rejected files so other programs skip them</strong> on (Settings → Files &amp; Folders, off by default), the moved file also gets <code>.rejected</code> after its name; undo restores the old name. The image data is never changed.</p>
         </div>
     </details>
 
@@ -436,20 +436,21 @@
     <details>
         <summary>How do I zoom in and out?</summary>
         <div class="answer">
-            <p>Three ways:</p>
+            <p>Four ways:</p>
             <ul>
+                <li><strong>Keys</strong> — <kbd>=</kbd> zooms in, <kbd>−</kbd> zooms out, <kbd>0</kbd> fits the image in the viewer and <kbd>9</kbd> shows it at 100&nbsp;%; <kbd>⌥</kbd>+arrow keys pan. The same actions are in the View menu.</li>
                 <li><strong>Zoom slider</strong> — the slider in the display controls bar below the image (range 0.25×–4×). Click the zoom icon or the percentage label to jump to 1:1 (100 %).</li>
                 <li><strong>Zoom to fit</strong> — the fit button (↖↘ arrows) next to the zoom percentage scales the image to fill the viewer without scrolling.</li>
                 <li><strong>Trackpad pinch</strong> — pinch to zoom in or out directly on the image.</li>
             </ul>
-            <p>The slider and pinch keep the current centre of the viewport fixed as you zoom, so you don't lose your place.</p>
+            <p>The keys, the slider and pinch keep the current centre of the viewport fixed as you zoom, so you don't lose your place.</p>
         </div>
     </details>
 
     <details>
         <summary>How do I zoom into a specific star or detail and keep it in view?</summary>
         <div class="answer">
-            <p>Use the <strong>zoom anchor</strong>. Click anywhere on the image to pin that point — a small crosshair appears. All subsequent zoom changes (slider or pinch) will keep that point centred in the viewport.</p>
+            <p>Use the <strong>zoom anchor</strong>. Click anywhere on the image to pin that point — a small crosshair appears. All subsequent zoom changes (keys, slider or pinch) will keep that point centred in the viewport.</p>
             <ul>
                 <li><strong>Move the anchor:</strong> click a different spot.</li>
                 <li><strong>Clear the anchor:</strong> click the crosshair again (within about 20 px of it), or press the Defaults button in the display controls bar.</li>
@@ -507,7 +508,7 @@
     <details>
         <summary>What is Eccentricity?</summary>
         <div class="answer">
-            <p>Eccentricity measures how elongated the stars are (0 = perfectly round, 1 = infinitely elongated). A value above ~0.5 usually indicates trailing from poor polar alignment, wind shake, or a mechanical issue.</p>
+            <p>Eccentricity measures how elongated the stars are (0 = perfectly round, 1 = infinitely elongated). Normal frames measure about 0.4 on mono cameras and 0.5 on colour cameras; above about 0.65 stars are clearly elongated (the red trailing badge), and star trails measure 0.9 and up. Elongation comes from poor polar alignment, guiding errors, wind shake, or a mechanical issue.</p>
             <p>FITS Blaster fits a 1D Moffat β=4 profile along four directions (0°, 45°, 90°, 135°) and uses the measurements together to reconstruct the true major and minor axes of the PSF ellipse analytically — at any orientation. Eccentricity is then <code>e = √(1 − (FWHM_minor / FWHM_major)²)</code>. This approach detects elongation at any angle with equal sensitivity, including diagonal trailing.</p>
             <p><strong>Colour (OSC/Bayer) cameras:</strong> each star crop is bilinearly demosaicked using adaptive per-channel sky weights before the four-direction Moffat fit. Adaptive weights balance Ha and OIII signal in dual-narrowband images, so the axis-ratio measurement is accurate regardless of filter type. Eccentricity precision on OSC cameras is equivalent to a mono camera.</p>
         </div>
@@ -516,7 +517,7 @@
     <details>
         <summary>What is SNR?</summary>
         <div class="answer">
-            <p>Signal-to-Noise Ratio — the peak star signal divided by the background noise level. Higher is better. SNR depends heavily on exposure length, sky background, and seeing conditions. It is most useful for comparing frames within the same session rather than between different nights or setups.</p>
+            <p>Signal-to-Noise Ratio — the total light of each star (from the fitted profile) divided by the sky noise; the frame's value is the median over its measured stars. Higher is better. SNR follows exposure length, transparency and sky brightness, so it drops with haze and thin cloud; unlike PSF Signal Weight it doesn't change with the seeing. Session medians are typically 1&nbsp;000–10&nbsp;000. It is most useful for comparing frames within the same session rather than between different nights or setups.</p>
         </div>
     </details>
 
@@ -529,7 +530,7 @@
             <ul>
                 <li><strong>High PSF·S</strong> — good transparency and/or good seeing. Stars are bright and sharp relative to the sky noise.</li>
                 <li><strong>Low PSF·S</strong> — haze, thin cloud, poor seeing, or high sky background. The frame was photon-starved or the PSF was bloated.</li>
-                <li>Unlike SNR, PSF·S uses the star's peak rather than total aperture flux, so it is not diluted by a large aperture or high background.</li>
+                <li>Compared with SNR: SNR uses each star's total light, PSF·S its peak. Both drop with haze and thin cloud; only PSF·S also drops with poorer seeing.</li>
             </ul>
             <p>PSF Signal Weight appears in the session chart (<strong>PSF·S</strong> button), the inspector panel, and the sidebar sort menu. It is a supplemental metric and does not contribute to the composite quality score.</p>
         </div>
@@ -572,11 +573,11 @@
         <div class="answer">
             <ol>
                 <li><strong>Open your folder</strong> — use ⌘O or drag it onto the window. FITS Blaster starts loading and measuring quality metrics immediately; you can begin reviewing before the full set has loaded.</li>
-                <li><strong>Scan the session chart</strong> — the horizontal strip across the bottom plots all frames in time order, coloured by quality. A cluster of red or amber dots usually points to a specific problem period (clouds, a focus drift, a gust of wind).</li>
+                <li><strong>Scan the session chart</strong> — the horizontal strip across the bottom plots all frames in time order, one colour per filter. A run of frames above or below their filter's dashed median line usually points to a specific problem period (clouds, a focus drift, a gust of wind).</li>
                 <li><strong>Review suspect frames</strong> — click a dot in the chart to jump to that frame, or step through the sidebar with the arrow keys. The main view shows the stretched image; the inspector on the right shows the exact metric values.</li>
-                <li><strong>Collect suspect frames</strong> — drag across the chart, or ⇧+click a range in the sidebar then ⌘+click to add them to the Flagged view. <strong>Auto-Flag</strong> can also flag frames below a quality threshold automatically.</li>
+                <li><strong>Collect suspect frames</strong> — drag across the chart, or select a range in the sidebar (⇧+click, ⌘+click) and press <strong>F</strong> to add them to the Flagged view. <strong>Auto-Flag</strong> can also flag frames below a quality threshold automatically.</li>
                 <li><strong>Inspect and reject</strong> — switch to the <strong>Flagged</strong> view in the sidebar to see only your flagged frames. Step through them, then press your reject key (default: X) to move the bad ones to <code>REJECTED/</code>.</li>
-                <li><strong>Hand off to your stacking tool</strong> — point PixInsight, Siril, or AstroPixelProcessor at the same folder. The rejected frames are now in <code>REJECTED/</code> and will not be picked up by a folder scan.</li>
+                <li><strong>Hand off to your stacking tool</strong> — point PixInsight, Siril, or AstroPixelProcessor at the same folder. The rejected frames are now in <code>REJECTED/</code>. A tool that also reads subfolders, such as PixInsight's WBPP with a directory, would find them there: turn on <strong>Rename rejected files so other programs skip them</strong> in Settings → Files &amp; Folders, so they end in <code>.rejected</code> and are skipped.</li>
             </ol>
         </div>
     </details>
@@ -586,8 +587,8 @@
         <div class="answer">
             <p>The session chart is a horizontal strip showing one dot per frame, in the order they were captured. Dot colour represents the <strong>filter group</strong> (Ha, OIII, SII, Lum, RGB, and so on) — each filter gets its own consistent colour so you can see at a glance whether a quality problem affects one filter or all of them. You can:</p>
             <ul>
-                <li><strong>Click</strong> a dot to jump to that frame (the dot turns white to mark your position)</li>
-                <li><strong>Drag</strong> across a range of dots to add those frames to the Flagged view for closer inspection</li>
+                <li><strong>Click</strong> a dot to jump to that frame (the current frame's dot is drawn larger, in the text colour: white in dark mode, black in light mode)</li>
+                <li><strong>Drag</strong> across a range of dots to add those frames, after a confirmation, to the Flagged view for closer inspection</li>
                 <li><strong>Filter by folder or filter group</strong> using the pill buttons above the chart, to focus on one subset at a time</li>
                 <li><strong>Choose the metric</strong> to plot with the buttons above the chart: FWHM, Ecc, SNR, Stars, Sky BG, PSF·S, or Score</li>
                 <li><strong>Switch between dots and bars</strong> with the small button at the end of that row; your choice is remembered</li>
@@ -632,12 +633,14 @@
 
             <p><strong>Dot colour and size — cursor and flagged state</strong></p>
             <ul>
-                <li><strong>White dot (larger)</strong> — the frame currently shown in the viewer (the cursor). Only ever one at a time.</li>
+                <li><strong>Larger dot in the text colour</strong> (white in dark mode, black in light mode) — the frame currently shown in the viewer (the cursor). Only ever one at a time.</li>
                 <li><strong>Full brightness (filter colour)</strong> — flagged frames and the cursor when a flagged set is active; all non-rejected frames when no flagged set exists.</li>
                 <li><strong>Dimmed (default 50 %)</strong> — non-flagged frames when a flagged set is active, so the flagged frames stand out clearly.</li>
                 <li><strong>Strongly faded (default 15 %)</strong> — frames that have already been rejected and moved to <code>REJECTED/</code>.</li>
             </ul>
             <p>Both opacity levels are adjustable in <strong>Settings → Display → Session Chart Brightness</strong>.</p>
+            <p><strong>Differentiate without color</strong><br>
+            With macOS <strong>Differentiate without color</strong> on (System Settings → Accessibility → Display), every filter group also gets its own dot shape (L circle, R square, G triangle, B diamond, Ha pentagon, OIII plus, SII cross, Hβ asterisk; the combined filters outlined shapes), with larger dots and the shapes in the legend, and colours with at least 6:1 contrast against the chart's background. Bar mode is unchanged.</p>
         </div>
     </details>
 
@@ -663,13 +666,13 @@
             <p><strong>Selection model — two independent concepts:</strong></p>
             <ul>
                 <li><strong>Cursor</strong> — the single frame currently shown in the viewer. Plain click or arrow keys move it. It never affects the review queue.</li>
-                <li><strong>Range selection</strong> — an orange-highlighted group of frames built with ⇧+click, ⇧+arrow keys, ⌘A (select all visible), ⌘D (clear), or ⌘I (invert). Used for batch operations (add to queue, remove from queue, reject).</li>
+                <li><strong>Range selection</strong> — an orange-highlighted group of frames built with ⇧+click, ⌘+click (add or take out one frame, as in Finder), ⇧+arrow keys, ⌘A (select all visible), ⌘D (clear), or ⌘I (invert). Used for batch operations (add to queue, remove from queue, reject).</li>
             </ul>
 
             <p><strong>Building the review queue (Flagged view):</strong></p>
             <ul>
                 <li>Press <strong>F</strong> to toggle the flag on the current entry (or the entire orange range if one is active). Press <strong>D</strong> to deflag everything at once.</li>
-                <li>In <strong>All view</strong>: ⇧+click or ⇧+arrow to select a range, then <strong>⌘+click</strong> or <strong>F</strong> to add it to the queue.</li>
+                <li>In <strong>All view</strong>: select a range (⇧+click, ⌘+click or ⇧+arrow), then press <strong>F</strong> to add it to the queue.</li>
                 <li><strong>Drag across the session chart</strong> to add a run of frames to the queue directly.</li>
                 <li><strong>Auto-Flag</strong> — adds all frames that fall below your chosen quality thresholds.</li>
                 <li>The <strong>(De)flag</strong> toolbar button toggles the flag state of the current entry or range at any time.</li>
@@ -679,19 +682,18 @@
             <ul>
                 <li><strong>Plain click</strong> — move the cursor (view that frame); clears any orange range.</li>
                 <li><strong>⇧+click</strong> or <strong>⇧+arrow keys</strong> — select an orange range for batch operations. <strong>⌘A</strong> selects all visible, <strong>⌘D</strong> clears the range, <strong>⌘I</strong> inverts it.</li>
-                <li><strong>Reject key</strong> — rejects the orange range (or the cursor if no range). Rejected frames stay visible so you can undo immediately by pressing Reject again.</li>
-                <li><strong>⌘+click on orange</strong> — removes the entire orange range from the queue (no rejection).</li>
-                <li><strong>⌘+click on a plain frame</strong> — removes that single frame from the queue.</li>
+                <li><strong>Reject key</strong> — rejects the orange range (or the cursor if no range). Rejected frames stay visible so you can undo immediately with the undo key (or the reject key again in toggle mode).</li>
+                <li><strong>F</strong> on the orange range — removes those frames from the queue (no rejection).</li>
             </ul>
 
-            <p>The review queue persists when you switch between All, Flagged, and Rejected views, and is cleared only when you open a new folder or use Deselect All.</p>
+            <p>The review queue persists when you switch between All, Flagged, and Rejected views, and is cleared only by <strong>Deflag All</strong> (<strong>D</strong>) or <strong>Reset</strong>.</p>
         </div>
     </details>
 
     <details>
         <summary>What happens to rejected frames?</summary>
         <div class="answer">
-            <p>They are moved into a <code>REJECTED/</code> subfolder inside the folder they came from. No files are deleted. You can undo a rejection at any time.</p>
+            <p>They are moved into a <code>REJECTED/</code> subfolder inside the folder they came from. No files are deleted. You can undo a rejection at any time. Rejecting many frames at once runs in the background, with a progress bar; frames that can't be moved (for example a file locked in Finder) are listed in one message.</p>
         </div>
     </details>
 
@@ -710,14 +712,14 @@
     <details>
         <summary>How do I sort the sidebar?</summary>
         <div class="answer">
-            <p>Use the sort dropdown in the sidebar toolbar to choose between <strong>filename</strong> (the default, reflecting capture order) or any quality metric: <strong>FWHM</strong>, <strong>Eccentricity</strong>, <strong>SNR</strong>, <strong>Stars</strong>, <strong>Sky BG</strong>, <strong>PSF Signal</strong>, or <strong>Score</strong>. <strong>Rejected</strong> sorts rejected frames to one end. The up/down arrow button next to it reverses the sort direction. Sorting by quality score with the worst frames at the bottom makes it quick to select and reject the tail of the list as a group.</p>
+            <p>Use the sort dropdown in the sidebar toolbar to choose between <strong>Name</strong> (the default, reflecting capture order) or any quality metric: <strong>FWHM</strong>, <strong>Eccentricity</strong>, <strong>SNR</strong>, <strong>Stars</strong>, <strong>Sky BG</strong>, <strong>PSF Signal</strong>, or <strong>Score</strong>. <strong>Rejected</strong> sorts rejected frames to one end. The up/down arrow button next to it reverses the sort direction. Sorting by quality score with the worst frames at the bottom makes it quick to select and reject the tail of the list as a group.</p>
         </div>
     </details>
 
     <details>
         <summary>What is Simple mode vs Geek mode?</summary>
         <div class="answer">
-            <p><strong>Simple mode</strong> hides all numeric metrics and shows only the visual quality badge. It is useful for a quick visual pass or for users who prefer not to interpret numbers.</p>
+            <p><strong>Simple mode</strong> skips the quality measurements: no metrics, badges or session chart, and the fastest loading. It is useful for a quick visual pass or for users who prefer not to interpret numbers.</p>
             <p><strong>Geek mode</strong> computes the quality metrics, shows them in the inspector panel on the right, and enables the session chart. For a compact row of metric values above the chart, turn on <strong>Show metric chips above session chart</strong> in Settings → Display. Toggle between modes with the configured key (default: <strong>G</strong>) or the toolbar button, which shows the current mode name (<strong>Simple</strong> or <strong>Geek</strong>).</p>
         </div>
     </details>
@@ -731,15 +733,15 @@
                 <li><strong>Relative</strong> (default) — compared with the median of the frame's filter group, e.g. flag frames whose FWHM is more than 1.5× the group median. This adapts automatically to each night's seeing.</li>
                 <li><strong>Absolute</strong> — fixed values, e.g. flag frames with FWHM above 3.5 px.</li>
             </ul>
-            <p>Available criteria: FWHM, eccentricity, star count, SNR, sky background, PSF Signal Weight, and (absolute mode only) quality score. Sky background and PSF Signal Weight are off by default; they are the most useful criteria for catching haze, thin cloud, and moonlight, which barely change star shape.</p>
+            <p>Available criteria: FWHM, eccentricity, star count, SNR, sky background, PSF Signal Weight, and (absolute mode only) quality score. The starting values flag frames with FWHM above 1.5× the median, eccentricity above 0.65, SNR below 60&nbsp;% or a star count below 50&nbsp;% of the median: the last two catch haze and thin cloud. Sky background and PSF Signal Weight are off by default; add them to catch moonlight or a brightening sky. Frames with fewer than 10 stars are flagged whenever any check is on. In a filter group with fewer than 3 frames, the checks against the median are skipped; the sheet tells you which groups.</p>
         </div>
     </details>
 
     <details>
         <summary>What do I do after culling?</summary>
         <div class="answer">
-            <p>Point your stacking tool (PixInsight, Siril, AstroPixelProcessor, etc.) at the same folder you opened in FITS Blaster. Rejected frames have been moved to a <code>REJECTED/</code> subfolder and will not appear in a normal folder scan. No additional steps are needed — your stacking tool will see only the frames you kept.</p>
-            <p>If you change your mind, reopen the folder in FITS Blaster with <strong>Include REJECTED folder</strong> turned on in the Open Folder popover, select the rejected frames, and undo the rejection before you start stacking.</p>
+            <p>Point your stacking tool (PixInsight, Siril, AstroPixelProcessor, etc.) at the same folder you opened in FITS Blaster. Rejected frames have been moved to a <code>REJECTED/</code> subfolder and will not appear in a normal folder scan. If your tool also reads subfolders (PixInsight's WBPP with a directory does), turn on <strong>Rename rejected files so other programs skip them</strong> in Settings → Files &amp; Folders before you reject: the rejected files then end in <code>.rejected</code> and are skipped.</p>
+            <p>If you change your mind, reopen the folder in FITS Blaster with <strong>Include REJECTED folder</strong> turned on in the folder panel, select the rejected frames, and undo the rejection before you start stacking.</p>
         </div>
     </details>
 
@@ -825,16 +827,16 @@
         <div class="answer">
             <p>Yes, in the version downloaded from this website (not the Mac App Store version). Run the app's executable with a folder path, and FITS Blaster measures every frame without opening a window and writes a CSV file with the results:</p>
             <pre><code>"/Applications/FITS Blaster.app/Contents/MacOS/FITS Blaster" ~/Astro/M31/LIGHT</code></pre>
-            <p>The folder path must start with <code>/</code> or <code>~</code>. By default the CSV is written to <code>frames.csv</code> inside that folder. Progress goes to the terminal, and the path of the CSV is printed when it's done, so you can use it in scripts. Your FITS files are never moved or changed.</p>
+            <p>The folder can be a full path, start with <code>~</code>, or be relative to the current folder in Terminal; options can come before or after it. By default the CSV is written to <code>frames.csv</code> inside that folder. Progress goes to the terminal, and the path of the CSV is printed when it's done, so you can use it in scripts. Your FITS files are never moved or changed.</p>
             <p>Add filter criteria to export only the good frames. As in Auto-Flag, thresholds are relative to the filter group's median by default:</p>
-            <pre><code>"/Applications/FITS Blaster.app/Contents/MacOS/FITS Blaster" ~/Astro/M31/LIGHT -f 1.5 -e 0.5 -p 0.5 -o ~/Desktop/m31-keepers.csv</code></pre>
-            <p>This keeps frames with FWHM at most 1.5× the median, eccentricity at most 0.5, and PSF Signal Weight at least half the median. The most useful options:</p>
+            <pre><code>"/Applications/FITS Blaster.app/Contents/MacOS/FITS Blaster" ~/Astro/M31/LIGHT -f 1.5 -e 0.65 -p 0.5 -o ~/Desktop/m31-keepers.csv</code></pre>
+            <p>This keeps frames with FWHM at most 1.5× the median, eccentricity at most 0.65, and PSF Signal Weight at least half the median. The most useful options:</p>
             <ul>
                 <li><code>-o</code> output file &nbsp;·&nbsp; <code>-S</code> include subfolders &nbsp;·&nbsp; <code>-r</code> include the REJECTED folder (marked <code>status=rejected</code>)</li>
                 <li><code>-m rel|abs</code> threshold mode &nbsp;·&nbsp; <code>-f</code> FWHM &nbsp;·&nbsp; <code>-e</code> eccentricity &nbsp;·&nbsp; <code>-n</code> stars &nbsp;·&nbsp; <code>-s</code> SNR &nbsp;·&nbsp; <code>-b</code> sky background &nbsp;·&nbsp; <code>-p</code> PSF Signal Weight &nbsp;·&nbsp; <code>-q</code> score (absolute mode)</li>
                 <li><code>-P rel|abs</code> path style &nbsp;·&nbsp; <code>-H DATE-OBS,FILTER,…</code> FITS header columns</li>
             </ul>
-            <p>Run it with <code>--help</code> for the full list. For the beta, use <code>FITS Blaster Beta.app</code> in the path. If you get “permission denied” for a folder in iCloud Drive, give FITS Blaster Full Disk Access in System Settings → Privacy &amp; Security → Full Disk Access.</p>
+            <p>A mistyped option or value stops with an error instead of being ignored. When some files can't be read, they are listed and left out of a filtered CSV; when no frame passes the filter, the CSV has only the header row. The exit code tells a script what happened (0 done, 1 usage error or no FITS files, 2 the CSV couldn't be written, 3 no frame passes, 4 some files couldn't be read). Run it with <code>--help</code> for the full list. For the beta, use <code>FITS Blaster Beta.app</code> in the path. If you get “permission denied” for a folder in iCloud Drive, give FITS Blaster Full Disk Access in System Settings → Privacy &amp; Security → Full Disk Access.</p>
         </div>
     </details>
 
@@ -893,7 +895,7 @@
     <details>
         <summary>Does FITS Blaster require access to my entire disk?</summary>
         <div class="answer">
-            <p>No. FITS Blaster only reads the folders you open, and the only change it ever makes on disk is moving rejected frames into, and back out of, a <code>REJECTED/</code> subfolder.</p>
+            <p>No. FITS Blaster only reads the folders you open, and the only change it ever makes on disk is moving rejected frames into, and back out of, a <code>REJECTED/</code> subfolder (with <code>.rejected</code> added to their names if you turn that on in Settings → Files &amp; Folders).</p>
             <ul>
                 <li><strong>Mac App Store version</strong> — sandboxed by macOS: it can only access folders you choose in the open panel or drag onto the window.</li>
                 <li><strong>Version from this website</strong> — not sandboxed, because the command-line mode needs to read any folder path you give it. It still only reads the folders you open. macOS privacy protection still applies: for folders in iCloud Drive you may need to give FITS Blaster Full Disk Access in System Settings → Privacy &amp; Security.</li>

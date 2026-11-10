@@ -279,7 +279,7 @@
             </tr>
         </tbody>
     </table>
-    <p class="note"><strong>⌘+click</strong> in the sidebar is an alternative way to flag and unflag: in the All view it adds a frame (or the orange range) to the Flagged view; in the Flagged view it removes it.</p>
+    <p class="note">To flag several frames at once, select them as an orange range (⇧+click, ⇧+arrow keys or ⌘+click) and press <kbd>F</kbd>.</p>
 
     <!-- ── Range selection ── -->
     <h2>Range Selection</h2>
@@ -327,6 +327,37 @@
         </tbody>
     </table>
 
+    <!-- ── Zoom & pan ── -->
+    <h2>Zoom &amp; Pan</h2>
+    <table>
+        <thead>
+            <tr><th>Key</th><th>Action</th></tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><kbd>=</kbd></td>
+                <td><strong>Zoom in</strong> — keeps the zoom anchor (or the centre of the view) in place.</td>
+            </tr>
+            <tr>
+                <td><kbd>−</kbd></td>
+                <td><strong>Zoom out</strong>.</td>
+            </tr>
+            <tr>
+                <td><kbd>0</kbd></td>
+                <td><strong>Zoom to fit</strong> — shows the whole image in the viewer.</td>
+            </tr>
+            <tr>
+                <td><kbd>9</kbd></td>
+                <td><strong>Actual size</strong> — 100&nbsp;%, one image pixel per screen pixel.</td>
+            </tr>
+            <tr>
+                <td><span class="combo"><kbd>⌥</kbd><span class="sep">+</span><kbd>←</kbd> <kbd>→</kbd> <kbd>↑</kbd> <kbd>↓</kbd></span></td>
+                <td><strong>Pan</strong> — moves a zoomed-in image in that direction.</td>
+            </tr>
+        </tbody>
+    </table>
+    <p class="note">The four zoom keys can be changed in Settings → Interface, like the other keys. The same actions are in the View menu.</p>
+
     <!-- ── File operations ── -->
     <h2>File Operations</h2>
     <table>
@@ -336,7 +367,11 @@
         <tbody>
             <tr>
                 <td><span class="combo"><kbd>⌘</kbd><span class="sep">+</span><kbd>O</kbd></span></td>
-                <td><strong>Open Folder…</strong> — shows the open options (include subfolders, include the REJECTED folder), then a folder picker. All FITS files in the selected folder are loaded immediately.</td>
+                <td><strong>Open Folder…</strong> — opens the folder panel. Its two checkboxes, <em>Include files from subfolders</em> and <em>Include REJECTED folder</em>, start from your defaults in Settings → Files &amp; Folders. You can choose one folder or several; their FITS files load immediately.</td>
+            </tr>
+            <tr>
+                <td><span class="combo"><kbd>⌘</kbd><span class="sep">+</span><kbd>N</kbd></span></td>
+                <td><strong>Main Window</strong> — brings the main window back, also when it was closed or minimised.</td>
             </tr>
             <tr>
                 <td><kbd>R</kbd></td>
@@ -362,7 +397,7 @@
             </tr>
             <tr>
                 <td><span class="combo"><kbd>⌘</kbd><span class="sep">+</span></span><strong>click</strong></td>
-                <td>In <strong>All view</strong>: add the frame (or orange range) to the Flagged view.<br>In <strong>Flagged view</strong>: remove the frame (or orange range) from the Flagged view.</td>
+                <td>Add the frame to the orange selection, or take it out if it is already in it — as in Finder, in every view. It never flags; use <kbd>F</kbd> or the (De)flag button for that.</td>
             </tr>
             <tr>
                 <td><strong>Click</strong> (chart dot)</td>
@@ -370,7 +405,11 @@
             </tr>
             <tr>
                 <td><strong>Drag</strong> (chart)</td>
-                <td>Select a run of frames and add them to the Flagged view.</td>
+                <td>Select a run of frames and, after a confirmation, add them to the Flagged view.</td>
+            </tr>
+            <tr>
+                <td><strong>Right-click</strong> (sidebar)</td>
+                <td>Show in Finder, Copy File Path, Flag/Deflag, Reject, Undo Reject and Remove from List. On a frame in the orange selection, the menu acts on the whole selection.</td>
             </tr>
         </tbody>
     </table>
