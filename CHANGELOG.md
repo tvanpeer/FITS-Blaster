@@ -4,6 +4,27 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-11-10 — 1.24 beta 5: no freeze when rejecting many frames, files PixInsight skips, VoiceOver
+
+### Added
+- **"Rename rejected files so other programs skip them"** (Settings → Files & Folders, off by default): a rejected frame becomes `REJECTED/x.fits.rejected`, so PixInsight's WBPP and similar tools that take every FITS file in a folder and its subfolders leave it out. The image data isn't changed, Undo restores the old name, and FITS Blaster still finds these files when it opens the folder with "Include REJECTED folder".
+- **VoiceOver support:** every thumbnail is read as one item (file name, filter, score, badge problem, flagged or rejected), the main image is named, folder and filter headers read their frame count and medians, and the session chart has a spoken summary and an audio graph.
+- **With macOS "Differentiate without color" on,** top-third badges show a ★, the selection outline is dashed, and every filter group gets its own dot shape and a high-contrast colour in the session chart.
+
+### Changed
+- **Rejecting or undoing many frames no longer freezes the window,** also on a network share. A "Rejecting" or "Restoring" bar shows the progress, and frames that can't be moved are listed in one message with a short reason (for example "the file is locked").
+- **Rejected frames keep their place** when a folder is reopened with "Include REJECTED folder", instead of coming after all the other frames.
+- **Changing Max display size no longer resizes the main window;** only you resize it.
+- **Command line:** the folder can come anywhere and can be relative; a mistyped option or value stops with an error instead of being ignored; files that can't be read are listed and left out of a filtered CSV; when no frame passes the filter, the CSV has only the header row. Exit codes are in `--help`.
+- **The current frame's dot in the session chart is visible in light mode,** and menu items show arrow, Home and End keys correctly.
+
+### Fixed
+- **Beta builds check the beta feed again** (GitHub issue #11): a beta could say a stable version was the newest. Stable releases are now also offered to beta users.
+- **Switching the session chart between bars and dots takes effect right away.**
+- **The Quick Look extensions only have the access they need,** and FITS Blaster declares the FITS file type as used, not owned, so other astronomy apps don't clash with it.
+
+---
+
 ## 2026-11-10 — Rejected files that other programs skip (step 16)
 
 ### Added

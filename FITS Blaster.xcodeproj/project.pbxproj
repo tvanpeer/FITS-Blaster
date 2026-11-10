@@ -468,7 +468,7 @@
 				CODE_SIGN_ENTITLEMENTS = FITSBlasterQL/FITSBlasterQL.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 213;
+				CURRENT_PROJECT_VERSION = 214;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 6GBJ9SAJ6Y;
 				ENABLE_APP_SANDBOX = YES;
@@ -483,7 +483,7 @@
 					"@executable_path/../../../../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 15.6;
-				MARKETING_VERSION = "1.24-beta.4";
+				MARKETING_VERSION = "1.24-beta.5";
 				PRODUCT_BUNDLE_IDENTIFIER = com.astrophotoapp.FitsBlaster.FITSBlasterQL;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -500,7 +500,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = FITSBlasterQL/FITSBlasterQL.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 213;
+				CURRENT_PROJECT_VERSION = 214;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 6GBJ9SAJ6Y;
 				ENABLE_APP_SANDBOX = YES;
@@ -515,7 +515,7 @@
 					"@executable_path/../../../../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 15.6;
-				MARKETING_VERSION = "1.24-beta.4";
+				MARKETING_VERSION = "1.24-beta.5";
 				PRODUCT_BUNDLE_IDENTIFIER = com.astrophotoapp.FitsBlaster.FITSBlasterQL;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -533,7 +533,7 @@
 				CODE_SIGN_ENTITLEMENTS = FITSBlasterQLThumb/FITSBlasterQLThumb.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 213;
+				CURRENT_PROJECT_VERSION = 214;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 6GBJ9SAJ6Y;
 				ENABLE_APP_SANDBOX = YES;
@@ -548,7 +548,7 @@
 					"@executable_path/../../../../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 15.6;
-				MARKETING_VERSION = "1.24-beta.4";
+				MARKETING_VERSION = "1.24-beta.5";
 				PRODUCT_BUNDLE_IDENTIFIER = com.astrophotoapp.FitsBlaster.FITSBlasterQLThumb;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -565,7 +565,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = FITSBlasterQLThumb/FITSBlasterQLThumb.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 213;
+				CURRENT_PROJECT_VERSION = 214;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 6GBJ9SAJ6Y;
 				ENABLE_APP_SANDBOX = YES;
@@ -580,7 +580,7 @@
 					"@executable_path/../../../../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 15.6;
-				MARKETING_VERSION = "1.24-beta.4";
+				MARKETING_VERSION = "1.24-beta.5";
 				PRODUCT_BUNDLE_IDENTIFIER = com.astrophotoapp.FitsBlaster.FITSBlasterQLThumb;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -932,7 +932,7 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 213;
+				CURRENT_PROJECT_VERSION = 214;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 6GBJ9SAJ6Y;
 				ENABLE_APP_SANDBOX = NO;
@@ -957,7 +957,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 15.6;
-				MARKETING_VERSION = "1.24-beta.4";
+				MARKETING_VERSION = "1.24-beta.5";
 				PRODUCT_BUNDLE_IDENTIFIER = com.astrophotoapp.FitsBlaster;
 				PRODUCT_NAME = "FITS Blaster";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -979,7 +979,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 213;
+				CURRENT_PROJECT_VERSION = 214;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 6GBJ9SAJ6Y;
 				ENABLE_APP_SANDBOX = NO;
@@ -1003,7 +1003,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 15.6;
-				MARKETING_VERSION = "1.24-beta.4";
+				MARKETING_VERSION = "1.24-beta.5";
 				PRODUCT_BUNDLE_IDENTIFIER = com.astrophotoapp.FitsBlaster;
 				PRODUCT_NAME = "FITS Blaster";
 				REGISTER_APP_GROUPS = YES;
