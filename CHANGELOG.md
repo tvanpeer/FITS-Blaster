@@ -4,6 +4,18 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-11-10 — Rejected files that other programs skip (step 16)
+
+### Added
+- **New setting: "Rename rejected files so other programs skip them"** (Settings → Files & Folders, off by default). With it on, a rejected frame gets ".rejected" after its name in the REJECTED folder: `x.fits` becomes `REJECTED/x.fits.rejected`. Tools that take every FITS file in a folder and its subfolders, such as PixInsight's WBPP with a directory, then leave it out. The image data isn't touched. Undo gives the file its old name back, also when the setting was turned off in between. Files already in REJECTED keep their names.
+- Opening a folder with "Include REJECTED folder" recognises both names: renamed frames show as rejected under their own name, in name order with the other frames. The command line's `-r` does the same, and exports list the real file name. A `.rejected` file outside a REJECTED folder is ignored. Finder's Quick Look doesn't preview renamed files; FITS Blaster shows them as usual.
+
+### Under the hood
+- The naming rule is in `RejectedFolder` (`rejectedURL(for:renames:)`, `originalURL`, `isRenamed`, `isLoadable`), used by the single-frame and batch moves, the folder scan, the loader and the command line. A name that already exists in REJECTED leaves the frame where it is, with "a file with this name is already there".
+- Tests in `RenameRejectedTests`. No change with the setting off; renders and metrics unchanged. The SwiftLint baseline has `AppSettings.swift` over its length limits again (408 lines, class body 253) after the new setting.
+
+---
+
 ## 2026-11-09 — The window keeps its size; the last small duplicates (step 15d)
 
 ### Changed

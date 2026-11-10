@@ -165,6 +165,11 @@ final class ImageStore {
     /// real one (e.g. a read-only share) and is reported as an error.
     var asksForFolderAccess = ProcessInfo.processInfo.environment["APP_SANDBOX_CONTAINER_ID"] != nil
 
+    /// "Rename rejected files" (step 16): a reject moves x.fits to REJECTED/x.fits.rejected so
+    /// programs that take every FITS file in a folder tree skip it. Set from the setting by
+    /// ContentView; undo always restores the original name.
+    @ObservationIgnored var renamesRejectedFiles = false
+
     /// Sorted list of unique subfolder paths present across all loaded entries.
     /// Empty string ("") represents root-level files. Updated at batch boundaries.
     private(set) var activeFolderPaths: [String] = []

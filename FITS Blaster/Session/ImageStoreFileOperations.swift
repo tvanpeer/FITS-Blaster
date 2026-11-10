@@ -158,7 +158,7 @@ extension ImageStore {
 
         let originalURL = entry.url
         let rejectedDir = RejectedFolder.folder(for: originalURL)
-        let destinationURL = RejectedFolder.rejectedURL(for: originalURL)
+        let destinationURL = RejectedFolder.rejectedURL(for: originalURL, renames: renamesRejectedFiles)
 
         do {
             if Self.isDirectory(rejectedDir) == nil {
@@ -467,7 +467,7 @@ extension ImageStore {
                                            excludedNames: excludedNames,
                                            includeSubfolders: true,
                                            includeRejected: includeRejected)
-            } else if FITSFile.hasFITSExtension(item) {
+            } else if RejectedFolder.isLoadable(item) {
                 results.append((item, relativePath))
             }
         }

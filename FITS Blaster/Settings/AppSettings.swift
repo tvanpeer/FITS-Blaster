@@ -230,6 +230,13 @@ final class AppSettings {
         didSet { UserDefaults.standard.set(includeRejectedFolder, forKey: "includeRejectedFolder") }
     }
 
+    /// When true, a rejected frame gets ".rejected" after its name in the REJECTED folder
+    /// (x.fits → REJECTED/x.fits.rejected), so PixInsight's WBPP and similar tools skip it
+    /// (step 16). Off by default; files already in REJECTED keep their names.
+    var renameRejectedFiles: Bool = false {
+        didSet { UserDefaults.standard.set(renameRejectedFiles, forKey: "renameRejectedFiles") }
+    }
+
     // MARK: - Image Viewer Adjustments
 
     /// Display zoom factor for the main image viewer (1.0 = render size, 0.25–4.0).
@@ -348,6 +355,7 @@ final class AppSettings {
         // Files & folders
         includeSubfolders       = UD.bool(   "includeSubfolders",      default: includeSubfolders)
         includeRejectedFolder   = UD.bool(   "includeRejectedFolder",  default: includeRejectedFolder)
+        renameRejectedFiles     = UD.bool(   "renameRejectedFiles",    default: renameRejectedFiles)
         excludedSubfolderNames  = UD.strings("excludedSubfolderNames", default: excludedSubfolderNames)
         debayerColourImages     = UD.bool(   "debayerColorImages",     default: debayerColourImages)
         zoomScale               = UD.double( "zoomScale",              default: zoomScale)

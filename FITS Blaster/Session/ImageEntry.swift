@@ -175,7 +175,8 @@ final class ImageEntry: Identifiable {
     init(url: URL, originalURL: URL? = nil, directoryBookmark: Data? = nil) {
         self.url = url
         self.originalURL = originalURL ?? url
-        self.fileName = url.lastPathComponent
+        // The original name, also for a renamed rejected frame (x.fits.rejected shows as x.fits).
+        self.fileName = (originalURL ?? url).lastPathComponent
         self.directoryBookmark = directoryBookmark
     }
 }

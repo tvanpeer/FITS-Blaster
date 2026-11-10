@@ -30,7 +30,8 @@ struct FolderScanItem {
             let rejectedFolder = folder.appending(component: name, directoryHint: .isDirectory)
             items += ImageStore.collectFITSURLs(in: rejectedFolder, relativePath: "", excludedNames: [],
                                                 includeSubfolders: false, includeRejected: false)
-                .map { FolderScanItem(name: $0.url.lastPathComponent, isDirectory: false, rejectedFile: $0.url) }
+                .map { FolderScanItem(name: RejectedFolder.originalName(of: $0.url), isDirectory: false,
+                                     rejectedFile: $0.url) }
         }
         return items.sorted { a, b in
             switch a.name.localizedStandardCompare(b.name) {

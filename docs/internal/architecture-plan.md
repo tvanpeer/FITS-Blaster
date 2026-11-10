@@ -1172,7 +1172,7 @@ Agreed by Tom on 2026-11-09. Four parts, one commit each. Only file locations, n
 - **15b — names (§9.15).** British spelling for our own identifiers (about 15, e.g. `debayerColorImages` → `debayerColourImages`, `normalizeGreyStretch` → `normaliseGreyStretch`, `viewportCenter` → `viewportCentre`); Apple's names and the UserDefaults key strings stay. `ExportPanel.swift` → `ExportSheet.swift`; `MetricsConfig`, `GroupStats`, `BadgeProblem` in their own files; `FilterGroup+ChartColor.swift` follows the spelling.
 - **15c — constants (§9.14).** `DisplayDefaults` (1024 display, 120 thumbnail); `AppLinks` (Ko-fi, FAQ, bug report, feeds; the stable feed read from Info.plist `SUFeedURL`); the info bar's 200 ms refresh named, with its reason.
 - **15d — small duplicates (§9.11).** One main-window lookup (menu and Settings); one text-size table (multiplier and picker); the focus-fail badge's 1.5 × median FWHM shares Auto-Flag's FWHM default constant. The low-star badge (0.40, narrowband 0.30) stays different from Auto-Flag's 0.50 on purpose (Tom, 2026-11-09): the badge warns of clear problems, Auto-Flag is the stricter cull; written down at the badge.
-  Done 2026-11-09: 15a 6b10ae2, 15b 266bdec, 15c e216150, 15d (this commit). Step 15 done.
+  Done 2026-11-09: 15a 6b10ae2, 15b 266bdec, 15c e216150, 15d 3c1d9f4. Step 15 done.
 
 ---
 
@@ -1195,6 +1195,8 @@ Added by Tom on 2026-11-09; plan agreed the same day. After step 15, in a 1.24 b
 **Tests**: names both ways for `.fits`, `.fit`, `.fts` in any case; reject and undo, single and batch, setting on and off; setting turned off between reject and undo; name clash; reopening a folder with old and new names; CLI `-r`. 👤 WBPP on the directory skips the renamed files.
 
 **Risk**: low. No change to renders, metrics or behaviour with the setting off; no performance effect (the same single move, to another name).
+
+Done 2026-11-10, tested by Tom (reject, undo, reopen, and WBPP on the directory skips the renamed files): setting in Settings → Files & Folders under "Rejected files"; the entry's shown name comes from its original URL; tests in `RenameRejectedTests`.
 
 ---
 

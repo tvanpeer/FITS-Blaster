@@ -56,6 +56,9 @@ struct ContentView: View {
                 // The order the cursor's neighbours are kept and drawn in (9f part 1).
                 store.navigationIsSimpleMode = isSimple
             }
+            .onChange(of: settings.renameRejectedFiles, initial: true) { _, renames in
+                store.renamesRejectedFiles = renames
+            }
             .onChange(of: settings.displayMemoryPercent, initial: true) { _, percent in
                 // Only the app limits the display images; the command line keeps them all.
                 store.displayMemory.limitBytes = AppSettings.displayMemoryBytes(percent: percent)

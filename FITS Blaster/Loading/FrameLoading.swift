@@ -20,7 +20,7 @@ enum FrameLoading {
     /// header check before the load cost up to 13 s over a network).
     static func candidates(_ items: [(url: URL, subfolderPath: String)],
                            existingURLs: Set<URL>) -> [(url: URL, subfolderPath: String)] {
-        items.filter { FITSFile.hasFITSExtension($0.url) && !existingURLs.contains($0.url) }
+        items.filter { RejectedFolder.isLoadable($0.url) && !existingURLs.contains($0.url) }
     }
 
     @concurrent static func loadMetricsOnly(url: URL,

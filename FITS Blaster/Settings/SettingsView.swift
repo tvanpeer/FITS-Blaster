@@ -319,6 +319,18 @@ struct FilesAndFoldersTab: View {
                 Toggle("Include REJECTED folder (mark images as rejected)", isOn: $settings.includeRejectedFolder)
             }
 
+            Section("Rejected files") {
+                Toggle("Rename rejected files so other programs skip them", isOn: $settings.renameRejectedFiles)
+                Text("""
+                    A rejected frame gets ".rejected" after its name in the REJECTED folder (x.fits becomes \
+                    x.fits.rejected), so tools that take every FITS file in a folder and its subfolders, such as \
+                    PixInsight's WBPP, leave it out. Undo gives it its old name back. Files already in REJECTED \
+                    keep their names. Finder's Quick Look doesn't preview renamed files; FITS Blaster still shows them.
+                    """)
+                    .scaledFont(size: 10)
+                    .foregroundStyle(.secondary)
+            }
+
         }
         .formStyle(.grouped)
     }

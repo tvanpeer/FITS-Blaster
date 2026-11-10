@@ -48,7 +48,8 @@ extension ImageStore {
         for entry in batch {
             if Task.isCancelled { break }
             let source = entry.url
-            let destination = kind == .reject ? RejectedFolder.rejectedURL(for: source) : entry.originalURL
+            let destination = kind == .reject ? RejectedFolder.rejectedURL(for: source, renames: renamesRejectedFiles)
+                                               : entry.originalURL
             if let failure = await FrameMover.move(from: source, to: destination, createsFolder: kind == .reject) {
                 if canAsk.contains(entry.id), failure.permissionDenied {
                     outcome.waiting.append(entry)
