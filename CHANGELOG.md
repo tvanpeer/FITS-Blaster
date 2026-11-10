@@ -11,6 +11,7 @@ All notable changes to FITS Blaster are recorded here.
 - **FAQ:** the Open Folder panel with its checkboxes instead of the popover, ⌘-click as selection (it no longer flags), the new SNR and eccentricity values, the current frame's dot in the text colour, Differentiate without color shapes, Simple mode without badges, Auto-Flag's starting values and small groups, the zoom keys, background batch reject, the display-memory limit, the rename setting for WBPP, and the command line's relative folders, errors and exit codes. Two older mistakes fixed: the session chart is coloured by filter, not by quality, and the Flagged view is cleared by Deflag All or Reset, not by Deselect All.
 - **Keyboard shortcuts:** a Zoom & Pan section, ⌘N Main Window, the right-click menu, ⌘-click and Open Folder as in 1.24.
 - **Guide, privacy policy, home page:** the folder panel, the current-frame dot, zoom keys, WBPP and the optional `.rejected` rename; the home page lists the WBPP rename and CSV export among the core features.
+- **FAQ speed tables measured anew** with 1.24 on a MacBook Air M1 (16 GB), default settings, disk cache cleared before each run, middle of three runs: 592 colour frames (IMX571) load in 11.3 s (greyscale + Simple) to 25.4 s (colour + Geek), against 28–121 s before; 464 mono frames (IMX585) in 6.8–9.2 s. The tables give time, peak memory and memory after loading, and say that greyscale + Simple runs at the SSD's speed while the processor and graphics chip have room to spare.
 
 ---
 
