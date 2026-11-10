@@ -6,6 +6,42 @@
         <description>Beta release notes for FITS Blaster</description>
         <language>en-us</language>
         <item>
+            <title>FITS Blaster 1.24-beta.5</title>
+            <pubDate>Tue, 10 Nov 2026 09:07:23 +0000</pubDate>
+            <sparkle:version>214</sparkle:version>
+            <sparkle:shortVersionString>1.24-beta.5</sparkle:shortVersionString>
+            <description><![CDATA[
+<h2>2026-11-10 — 1.24 beta 5: no freeze when rejecting many frames, files PixInsight skips, VoiceOver</h2>
+<h3>Added</h3>
+<ul>
+  <li><b>&quot;Rename rejected files so other programs skip them&quot;</b> (Settings → Files &amp; Folders, off by default): a rejected frame becomes `REJECTED/x.fits.rejected`, so PixInsight&#x27;s WBPP and similar tools that take every FITS file in a folder and its subfolders leave it out. The image data isn&#x27;t changed, Undo restores the old name, and FITS Blaster still finds these files when it opens the folder with &quot;Include REJECTED folder&quot;.</li>
+  <li><b>VoiceOver support:</b> every thumbnail is read as one item (file name, filter, score, badge problem, flagged or rejected), the main image is named, folder and filter headers read their frame count and medians, and the session chart has a spoken summary and an audio graph.</li>
+  <li><b>With macOS &quot;Differentiate without color&quot; on,</b> top-third badges show a ★, the selection outline is dashed, and every filter group gets its own dot shape and a high-contrast colour in the session chart.</li>
+</ul>
+<h3>Changed</h3>
+<ul>
+  <li><b>Rejecting or undoing many frames no longer freezes the window,</b> also on a network share. A &quot;Rejecting&quot; or &quot;Restoring&quot; bar shows the progress, and frames that can&#x27;t be moved are listed in one message with a short reason (for example &quot;the file is locked&quot;).</li>
+  <li><b>Rejected frames keep their place</b> when a folder is reopened with &quot;Include REJECTED folder&quot;, instead of coming after all the other frames.</li>
+  <li><b>Changing Max display size no longer resizes the main window;</b> only you resize it.</li>
+  <li><b>Command line:</b> the folder can come anywhere and can be relative; a mistyped option or value stops with an error instead of being ignored; files that can&#x27;t be read are listed and left out of a filtered CSV; when no frame passes the filter, the CSV has only the header row. Exit codes are in `--help`.</li>
+  <li><b>The current frame&#x27;s dot in the session chart is visible in light mode,</b> and menu items show arrow, Home and End keys correctly.</li>
+</ul>
+<h3>Fixed</h3>
+<ul>
+  <li><b>Beta builds check the beta feed again</b> (GitHub issue #11): a beta could say a stable version was the newest. Stable releases are now also offered to beta users.</li>
+  <li><b>Switching the session chart between bars and dots takes effect right away.</b></li>
+  <li><b>The Quick Look extensions only have the access they need,</b> and FITS Blaster declares the FITS file type as used, not owned, so other astronomy apps don&#x27;t clash with it.</li>
+</ul>
+<p>---</p>
+<p>**[Full changelog](https://astrophoto-app.com/changelog.html)**</p>
+            ]]></description>
+            <enclosure
+                url="https://github.com/tvanpeer/FITS-Blaster/releases/download/v1.24-beta.5/FITS-Blaster-1.24-beta.5.dmg"
+                length="9021511"
+                type="application/octet-stream"
+                sparkle:edSignature="yC50rRwsTZ68mkD4V5SPtQjG9IJXg8+R96oHvqGjmo6G7sYUc1R4VlN6n3FyIswb1Nx52YlnUX8guXy00Nt3BA==" />
+        </item>
+        <item>
             <title>FITS Blaster 1.24-beta.4</title>
             <pubDate>Thu, 05 Nov 2026 21:31:36 +0000</pubDate>
             <sparkle:version>213</sparkle:version>

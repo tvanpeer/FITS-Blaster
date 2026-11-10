@@ -310,7 +310,7 @@
     <div class="beta-badge">Beta</div>
     <p>Test the latest features before they ship. Beta builds may contain bugs.</p>
     <!-- beta-button-start -->
-    <a class="download-btn" href="https://github.com/tvanpeer/FITS-Blaster/releases/download/v1.24-beta.4/FITS-Blaster-1.24-beta.4.dmg">Download Beta 1.24-beta.4</a>
+    <a class="download-btn" href="https://github.com/tvanpeer/FITS-Blaster/releases/download/v1.24-beta.5/FITS-Blaster-1.24-beta.5.dmg">Download Beta 1.24-beta.5</a>
     <p class="download-sub">macOS 15.6 or later &nbsp;&middot;&nbsp; Free</p>
     <!-- beta-button-end -->
 </header>
@@ -327,6 +327,40 @@
     <h2>Beta release notes</h2>
     <p class="list-note">All betas since the last stable release, newest first.</p>
     <!-- beta-entry-start -->
+    <!-- v1.24-beta.5 -->
+    <div class="entry">
+        <div class="entry-header">
+            <div class="entry-title">1.24 beta 5: no freeze when rejecting many frames, files PixInsight skips, VoiceOver — v1.24-beta.5</div>
+            <div class="entry-date">2026-11-10 &nbsp;&middot;&nbsp; <a class="entry-link" href="https://github.com/tvanpeer/FITS-Blaster/releases/tag/v1.24-beta.5">GitHub release &#8599;</a></div>
+        </div>
+        <div class="section">
+            <span class="section-label label-added">Added</span>
+            <ul>
+                <li><strong>"Rename rejected files so other programs skip them"</strong> (Settings → Files &amp; Folders, off by default): a rejected frame becomes <code>REJECTED/x.fits.rejected</code>, so PixInsight's WBPP and similar tools that take every FITS file in a folder and its subfolders leave it out. The image data isn't changed, Undo restores the old name, and FITS Blaster still finds these files when it opens the folder with "Include REJECTED folder".</li>
+                <li><strong>VoiceOver support:</strong> every thumbnail is read as one item (file name, filter, score, badge problem, flagged or rejected), the main image is named, folder and filter headers read their frame count and medians, and the session chart has a spoken summary and an audio graph.</li>
+                <li><strong>With macOS "Differentiate without color" on,</strong> top-third badges show a ★, the selection outline is dashed, and every filter group gets its own dot shape and a high-contrast colour in the session chart.</li>
+            </ul>
+        </div>
+        <div class="section">
+            <span class="section-label label-changed">Changed</span>
+            <ul>
+                <li><strong>Rejecting or undoing many frames no longer freezes the window,</strong> also on a network share. A "Rejecting" or "Restoring" bar shows the progress, and frames that can't be moved are listed in one message with a short reason (for example "the file is locked").</li>
+                <li><strong>Rejected frames keep their place</strong> when a folder is reopened with "Include REJECTED folder", instead of coming after all the other frames.</li>
+                <li><strong>Changing Max display size no longer resizes the main window;</strong> only you resize it.</li>
+                <li><strong>Command line:</strong> the folder can come anywhere and can be relative; a mistyped option or value stops with an error instead of being ignored; files that can't be read are listed and left out of a filtered CSV; when no frame passes the filter, the CSV has only the header row. Exit codes are in <code>--help</code>.</li>
+                <li><strong>The current frame's dot in the session chart is visible in light mode,</strong> and menu items show arrow, Home and End keys correctly.</li>
+            </ul>
+        </div>
+        <div class="section">
+            <span class="section-label label-fixed">Fixed</span>
+            <ul>
+                <li><strong>Beta builds check the beta feed again</strong> (GitHub issue #11): a beta could say a stable version was the newest. Stable releases are now also offered to beta users.</li>
+                <li><strong>Switching the session chart between bars and dots takes effect right away.</strong></li>
+                <li><strong>The Quick Look extensions only have the access they need,</strong> and FITS Blaster declares the FITS file type as used, not owned, so other astronomy apps don't clash with it.</li>
+            </ul>
+        </div>
+    </div>
+
     <!-- v1.24-beta.4 -->
     <div class="entry">
         <div class="entry-header">
