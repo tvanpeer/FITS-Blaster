@@ -4,6 +4,13 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-11-11 — Download statistics without test downloads
+
+### Under the hood
+- `scripts/download-stats.py` subtracts test downloads: one per results folder of a published-DMG smoke test (`tests/smoke-results/…-<vm>-<tag>`, on the Mac that ran the tests), plus one-off test downloads given with `--extra TAG=N`. The table shows Downloads, Tests and Others, and Per day uses Others.
+
+---
+
 ## 2026-11-11 — RAW support investigated (parked)
 
 ### Under the hood
