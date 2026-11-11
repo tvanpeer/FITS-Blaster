@@ -4,6 +4,16 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-11-11 — Screenshot script: beep, no overwritten shots
+
+### Fixed
+- **`scripts/appstore-screenshots.sh` no longer overwrites screenshots.** It numbered the next shot by counting the files in the folder, so after a deleted shot it reused a number that was still taken. It now continues after the highest number and skips any name that exists.
+
+### Under the hood
+- The script plays a short sound right after each capture (`BEEP=<sound name>`, default Glass; `BEEP=none` for silence).
+
+---
+
 ## 2026-11-11 — Download statistics without test downloads
 
 ### Under the hood

@@ -21,10 +21,13 @@
 #   scripts/appstore-screenshots.sh [--fullscreen] [output folder]
 #     default folder: ~/Pictures/FITS Blaster App Store/<date>
 #   DELAY=15 scripts/appstore-screenshots.sh   a different countdown (default 10 seconds)
+#   BEEP=Ping scripts/appstore-screenshots.sh  another sound after each capture (a name from
+#                                              /System/Library/Sounds; default Glass), BEEP=none for none
 #
 # Keys while it runs:
 #   Enter    bring FITS Blaster to the front, count down, then capture the next
-#            screenshot (01.png, 02.png, …). Open a popover or menu during the countdown;
+#            screenshot (01.png, 02.png, …; in a folder that already has shots, after the
+#            highest number; existing files are never overwritten). Open a popover or menu during the countdown;
 #            it closes when you switch to Terminal.
 #   f Enter  fit the main window again (window mode; make it the front window first)
 #   q Enter  quit
@@ -44,6 +47,7 @@ HEIGHT=900
 SHOT_W=2880           # full-screen mode, output pixels
 SHOT_H=1800
 DELAY="${DELAY:-10}"   # countdown in seconds before each capture
+BEEP="${BEEP:-Glass}"  # sound played right after each capture; none for silence
 FULLSCREEN=0
 [[ "${1:-}" == "--fullscreen" ]] && { FULLSCREEN=1; shift; }
 OUT="${1:-$HOME/Pictures/FITS Blaster App Store/$(date +%Y-%m-%d)}"
@@ -103,7 +107,21 @@ else
 fi
 echo "Screenshots go to: $OUT"
 
-n=$(find "$OUT" -maxdepth 1 -name '[0-9][0-9].png' | wc -l | tr -d ' ')
+# A short sound right after a capture, so you know the picture is taken (in the background:
+# the capture isn't delayed).
+beep() {
+    [[ "$BEEP" == none ]] && return
+    afplay "/System/Library/Sounds/$BEEP.aiff" 2>/dev/null &
+}
+
+# Continue after the highest existing number (not the count of files: after a deleted shot
+# the count would point at a number that is still in use).
+n=0
+for existing in "$OUT"/[0-9][0-9].png; do
+    [[ -e "$existing" ]] || continue
+    num=$((10#$(basename "$existing" .png)))
+    (( num > n )) && n=$num
+done
 while true; do
     printf '\n%s' "$prompt"
     read -r key
@@ -114,13 +132,17 @@ while true; do
             osascript -e "tell application \"System Events\" to set frontmost of process \"$APP\" to true"
             for ((i = DELAY; i > 0; i--)); do printf '%d… ' "$i"; sleep 1; done
             echo
+            # Never overwrite: skip any number whose file already exists.
             n=$((n + 1))
+            while [[ -e "$OUT/$(printf '%02d' "$n").png" ]]; do n=$((n + 1)); done
             file="$OUT/$(printf '%02d' "$n").png"
             if [[ $FULLSCREEN == 1 ]]; then
                 screencapture -x -m -t png "$file.capture.png"
+                beep
                 "$FLATTEN" "$file.capture.png" "$file" "$SHOT_W" "$SHOT_H"
             else
                 screencapture -x -t png -R "$X,$Y,$WIDTH,$HEIGHT" "$file.capture.png"
+                beep
                 "$FLATTEN" "$file.capture.png" "$file"
             fi
             rm "$file.capture.png"
