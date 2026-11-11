@@ -4,6 +4,13 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-11-11 — RAW support investigated (parked)
+
+### Under the hood
+- `docs/internal/raw-support-investigation.md`: can FITS Blaster open camera RAW files, now that macOS 27 brings Core Image RAW 9? On six Canon 6D Mark II frames: RAW 9's noise reduction can't be switched off and inflates SNR (× 3.3) and star counts (× 2.1); Apple's decoder 8 keeps FWHM within 1 % but raises eccentricity and flattens the star count that catches thin cloud; only the raw mosaic (via LibRaw) measures like FITS. An experiment only; parked for 2.0.
+
+---
+
 ## 2026-11-10 — Website: bullets laid out as text, corrections
 
 ### Fixed
