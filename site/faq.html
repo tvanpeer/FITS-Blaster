@@ -767,9 +767,9 @@
     <details>
         <summary>How fast is FITS Blaster?</summary>
         <div class="answer">
-            <p>Measured with FITS Blaster 1.24 on a MacBook Air M1 with 16 GB, images on its internal SSD, with the default settings (display size 1024, memory limit 50&nbsp;%). The disk cache was cleared and FITS Blaster restarted before each run; each time is the middle of three runs, from opening the folder until every frame is loaded, measured and rendered.</p>
+            <p>Measured with FITS Blaster 1.24 on two Macs, images on the internal SSD, with the default settings (display size 1024, memory limit 50&nbsp;%). The disk cache was cleared and FITS Blaster restarted before each run; each time is the middle of three runs, from opening the folder until every frame is loaded, measured and rendered.</p>
 
-            <p><strong>592 colour frames (IMX571 one-shot colour, 6224 × 4168), 51.9 MB each, 30.7 GB in total:</strong></p>
+            <p><strong>MacBook Air M1, 16 GB — 592 colour frames (IMX571 one-shot colour, 6224 × 4168), 51.9 MB each, 30.7 GB in total:</strong></p>
             <table>
                 <tr><th>Mode</th><th>Time</th><th>Peak memory</th><th>Memory after loading</th></tr>
                 <tr><td>Greyscale + Simple mode</td><td>11.3 s</td><td>1.3 GB</td><td>0.5 GB</td></tr>
@@ -778,14 +778,26 @@
                 <tr><td>Colour + Geek mode</td><td>25.4 s</td><td>4.3 GB</td><td>2.3 GB</td></tr>
             </table>
 
-            <p><strong>464 greyscale frames (IMX585 mono, 3856 × 2180), 16.8 MB each, 7.8 GB in total:</strong></p>
+            <p><strong>MacBook Air M1, 16 GB — 464 greyscale frames (IMX585 mono, 3856 × 2180), 16.8 MB each, 7.8 GB in total:</strong></p>
             <table>
                 <tr><th>Mode</th><th>Time</th><th>Peak memory</th><th>Memory after loading</th></tr>
                 <tr><td>Simple mode</td><td>6.8 s</td><td>0.6 GB</td><td>0.4 GB</td></tr>
                 <tr><td>Geek mode</td><td>9.2 s</td><td>0.8 GB</td><td>0.4 GB</td></tr>
             </table>
 
-            <p>In greyscale + Simple mode FITS Blaster reads 2.7 GB per second, about as fast as this Mac's SSD delivers: there the disk sets the pace. In the other modes the measuring and the colour rendering add time, but the processor and the graphics chip still have room to spare (on average about three quarters of the processor and at most half of the graphics chip are in use). Colour mode keeps both the greyscale and the colour image of each frame, which is why it uses more memory.</p>
+            <p><strong>Mac Studio M1 Ultra, 64 GB — the same two sets:</strong></p>
+            <table>
+                <tr><th>Frames and mode</th><th>Time</th><th>Peak memory</th><th>Memory after loading</th></tr>
+                <tr><td>592 colour, greyscale + Simple</td><td>6.7 s</td><td>1.3 GB</td><td>0.5 GB</td></tr>
+                <tr><td>592 colour, greyscale + Geek</td><td>6.8 s</td><td>3.7 GB</td><td>0.6 GB</td></tr>
+                <tr><td>592 colour, colour + Simple</td><td>7.1 s</td><td>3.8 GB</td><td>2.2 GB</td></tr>
+                <tr><td>592 colour, colour + Geek</td><td>7.6 s</td><td>6.2 GB</td><td>2.3 GB</td></tr>
+                <tr><td>464 mono, Simple</td><td>2.7 s</td><td>0.9 GB</td><td>0.4 GB</td></tr>
+                <tr><td>464 mono, Geek</td><td>3.1 s</td><td>1.0 GB</td><td>0.4 GB</td></tr>
+            </table>
+            <p>From an external Thunderbolt SSD the Mac Studio took 9.0–9.5&nbsp;s for the colour set and 3.1–3.5&nbsp;s for the mono set.</p>
+
+            <p>What sets the pace differs per Mac. On the MacBook Air the SSD does in greyscale + Simple mode (2.7&nbsp;GB per second); in Geek and colour mode the processor does, while the graphics chip still has room to spare. On the Mac Studio the disk sets the pace in every mode: with 20 processor cores, the measuring and the colour rendering happen while the files are still being read, so Geek and colour add less than a second. Colour mode keeps both the greyscale and the colour image of each frame, which is why it uses more memory.</p>
 
             <p>You can start working immediately once loading begins — you do not need to wait for the entire set. In colour mode, FITS Blaster renders the full set in greyscale first so you can start culling straight away; both versions are kept in memory so switching between them is instant.</p>
         </div>
