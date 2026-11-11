@@ -12,6 +12,7 @@ All notable changes to FITS Blaster are recorded here.
 - **Keyboard shortcuts:** a Zoom & Pan section, ⌘N Main Window, the right-click menu, ⌘-click and Open Folder as in 1.24.
 - **Guide, privacy policy, home page:** the folder panel, the current-frame dot, zoom keys, WBPP and the optional `.rejected` rename; the home page lists the WBPP rename and CSV export among the core features.
 - **FAQ speed tables measured anew** with 1.24 on a MacBook Air M1 (16 GB), default settings, disk cache cleared before each run, middle of three runs: 592 colour frames (IMX571) load in 11.3 s (greyscale + Simple) to 25.4 s (colour + Geek), against 28–121 s before; 464 mono frames (IMX585) in 6.8–9.2 s. The tables give time, peak memory and memory after loading. A third table for a Mac Studio M1 Ultra (64 GB): 6.7–7.6 s for the colour set, 2.7–3.1 s for the mono set; from an external Thunderbolt SSD 9.0–9.5 s and 3.1–3.5 s, in a second time column. The text says what sets the pace: on the MacBook Air the SSD in greyscale + Simple and the processor in Geek and colour, on the Mac Studio the disk in every mode.
+- **Home page screenshots taken anew with 1.24:** the main window (M42 in colour, Geek mode), the session chart with dots coloured by filter (SH2-72 in Ha, OIII and SII), the sidebar with filter buttons and rejected frames, and the Inspector with all six metrics and the score. The chart image's description says dots instead of bars.
 
 ---
 
