@@ -5,13 +5,10 @@
 #   scripts/run-benchmark.sh <version> [--rgb <path>] [--mono <path>]
 #
 # Examples:
-#   scripts/run-benchmark.sh v1.23 \
-#     --rgb "/Users/tommy/Library/Mobile Documents/com~apple~CloudDocs/Astrophotography/M31/LIGHT" \
-#     --mono "/Users/tommy/Library/Mobile Documents/com~apple~CloudDocs/Astrophotography/NGC 2244-Rosette_Nebula original"
+#   scripts/run-benchmark.sh v1.23 --rgb "<colour folder>" --mono "<mono folder>"
 #
 #   # RGB-only (Bayer pipeline):
-#   scripts/run-benchmark.sh v1.23 \
-#     --rgb "/Users/tommy/Library/Mobile Documents/com~apple~CloudDocs/Astrophotography/Gamma Cygni Nebula IMX571/2026-03-04_Antlia ALP-T/LIGHT"
+#   scripts/run-benchmark.sh v1.23 --rgb "<colour folder>"
 
 set -euo pipefail
 

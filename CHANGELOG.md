@@ -4,6 +4,14 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-11-11 — Overview of all scripts
+
+### Under the hood
+- `docs/internal/scripts.md`: every script in `scripts/` and both GitHub workflows, grouped by job (checks before a commit, VM tests, test VMs, release, builds by hand, App Store, measuring, statistics), with what each does, the usual command and where its output goes.
+- `scripts/run-benchmark.sh`: the examples use placeholder folders instead of paths in a home folder.
+
+---
+
 ## 2026-11-11 — Screenshot script: beep, no overwritten shots
 
 ### Fixed
