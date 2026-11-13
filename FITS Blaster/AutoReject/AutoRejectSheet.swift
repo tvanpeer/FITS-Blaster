@@ -11,7 +11,8 @@ struct AutoRejectSheet: View {
     @Binding var isPresented: Bool
     @Environment(ImageStore.self) private var store
 
-    @State private var config = AutoRejectConfig()
+    /// Starts from the settings saved when the sheet last closed (issue #15).
+    @State private var config = AutoRejectConfigStore.load()
     /// The number of frames the current thresholds select. Worked out when the thresholds
     /// change and, while a folder loads, every 250 ms and once at the end — not in `body`,
     /// which would then redraw for every metric that arrives (step 10c).
@@ -19,7 +20,9 @@ struct AutoRejectSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            SheetHeader()
+            SheetHeader(isDefault: config == AutoRejectConfig()) {
+                config = AutoRejectConfig()
+            }
             Divider()
             Form {
                 ModePicker(mode: $config.mode,
@@ -39,6 +42,9 @@ struct AutoRejectSheet: View {
         }
         .frame(minWidth: 420, minHeight: 500)
         .onChange(of: config) { _, _ in updatePreviewCount() }
+        // Every change is kept, also after Cancel; saved once here rather than on every
+        // slider step.
+        .onDisappear { AutoRejectConfigStore.save(config) }
         .task(id: store.pipeline.isBatchProcessing) {
             updatePreviewCount()
             guard store.pipeline.isBatchProcessing else { return }
@@ -58,6 +64,10 @@ struct AutoRejectSheet: View {
 // MARK: - Sub-views
 
 private struct SheetHeader: View {
+    /// True when every setting equals its default; the reset button is then disabled.
+    let isDefault: Bool
+    let onReset: () -> Void
+
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: "wand.and.stars")
@@ -71,6 +81,8 @@ private struct SheetHeader: View {
                     .foregroundStyle(.secondary)
             }
             Spacer()
+            Button("Reset to Defaults", action: onReset)
+                .disabled(isDefault)
         }
         .padding()
     }

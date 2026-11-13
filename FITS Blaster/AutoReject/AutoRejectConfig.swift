@@ -5,7 +5,7 @@
 
 /// Thresholds for one-click quality-based frame rejection.
 struct AutoRejectConfig: Equatable, Sendable {
-    enum Mode: String, CaseIterable, Sendable {
+    enum Mode: String, CaseIterable, Codable, Sendable {
         case relative = "Relative"
         case absolute = "Absolute"
     }
@@ -70,5 +70,58 @@ struct AutoRejectConfig: Equatable, Sendable {
     /// checks except eccentricity, which is absolute in both modes).
     var isAnyRelativeCheckOn: Bool {
         mode == .relative && (useFWHM || useStarCount || useSNR || useSkyBackground || usePSF)
+    }
+}
+
+// MARK: - Stored between sessions
+
+// The Auto-Flag settings as stored between sessions (issue #15; AutoRejectConfigStore).
+// Encoding is synthesized (which needs this file); decoding reads each value on its own, so a
+// value that is missing (a check added in a later version) or unreadable takes its default
+// and the others are kept.
+extension AutoRejectConfig: Codable {
+    private enum CodingKeys: String, CodingKey {
+        case mode
+        case useFWHM, fwhmMultiplier, absoluteFWHM
+        case useEccentricity, eccentricityThreshold
+        case useStarCount, starCountMultiplier, absoluteStarCountFloor
+        case useSNR, snrMultiplier, absoluteSNRFloor
+        case useSkyBackground, skyBackgroundMultiplier, absoluteSkyBackgroundCeiling
+        case usePSF, psfMultiplier, absolutePSFFloor
+        case useScore, scoreFloor
+    }
+
+    init(from decoder: any Decoder) throws {
+        self.init()
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        Self.read(&mode, .mode, from: container)
+        Self.read(&useFWHM, .useFWHM, from: container)
+        Self.read(&fwhmMultiplier, .fwhmMultiplier, from: container)
+        Self.read(&absoluteFWHM, .absoluteFWHM, from: container)
+        Self.read(&useEccentricity, .useEccentricity, from: container)
+        Self.read(&eccentricityThreshold, .eccentricityThreshold, from: container)
+        Self.read(&useStarCount, .useStarCount, from: container)
+        Self.read(&starCountMultiplier, .starCountMultiplier, from: container)
+        Self.read(&absoluteStarCountFloor, .absoluteStarCountFloor, from: container)
+        Self.read(&useSNR, .useSNR, from: container)
+        Self.read(&snrMultiplier, .snrMultiplier, from: container)
+        Self.read(&absoluteSNRFloor, .absoluteSNRFloor, from: container)
+        Self.read(&useSkyBackground, .useSkyBackground, from: container)
+        Self.read(&skyBackgroundMultiplier, .skyBackgroundMultiplier, from: container)
+        Self.read(&absoluteSkyBackgroundCeiling, .absoluteSkyBackgroundCeiling, from: container)
+        Self.read(&usePSF, .usePSF, from: container)
+        Self.read(&psfMultiplier, .psfMultiplier, from: container)
+        Self.read(&absolutePSFFloor, .absolutePSFFloor, from: container)
+        Self.read(&useScore, .useScore, from: container)
+        Self.read(&scoreFloor, .scoreFloor, from: container)
+    }
+
+    /// Replaces `value` with the stored one when it is present and readable; otherwise the
+    /// default stays. A number must be finite.
+    private static func read<T: Decodable>(_ value: inout T, _ key: CodingKeys,
+                                           from container: KeyedDecodingContainer<CodingKeys>) {
+        guard let stored = try? container.decodeIfPresent(T.self, forKey: key) else { return }
+        if let number = stored as? Double, !number.isFinite { return }
+        value = stored
     }
 }

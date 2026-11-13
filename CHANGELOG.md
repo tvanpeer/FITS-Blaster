@@ -4,6 +4,17 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-11-13 — Auto-Flag remembers its settings (issue #15)
+
+### New
+- **The Auto-Flag sheet keeps its settings between sessions.** Mode, the checks that are on and their thresholds are saved when the sheet closes (also after Cancel) and come back the next time it opens, also after a restart.
+- **Reset to Defaults** in the sheet's header puts every setting back to its default; it is greyed out when they already are. The command line keeps its own options.
+
+### Under the hood
+- `AutoRejectConfig` is `Codable`; `AutoRejectConfigStore` saves it as JSON under `autoFlagConfig`. A missing or unreadable value takes its default and the others are kept; unreadable data gives all defaults. Tests in `AutoRejectConfigStoreTests` use their own UserDefaults suite.
+
+---
+
 ## 2026-11-13 — No second window for a Dock drop (issue #17)
 
 ### Fixed
