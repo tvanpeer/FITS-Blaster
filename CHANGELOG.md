@@ -4,6 +4,16 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-11-13 — No second window for a Dock drop (issue #17)
+
+### Fixed
+- **Dropping a folder or files on the Dock icon no longer opens a second window.** They load in the existing window, also when the app is started by the drop. Before, SwiftUI opened an extra window that showed the same session.
+
+### Under the hood
+- The main window declares that it handles outside open events (`handlesExternalEvents(preferring:allowing:)`); the app delegate still does the loading. Checked with `open -a` while running and from a cold start.
+
+---
+
 ## 2026-11-13 — Dropped folders include their REJECTED folder (issue #13)
 
 ### Fixed

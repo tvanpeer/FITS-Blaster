@@ -74,6 +74,10 @@ struct FitsBlasterApp: App {
     var body: some Scene {
         WindowGroup(id: WindowID.main) {
             ContentView()
+                // Files and folders opened from outside (Dock icon, Finder) go to the app
+                // delegate, which loads them here; this window takes the event, so SwiftUI
+                // doesn't open a second window for it (issue #17).
+                .handlesExternalEvents(preferring: ["*"], allowing: ["*"])
                 .onAppear {
                     appDelegate.openURLsHandler = { [store, settings] urls in
                         store.openDroppedItems(urls, settings: settings)
