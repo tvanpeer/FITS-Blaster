@@ -57,7 +57,8 @@ struct QuickLookRenderingTests {
         // What the thumbnail extension did itself before 8e.
         var fits = try FITSReader.readForPreview(from: url, maxSize: 256)
         let before = try #require(ImageStretcher.createImage(from: &fits.pixelValues, width: fits.width,
-                                                             height: fits.height, maxDisplaySize: 256))
+                                                             height: fits.height, flipRows: fits.rowOrder.flipsRows,
+                                                             maxDisplaySize: 256))
         let a = try #require(shared.cgImage(forProposedRect: nil, context: nil, hints: nil))
         let b = try #require(before.cgImage(forProposedRect: nil, context: nil, hints: nil))
         #expect(a.width == b.width && a.height == b.height)

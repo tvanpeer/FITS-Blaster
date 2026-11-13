@@ -19,7 +19,7 @@ import Accelerate
 ///   - `ImageStretcher+CPU.swift`: the CPU stretch, thumbnails and RGB images — also used
 ///     by the Quick Look extensions, which have no Metal;
 ///   - `ImageStretcher+Metal.swift` (app only): the GPU stretch, a single pass of
-///     box-filter downsample → vertical flip → STF clip → MTF stretch → float-to-byte,
+///     box-filter downsample → vertical flip (bottom-up files) → STF clip → MTF stretch → float-to-byte,
 ///     with the input and output in Metal shared buffers (no copies).
 struct ImageStretcher {
 

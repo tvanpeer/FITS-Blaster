@@ -14,15 +14,16 @@ extension ImageStretcher {
 
     /// Stretch from a plain Float array and return a pre-scaled display image.
     /// Scaling is done on the UInt8 buffer with vImageScale before creating the CGImage,
-    /// avoiding an expensive full-res CGImage → CGContext round-trip.
-    static func createImage(from pixels: inout [Float], width: Int, height: Int,
+    /// avoiding an expensive full-res CGImage → CGContext round-trip. `flipRows` draws the
+    /// rows last to first (`RowOrder.flipsRows`).
+    static func createImage(from pixels: inout [Float], width: Int, height: Int, flipRows: Bool,
                             maxDisplaySize: Int = DisplayDefaults.displaySize) -> NSImage? {
         guard !pixels.isEmpty else { return nil }
         let (shadowClip, highClip, midtone) = pixels.withUnsafeBufferPointer { buf in
             computeSTFClips(buf.baseAddress!, count: buf.count)
         }
         guard highClip > shadowClip else { return nil }
-        return cpuFallback(&pixels, width: width, height: height,
+        return cpuFallback(&pixels, width: width, height: height, flipRows: flipRows,
                            shadowClip: shadowClip, highClip: highClip, midtone: midtone,
                            maxDisplaySize: maxDisplaySize)
     }
@@ -30,7 +31,7 @@ extension ImageStretcher {
     /// Stretch interleaved RGB float data (R,G,B,R,G,B,...) into a display image.
     /// Uses per-channel STF clip bounds and MTF stretch, the same method as the
     /// greyscale path. CPU-only; used by the Quick Look preview and thumbnail.
-    static func createRGBImage(from pixels: inout [Float], width: Int, height: Int,
+    static func createRGBImage(from pixels: inout [Float], width: Int, height: Int, flipRows: Bool,
                                maxDisplaySize: Int = DisplayDefaults.displaySize) -> NSImage? {
         let pixelCount = width * height
         guard pixels.count == pixelCount * 3 else { return nil }
@@ -96,10 +97,10 @@ extension ImageStretcher {
         vImageConvert_PlanarFtoPlanar8(&gDst, &gDst8, 1.0, 0.0, vImage_Flags(kvImageNoFlags))
         vImageConvert_PlanarFtoPlanar8(&bDst, &bDst8, 1.0, 0.0, vImage_Flags(kvImageNoFlags))
 
-        // Interleave R,G,B UInt8 planes + vertical flip into RGB byte buffer.
+        // Interleave R,G,B UInt8 planes into the RGB byte buffer, flipped for a bottom-up file.
         let rgb = UnsafeMutablePointer<UInt8>.allocate(capacity: pixelCount * 3)
         for y in 0..<height {
-            let srcY = height - 1 - y   // FITS rows are bottom-to-top
+            let srcY = flipRows ? height - 1 - y : y
             for x in 0..<width {
                 let srcIdx = srcY * width + x
                 let dstIdx = (y * width + x) * 3
@@ -204,11 +205,11 @@ extension ImageStretcher {
         }
     }
 
-    /// Shared implementation: STF-normalized MTF LUT + convert + flip + scale.
+    /// Shared implementation: STF-normalized MTF LUT + convert + flip (bottom-up files) + scale.
     /// Scaling is done on the UInt8 buffer with vImageScale_Planar8, which is much faster
     /// than creating a full-res CGImage and scaling via CGContext.
     private static func cpuStretch(
-        srcData: UnsafeMutablePointer<Float>, pixelCount: Int, width: Int, height: Int,
+        srcData: UnsafeMutablePointer<Float>, pixelCount: Int, width: Int, height: Int, flipRows: Bool,
         shadowClip: Float, highClip: Float, midtone: Float = 0.25,
         maxDisplaySize: Int = 0
     ) -> NSImage? {
@@ -227,11 +228,17 @@ extension ImageStretcher {
         vImageConvert_PlanarFtoPlanar8(&dstBufF, &dstBuf8, 1.0, 0.0, vImage_Flags(kvImageNoFlags))
         stretchedPtr.deallocate()
 
-        // Pass 3: Vertical flip
-        let flipped8 = UnsafeMutablePointer<UInt8>.allocate(capacity: pixelCount)
-        var flippedBuf = vImage_Buffer(data: flipped8, height: vImagePixelCount(height), width: vImagePixelCount(width), rowBytes: width)
-        vImageVerticalReflect_Planar8(&dstBuf8, &flippedBuf, vImage_Flags(kvImageNoFlags))
-        bytes8.deallocate()
+        // Pass 3: Vertical flip, only for a bottom-up file (issue #14)
+        var orientedData = bytes8
+        var orientedBuf = dstBuf8
+        if flipRows {
+            let flipped8 = UnsafeMutablePointer<UInt8>.allocate(capacity: pixelCount)
+            var flippedBuf = vImage_Buffer(data: flipped8, height: vImagePixelCount(height), width: vImagePixelCount(width), rowBytes: width)
+            vImageVerticalReflect_Planar8(&dstBuf8, &flippedBuf, vImage_Flags(kvImageNoFlags))
+            bytes8.deallocate()
+            orientedData = flipped8
+            orientedBuf = flippedBuf
+        }
 
         // Pass 4 (optional): Scale down with vImageScale_Planar8
         let finalData: UnsafeMutablePointer<UInt8>
@@ -244,11 +251,11 @@ extension ImageStretcher {
             finalH = max(1, Int(Float(height) * scale))
             let scaledData = UnsafeMutablePointer<UInt8>.allocate(capacity: finalW * finalH)
             var scaledBuf = vImage_Buffer(data: scaledData, height: vImagePixelCount(finalH), width: vImagePixelCount(finalW), rowBytes: finalW)
-            vImageScale_Planar8(&flippedBuf, &scaledBuf, nil, vImage_Flags(kvImageHighQualityResampling))
-            flipped8.deallocate()
+            vImageScale_Planar8(&orientedBuf, &scaledBuf, nil, vImage_Flags(kvImageHighQualityResampling))
+            orientedData.deallocate()
             finalData = scaledData
         } else {
-            finalData = flipped8
+            finalData = orientedData
             finalW = width
             finalH = height
         }
@@ -277,14 +284,14 @@ extension ImageStretcher {
     }
 
     private static func cpuFallback(
-        _ pixels: inout [Float], width: Int, height: Int,
+        _ pixels: inout [Float], width: Int, height: Int, flipRows: Bool,
         shadowClip: Float, highClip: Float, midtone: Float = 0.25,
         maxDisplaySize: Int = 0
     ) -> NSImage? {
         let pixelCount = width * height
         return pixels.withUnsafeMutableBufferPointer { buf in
             cpuStretch(srcData: buf.baseAddress!, pixelCount: pixelCount, width: width, height: height,
-                       shadowClip: shadowClip, highClip: highClip, midtone: midtone,
+                       flipRows: flipRows, shadowClip: shadowClip, highClip: highClip, midtone: midtone,
                        maxDisplaySize: maxDisplaySize)
         }
     }
@@ -292,13 +299,13 @@ extension ImageStretcher {
     /// CPU fallback operating directly on a raw float pointer (e.g. Metal shared buffer).
     /// Used by the Metal path (ImageStretcher+Metal.swift) when the GPU pass fails.
     static func cpuFallbackOnBuffer(
-        _ floatPtr: UnsafeMutablePointer<Float>, width: Int, height: Int,
+        _ floatPtr: UnsafeMutablePointer<Float>, width: Int, height: Int, flipRows: Bool,
         shadowClip: Float, highClip: Float, midtone: Float = 0.25,
         maxDisplaySize: Int = 0
     ) -> NSImage? {
         let pixelCount = width * height
         return cpuStretch(srcData: floatPtr, pixelCount: pixelCount, width: width, height: height,
-                          shadowClip: shadowClip, highClip: highClip, midtone: midtone,
+                          flipRows: flipRows, shadowClip: shadowClip, highClip: highClip, midtone: midtone,
                           maxDisplaySize: maxDisplaySize)
     }
 }

@@ -23,9 +23,11 @@ extension ImageStretcher {
         var dstHeight: UInt32
         /// 1 = 2×2 Bayer binning (greyscale display of raw Bayer files), 0 = normal
         var bayerBin: UInt32
+        /// 1 = rows drawn last to first (ROWORDER = 'BOTTOM-UP'), 0 = file order (issue #14)
+        var flipRows: UInt32
     }
 
-    /// Parameters struct matching the Metal shader's BayerStretchParams (14 × 4 bytes = 56 bytes)
+    /// Parameters struct matching the Metal shader's BayerStretchParams (15 × 4 bytes = 60 bytes)
     private struct BayerStretchParams {
         var shadowClipR: Float
         var highClipR: Float
@@ -41,6 +43,8 @@ extension ImageStretcher {
         var dstWidth: UInt32
         var dstHeight: UInt32
         var rOffset: UInt32
+        /// 1 = rows drawn last to first (ROWORDER = 'BOTTOM-UP'), 0 = file order (issue #14)
+        var flipRows: UInt32
     }
 
     // MARK: - Public
@@ -48,7 +52,8 @@ extension ImageStretcher {
     /// Stretch using pixel data already in a Metal shared buffer.
     /// Pass `bayerPattern` when the file is a raw Bayer mosaic and should be displayed in
     /// greyscale — the kernel will apply 2×2 Bayer binning to eliminate the screen-door effect.
-    @concurrent static func createImage(inputBuffer: MTLBuffer, width: Int, height: Int,
+    /// `flipRows` draws the rows last to first (`RowOrder.flipsRows`).
+    @concurrent static func createImage(inputBuffer: MTLBuffer, width: Int, height: Int, flipRows: Bool,
                                         maxDisplaySize: Int = 0,
                                         bayerPattern: BayerPattern? = nil) async -> NSImage? {
         let pixelCount = width * height
@@ -57,6 +62,7 @@ extension ImageStretcher {
         guard highClip > shadowClip else { return nil }
 
         if let result = await metalStretch(inputBuffer: inputBuffer, width: width, height: height,
+                                           flipRows: flipRows,
                                            shadowClip: shadowClip, highClip: highClip, midtone: midtone,
                                            maxDisplaySize: maxDisplaySize,
                                            bayerPattern: bayerPattern) {
@@ -65,7 +71,7 @@ extension ImageStretcher {
 
         // CPU fallback — operate directly on Metal shared buffer (no copy)
         return cpuFallbackOnBuffer(inputBuffer.contents().assumingMemoryBound(to: Float.self),
-                                   width: width, height: height,
+                                   width: width, height: height, flipRows: flipRows,
                                    shadowClip: shadowClip, highClip: highClip, midtone: midtone,
                                    maxDisplaySize: maxDisplaySize)
     }
@@ -76,7 +82,7 @@ extension ImageStretcher {
     /// single pass — no post-GPU CPU scaling needed. Output Metal buffer is zero-copy into
     /// CGDataProvider.
     @concurrent private static func metalStretch(
-        inputBuffer: MTLBuffer, width: Int, height: Int,
+        inputBuffer: MTLBuffer, width: Int, height: Int, flipRows: Bool,
         shadowClip: Float, highClip: Float, midtone: Float,
         maxDisplaySize: Int = 0,
         bayerPattern: BayerPattern? = nil
@@ -114,7 +120,8 @@ extension ImageStretcher {
             shadowClip: shadowClip, highClip: highClip, mtfMidtone: midtone,
             srcWidth: UInt32(width), srcHeight: UInt32(height),
             dstWidth: UInt32(dstW), dstHeight: UInt32(dstH),
-            bayerBin: isBayerBin ? 1 : 0
+            bayerBin: isBayerBin ? 1 : 0,
+            flipRows: flipRows ? 1 : 0
         )
 
         // Dispatch at output size — each thread writes exactly one output pixel.
@@ -137,18 +144,19 @@ extension ImageStretcher {
     /// Stretch using pre-computed greyscale clip bounds, bypassing percentile estimation.
     /// Use the result of `computeGreyClips` (or a per-group median) to re-render an image
     /// with consistent stretch across a folder of same-filter frames.
-    @concurrent static func createImage(inputBuffer: MTLBuffer, width: Int, height: Int,
+    @concurrent static func createImage(inputBuffer: MTLBuffer, width: Int, height: Int, flipRows: Bool,
                                         clips: GreyClips, maxDisplaySize: Int = 0,
                                         bayerPattern: BayerPattern? = nil) async -> NSImage? {
         guard clips.isValid else { return nil }
         if let result = await metalStretch(inputBuffer: inputBuffer, width: width, height: height,
+                                           flipRows: flipRows,
                                            shadowClip: clips.low, highClip: clips.high, midtone: clips.midtone,
                                            maxDisplaySize: maxDisplaySize,
                                            bayerPattern: bayerPattern) {
             return result
         }
         return cpuFallbackOnBuffer(inputBuffer.contents().assumingMemoryBound(to: Float.self),
-                                   width: width, height: height,
+                                   width: width, height: height, flipRows: flipRows,
                                    shadowClip: clips.low, highClip: clips.high, midtone: clips.midtone,
                                    maxDisplaySize: maxDisplaySize)
     }
@@ -164,11 +172,11 @@ extension ImageStretcher {
     /// GPU-accelerated Bayer demosaic + stretch using pre-computed clip bounds.
     /// Call `computeBayerClips` first to obtain `clips`, then pass the median/shared
     /// clips here for consistent stretch across a folder of images.
-    @concurrent static func createBayerImage(inputBuffer: MTLBuffer, width: Int, height: Int,
+    @concurrent static func createBayerImage(inputBuffer: MTLBuffer, width: Int, height: Int, flipRows: Bool,
                                              rOffset: UInt32, clips: BayerClips,
                                              maxDisplaySize: Int = 0) async -> NSImage? {
         guard clips.isValid else { return nil }
-        return await metalBayerStretch(inputBuffer: inputBuffer, width: width, height: height,
+        return await metalBayerStretch(inputBuffer: inputBuffer, width: width, height: height, flipRows: flipRows,
                                        rOffset: rOffset, clips: clips, maxDisplaySize: maxDisplaySize)
     }
 
@@ -182,7 +190,7 @@ extension ImageStretcher {
     }
 
     @concurrent private static func metalBayerStretch(
-        inputBuffer: MTLBuffer, width: Int, height: Int,
+        inputBuffer: MTLBuffer, width: Int, height: Int, flipRows: Bool,
         rOffset: UInt32, clips: BayerClips,
         maxDisplaySize: Int = 0
     ) async -> NSImage? {
@@ -205,7 +213,7 @@ extension ImageStretcher {
             shadowClipB: clips.loB, highClipB: clips.hiB, mtfMidtoneB: clips.midB,
             srcWidth: UInt32(width), srcHeight: UInt32(height),
             dstWidth: UInt32(dstW), dstHeight: UInt32(dstH),
-            rOffset: rOffset
+            rOffset: rOffset, flipRows: flipRows ? 1 : 0
         )
 
         // Dispatch at output size — each thread writes exactly one output pixel. There is no
@@ -242,7 +250,7 @@ extension ImageStretcher {
     /// any stretch (`bayerAverage`). `createBayerImage(from:clips:)` makes the same image from
     /// them that `createBayerImage(inputBuffer:…)` makes from the frame. Nil without Metal or
     /// when the pass fails.
-    @concurrent static func averageBayer(inputBuffer: MTLBuffer, width: Int, height: Int,
+    @concurrent static func averageBayer(inputBuffer: MTLBuffer, width: Int, height: Int, flipRows: Bool,
                                          rOffset: UInt32, maxDisplaySize: Int = 0) async -> ColourProxy? {
         guard let pipelineState = MetalContext.bayerAveragePipeline,
               inputBuffer.device === MetalContext.device else { return nil }
@@ -255,7 +263,7 @@ extension ImageStretcher {
             shadowClipB: 0, highClipB: 0, mtfMidtoneB: 0,
             srcWidth: UInt32(width), srcHeight: UInt32(height),
             dstWidth: UInt32(dstW), dstHeight: UInt32(dstH),
-            rOffset: rOffset
+            rOffset: rOffset, flipRows: flipRows ? 1 : 0
         )
         let completed = await MetalContext.runPass(pipelineState, width: dstW, height: dstH) { encoder in
             encoder.setBuffer(inputBuffer, offset: 0, index: 0)
@@ -284,7 +292,7 @@ extension ImageStretcher {
             shadowClipB: clips.loB, highClipB: clips.hiB, mtfMidtoneB: clips.midB,
             srcWidth: 0, srcHeight: 0,
             dstWidth: UInt32(proxy.width), dstHeight: UInt32(proxy.height),
-            rOffset: 0
+            rOffset: 0, flipRows: 0   // the averages are already the right way up
         )
         let completed = await MetalContext.runPass(pipelineState, width: proxy.width, height: proxy.height) { encoder in
             encoder.setBuffer(averages, offset: 0, index: 0)

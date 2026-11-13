@@ -64,7 +64,7 @@ struct GPUTests {
 
         let image = try #require(
             await ImageStretcher.createImage(inputBuffer: buffer, width: width, height: height,
-                                             maxDisplaySize: 256),
+                                             flipRows: false, maxDisplaySize: 256),
             "GPU stretch should produce a non-nil image")
 
         #expect(image.size.width > 0)
@@ -79,7 +79,7 @@ struct GPUTests {
 
         let image = try #require(
             await ImageStretcher.createImage(inputBuffer: buffer, width: width, height: height,
-                                             maxDisplaySize: 128))
+                                             flipRows: false, maxDisplaySize: 128))
 
         #expect(Int(image.size.width) <= 128)
         #expect(Int(image.size.height) <= 128)
@@ -90,7 +90,7 @@ struct GPUTests {
         // All pixels identical — the stretch should complete without crashing.
         // Whether it returns nil or a uniform image depends on the percentile estimator.
         let buffer = try makeMetalBuffer(width: 64, height: 64, background: 1000)
-        _ = await ImageStretcher.createImage(inputBuffer: buffer, width: 64, height: 64)
+        _ = await ImageStretcher.createImage(inputBuffer: buffer, width: 64, height: 64, flipRows: false)
         // No crash = pass
     }
 

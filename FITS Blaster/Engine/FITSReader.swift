@@ -141,7 +141,8 @@ struct FITSReader {
             width: dstW, height: dstH, bitpix: header.bitpix, channels: header.channels,
             pixelValues: pixelValues, minValue: range.min, maxValue: range.max,
             headers: header.headers,
-            bayerPattern: BayerPattern.parse(from: header.headers))
+            bayerPattern: BayerPattern.parse(from: header.headers),
+            rowOrder: RowOrder.parse(from: header.headers))
     }
 
     /// Parse a FITS file and return image data as a Swift array (used when Metal is unavailable)
@@ -258,7 +259,8 @@ struct FITSReader {
             minValue: range.min,
             maxValue: range.max,
             headers: header.headers,
-            bayerPattern: BayerPattern.parse(from: header.headers)
+            bayerPattern: BayerPattern.parse(from: header.headers),
+            rowOrder: RowOrder.parse(from: header.headers)
         )
     }
 }

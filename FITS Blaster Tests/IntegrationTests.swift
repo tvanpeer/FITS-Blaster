@@ -240,7 +240,7 @@ struct IntegrationTests {
         var pixels = makeImage(width: 128, height: 128, background: 1000,
                                stars: [SyntheticStar(cx: 64, cy: 64, amplitude: 5000, sigma: 2.0)])
         let image = try #require(ImageStretcher.createImage(from: &pixels, width: 128, height: 128,
-                                                             maxDisplaySize: 128))
+                                                             flipRows: false, maxDisplaySize: 128))
         #expect(image.size.width > 0)
         #expect(image.size.height > 0)
     }

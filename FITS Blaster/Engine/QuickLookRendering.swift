@@ -20,11 +20,13 @@ enum QuickLookRendering {
             return ImageStretcher.createRGBImage(from: &fitsImage.pixelValues,
                                                  width: fitsImage.width,
                                                  height: fitsImage.height,
+                                                 flipRows: fitsImage.rowOrder.flipsRows,
                                                  maxDisplaySize: displaySize)
         }
         return ImageStretcher.createImage(from: &fitsImage.pixelValues,
                                           width: fitsImage.width,
                                           height: fitsImage.height,
+                                          flipRows: fitsImage.rowOrder.flipsRows,
                                           maxDisplaySize: displaySize)
     }
 

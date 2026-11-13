@@ -4,6 +4,18 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-11-13 — Frames the right way up (issue #14)
+
+### Changed
+- **Frames are now shown the same way up as in PixInsight, Astro Pixel Processor and ASI Studio.** FITS Blaster used to flip every frame vertically (the FITS standard's bottom-up row order), so its pictures were upside down compared with those programs. Now it follows the frame's `ROWORDER` header: `TOP-DOWN` (as N.I.N.A. writes) and frames without the header are shown as stored; only `BOTTOM-UP` frames are flipped. This applies to the viewer, the thumbnails and Quick Look. Finder may show cached thumbnails the old way up for a while. Flip 180° (V) works as before.
+
+### Under the hood
+- `RowOrder` is read once with the headers (`FITSMetadata`, `FITSImage`, `FastLoadResult`) and every stretch path takes a required `flipRows`: the three Metal kernels that flipped (`mtfStretch`, `bayerDebayerAndStretch`, `bayerAverage`; new `flipRows` field in both parameter structs), the CPU grey and RGB stretch, and the Quick Look rendering. The Bayer pattern stays on the physical rows, so colours don't change.
+- New `RowOrderTests`: ROWORDER parsing, and a frame with a bright first band through every path (CPU grey and RGB, Metal grey own and shared clips, Bayer-binned, colour in one pass and through the colour proxy, Quick Look, loading a file) in both orders. The CPU-vs-GPU, Metal fallback and colour proxy identity tests run in both orders; the proxy identity on real frames: 1,280 renders, 0 bytes different. Render tests (full) and all 14 metric baseline sets unchanged.
+- Lint baseline: `flipRows` takes four stretch functions to 6 parameters (limit 5) and `cpuStretch` to 54 lines; recorded in the baseline with the changed counts of existing findings (Tom's choice). Passing the clips as one value is on the later list.
+
+---
+
 ## 2026-11-13 — Metric baselines work again with the flat set
 
 ### Fixed

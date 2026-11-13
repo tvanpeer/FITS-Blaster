@@ -52,21 +52,23 @@ struct ColourProxyIdentityTests {
             let rOffset = try #require(read.metadata.bayerPattern).rOffset
             var cases = Self.displaySizes.map { (size: $0, clips: shared, label: "shared") }
             if let own = ownClips[url], own.isValid { cases.append((1024, own, "own")) }
-            for item in cases {
+            // Both row orders (issue #14): the proxy is made the right way up.
+            for item in cases { for flipRows in [false, true] {
                 let onePass = try #require(await ImageStretcher.createBayerImage(
-                    inputBuffer: read.metalBuffer, width: width, height: height,
+                    inputBuffer: read.metalBuffer, width: width, height: height, flipRows: flipRows,
                     rOffset: rOffset, clips: item.clips, maxDisplaySize: item.size))
                 let proxy = try #require(await ImageStretcher.averageBayer(
-                    inputBuffer: read.metalBuffer, width: width, height: height,
+                    inputBuffer: read.metalBuffer, width: width, height: height, flipRows: flipRows,
                     rOffset: rOffset, maxDisplaySize: item.size))
                 let twoPass = try #require(await ImageStretcher.createBayerImage(from: proxy, clips: item.clips))
                 let a = try #require(RGBAPixels(onePass)), b = try #require(RGBAPixels(twoPass))
                 compared += 1
                 if a.width != b.width || a.height != b.height || a.bytes != b.bytes {
                     let diff = zip(a.bytes, b.bytes).filter { $0 != $1 }.count
-                    differing.append("\(url.lastPathComponent) at \(item.size) (\(item.label) clips): \(diff) bytes differ")
+                    differing.append("\(url.lastPathComponent) at \(item.size) (\(item.label) clips, "
+                                     + "flipRows \(flipRows)): \(diff) bytes differ")
                 }
-            }
+            } }
         }
         print("PROXY IDENTITY \(relativePath): \(compared) renders compared, \(differing.count) differ")
         #expect(differing.isEmpty, "\(differing.prefix(10).joined(separator: "; "))")

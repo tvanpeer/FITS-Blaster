@@ -65,8 +65,8 @@ struct MetalFallbackTests {
 
     // MARK: - Failed passes fall back to the CPU (§5.17)
 
-    @Test("A failed stretch pass renders on the CPU, the same as the CPU path")
-    func failedStretchUsesCPU() async throws {
+    @Test("A failed stretch pass renders on the CPU, the same as the CPU path", arguments: [false, true])
+    func failedStretchUsesCPU(flipRows: Bool) async throws {
         var pixels = Self.starField()
         let frame = pixels
         let rendered = try await MetalContext.$failsCommandBuffersForTesting.withValue(true) {
@@ -74,11 +74,11 @@ struct MetalFallbackTests {
             // cross from one closure or task into another.
             let input = try Self.buffer(frame)
             return await ImageStretcher.createImage(inputBuffer: input, width: Self.width,
-                                                    height: Self.height, maxDisplaySize: 256)
+                                                    height: Self.height, flipRows: flipRows, maxDisplaySize: 256)
         }
         let fallback = try #require(rendered)
         let cpu = try #require(ImageStretcher.createImage(from: &pixels, width: Self.width,
-                                                          height: Self.height, maxDisplaySize: 256))
+                                                          height: Self.height, flipRows: flipRows, maxDisplaySize: 256))
         let a = try Self.greyBytes(fallback), b = try Self.greyBytes(cpu)
         #expect(a.width == b.width && a.height == b.height)
         #expect(a.bytes == b.bytes)
@@ -94,13 +94,13 @@ struct MetalFallbackTests {
         let image = try await MetalContext.$failsCommandBuffersForTesting.withValue(true) {
             let failing = try Self.buffer(pixels)
             return await ImageStretcher.createBayerImage(inputBuffer: failing, width: Self.width,
-                                                         height: Self.height, rOffset: 0, clips: clips)
+                                                         height: Self.height, flipRows: false, rOffset: 0, clips: clips)
         }
         #expect(image == nil)
         // Without the forced failure the same call renders.
         let working = try Self.buffer(pixels)
         #expect(await ImageStretcher.createBayerImage(inputBuffer: working, width: Self.width,
-                                                      height: Self.height, rOffset: 0, clips: clips) != nil)
+                                                      height: Self.height, flipRows: false, rOffset: 0, clips: clips) != nil)
     }
 
     @Test("A failed detection pass detects on the CPU and still measures the stars")
@@ -154,15 +154,17 @@ struct MetalFallbackTests {
         256: (max: 78, mean: 1.22),
     ]
 
-    @Test("CPU and GPU stretch differ by no more than today (M1)", arguments: [0, 256])
-    func cpuGPUParity(maxDisplaySize: Int) async throws {
+    @Test("CPU and GPU stretch differ by no more than today (M1), in both row orders",
+          arguments: [0, 256], [false, true])
+    func cpuGPUParity(maxDisplaySize: Int, flipRows: Bool) async throws {
         var pixels = Self.starField()
         let input = try Self.buffer(pixels)
         let gpuImage = await ImageStretcher.createImage(inputBuffer: input, width: Self.width,
-                                                        height: Self.height, maxDisplaySize: maxDisplaySize)
+                                                        height: Self.height, flipRows: flipRows,
+                                                        maxDisplaySize: maxDisplaySize)
         let gpu = try #require(gpuImage)
         let cpu = try #require(ImageStretcher.createImage(from: &pixels, width: Self.width, height: Self.height,
-                                                          maxDisplaySize: maxDisplaySize))
+                                                          flipRows: flipRows, maxDisplaySize: maxDisplaySize))
         let g = try Self.greyBytes(gpu), c = try Self.greyBytes(cpu)
         try #require(g.width == c.width && g.height == c.height)
         let diffs = zip(g.bytes, c.bytes).map { abs(Int($0) - Int($1)) }

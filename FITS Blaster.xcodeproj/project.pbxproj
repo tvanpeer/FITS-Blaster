@@ -75,6 +75,7 @@
 				"Engine/ImageStretcher.swift",
 				"Engine/ImageStretcher+CPU.swift",
 				"Engine/QuickLookRendering.swift",
+				"Engine/RowOrder.swift",
 				"Engine/StretchClips.swift",
 			);
 			target = 653AE5D72F857C71008BBC9C /* FITSBlasterQL */;
@@ -104,6 +105,7 @@
 				"Engine/ImageStretcher.swift",
 				"Engine/ImageStretcher+CPU.swift",
 				"Engine/QuickLookRendering.swift",
+				"Engine/RowOrder.swift",
 				"Engine/StretchClips.swift",
 			);
 			target = 653AE5F82F859C2B008BBC9C /* FITSBlasterQLThumb */;

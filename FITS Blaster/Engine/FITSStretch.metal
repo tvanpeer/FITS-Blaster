@@ -22,6 +22,9 @@ struct StretchParams {
     /// into one luminance value, eliminating the screen-door pattern that appears
     /// when raw Bayer mosaics are displayed in greyscale without demosaicing.
     uint  bayerBin;
+    /// When 1, the rows are drawn last to first (ROWORDER = 'BOTTOM-UP'); 0 keeps the file's
+    /// order, top row first (TOP-DOWN or no ROWORDER, as other programs show it; issue #14).
+    uint  flipRows;
 };
 
 /// Stretch one value to UInt8: STF normalisation of [lo, hi] to [0, 1], then the MTF
@@ -38,7 +41,7 @@ static inline uchar stretchByte(float raw, float lo, float hi, float midtone) {
 
 /// Single-pass compute kernel that performs:
 ///   1. Box-filter downsample from full-resolution input to display size
-///   2. Vertical flip (FITS stores rows bottom-to-top)
+///   2. Vertical flip when flipRows is 1 (ROWORDER = 'BOTTOM-UP')
 ///   3. STF normalization: [shadowClip, highClip] → [0, 1]
 ///   4. MTF stretch (Midtone Transfer Function) + Float → UInt8
 ///
@@ -70,10 +73,10 @@ kernel void mtfStretch(
     uint lxEndExcl = uint(float(gid.x + 1u)   * scaleX);
     uint lxEnd     = min(lxEndExcl > lxStart ? lxEndExcl - 1u : lxStart, logW - 1u);
 
-    // Logical source row range with FITS vertical flip.
-    uint flippedY  = params.dstHeight - 1u - gid.y;
-    uint lyStart   = uint(float(flippedY)      * scaleY);
-    uint lyEndExcl = uint(float(flippedY + 1u) * scaleY);
+    // Logical source row range, flipped for a bottom-up file.
+    uint srcRowY   = params.flipRows ? params.dstHeight - 1u - gid.y : gid.y;
+    uint lyStart   = uint(float(srcRowY)      * scaleY);
+    uint lyEndExcl = uint(float(srcRowY + 1u) * scaleY);
     uint lyEnd     = min(lyEndExcl > lyStart ? lyEndExcl - 1u : lyStart, logH - 1u);
 
     // Map logical coordinates to physical pixel range.
@@ -124,11 +127,14 @@ struct BayerStretchParams {
     ///   bit 1 = row parity of R     (0 = even, 1 = odd)
     /// RGGB=0  GRBG=1  GBRG=2  BGGR=3
     uint  rOffset;
+    /// When 1, the rows are drawn last to first (ROWORDER = 'BOTTOM-UP'), as in
+    /// StretchParams. The Bayer pattern stays on the physical rows either way.
+    uint  flipRows;
 };
 
 /// Single-pass kernel:
 ///   1. Box-filter downsample from full-resolution input to display size
-///   2. Vertical flip (FITS rows are stored bottom-to-top)
+///   2. Vertical flip when flipRows is 1 (ROWORDER = 'BOTTOM-UP')
 ///   3. Per-channel (R/G/B) box average across the source footprint
 ///   4. Per-channel STF shadow clip + MTF stretch
 ///
@@ -167,10 +173,10 @@ kernel void bayerDebayerAndStretch(
     uint lxEndExcl = uint(float(outX + 1u)   * scaleX);
     uint lxEnd     = min(lxEndExcl > lxStart ? lxEndExcl - 1u : lxStart, logW - 1u);
 
-    // Logical source row range with FITS vertical flip.
-    uint flippedY  = params.dstHeight - 1u - outY;
-    uint lyStart   = uint(float(flippedY)      * scaleY);
-    uint lyEndExcl = uint(float(flippedY + 1u) * scaleY);
+    // Logical source row range, flipped for a bottom-up file.
+    uint srcRowY   = params.flipRows ? params.dstHeight - 1u - outY : outY;
+    uint lyStart   = uint(float(srcRowY)      * scaleY);
+    uint lyEndExcl = uint(float(srcRowY + 1u) * scaleY);
     uint lyEnd     = min(lyEndExcl > lyStart ? lyEndExcl - 1u : lyStart, logH - 1u);
 
     // Map logical coordinates to the physical pixel range: each logical pixel
@@ -239,9 +245,9 @@ kernel void bayerAverage(
     uint lxEndExcl = uint(float(outX + 1u)   * scaleX);
     uint lxEnd     = min(lxEndExcl > lxStart ? lxEndExcl - 1u : lxStart, logW - 1u);
 
-    uint flippedY  = params.dstHeight - 1u - outY;
-    uint lyStart   = uint(float(flippedY)      * scaleY);
-    uint lyEndExcl = uint(float(flippedY + 1u) * scaleY);
+    uint srcRowY   = params.flipRows ? params.dstHeight - 1u - outY : outY;
+    uint lyStart   = uint(float(srcRowY)      * scaleY);
+    uint lyEndExcl = uint(float(srcRowY + 1u) * scaleY);
     uint lyEnd     = min(lyEndExcl > lyStart ? lyEndExcl - 1u : lyStart, logH - 1u);
 
     uint sxStart = lxStart * 2u;
@@ -268,7 +274,7 @@ kernel void bayerAverage(
 }
 
 /// Stretches the averages of `bayerAverage` per channel. Only the clips, midtones and
-/// dstWidth/dstHeight of `params` are used. Output: RGBA UInt8, as `bayerDebayerAndStretch`.
+/// dstWidth/dstHeight of `params` are used; the averages are already the right way up. Output: RGBA UInt8, as `bayerDebayerAndStretch`.
 kernel void bayerStretchFromAverage(
     device const float*           averages     [[ buffer(0) ]],
     device       uchar4*          outputPixels [[ buffer(1) ]],

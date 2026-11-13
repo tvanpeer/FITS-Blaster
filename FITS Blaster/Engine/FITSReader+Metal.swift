@@ -91,7 +91,8 @@ extension FITSReader {
             minValue: range.min,
             maxValue: range.max,
             headers: header.headers,
-            bayerPattern: BayerPattern.parse(from: header.headers)
+            bayerPattern: BayerPattern.parse(from: header.headers),
+            rowOrder: RowOrder.parse(from: header.headers)
         )
 
         return FITSBufferResult(metadata: metadata, metalBuffer: metalBuffer)

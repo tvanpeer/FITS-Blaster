@@ -51,6 +51,8 @@ struct FITSMetadata {
     let headers: [String: String]
     /// Non-nil when the FITS headers declare a recognised Bayer CFA pattern.
     let bayerPattern: BayerPattern?
+    /// Which way up the rows are drawn (ROWORDER; issue #14).
+    let rowOrder: RowOrder
 }
 
 /// Represents a parsed FITS image with its raw pixel data and metadata.
@@ -68,4 +70,6 @@ struct FITSImage {
     let headers: [String: String]
     /// Non-nil when the FITS headers declare a recognised Bayer CFA pattern.
     let bayerPattern: BayerPattern?
+    /// Which way up the rows are drawn (ROWORDER; issue #14).
+    let rowOrder: RowOrder
 }

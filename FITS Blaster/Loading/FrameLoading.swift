@@ -69,6 +69,7 @@ enum FrameLoading {
         guard let display = await ImageStretcher.createBayerImage(
             inputBuffer: result.metalBuffer,
             width: result.metadata.width, height: result.metadata.height,
+            flipRows: result.metadata.rowOrder.flipsRows,
             rOffset: rOffset, clips: clips, maxDisplaySize: maxDisplaySize
         ) else { return nil }
 
@@ -86,24 +87,26 @@ enum FrameLoading {
         if case .cpuGrey(let maxDisplaySize) = recipe {
             guard var fits = try? FITSReader.read(from: url) else { return nil }
             return ImageStretcher.createImage(from: &fits.pixelValues, width: fits.width, height: fits.height,
-                                              maxDisplaySize: maxDisplaySize)
+                                              flipRows: fits.rowOrder.flipsRows, maxDisplaySize: maxDisplaySize)
         }
         guard let device = MetalContext.device,
               let result = try? FITSReader.readIntoBuffer(from: url, device: device)
         else { return nil }
         let width = result.metadata.width, height = result.metadata.height
+        let flipRows = result.metadata.rowOrder.flipsRows
 
         switch recipe {
         case .grey(let bayerPattern, let maxDisplaySize):
             return await ImageStretcher.createImage(inputBuffer: result.metalBuffer, width: width, height: height,
+                                                    flipRows: flipRows,
                                                     maxDisplaySize: maxDisplaySize, bayerPattern: bayerPattern)
         case .sharedGrey(let clips, let bayerPattern, let maxDisplaySize):
             return await ImageStretcher.createImage(inputBuffer: result.metalBuffer, width: width, height: height,
-                                                    clips: clips, maxDisplaySize: maxDisplaySize,
+                                                    flipRows: flipRows, clips: clips, maxDisplaySize: maxDisplaySize,
                                                     bayerPattern: bayerPattern)
         case .colour(let rOffset, let clips, let maxDisplaySize):
             return await ImageStretcher.createBayerImage(inputBuffer: result.metalBuffer, width: width, height: height,
-                                                         rOffset: rOffset, clips: clips,
+                                                         flipRows: flipRows, rOffset: rOffset, clips: clips,
                                                          maxDisplaySize: maxDisplaySize)
         case .cpuGrey:
             return nil   // handled above, without a Metal buffer
@@ -148,6 +151,7 @@ enum FrameLoading {
                 info: "\(meta.width) × \(meta.height)  |  BITPIX: \(meta.bitpix)",
                 error: nil, histogram: nil, headers: meta.headers,
                 metalBuffer: bufferResult.metalBuffer, bayerPattern: meta.bayerPattern,
+                rowOrder: meta.rowOrder,
                 width: meta.width, height: meta.height,
                 bayerClips: nil, greyClips: nil)
         }
@@ -166,6 +170,7 @@ enum FrameLoading {
             // eliminating the screen-door effect on raw Bayer mosaic files.
             let display = await ImageStretcher.createImage(inputBuffer: bufferResult.metalBuffer,
                                                            width: meta.width, height: meta.height,
+                                                           flipRows: meta.rowOrder.flipsRows,
                                                            maxDisplaySize: maxDisplaySize,
                                                            bayerPattern: meta.bayerPattern)
             let bayerClips: BayerClips?
@@ -194,6 +199,7 @@ enum FrameLoading {
                 info: "\(meta.width) × \(meta.height)  |  BITPIX: \(meta.bitpix)",
                 error: nil, histogram: histogram, headers: meta.headers,
                 metalBuffer: bufferResult.metalBuffer, bayerPattern: meta.bayerPattern,
+                rowOrder: meta.rowOrder,
                 width: meta.width, height: meta.height,
                 bayerClips: bayerClips, greyClips: greyClips,
                 recipe: display == nil ? nil : .grey(bayerPattern: meta.bayerPattern,
@@ -207,7 +213,7 @@ enum FrameLoading {
                 // Phase B reads the file again on this path (no Metal buffer).
                 return FastLoadResult(display: nil, thumb: nil, info: info, error: nil,
                                       histogram: nil, headers: fits.headers,
-                                      metalBuffer: nil, bayerPattern: fits.bayerPattern,
+                                      metalBuffer: nil, bayerPattern: fits.bayerPattern, rowOrder: fits.rowOrder,
                                       width: fits.width, height: fits.height,
                                       bayerClips: nil, greyClips: nil)
             }
@@ -215,6 +221,7 @@ enum FrameLoading {
                                                                minVal: fits.minValue, maxVal: fits.maxValue)
             let display = ImageStretcher.createImage(from: &fits.pixelValues,
                                                      width: fits.width, height: fits.height,
+                                                     flipRows: fits.rowOrder.flipsRows,
                                                      maxDisplaySize: maxDisplaySize)
             let headers = fits.headers
             let w = fits.width, h = fits.height
@@ -222,7 +229,7 @@ enum FrameLoading {
             let thumb = display.flatMap { ImageStretcher.createThumbnail(from: $0, maxSize: maxThumbnailSize) }
             return FastLoadResult(display: display, thumb: thumb, info: info, error: nil,
                                   histogram: histogram, headers: headers,
-                                  metalBuffer: nil, bayerPattern: fits.bayerPattern,
+                                  metalBuffer: nil, bayerPattern: fits.bayerPattern, rowOrder: fits.rowOrder,
                                   width: w, height: h,
                                   bayerClips: nil, greyClips: nil,
                                   recipe: display == nil ? nil : .cpuGrey(maxDisplaySize: maxDisplaySize))
@@ -231,7 +238,7 @@ enum FrameLoading {
         } catch {
             return FastLoadResult(display: nil, thumb: nil, info: "", error: error.localizedDescription,
                                   histogram: nil, headers: [:],
-                                  metalBuffer: nil, bayerPattern: nil,
+                                  metalBuffer: nil, bayerPattern: nil, rowOrder: .topDown,
                                   width: 0, height: 0,
                                   bayerClips: nil, greyClips: nil)
         }
@@ -254,6 +261,8 @@ struct FastLoadResult {
     let metalBuffer: MTLBuffer?
     /// The CFA pattern from the header, nil for mono and RGB images.
     let bayerPattern: BayerPattern?
+    /// Which way up the rows are drawn (ROWORDER; issue #14); the colour proxy needs it.
+    let rowOrder:    RowOrder
     let width:       Int
     let height:      Int
     /// Per-channel Bayer clip bounds computed during the grey-pass.
@@ -271,7 +280,7 @@ struct FastLoadResult {
     /// The result for a file in an unsupported format.
     static var unsupported: FastLoadResult { FastLoadResult(display: nil, thumb: nil, info: "", error: nil,
                                             histogram: nil, headers: [:],
-                                            metalBuffer: nil, bayerPattern: nil,
+                                            metalBuffer: nil, bayerPattern: nil, rowOrder: .topDown,
                                             width: 0, height: 0,
                                             bayerClips: nil, greyClips: nil, isUnsupported: true) }
 }

@@ -736,6 +736,7 @@ final class LoadPipeline {
                         if await proxies.reserve(bytes) {
                             if let proxy = await ImageStretcher.averageBayer(
                                 inputBuffer: buffer, width: fast.width, height: fast.height,
+                                flipRows: fast.rowOrder.flipsRows,
                                 rOffset: pattern.rOffset, maxDisplaySize: maxDisplaySize) {
                                 await proxies.store(proxy, for: entryID)
                             } else {
@@ -1052,6 +1053,7 @@ final class LoadPipeline {
             let display = await ImageStretcher.createImage(
                 inputBuffer: result.metalBuffer,
                 width: result.metadata.width, height: result.metadata.height,
+                flipRows: result.metadata.rowOrder.flipsRows,
                 clips: clips, maxDisplaySize: maxDisplaySize,
                 bayerPattern: item.bayerPattern)
             let thumb = display.flatMap {
