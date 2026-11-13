@@ -92,6 +92,10 @@ def build_release():
     return derived / "Build" / "Products" / "Release" / "FITS Blaster.app"
 
 
+# The CLI's exit code when no frame passes the filter (CLIExitCode.nothingPassed).
+NOTHING_PASSED = 3
+
+
 def run_cli(executable, folder, out_dir, name):
     """Runs the CLI unfiltered and filtered; returns (rows, kept names)."""
     all_csv = out_dir / f"{name}.csv"
@@ -99,10 +103,11 @@ def run_cli(executable, folder, out_dir, name):
     for args, path in (([], all_csv), (FILTER_ARGS, kept_csv)):
         result = subprocess.run([str(executable), str(folder), *args, "-o", str(path)],
                                 capture_output=True, text=True)
-        if result.returncode != 0:
+        # Exit 3 on the filtered run: no frame passed (the flat set). Since step 12b the CLI
+        # then writes a CSV with only the header row, which reads as "nothing kept".
+        nothing_passed = bool(args) and result.returncode == NOTHING_PASSED
+        if result.returncode != 0 and not nothing_passed:
             sys.exit(f"CLI failed on {name} (exit {result.returncode}):\n{result.stderr}")
-        if args and "no frames passed" in result.stderr:
-            path.write_text("path\n")  # the CLI exports everything when nothing passes
     return read_results(all_csv, kept_csv)
 
 

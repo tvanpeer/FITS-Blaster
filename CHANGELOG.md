@@ -4,6 +4,13 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-11-13 — Metric baselines work again with the flat set
+
+### Fixed
+- **`scripts/metric-baselines.py` stopped at `california-flat` without comparing anything.** Since step 12b the command line exits with code 3 when no frame passes the filter, which is the expected result for the flats; the script treated every non-zero exit as a failure. It now accepts exit 3 on the filtered run (the CSV then has only the header row, so nothing is kept) and no longer looks for the old "no frames passed" text. All 14 sets pass on b57016e.
+
+---
+
 ## 2026-11-13 — Auto-Flag remembers its settings (issue #15)
 
 ### New
