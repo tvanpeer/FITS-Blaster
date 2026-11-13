@@ -210,7 +210,7 @@ struct OpenFolderTests {
         try FileManager.default.copyItem(at: source.appending(component: "a.fits"), to: second.appending(component: "b.fits"))
 
         let store = ImageStore()
-        store.openDroppedItems([first, second], settings: AppSettings())
+        store.openDroppedItems([first, second], includeSubfolders: false, includeRejected: false, settings: AppSettings())
         await store.pipeline.waitForProcessing()
 
         #expect(Set(store.entries.map(\.rootFolderName)) == ["Night 1", "Night 2"])
@@ -223,7 +223,7 @@ struct OpenFolderTests {
         defer { try? FileManager.default.removeItem(at: parent) }
         let store = ImageStore()
 
-        store.openDroppedItems(folders, settings: AppSettings())
+        store.openDroppedItems(folders, includeSubfolders: false, includeRejected: false, settings: AppSettings())
         await store.pipeline.waitForProcessing()
 
         #expect(store.entries.count == 4)
@@ -237,7 +237,7 @@ struct OpenFolderTests {
         defer { try? FileManager.default.removeItem(at: folder) }
         let store = ImageStore()
         store.openDroppedItems([folder.appending(component: "a.fits"), folder.appending(component: "b.FIT")],
-                               settings: AppSettings())
+                               includeSubfolders: false, includeRejected: false, settings: AppSettings())
         await store.pipeline.waitForProcessing()
 
         #expect(store.entries.allSatisfy { $0.rootFolderName == folder.lastPathComponent })
@@ -251,13 +251,55 @@ struct OpenFolderTests {
         defer { try? FileManager.default.removeItem(at: first); try? FileManager.default.removeItem(at: second) }
 
         let store = ImageStore()
-        store.openDroppedItems([first], settings: AppSettings())
-        store.openDroppedItems([second], settings: AppSettings())
+        store.openDroppedItems([first], includeSubfolders: false, includeRejected: false, settings: AppSettings())
+        store.openDroppedItems([second], includeSubfolders: false, includeRejected: false, settings: AppSettings())
         await store.pipeline.waitForProcessing()
         await store.pipeline.waitForProcessing()
 
         #expect(store.entries.count == 4)
         #expect(store.isAlreadyLoaded(first) && store.isAlreadyLoaded(second))
+    }
+
+    @Test("A dropped folder with REJECTED included: its rejected frame is loaded and marked (issue #13)")
+    func droppedFolderWithRejected() async throws {
+        let folder = try makeFolder()
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let store = ImageStore()
+
+        store.openDroppedItems([folder], includeSubfolders: false, includeRejected: true,
+                               settings: AppSettings())
+        await store.pipeline.waitForProcessing()
+
+        #expect(store.entries.count == 3)
+        #expect(store.entries.filter(\.isRejected).map(\.fileName) == ["c.fits"])
+    }
+
+    @Test("A dropped folder without REJECTED: only the two frames in the folder are loaded")
+    func droppedFolderWithoutRejected() async throws {
+        let folder = try makeFolder()
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let store = ImageStore()
+
+        store.openDroppedItems([folder], includeSubfolders: false, includeRejected: false,
+                               settings: AppSettings())
+        await store.pipeline.waitForProcessing()
+
+        #expect(store.entries.map(\.fileName).sorted() == ["a.fits", "b.FIT"])
+        #expect(store.entries.allSatisfy { !$0.isRejected })
+    }
+
+    @Test("A frame dropped on its own from a REJECTED folder is not marked rejected")
+    func droppedRejectedFileNotMarked() async throws {
+        let folder = try makeFolder()
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let store = ImageStore()
+
+        store.openDroppedItems([folder.appending(components: "REJECTED", "c.fits")], includeSubfolders: false,
+                               includeRejected: true, settings: AppSettings())
+        await store.pipeline.waitForProcessing()
+
+        #expect(store.entries.map(\.fileName) == ["c.fits"])
+        #expect(store.entries.allSatisfy { !$0.isRejected })
     }
 
     // MARK: - Progress while preparing a load
@@ -354,7 +396,7 @@ struct OpenFolderTests {
         await store.pipeline.waitForProcessing()
         #expect(store.pipeline.preparation == nil)
 
-        store.openDroppedItems([folder], settings: AppSettings())
+        store.openDroppedItems([folder], includeSubfolders: false, includeRejected: false, settings: AppSettings())
         await store.pipeline.waitForProcessing()
         #expect(store.pipeline.preparation == nil)
     }

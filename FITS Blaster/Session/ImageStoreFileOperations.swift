@@ -609,13 +609,21 @@ extension ImageStore {
         }, uniquingKeysWith: { first, _ in first })
     }
 
+    /// Opens items dropped on the window or the Dock icon, or opened from Finder, with the
+    /// folder options from Settings (the Open Folder dialog starts from the same two).
+    func openDroppedItems(_ urls: [URL], settings: AppSettings) {
+        openDroppedItems(urls, includeSubfolders: settings.includeSubfolders,
+                         includeRejected: settings.includeRejectedFolder, settings: settings)
+    }
+
     /// Opens dropped URLs (folders and/or individual FITS files) from a drag & drop operation.
     ///
-    /// Folders are scanned according to `settings.includeSubfolders`. Individual FITS files
-    /// are always added directly. Files from different directories are merged into the session.
-    func openDroppedItems(_ urls: [URL], settings: AppSettings) {
+    /// Folders are scanned with the two options; frames in a dropped folder's REJECTED folder
+    /// are marked rejected (issue #13; before, a drop never included REJECTED). Individual FITS
+    /// files are always added directly. Files from different directories are merged into the session.
+    func openDroppedItems(_ urls: [URL], includeSubfolders: Bool, includeRejected: Bool,
+                          settings: AppSettings) {
         let excludedSet = Set(settings.excludedSubfolderNames.map { $0.lowercased() })
-        let includeSubfolders = settings.includeSubfolders
 
         // Sort out folders and files now, and make each dropped folder's bookmark while
         // the drop's access is fresh (CODE_AUDIT §5.13); the scan follows off the main thread.
@@ -642,16 +650,19 @@ extension ImageStore {
             // Each frame's root folder name, so the sidebar shows a section per dropped
             // folder; a dropped file counts as being in its parent folder.
             var rootNames: [URL: String] = [:]
+            // Frames in a REJECTED folder of a dropped folder; a dropped file is never marked.
+            var rejectedURLs: Set<URL> = []
             for item in items {
                 if item.isFolder {
                     // Off the main thread: a large folder on a NAS doesn't freeze the window (§7.4).
                     self?.pipeline.preparation = .scanning(folder: item.url.lastPathComponent)
                     let found = await Self.scanFolder(item.url, excludedNames: excludedSet,
                                                       includeSubfolders: includeSubfolders,
-                                                      includeRejected: false)
+                                                      includeRejected: includeRejected)
                     self?.pipeline.preparation = nil
                     guard !Task.isCancelled else { return }
                     collected.append(contentsOf: found)
+                    rejectedURLs.formUnion(includeRejected ? RejectedFolder.rejectedURLs(in: found) : [])
                     for frame in found { rootNames[frame.url] = names[item.url] ?? item.url.lastPathComponent }
                 } else {
                     collected.append((item.url, ""))
@@ -671,7 +682,8 @@ extension ImageStore {
             // Track dropped folder URLs so we can detect if the same folder is dropped again.
             for item in items where item.isFolder { knownRootURLs.insert(item.url) }
 
-            pipeline.openFiles(collected, rootFolderName: folderRootName, rootFolderNames: rootNames,
+            pipeline.openFiles(collected, rejectedURLs: rejectedURLs,
+                      rootFolderName: folderRootName, rootFolderNames: rootNames,
                       maxDisplaySize: settings.maxDisplaySize,
                       maxThumbnailSize: settings.thumbnailRenderSize,
                       metricsConfig: settings.effectiveMetricsConfig,

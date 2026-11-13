@@ -104,7 +104,7 @@ struct CLIRunTests {
         let folder = try makeFolder(floatingPoint: true)
         defer { remove(folder) }
         let store = ImageStore()
-        store.openDroppedItems([folder], settings: AppSettings())
+        store.openDroppedItems([folder], includeSubfolders: false, includeRejected: false, settings: AppSettings())
         await store.pipeline.waitForProcessing()
         #expect(CLIRunner.unreadableFiles(in: store).map(\.fileName) == ["stack.fits"])
 

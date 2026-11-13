@@ -166,7 +166,7 @@ struct FrameMenuTests {
         for name in ["a", "b", "c"] { try data.write(to: folder.appending(component: "\(name).fits")) }
 
         let store = ImageStore()
-        store.openDroppedItems([folder], settings: AppSettings())
+        store.openDroppedItems([folder], includeSubfolders: false, includeRejected: false, settings: AppSettings())
         await store.pipeline.waitForProcessing()
         let a = try #require(store.entries.first { $0.fileName == "a.fits" })
         let b = try #require(store.entries.first { $0.fileName == "b.fits" })

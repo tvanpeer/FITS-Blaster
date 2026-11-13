@@ -29,7 +29,7 @@ struct BatchRejectTests {
             try data.write(to: folder.appending(component: "f\(i < 10 ? "0" : "")\(i).fits"))
         }
         let store = ImageStore()
-        store.openDroppedItems([folder], settings: AppSettings())
+        store.openDroppedItems([folder], includeSubfolders: false, includeRejected: false, settings: AppSettings())
         await store.pipeline.waitForProcessing()
         return (folder, store)
     }

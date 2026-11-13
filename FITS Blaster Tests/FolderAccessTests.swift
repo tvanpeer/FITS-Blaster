@@ -48,7 +48,7 @@ struct FolderAccessTests {
         defer { try? FileManager.default.removeItem(at: first); try? FileManager.default.removeItem(at: second) }
 
         let store = ImageStore()
-        store.openDroppedItems([first, second], settings: AppSettings())
+        store.openDroppedItems([first, second], includeSubfolders: false, includeRejected: false, settings: AppSettings())
         await store.pipeline.waitForProcessing()
 
         let a = try #require(store.entries.first { $0.fileName == "a.fits" })
@@ -77,7 +77,7 @@ struct FolderAccessTests {
         defer { try? setReadOnly(folder, false); try? FileManager.default.removeItem(at: folder) }
         let store = ImageStore()
         store.asksForFolderAccess = true
-        store.openDroppedItems([folder.appending(component: "a.fits")], settings: AppSettings())
+        store.openDroppedItems([folder.appending(component: "a.fits")], includeSubfolders: false, includeRejected: false, settings: AppSettings())
         await store.pipeline.waitForProcessing()
         let entry = try #require(store.entries.first)
 
@@ -103,7 +103,7 @@ struct FolderAccessTests {
         defer { try? setReadOnly(folder, false); try? FileManager.default.removeItem(at: folder) }
         let store = ImageStore()
         store.asksForFolderAccess = true
-        store.openDroppedItems([folder.appending(component: "a.fits")], settings: AppSettings())
+        store.openDroppedItems([folder.appending(component: "a.fits")], includeSubfolders: false, includeRejected: false, settings: AppSettings())
         await store.pipeline.waitForProcessing()
         let entry = try #require(store.entries.first)
 
@@ -125,7 +125,7 @@ struct FolderAccessTests {
         }
         let store = ImageStore()
         store.asksForFolderAccess = true
-        store.openDroppedItems([folder.appending(component: "a.fits")], settings: AppSettings())
+        store.openDroppedItems([folder.appending(component: "a.fits")], includeSubfolders: false, includeRejected: false, settings: AppSettings())
         await store.pipeline.waitForProcessing()
         let entry = try #require(store.entries.first)
 
@@ -142,7 +142,7 @@ struct FolderAccessTests {
         defer { try? setReadOnly(folder, false); try? FileManager.default.removeItem(at: folder) }
         let store = ImageStore()
         store.asksForFolderAccess = false
-        store.openDroppedItems([folder.appending(component: "a.fits")], settings: AppSettings())
+        store.openDroppedItems([folder.appending(component: "a.fits")], includeSubfolders: false, includeRejected: false, settings: AppSettings())
         await store.pipeline.waitForProcessing()
         let entry = try #require(store.entries.first)
 

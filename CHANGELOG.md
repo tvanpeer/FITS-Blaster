@@ -4,6 +4,16 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-11-13 — Dropped folders include their REJECTED folder (issue #13)
+
+### Fixed
+- **A dropped folder now follows "Include REJECTED folder"** (Settings → Files & Folders), as Open Folder does: the frames in its REJECTED folder are loaded and shown as rejected. Before, a drop always left them out. This also applies to folders dropped on the Dock icon or opened from Finder. A single frame dropped from a REJECTED folder is still loaded as a normal frame.
+
+### Under the hood
+- `openDroppedItems` takes the two folder options explicitly (the app passes the Settings values), so tests no longer depend on the user's own settings. New tests in `OpenFolderTests`; the lint baseline counts for two over-long files were updated.
+
+---
+
 ## 2026-11-11 — Overview of all scripts
 
 ### Under the hood
