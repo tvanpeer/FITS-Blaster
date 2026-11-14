@@ -311,7 +311,7 @@
     <div class="beta-badge">Beta</div>
     <p>Test the latest features before they ship. Beta builds may contain bugs.</p>
     <!-- beta-button-start -->
-    <a class="download-btn" href="https://github.com/tvanpeer/FITS-Blaster/releases/download/v1.24-beta.5/FITS-Blaster-1.24-beta.5.dmg">Download Beta 1.24-beta.5</a>
+    <a class="download-btn" href="https://github.com/tvanpeer/FITS-Blaster/releases/download/v1.24-beta.6/FITS-Blaster-1.24-beta.6.dmg">Download Beta 1.24-beta.6</a>
     <p class="download-sub">macOS 15.6 or later &nbsp;&middot;&nbsp; Free</p>
     <!-- beta-button-end -->
 </header>
@@ -328,6 +328,33 @@
     <h2>Beta release notes</h2>
     <p class="list-note">All betas since the last stable release, newest first.</p>
     <!-- beta-entry-start -->
+    <!-- v1.24-beta.6 -->
+    <div class="entry">
+        <div class="entry-header">
+            <div class="entry-title">1.24 beta 6: frames the right way up, Auto-Flag remembers its settings — v1.24-beta.6</div>
+            <div class="entry-date">2026-11-14 &nbsp;&middot;&nbsp; <a class="entry-link" href="https://github.com/tvanpeer/FITS-Blaster/releases/tag/v1.24-beta.6">GitHub release &#8599;</a></div>
+        </div>
+        <div class="section">
+            <span class="section-label label-changed">Changed</span>
+            <ul>
+                <li><strong>Frames are shown the same way up as in PixInsight, Astro Pixel Processor and ASI Studio</strong> (GitHub issue #14). FITS Blaster used to flip every frame vertically, so its pictures were upside down compared with those programs. Now only frames whose header says <code>ROWORDER = 'BOTTOM-UP'</code> are flipped; N.I.N.A. frames (<code>TOP-DOWN</code>) and frames without the header are shown as stored. This applies to the viewer, the thumbnails and Quick Look. Finder may show cached thumbnails the old way up for a while. Flip 180° (V) works as before.</li>
+            </ul>
+        </div>
+        <div class="section">
+            <span class="section-label label-added">Added</span>
+            <ul>
+                <li><strong>The Auto-Flag sheet keeps its settings between sessions</strong> (GitHub issue #15): mode, the checks that are on and their thresholds are saved when the sheet closes and come back the next time, also after a restart. <strong>Reset to Defaults</strong> in the sheet's header puts them all back. The command line keeps its own options.</li>
+            </ul>
+        </div>
+        <div class="section">
+            <span class="section-label label-fixed">Fixed</span>
+            <ul>
+                <li><strong>A dropped folder now follows "Include REJECTED folder"</strong> (Settings → Files &amp; Folders), as Open Folder does (GitHub issue #13). This also applies to folders dropped on the Dock icon or opened from Finder.</li>
+                <li><strong>Dropping a folder or files on the Dock icon no longer opens a second window</strong> (GitHub issue #17); they load in the existing window, also when the drop starts the app.</li>
+            </ul>
+        </div>
+    </div>
+
     <!-- v1.24-beta.5 -->
     <div class="entry">
         <div class="entry-header">

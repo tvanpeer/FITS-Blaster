@@ -6,6 +6,35 @@
         <description>Beta release notes for FITS Blaster</description>
         <language>en-us</language>
         <item>
+            <title>FITS Blaster 1.24-beta.6</title>
+            <pubDate>Sat, 14 Nov 2026 08:24:22 +0000</pubDate>
+            <sparkle:version>215</sparkle:version>
+            <sparkle:shortVersionString>1.24-beta.6</sparkle:shortVersionString>
+            <description><![CDATA[
+<h2>2026-11-14 — 1.24 beta 6: frames the right way up, Auto-Flag remembers its settings</h2>
+<h3>Changed</h3>
+<ul>
+  <li><b>Frames are shown the same way up as in PixInsight, Astro Pixel Processor and ASI Studio</b> (GitHub issue #14). FITS Blaster used to flip every frame vertically, so its pictures were upside down compared with those programs. Now only frames whose header says `ROWORDER = &#x27;BOTTOM-UP&#x27;` are flipped; N.I.N.A. frames (`TOP-DOWN`) and frames without the header are shown as stored. This applies to the viewer, the thumbnails and Quick Look. Finder may show cached thumbnails the old way up for a while. Flip 180° (V) works as before.</li>
+</ul>
+<h3>Added</h3>
+<ul>
+  <li><b>The Auto-Flag sheet keeps its settings between sessions</b> (GitHub issue #15): mode, the checks that are on and their thresholds are saved when the sheet closes and come back the next time, also after a restart. <b>Reset to Defaults</b> in the sheet&#x27;s header puts them all back. The command line keeps its own options.</li>
+</ul>
+<h3>Fixed</h3>
+<ul>
+  <li><b>A dropped folder now follows &quot;Include REJECTED folder&quot;</b> (Settings → Files &amp; Folders), as Open Folder does (GitHub issue #13). This also applies to folders dropped on the Dock icon or opened from Finder.</li>
+  <li><b>Dropping a folder or files on the Dock icon no longer opens a second window</b> (GitHub issue #17); they load in the existing window, also when the drop starts the app.</li>
+</ul>
+<p>---</p>
+<p>**[Full changelog](https://astrophoto-app.com/changelog.html)**</p>
+            ]]></description>
+            <enclosure
+                url="https://github.com/tvanpeer/FITS-Blaster/releases/download/v1.24-beta.6/FITS-Blaster-1.24-beta.6.dmg"
+                length="9037399"
+                type="application/octet-stream"
+                sparkle:edSignature="DOQncPjOGg13tuOiIJKMlkVNfHiP20URQocSfQEN0bbzusZbdE67G9eo3NRLIHPI4myc/DHpNVTB4nZrH6hVBQ==" />
+        </item>
+        <item>
             <title>FITS Blaster 1.24-beta.5</title>
             <pubDate>Tue, 10 Nov 2026 09:07:23 +0000</pubDate>
             <sparkle:version>214</sparkle:version>
