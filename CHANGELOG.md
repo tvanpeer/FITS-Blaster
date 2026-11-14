@@ -4,6 +4,13 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-11-14 — Beta page: the beta next to the App Store version
+
+### Website
+- **The beta page says what happens when the beta is installed next to the Mac App Store version:** it doesn't replace it, the two keep separate settings, double-clicking a FITS file opens the beta, and Finder's previews and thumbnails still come from the App Store version. Tested on macOS 27.2 in a VM with the App Store configuration of 1.23.1 (208), built from the v1.23.1 tag, and the published 1.24-beta.6 DMG. Not tested: a real App Store install, which can't sign in inside the VM.
+
+---
+
 ## 2026-11-14 — 1.24 beta 6: frames the right way up, Auto-Flag remembers its settings
 
 ### Changed
