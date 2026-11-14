@@ -4,6 +4,20 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-11-14 — 1.24 beta 6: frames the right way up, Auto-Flag remembers its settings
+
+### Changed
+- **Frames are shown the same way up as in PixInsight, Astro Pixel Processor and ASI Studio** (GitHub issue #14). FITS Blaster used to flip every frame vertically, so its pictures were upside down compared with those programs. Now only frames whose header says `ROWORDER = 'BOTTOM-UP'` are flipped; N.I.N.A. frames (`TOP-DOWN`) and frames without the header are shown as stored. This applies to the viewer, the thumbnails and Quick Look. Finder may show cached thumbnails the old way up for a while. Flip 180° (V) works as before.
+
+### Added
+- **The Auto-Flag sheet keeps its settings between sessions** (GitHub issue #15): mode, the checks that are on and their thresholds are saved when the sheet closes and come back the next time, also after a restart. **Reset to Defaults** in the sheet's header puts them all back. The command line keeps its own options.
+
+### Fixed
+- **A dropped folder now follows "Include REJECTED folder"** (Settings → Files & Folders), as Open Folder does (GitHub issue #13). This also applies to folders dropped on the Dock icon or opened from Finder.
+- **Dropping a folder or files on the Dock icon no longer opens a second window** (GitHub issue #17); they load in the existing window, also when the drop starts the app.
+
+---
+
 ## 2026-11-13 — Frames the right way up (issue #14)
 
 ### Changed
