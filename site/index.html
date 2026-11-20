@@ -503,8 +503,8 @@
 
 <script>
 // Screenshot carousel: arrows, dots, arrow keys, swipe (scroll snap), full size on click.
-// Autoplay every 6 s; pauses on hover, focus or full-size view, stops for good once the
-// visitor picks a slide, and doesn't run with Reduce Motion.
+// Autoplay every 6 s; pauses on hover or full-size view and for 20 s after the visitor
+// changes the slide (arrows, dots, keys, swipe), and doesn't run with Reduce Motion.
 (function () {
     const gallery = document.querySelector('.gallery');
     if (!gallery) return;
@@ -516,7 +516,9 @@
     const zoomImg = zoom.querySelector('img');
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     let current = 0;
-    let autoplay = !reduceMotion;
+    const autoplayDelay = 6000;
+    const pauseAfterUse = 20000;
+    let lastUse = 0;
     let hovering = false;
 
     function show(index) {
@@ -528,21 +530,24 @@
         show(index);
         track.scrollTo({ left: current * track.clientWidth, behavior: reduceMotion ? 'auto' : 'smooth' });
     }
-    function stopAutoplay() { autoplay = false; }
+    function used() { lastUse = Date.now(); }
 
-    gallery.querySelector('.gallery-prev').addEventListener('click', () => { stopAutoplay(); go(current - 1); });
-    gallery.querySelector('.gallery-next').addEventListener('click', () => { stopAutoplay(); go(current + 1); });
-    dots.forEach((dot, i) => dot.addEventListener('click', () => { stopAutoplay(); go(i); }));
+    gallery.querySelector('.gallery-prev').addEventListener('click', () => { used(); go(current - 1); });
+    gallery.querySelector('.gallery-next').addEventListener('click', () => { used(); go(current + 1); });
+    dots.forEach((dot, i) => dot.addEventListener('click', () => { used(); go(i); }));
 
-    // Swiping or scrolling the track by hand.
-    ['pointerdown', 'touchstart', 'wheel'].forEach(type =>
-        track.addEventListener(type, stopAutoplay, { passive: true }));
+    // Swiping by hand: a touch on the track, or a sideways trackpad swipe. Scrolling the
+    // page up or down over the carousel doesn't count.
+    track.addEventListener('touchstart', used, { passive: true });
+    track.addEventListener('wheel', event => {
+        if (Math.abs(event.deltaX) > Math.abs(event.deltaY)) used();
+    }, { passive: true });
     let scrollTimer;
     track.addEventListener('scroll', () => {
         clearTimeout(scrollTimer);
         scrollTimer = setTimeout(() => {
             const index = Math.round(track.scrollLeft / track.clientWidth);
-            if (index !== current) show(index);
+            if (index !== current) { used(); show(index); }
         }, 80);
     }, { passive: true });
 
@@ -552,7 +557,7 @@
         const tag = document.activeElement && document.activeElement.tagName;
         if (tag === 'INPUT' || tag === 'TEXTAREA') return;
         event.preventDefault();
-        stopAutoplay();
+        used();
         go(current + (event.key === 'ArrowRight' ? 1 : -1));
     });
 
@@ -570,10 +575,10 @@
     });
 
     setInterval(() => {
-        if (!autoplay || hovering || zoom.open || document.hidden) return;
-        if (gallery.contains(document.activeElement)) return;
+        if (reduceMotion || hovering || zoom.open || document.hidden) return;
+        if (Date.now() - lastUse < pauseAfterUse) return;
         go(current + 1);
-    }, 6000);
+    }, autoplayDelay);
 
     show(0);
 })();
