@@ -536,9 +536,9 @@
     gallery.querySelector('.gallery-next').addEventListener('click', () => { used(); go(current + 1); });
     dots.forEach((dot, i) => dot.addEventListener('click', () => { used(); go(i); }));
 
-    // Swiping by hand: a touch on the track, or a sideways trackpad swipe. Scrolling the
-    // page up or down over the carousel doesn't count.
-    track.addEventListener('touchstart', used, { passive: true });
+    // Swiping by hand: a sideways trackpad swipe, or a swipe that lands on another slide
+    // (the scroll check below). A touch alone, or scrolling the page up or down over the
+    // carousel, doesn't count.
     track.addEventListener('wheel', event => {
         if (Math.abs(event.deltaX) > Math.abs(event.deltaY)) used();
     }, { passive: true });
@@ -568,8 +568,14 @@
     }));
     zoom.addEventListener('click', () => zoom.close());
 
-    gallery.addEventListener('mouseenter', () => { hovering = true; });
-    gallery.addEventListener('mouseleave', () => { hovering = false; });
+    // Only a mouse or trackpad pointer pauses on hover; on a touch screen a tap would
+    // count as hovering until the next tap elsewhere.
+    gallery.addEventListener('pointerenter', event => {
+        if (event.pointerType === 'mouse') hovering = true;
+    });
+    gallery.addEventListener('pointerleave', event => {
+        if (event.pointerType === 'mouse') hovering = false;
+    });
     window.addEventListener('resize', () => {
         track.scrollTo({ left: current * track.clientWidth, behavior: 'auto' });
     });
