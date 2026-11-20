@@ -303,7 +303,7 @@
         </div>
         <div class="interface-item">
             <div class="interface-item-title">Session chart (bottom)</div>
-            <p>One dot per frame, plotted in capture order. Dot colour is the filter group. Brightness shows rejection/flag state. A white dot marks your current position.</p>
+            <p>One dot per frame, plotted in capture order. Dot colour is the filter group. Brightness shows rejection/flag state. A larger dot in the text colour (white in dark mode, black in light mode) marks your current position.</p>
         </div>
         <div class="interface-item">
             <div class="interface-item-title">Inspector (right, Geek mode)</div>
@@ -348,7 +348,7 @@
             <div class="step-body">
                 <div class="step-title">Open your folder</div>
                 <p>Press <kbd>⌘O</kbd> or drag a folder onto the window. FITS Blaster starts loading and measuring quality metrics immediately — you can begin reviewing before the full set has finished loading.</p>
-                <p>If your session spans multiple subfolders (e.g. one per filter or night), turn on <strong>Include files from subfolders</strong> in the popover that appears when you click <strong>Open Folder…</strong> or press <kbd>⌘O</kbd>. Each subfolder appears as a separate section in the sidebar.</p>
+                <p>If your session spans multiple subfolders (e.g. one per filter or night), turn on <strong>Include files from subfolders</strong> in the folder panel that opens when you click <strong>Open Folder…</strong> or press <kbd>⌘O</kbd>. You can choose several folders at once. Each subfolder appears as a separate section in the sidebar.</p>
                 <p>No images at hand? Download the <a href="samples/FITS-Blaster-Sample-M31.zip">M31 sample set</a> (255 MB, eight colour frames) to follow along.</p>
             </div>
         </div>
@@ -360,7 +360,7 @@
                 <p>Glance at the dot chart at the bottom. Each dot is one frame, coloured by filter group. Look for:</p>
                 <p><strong>Runs of bad frames</strong> — a stretch of frames where the metric is clearly worse than the dashed median line (higher FWHM, Ecc, or Sky BG; lower SNR, Stars, PSF·S, or Score). This usually means clouds, wind, a focus drift, or a guiding glitch. Use the metric buttons above the chart to switch between FWHM, Ecc, SNR, Stars, Sky BG, PSF·S (PSF Signal Weight, which drops with both haze and poor seeing), and Score. The button at the end of the row switches between dots and bars.</p>
                 <p><strong>Isolated outliers</strong> — single bad frames scattered through an otherwise good session.</p>
-                <p>Click any dot to jump to that frame in the viewer. The dot turns white to mark your position.</p>
+                <p>Click any dot to jump to that frame in the viewer. Its dot is drawn larger, in the text colour, to mark your position.</p>
             </div>
         </div>
 
@@ -392,8 +392,8 @@
             <div class="step-num">5</div>
             <div class="step-body">
                 <div class="step-title">Hand off to your stacking tool</div>
-                <p>Point PixInsight, Siril, AstroPixelProcessor, or any other stacking tool at the same folder. Rejected frames are in <code>REJECTED/</code> and will not appear in a normal folder scan.</p>
-                <p>Changed your mind? Reopen the folder with <strong>Include REJECTED folder</strong> turned on in the Open Folder popover, switch to the <strong>Rejected</strong> view, select the frames, and press <kbd>U</kbd> (or <kbd>X</kbd> in toggle mode) to move them back.</p>
+                <p>Point PixInsight, Siril, AstroPixelProcessor, or any other stacking tool at the same folder. Rejected frames are in <code>REJECTED/</code> and will not appear in a normal folder scan. If your tool also reads subfolders (PixInsight's WBPP with a directory does), turn on <strong>Rename rejected files so other programs skip them</strong> in Settings → Files &amp; Folders before you reject, so the rejected files end in <code>.rejected</code> and are skipped.</p>
+                <p>Changed your mind? Reopen the folder with <strong>Include REJECTED folder</strong> turned on in the folder panel, switch to the <strong>Rejected</strong> view, select the frames, and press <kbd>U</kbd> (or <kbd>X</kbd> in toggle mode) to move them back.</p>
                 <p>Want a record of the session? Click <strong>Export…</strong> to save a CSV, TSV, or text report with every frame's metrics and any FITS header values you choose (<a href="faq.html">see the FAQ</a>).</p>
             </div>
         </div>
@@ -411,7 +411,7 @@
         </div>
         <div class="interface-item">
             <div class="interface-item-title">Range selection (orange highlight)</div>
-            <p>A group of frames used for batch operations — reject, flag, or unflag all at once. Built with <kbd>⇧↑</kbd> / <kbd>⇧↓</kbd> or <kbd>⇧</kbd>+click. Cleared with <kbd>⌘D</kbd> or any plain click.</p>
+            <p>A group of frames used for batch operations — reject, flag, or unflag all at once. Built with <kbd>⇧↑</kbd> / <kbd>⇧↓</kbd>, <kbd>⇧</kbd>+click, or <kbd>⌘</kbd>+click to add or take out one frame. Cleared with <kbd>⌘D</kbd> or any plain click.</p>
         </div>
     </div>
 
@@ -459,6 +459,9 @@
         <tr><td><kbd>P</kbd></td><td>Play / pause — auto-advance through the frames</td></tr>
         <tr><td><kbd>V</kbd></td><td>Flip the image 180° for display (does not touch the file)</td></tr>
         <tr><td><kbd>⌘O</kbd></td><td>Open a folder</td></tr>
+        <tr><td><kbd>=</kbd> / <kbd>−</kbd></td><td>Zoom in / out</td></tr>
+        <tr><td><kbd>0</kbd> / <kbd>9</kbd></td><td>Zoom to fit / actual size (100&nbsp;%)</td></tr>
+        <tr><td><kbd>⌥</kbd> + arrows</td><td>Pan a zoomed-in image</td></tr>
     </table>
 
     <p style="margin-top:20px">See the <a href="keys.html">full keyboard shortcut reference</a> for mouse shortcuts and more detail on each action.</p>
@@ -471,7 +474,7 @@
     </div>
 
     <div class="tip">
-        <strong>Use Auto-Flag for a first pass.</strong> Click <strong>Auto-Flag</strong> in the toolbar, set thresholds (relative to each filter group's median by default, or fixed values such as FWHM &gt; 7 px or Score &lt; 40 in Absolute mode), and preview how many frames match. To catch haze or thin cloud, turn on the Sky BG and PSF Signal Weight criteria. Apply it, then switch to the Flagged view to eyeball each one before committing to rejection.
+        <strong>Use Auto-Flag for a first pass.</strong> Click <strong>Auto-Flag</strong> in the toolbar, set thresholds (relative to each filter group's median by default, or fixed values such as FWHM &gt; 7 px or Score &lt; 40 in Absolute mode), and preview how many frames match. The starting values already catch thin cloud (through SNR and star count); add the Sky BG and PSF Signal Weight criteria for moonlight or a brightening sky. Apply it, then switch to the Flagged view to eyeball each one before committing to rejection.
     </div>
 
     <div class="tip">

@@ -11,6 +11,15 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-11-20 — FAQ and screenshots: orientation and Auto-Flag settings (site-1.24)
+
+### Website
+- **FAQ, Viewing Images:** a new question, "Why are my frames the other way up than in earlier versions?" It explains that 1.24 follows the `ROWORDER` header (only `BOTTOM-UP` frames are flipped; `TOP-DOWN` and frames without the header are shown as stored), that this applies to the viewer, thumbnails and Quick Look, that Finder may show cached thumbnails the old way up for a while, and that Flip 180° still turns a frame around.
+- **Home page screenshots taken again with the App Store build 1.24 (216),** so the frames are shown the way up 1.24 draws them (issue #14): the main window and the Inspector from M42 in colour, the sidebar and the session chart from SH2-72 in Ha, OIII and SII. Same crops and sizes as before.
+- **FAQ, What is Auto-Flag?:** the sheet remembers its mode, checks and thresholds, also after a restart; Reset to Defaults brings back the starting values; the command line keeps its own options.
+
+---
+
 ## 2026-11-14 — Beta page: the beta next to the App Store version
 
 ### Website
@@ -111,6 +120,18 @@ All notable changes to FITS Blaster are recorded here.
 
 ### Under the hood
 - `docs/internal/raw-support-investigation.md`: can FITS Blaster open camera RAW files, now that macOS 27 brings Core Image RAW 9? On six Canon 6D Mark II frames: RAW 9's noise reduction can't be switched off and inflates SNR (× 3.3) and star counts (× 2.1); Apple's decoder 8 keeps FWHM within 1 % but raises eccentricity and flattens the star count that catches thin cloud; only the raw mosaic (via LibRaw) measures like FITS. An experiment only; parked for 2.0.
+
+---
+
+## 2026-11-10 — Website for 1.24 (branch site-1.24, merged at stable 1.24)
+
+### Changed
+- **Scores page:** describes the 1.24 measuring: background per Bayer position on colour cameras, which candidates count as stars (12 × the local noise, saturated stars counted once), frames with fewer than 10 stars scoring 0, fit windows sized to large stars, SNR as the star's total light, FWHM and eccentricity from the bright stars, the new score table (eccentricity 0 at 0.9, SNR on a log scale from 100 to 20,000) and the badges (trailing above 0.65, small groups, ★ with Differentiate without color).
+- **FAQ:** the Open Folder panel with its checkboxes instead of the popover, ⌘-click as selection (it no longer flags), the new SNR and eccentricity values, the current frame's dot in the text colour, Differentiate without color shapes, Simple mode without badges, Auto-Flag's starting values and small groups, the zoom keys, background batch reject, the display-memory limit, the rename setting for WBPP, and the command line's relative folders, errors and exit codes. Two older mistakes fixed: the session chart is coloured by filter, not by quality, and the Flagged view is cleared by Deflag All or Reset, not by Deselect All.
+- **Keyboard shortcuts:** a Zoom & Pan section, ⌘N Main Window, the right-click menu, ⌘-click and Open Folder as in 1.24.
+- **Guide, privacy policy, home page:** the folder panel, the current-frame dot, zoom keys, WBPP and the optional `.rejected` rename; the home page lists the WBPP rename and CSV export among the core features.
+- **FAQ speed tables measured anew** with 1.24 on a MacBook Air M1 (16 GB), default settings, disk cache cleared before each run, middle of three runs: 592 colour frames (IMX571) load in 11.3 s (greyscale + Simple) to 25.4 s (colour + Geek), against 28–121 s before; 464 mono frames (IMX585) in 6.8–9.2 s. The tables give time, peak memory and memory after loading. A third table for a Mac Studio M1 Ultra (64 GB): 6.7–7.6 s for the colour set, 2.7–3.1 s for the mono set; from an external Thunderbolt SSD 9.0–9.5 s and 3.1–3.5 s, in a second time column. The text says what sets the pace: on the MacBook Air the SSD in greyscale + Simple and the processor in Geek and colour, on the Mac Studio the disk in every mode.
+- **Home page screenshots taken anew with 1.24:** the main window (M42 in colour, Geek mode), the session chart with dots coloured by filter (SH2-72 in Ha, OIII and SII), the sidebar with filter buttons and rejected frames, and the Inspector with all six metrics and the score. The chart image's description says dots instead of bars.
 
 ---
 
