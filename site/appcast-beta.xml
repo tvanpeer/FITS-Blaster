@@ -6,6 +6,65 @@
         <description>Beta release notes for FITS Blaster</description>
         <language>en-us</language>
         <item>
+            <title>FITS Blaster 1.24</title>
+            <pubDate>Fri, 20 Nov 2026 16:31:29 +0000</pubDate>
+            <sparkle:version>217</sparkle:version>
+            <sparkle:shortVersionString>1.24</sparkle:shortVersionString>
+            <description><![CDATA[
+<h2>2026-11-20 — Better measurements, frames the right way up, faster network folders</h2>
+<h3>Changed</h3>
+<ul>
+  <li><b>Metrics are measured anew, closer to PixInsight.</b> Scores and values from earlier versions can&#x27;t be compared with the new ones.</li>
+  <li><b>SNR</b> is now the total light of each star divided by the sky noise, so it shows exposure, transparency and sky brightness instead of repeating the FWHM.</li>
+  <li><b>Star counts are close to PixInsight&#x27;s.</b> Hot pixels and noise on nebulae no longer count as stars, and saturated stars are counted once.</li>
+  <li><b>Colour cameras:</b> sky background and noise are measured per colour channel.</li>
+  <li><b>Large stars</b> (long focal lengths) are measured correctly.</li>
+  <li><b>Frames without stars</b> (thick cloud, dew, a closed cap) score 0 and are always flagged.</li>
+  <li><b>Auto-Flag&#x27;s starting values</b> catch thin cloud and elongated stars and leave normal frames alone. The sheet now remembers its settings; Reset to Defaults brings back the starting values.</li>
+  <li><b>Frames are shown the same way up as in PixInsight, Astro Pixel Processor and ASI Studio.</b> Only frames whose header says `ROWORDER = &#x27;BOTTOM-UP&#x27;` are flipped. Finder may show cached thumbnails the old way up for a while.</li>
+  <li><b>⌘-click</b> selects or deselects a single frame, as in Finder.</li>
+  <li><b>The thumbnail size setting</b> is the width the sidebar shows.</li>
+  <li><b>Rejected frames keep their place</b> when a folder is reopened.</li>
+  <li><b>Changing the display size</b> no longer resizes the main window.</li>
+  <li><b>Command line:</b> folders can be given as relative paths, a mistyped option stops with an error, files that can&#x27;t be read are listed, and the exit code tells a script what happened (see the FAQ).</li>
+</ul>
+<h3>Added</h3>
+<ul>
+  <li><b>Rename rejected files so other programs skip them</b> (Settings → Files &amp; Folders, off by default): a rejected frame becomes `x.fits.rejected`, so PixInsight&#x27;s WBPP leaves it out. Undo restores the name.</li>
+  <li><b>Right-click a frame in the thumbnail bar</b> for Show in Finder, Copy File Path, Flag, Reject and Remove from List.</li>
+  <li><b>Open several folders at once.</b></li>
+  <li><b>Zoom and pan keys:</b> = and - zoom, 0 fits, 9 shows 1×, ⌥ + arrow keys pan.</li>
+  <li><b>A memory limit for display images</b> (Settings → Display).</li>
+  <li><b>VoiceOver support</b> for thumbnails, the image and the session chart, and shapes and high-contrast colours with &quot;Differentiate without color&quot;.</li>
+</ul>
+<h3>Improved</h3>
+<ul>
+  <li><b>Folders on a network share open and load much faster,</b> and every file is read only once.</li>
+  <li><b>Smooth browsing with the arrow keys in large sessions,</b> and much less memory with many folders or filters.</li>
+  <li><b>Rejecting or undoing many frames no longer freezes the window;</b> a bar shows the progress.</li>
+</ul>
+<h3>Fixed</h3>
+<ul>
+  <li><b>Rejecting frames that were dragged in as files</b> now works.</li>
+  <li><b>Clear frames no longer turn black</b> after loading when the folder also has bright frames.</li>
+  <li><b>Keyboard shortcuts only act in the main window,</b> not in Settings or a sheet.</li>
+  <li><b>Star counts are the same on every run.</b></li>
+  <li><b>The Settings window follows the light or dark setting.</b></li>
+  <li><b>A second folder, Reset or the colour toggle during a load</b> no longer upset the load.</li>
+  <li><b>A dropped folder follows &quot;Include REJECTED folder&quot;,</b> and dropping a folder on the Dock icon no longer opens a second window.</li>
+  <li><b>FITS Blaster declares the FITS file type as used, not owned,</b> so it doesn&#x27;t clash with other astronomy apps.</li>
+  <li><b>Beta builds check the beta feed again</b> instead of the stable one, and stable releases now also appear in the beta feed, so beta users are moved to the next stable version.</li>
+</ul>
+<p>---</p>
+<p>**[Full changelog](https://astrophoto-app.com/changelog.html)**</p>
+            ]]></description>
+            <enclosure
+                url="https://github.com/tvanpeer/FITS-Blaster/releases/download/v1.24/FITS-Blaster-1.24.dmg"
+                length="9024853"
+                type="application/octet-stream"
+                sparkle:edSignature="+yxXKRowBfdO19OHKeQMSTD+U6BgFqbeHPqk5sNBVDa1SkQyb90lG+vc9rKvQy2ZKKHqOJrX8JK1D4tl8HThBQ==" />
+        </item>
+        <item>
             <title>FITS Blaster 1.24-beta.6</title>
             <pubDate>Sat, 14 Nov 2026 08:24:22 +0000</pubDate>
             <sparkle:version>215</sparkle:version>

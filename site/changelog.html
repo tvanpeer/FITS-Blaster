@@ -234,6 +234,66 @@
 
 <div class="content">
 
+    <!-- v1.24 -->
+    <div class="entry">
+        <div class="entry-header">
+            <div class="entry-title">Better measurements, frames the right way up, faster network folders — v1.24</div>
+            <div class="entry-date">2026-11-20</div>
+        </div>
+        <div class="section">
+            <span class="section-label label-changed">Changed</span>
+            <ul>
+                <li><strong>Metrics are measured anew, closer to PixInsight.</strong> Scores and values from earlier versions can't be compared with the new ones.</li>
+                <li><strong>SNR</strong> is now the total light of each star divided by the sky noise, so it shows exposure, transparency and sky brightness instead of repeating the FWHM.</li>
+                <li><strong>Star counts are close to PixInsight's.</strong> Hot pixels and noise on nebulae no longer count as stars, and saturated stars are counted once.</li>
+                <li><strong>Colour cameras:</strong> sky background and noise are measured per colour channel.</li>
+                <li><strong>Large stars</strong> (long focal lengths) are measured correctly.</li>
+                <li><strong>Frames without stars</strong> (thick cloud, dew, a closed cap) score 0 and are always flagged.</li>
+                <li><strong>Auto-Flag's starting values</strong> catch thin cloud and elongated stars and leave normal frames alone. The sheet now remembers its settings; Reset to Defaults brings back the starting values.</li>
+                <li><strong>Frames are shown the same way up as in PixInsight, Astro Pixel Processor and ASI Studio.</strong> Only frames whose header says <code>ROWORDER = 'BOTTOM-UP'</code> are flipped. Finder may show cached thumbnails the old way up for a while.</li>
+                <li><strong>⌘-click</strong> selects or deselects a single frame, as in Finder.</li>
+                <li><strong>The thumbnail size setting</strong> is the width the sidebar shows.</li>
+                <li><strong>Rejected frames keep their place</strong> when a folder is reopened.</li>
+                <li><strong>Changing the display size</strong> no longer resizes the main window.</li>
+                <li><strong>Command line:</strong> folders can be given as relative paths, a mistyped option stops with an error, files that can't be read are listed, and the exit code tells a script what happened (see the FAQ).</li>
+            </ul>
+        </div>
+        <div class="section">
+            <span class="section-label label-added">Added</span>
+            <ul>
+                <li><strong>Rename rejected files so other programs skip them</strong> (Settings → Files &amp; Folders, off by default): a rejected frame becomes <code>x.fits.rejected</code>, so PixInsight's WBPP leaves it out. Undo restores the name.</li>
+                <li><strong>Right-click a frame in the thumbnail bar</strong> for Show in Finder, Copy File Path, Flag, Reject and Remove from List.</li>
+                <li><strong>Open several folders at once.</strong></li>
+                <li><strong>Zoom and pan keys:</strong> = and - zoom, 0 fits, 9 shows 1×, ⌥ + arrow keys pan.</li>
+                <li><strong>A memory limit for display images</strong> (Settings → Display).</li>
+                <li><strong>VoiceOver support</strong> for thumbnails, the image and the session chart, and shapes and high-contrast colours with "Differentiate without color".</li>
+            </ul>
+        </div>
+        <div class="section">
+            <span class="section-label label-improved">Improved</span>
+            <ul>
+                <li><strong>Folders on a network share open and load much faster,</strong> and every file is read only once.</li>
+                <li><strong>Smooth browsing with the arrow keys in large sessions,</strong> and much less memory with many folders or filters.</li>
+                <li><strong>Rejecting or undoing many frames no longer freezes the window;</strong> a bar shows the progress.</li>
+            </ul>
+        </div>
+        <div class="section">
+            <span class="section-label label-fixed">Fixed</span>
+            <ul>
+                <li><strong>Rejecting frames that were dragged in as files</strong> now works.</li>
+                <li><strong>Clear frames no longer turn black</strong> after loading when the folder also has bright frames.</li>
+                <li><strong>Keyboard shortcuts only act in the main window,</strong> not in Settings or a sheet.</li>
+                <li><strong>Star counts are the same on every run.</strong></li>
+                <li><strong>The Settings window follows the light or dark setting.</strong></li>
+                <li><strong>A second folder, Reset or the colour toggle during a load</strong> no longer upset the load.</li>
+                <li><strong>A dropped folder follows "Include REJECTED folder",</strong> and dropping a folder on the Dock icon no longer opens a second window.</li>
+                <li><strong>FITS Blaster declares the FITS file type as used, not owned,</strong> so it doesn't clash with other astronomy apps.</li>
+                <li><strong>Beta builds check the beta feed again</strong> instead of the stable one, and stable releases now also appear in the beta feed, so beta users are moved to the next stable version.</li>
+            </ul>
+        </div>
+    </div>
+
+
     <!-- v1.23.1 -->
     <div class="entry">
         <div class="entry-header">
