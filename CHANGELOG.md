@@ -4,10 +4,11 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
-## 2026-11-20 — FAQ: orientation and Auto-Flag settings (site-1.24)
+## 2026-11-20 — FAQ and screenshots: orientation and Auto-Flag settings (site-1.24)
 
 ### Website
 - **FAQ, Viewing Images:** a new question, "Why are my frames the other way up than in earlier versions?" It explains that 1.24 follows the `ROWORDER` header (only `BOTTOM-UP` frames are flipped; `TOP-DOWN` and frames without the header are shown as stored), that this applies to the viewer, thumbnails and Quick Look, that Finder may show cached thumbnails the old way up for a while, and that Flip 180° still turns a frame around.
+- **Home page screenshots taken again with the App Store build 1.24 (216),** so the frames are shown the way up 1.24 draws them (issue #14): the main window and the Inspector from M42 in colour, the sidebar and the session chart from SH2-72 in Ha, OIII and SII. Same crops and sizes as before.
 - **FAQ, What is Auto-Flag?:** the sheet remembers its mode, checks and thresholds, also after a restart; Reset to Defaults brings back the starting values; the command line keeps its own options.
 
 ---
