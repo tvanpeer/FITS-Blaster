@@ -480,6 +480,14 @@
         </div>
     </details>
 
+    <details>
+        <summary>Why are my frames the other way up than in earlier versions?</summary>
+        <div class="answer">
+            <p>From version 1.24, FITS Blaster shows frames the same way up as PixInsight, Astro Pixel Processor and ASI Studio. Earlier versions flipped every frame vertically, so frames looked upside down compared with those programs.</p>
+            <p>FITS Blaster now follows the <code>ROWORDER</code> header: frames marked <code>BOTTOM-UP</code> are flipped, frames marked <code>TOP-DOWN</code> (as N.I.N.A. writes them) and frames without the header are shown as stored. This applies to the viewer, the thumbnails and Quick Look. Finder may show cached thumbnails the old way up for a while. <strong>Flip 180°</strong> (<kbd>V</kbd> by default) turns the current frame around; your files are never changed.</p>
+        </div>
+    </details>
+
     <!-- ── Image Quality Metrics ── -->
     <h2 id="metrics">Image Quality Metrics</h2>
 
@@ -734,6 +742,7 @@
                 <li><strong>Absolute</strong> — fixed values, e.g. flag frames with FWHM above 3.5 px.</li>
             </ul>
             <p>Available criteria: FWHM, eccentricity, star count, SNR, sky background, PSF Signal Weight, and (absolute mode only) quality score. The starting values flag frames with FWHM above 1.5× the median, eccentricity above 0.65, SNR below 60&nbsp;% or a star count below 50&nbsp;% of the median: the last two catch haze and thin cloud. Sky background and PSF Signal Weight are off by default; add them to catch moonlight or a brightening sky. Frames with fewer than 10 stars are flagged whenever any check is on. In a filter group with fewer than 3 frames, the checks against the median are skipped; the sheet tells you which groups.</p>
+            <p>The sheet remembers your mode, checks and thresholds, also after a restart. <strong>Reset to Defaults</strong> at the top of the sheet brings back the starting values. The command line doesn't use these settings; it has its own options.</p>
         </div>
     </details>
 
