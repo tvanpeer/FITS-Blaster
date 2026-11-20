@@ -47,6 +47,14 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-11-20 — Home page: screenshot carousel (Website)
+
+- **The home page shows the six App Store screenshots in a carousel** instead of one large screenshot and three small crops. Each slide has a caption; arrows, dots, the arrow keys and swiping change the slide, and a click opens the screenshot at full size. It moves on by itself every 6 seconds, pauses while the pointer is over it or a full-size view is open, stops once the visitor picks a slide, and doesn't move with Reduce Motion.
+- Images in `site/screens/`: 1600×1000 JPEG for the carousel (200–350 KB) and 2880×1800 JPEG for the full-size view, made from the 2026-11-20 App Store set (01, 02, 06, 05, 08, 07). Plain HTML, CSS and a short script in the page; no library.
+- `screenshot-chart.png`, `screenshot-sidebar.png` and `screenshot-inspector.png` are removed (only the home page used them). `screenshot-main.png` stays for link previews.
+
+---
+
 ## 2026-11-20 — Update feed: no broken signature in the 1.22 entry
 
 ### Website

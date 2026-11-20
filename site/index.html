@@ -181,51 +181,116 @@
             margin-bottom: 24px;
         }
 
-        /* ── Hero screenshot ── */
-        .hero-screenshot {
+        /* ── Screenshot carousel ── */
+        .gallery {
             max-width: 900px;
             margin: 0 auto;
             padding: 0 24px 60px;
-            text-align: center;
         }
-        .hero-screenshot img {
-            width: 100%;
+        .gallery-frame {
+            position: relative;
+        }
+        .gallery-track {
+            display: flex;
+            overflow-x: auto;
+            scroll-snap-type: x mandatory;
+            scrollbar-width: none;
             border-radius: 12px;
             border: 1px solid #1a1a2e;
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+            outline: none;
+        }
+        .gallery-track::-webkit-scrollbar { display: none; }
+        .gallery-track:focus-visible { border-color: #5a5aff; }
+        .gallery-slide {
+            flex: 0 0 100%;
+            scroll-snap-align: start;
+        }
+        .gallery-slide img {
+            display: block;
+            width: 100%;
+            height: auto;
+            aspect-ratio: 16 / 10;
+            cursor: zoom-in;
+        }
+        .gallery-arrow {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            border: 1px solid #2a2a4a;
+            background: rgba(13, 13, 24, 0.75);
+            color: #e8e8f0;
+            font-size: 1.6rem;
+            line-height: 1;
+            cursor: pointer;
+            transition: background 0.2s, border-color 0.2s;
+        }
+        .gallery-arrow:hover { background: #1a1a2e; border-color: #5a5aff; }
+        .gallery-arrow:focus-visible { outline: 2px solid #5a5aff; outline-offset: 2px; }
+        .gallery-prev { left: -22px; }
+        .gallery-next { right: -22px; }
+        .gallery-caption {
+            min-height: 3.2em;
+            margin-top: 16px;
+            text-align: center;
+            font-size: 0.95rem;
+            color: #9090aa;
+        }
+        .gallery-dots {
+            display: flex;
+            justify-content: center;
+            gap: 4px;
+            margin-top: 8px;
+        }
+        .gallery-dots button {
+            width: 24px;
+            height: 24px;
+            border: none;
+            background: none;
+            cursor: pointer;
+            position: relative;
+        }
+        .gallery-dots button::after {
+            content: "";
+            position: absolute;
+            inset: 8px;
+            border-radius: 50%;
+            background: #2a2a4a;
+            transition: background 0.2s;
+        }
+        .gallery-dots button:hover::after { background: #505068; }
+        .gallery-dots button[aria-current="true"]::after { background: #5a5aff; }
+        .gallery-dots button:focus-visible { outline: 2px solid #5a5aff; border-radius: 50%; }
+        @media (max-width: 1000px) {
+            .gallery-prev { left: 8px; }
+            .gallery-next { right: 8px; }
+        }
+        @media (max-width: 600px) {
+            .gallery-arrow { display: none; }
+            .gallery { padding: 0 16px 48px; }
         }
 
-        /* ── Detail screenshots ── */
-        .screenshots {
-            max-width: 900px;
-            margin: 0 auto;
-            padding: 0 24px 80px;
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 24px;
+        /* Full-size view */
+        .gallery-zoom {
+            border: none;
+            padding: 0;
+            background: transparent;
+            max-width: 96vw;
+            max-height: 94vh;
+            margin: auto;
+            cursor: zoom-out;
         }
-        .screenshots figure {
-            text-align: center;
-        }
-        .screenshots img {
-            width: 100%;
+        .gallery-zoom::backdrop { background: rgba(0, 0, 0, 0.85); }
+        .gallery-zoom img {
+            display: block;
+            max-width: 96vw;
+            max-height: 94vh;
+            width: auto;
+            height: auto;
             border-radius: 8px;
-            border: 1px solid #1a1a2e;
-            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
-            transition: transform 0.3s ease, box-shadow 0.3s ease, z-index 0s;
-            cursor: zoom-in;
-            position: relative;
-            z-index: 1;
-        }
-        .screenshots img:hover {
-            transform: scale(2.8);
-            box-shadow: 0 16px 64px rgba(0, 0, 0, 0.8);
-            z-index: 10;
-        }
-        .screenshots figcaption {
-            margin-top: 10px;
-            font-size: 0.85rem;
-            color: #9090aa;
         }
 
         /* ── Video review ── */
@@ -355,8 +420,43 @@
     <a class="badge" href="https://ko-fi.com/tomvp" target="_blank" rel="noopener">☕ If you enjoy FITS Blaster, buy me a coffee on Ko-fi</a>
 </header>
 
-<section class="hero-screenshot">
-    <img src="screenshot-main.png" alt="FITS Blaster main window showing thumbnail sidebar, image viewer, session chart, and inspector panel">
+<section class="gallery" aria-roledescription="carousel" aria-label="Screenshots">
+    <div class="gallery-frame">
+        <div class="gallery-track" tabindex="0" aria-label="Screenshots; use the left and right arrow keys">
+            <figure class="gallery-slide" role="group" aria-roledescription="slide" aria-label="1 of 6" data-caption="Cull a night's frames at full speed: thumbnails, the frame, its measurements and FITS headers in one window.">
+                <img src="screens/1-colour.jpg" data-full="screens/1-colour-full.jpg" width="1600" height="1000" alt="M42 in colour: thumbnail bar, frame, session chart and inspector with measurements and FITS headers">
+            </figure>
+            <figure class="gallery-slide" role="group" aria-roledescription="slide" aria-label="2 of 6" data-caption="Ha, OIII and SII sorted by filter, with the session chart showing each frame's score.">
+                <img src="screens/2-filters.jpg" data-full="screens/2-filters-full.jpg" width="1600" height="1000" loading="lazy" alt="SH2-72 session with Ha, OIII and SII filter buttons and the session chart coloured by filter">
+            </figure>
+            <figure class="gallery-slide" role="group" aria-roledescription="slide" aria-label="3 of 6" data-caption="Auto-Flag picks out the weak frames using thresholds relative to each filter's median.">
+                <img src="screens/3-auto-flag.jpg" data-full="screens/3-auto-flag-full.jpg" width="1600" height="1000" loading="lazy" alt="Auto-Flag sheet with thresholds for focus, trailing, star count, SNR and sky background">
+            </figure>
+            <figure class="gallery-slide" role="group" aria-roledescription="slide" aria-label="4 of 6" data-caption="Simple mode shows just the frame. Zoom in on any spot, using an anchor that keeps the area of interest centred on screen.">
+                <img src="screens/4-zoom-anchor.jpg" data-full="screens/4-zoom-anchor-full.jpg" width="1600" height="1000" loading="lazy" alt="Mono frame in Simple mode, zoomed in, with the zoom anchor shown in the thumbnail and the image">
+            </figure>
+            <figure class="gallery-slide" role="group" aria-roledescription="slide" aria-label="5 of 6" data-caption="Include subfolders, skip calibration folders, and rename rejected frames so PixInsight's WBPP leaves them out.">
+                <img src="screens/5-files-folders.jpg" data-full="screens/5-files-folders-full.jpg" width="1600" height="1000" loading="lazy" alt="Settings, Files and Folders: include subfolders, skip folders by name, include the REJECTED folder, rename rejected files">
+            </figure>
+            <figure class="gallery-slide" role="group" aria-roledescription="slide" aria-label="6 of 6" data-caption="Keyboard shortcuts for navigating, rejecting, flagging, zooming and panning; most of them you can change.">
+                <img src="screens/6-shortcuts.jpg" data-full="screens/6-shortcuts-full.jpg" width="1600" height="1000" loading="lazy" alt="Settings, Interface: list of keyboard shortcuts for navigation, rejecting, flagging, zoom and pan">
+            </figure>
+        </div>
+        <button type="button" class="gallery-arrow gallery-prev" aria-label="Previous screenshot">‹</button>
+        <button type="button" class="gallery-arrow gallery-next" aria-label="Next screenshot">›</button>
+    </div>
+    <p class="gallery-caption" aria-live="polite">Cull a night's frames at full speed: thumbnails, the frame, its measurements and FITS headers in one window.</p>
+    <div class="gallery-dots">
+            <button type="button" aria-label="Screenshot 1"></button>
+            <button type="button" aria-label="Screenshot 2"></button>
+            <button type="button" aria-label="Screenshot 3"></button>
+            <button type="button" aria-label="Screenshot 4"></button>
+            <button type="button" aria-label="Screenshot 5"></button>
+            <button type="button" aria-label="Screenshot 6"></button>
+    </div>
+    <dialog class="gallery-zoom" aria-label="Screenshot at full size">
+        <img alt="">
+    </dialog>
 </section>
 
 <section class="features">
@@ -374,20 +474,7 @@
     </ul>
 </section>
 
-<section class="screenshots">
-    <figure>
-        <img src="screenshot-chart.png" alt="Session chart showing the score per frame, with dots coloured by filter">
-        <figcaption>Session chart with drag-to-select</figcaption>
-    </figure>
-    <figure>
-        <img src="screenshot-sidebar.png" alt="Thumbnail sidebar with filter buttons and sort options">
-        <figcaption>Thumbnail sidebar with filter grouping</figcaption>
-    </figure>
-    <figure>
-        <img src="screenshot-inspector.png" alt="Inspector panel showing FWHM, eccentricity, SNR, star count, PSF Signal Weight, sky background, score, and FITS headers">
-        <figcaption>Inspector with quality metrics and FITS headers</figcaption>
-    </figure>
-</section>
+
 
 <section class="review">
     <h2>What others say</h2>
@@ -413,6 +500,84 @@
        <a href="mailto:support@astrophoto-app.com">Support</a>
     </p>
 </footer>
+
+<script>
+// Screenshot carousel: arrows, dots, arrow keys, swipe (scroll snap), full size on click.
+// Autoplay every 6 s; pauses on hover, focus or full-size view, stops for good once the
+// visitor picks a slide, and doesn't run with Reduce Motion.
+(function () {
+    const gallery = document.querySelector('.gallery');
+    if (!gallery) return;
+    const track = gallery.querySelector('.gallery-track');
+    const slides = [...gallery.querySelectorAll('.gallery-slide')];
+    const dots = [...gallery.querySelectorAll('.gallery-dots button')];
+    const caption = gallery.querySelector('.gallery-caption');
+    const zoom = gallery.querySelector('.gallery-zoom');
+    const zoomImg = zoom.querySelector('img');
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    let current = 0;
+    let autoplay = !reduceMotion;
+    let hovering = false;
+
+    function show(index) {
+        current = (index + slides.length) % slides.length;
+        dots.forEach((dot, i) => dot.setAttribute('aria-current', i === current ? 'true' : 'false'));
+        caption.textContent = slides[current].dataset.caption;
+    }
+    function go(index) {
+        show(index);
+        track.scrollTo({ left: current * track.clientWidth, behavior: reduceMotion ? 'auto' : 'smooth' });
+    }
+    function stopAutoplay() { autoplay = false; }
+
+    gallery.querySelector('.gallery-prev').addEventListener('click', () => { stopAutoplay(); go(current - 1); });
+    gallery.querySelector('.gallery-next').addEventListener('click', () => { stopAutoplay(); go(current + 1); });
+    dots.forEach((dot, i) => dot.addEventListener('click', () => { stopAutoplay(); go(i); }));
+
+    // Swiping or scrolling the track by hand.
+    ['pointerdown', 'touchstart', 'wheel'].forEach(type =>
+        track.addEventListener(type, stopAutoplay, { passive: true }));
+    let scrollTimer;
+    track.addEventListener('scroll', () => {
+        clearTimeout(scrollTimer);
+        scrollTimer = setTimeout(() => {
+            const index = Math.round(track.scrollLeft / track.clientWidth);
+            if (index !== current) show(index);
+        }, 80);
+    }, { passive: true });
+
+    document.addEventListener('keydown', event => {
+        if (zoom.open || event.altKey || event.metaKey || event.ctrlKey) return;
+        if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+        const tag = document.activeElement && document.activeElement.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+        event.preventDefault();
+        stopAutoplay();
+        go(current + (event.key === 'ArrowRight' ? 1 : -1));
+    });
+
+    slides.forEach(slide => slide.querySelector('img').addEventListener('click', event => {
+        zoomImg.src = event.currentTarget.dataset.full;
+        zoomImg.alt = event.currentTarget.alt;
+        zoom.showModal();
+    }));
+    zoom.addEventListener('click', () => zoom.close());
+
+    gallery.addEventListener('mouseenter', () => { hovering = true; });
+    gallery.addEventListener('mouseleave', () => { hovering = false; });
+    window.addEventListener('resize', () => {
+        track.scrollTo({ left: current * track.clientWidth, behavior: 'auto' });
+    });
+
+    setInterval(() => {
+        if (!autoplay || hovering || zoom.open || document.hidden) return;
+        if (gallery.contains(document.activeElement)) return;
+        go(current + 1);
+    }, 6000);
+
+    show(0);
+})();
+</script>
 
 </body>
 </html>
