@@ -4,6 +4,49 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-11-20 — Better measurements, frames the right way up, faster network folders
+
+### Changed
+- **Metrics are measured anew, closer to PixInsight.** Scores and values from earlier versions can't be compared with the new ones.
+- **SNR** is now the total light of each star divided by the sky noise, so it shows exposure, transparency and sky brightness instead of repeating the FWHM.
+- **Star counts are close to PixInsight's.** Hot pixels and noise on nebulae no longer count as stars, and saturated stars are counted once.
+- **Colour cameras:** sky background and noise are measured per colour channel.
+- **Large stars** (long focal lengths) are measured correctly.
+- **Frames without stars** (thick cloud, dew, a closed cap) score 0 and are always flagged.
+- **Auto-Flag's starting values** catch thin cloud and elongated stars and leave normal frames alone. The sheet now remembers its settings; Reset to Defaults brings back the starting values.
+- **Frames are shown the same way up as in PixInsight, Astro Pixel Processor and ASI Studio.** Only frames whose header says `ROWORDER = 'BOTTOM-UP'` are flipped. Finder may show cached thumbnails the old way up for a while.
+- **⌘-click** selects or deselects a single frame, as in Finder.
+- **The thumbnail size setting** is the width the sidebar shows.
+- **Rejected frames keep their place** when a folder is reopened.
+- **Changing the display size** no longer resizes the main window.
+- **Command line:** folders can be given as relative paths, a mistyped option stops with an error, files that can't be read are listed, and the exit code tells a script what happened (see the FAQ).
+
+### Added
+- **Rename rejected files so other programs skip them** (Settings → Files & Folders, off by default): a rejected frame becomes `x.fits.rejected`, so PixInsight's WBPP leaves it out. Undo restores the name.
+- **Right-click a frame in the thumbnail bar** for Show in Finder, Copy File Path, Flag, Reject and Remove from List.
+- **Open several folders at once.**
+- **Zoom and pan keys:** = and - zoom, 0 fits, 9 shows 1×, ⌥ + arrow keys pan.
+- **A memory limit for display images** (Settings → Display).
+- **VoiceOver support** for thumbnails, the image and the session chart, and shapes and high-contrast colours with "Differentiate without color".
+
+### Improved
+- **Folders on a network share open and load much faster,** and every file is read only once.
+- **Smooth browsing with the arrow keys in large sessions,** and much less memory with many folders or filters.
+- **Rejecting or undoing many frames no longer freezes the window;** a bar shows the progress.
+
+### Fixed
+- **Rejecting frames that were dragged in as files** now works.
+- **Clear frames no longer turn black** after loading when the folder also has bright frames.
+- **Keyboard shortcuts only act in the main window,** not in Settings or a sheet.
+- **Star counts are the same on every run.**
+- **The Settings window follows the light or dark setting.**
+- **A second folder, Reset or the colour toggle during a load** no longer upset the load.
+- **A dropped folder follows "Include REJECTED folder",** and dropping a folder on the Dock icon no longer opens a second window.
+- **FITS Blaster declares the FITS file type as used, not owned,** so it doesn't clash with other astronomy apps.
+- **Beta builds check the beta feed again** instead of the stable one, and stable releases now also appear in the beta feed, so beta users are moved to the next stable version.
+
+---
+
 ## 2026-11-20 — App Store build 1.24 (216)
 
 ### Changed
