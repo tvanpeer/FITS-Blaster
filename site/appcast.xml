@@ -206,8 +206,7 @@
             <enclosure
                 url="https://github.com/tvanpeer/FITS-Blaster/releases/download/v1.22/FITS-Blaster-1.22.dmg"
                 length="8325705"
-                type="application/octet-stream"
-                sparkle:edSignature="8325705" />
+                type="application/octet-stream" />
         </item>
         <item>
             <title>FITS Blaster 1.21</title>

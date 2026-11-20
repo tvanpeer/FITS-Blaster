@@ -47,6 +47,13 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-11-20 — Update feed: no broken signature in the 1.22 entry
+
+### Website
+- **The stable update feed (`appcast.xml`) no longer has an unreadable signature in its 1.22 entry.** The release run of 1.22 (April 2026) wrote the file size in the signature field, so Sparkle logged "The provided EdDSA signature could not be decoded" on every update check. That entry now has no signature; Sparkle never offers 1.22 to anyone, and the newer entries are unchanged. Seen in the app log of the pre-tag VM test of 1.24 (217).
+
+---
+
 ## 2026-11-20 — App Store build 1.24 (216)
 
 ### Changed
