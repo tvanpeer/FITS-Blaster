@@ -101,8 +101,8 @@ Tart base VM (see [VMs](#vms)); every test runs on a fresh clone of it.
 
 | Level | macOS | Base VM | Tests |
 |---|---|---|---|
-| **Fully tested** | Newest 27 release (27.2 on 2026-10-28) | `fb-27` | Automatic smoke test, metric baselines, render check **and** 👤 the manual checks below |
-| **Fully tested** | Current 27 beta or RC; between betas the newest release (27.3 beta 1 on 2026-11-04) | `fb-27-beta` | Same |
+| **Fully tested** | Newest 27 release (27.2.1 on 2026-11-25) | `fb-27` | Automatic smoke test, metric baselines, render check **and** 👤 the manual checks below |
+| **Fully tested** | Current 27 beta or RC; between betas the newest release (27.3 beta 2 on 2026-11-25) | `fb-27-beta` | Same |
 | **Automatically tested** | Latest 26 release | `fb-26` | Automatic smoke test, metric baselines, render check — no person needed |
 | **Automatically tested** | Latest 15 release | `fb-15` | Same |
 | Supported, not tested | Everything else from 15.6 (the app's minimum) | — | — |
@@ -569,8 +569,8 @@ from scripts: clone, start, stop and delete.
 
 | Base VM | macOS | Level | Created with |
 |---|---|---|---|
-| `fb-27-beta` | 27.3 beta 1 (26C5035r) | Fully tested | `tart-create-base.sh` (2026-11-04, licence clicks needed, 6 minutes + 16 to settle), 120 GB disk; installer from betaprofile.dev, SHA-256 checked. Replaced the 27.2 release VM (26B123, 2026-10-28) |
-| `fb-27` | 27.2 (26B123) | Fully tested | `tart-create-base.sh` (2026-10-28, no clicks needed, 6 minutes + 17 to settle), 80 GB disk; replaced the 27.0.1 VM (26A434, 2026-10-20) |
+| `fb-27-beta` | 27.3 beta 2 (26C5047e) | Fully tested | `tart-create-base.sh` (2026-11-25, licence clicks needed, 6 minutes + 20 to settle), 120 GB disk; installer from betaprofile.dev, SHA-256 checked. Built on the SSD and copied to the FITS Blaster volume with `tart-copy-vm.py`. Replaced 27.3 beta 1 (26C5035r, 2026-11-04) |
+| `fb-27` | 27.2.1 (26B131) | Fully tested | `tart-create-base.sh` (2026-11-25, no clicks needed, 6 minutes + 18 to settle), 120 GB disk; general installer `UniversalMac_27.2.1_26B131_Restore.ipsw`, SHA-256 checked. Replaced the 27.2 VM (26B123, 2026-10-28, 80 GB) |
 | `fb-26` | 26.7.2 (25G332) | Automatically tested | `--manual` from 26.6.2 (2026-10-15); resized to 120 GB and upgraded with the full installer (2026-10-28, no clicks needed) |
 | `fb-15` | 15.8.2 (24H232) | Automatically tested | `--manual` from 15.6.1 (2026-10-15), updated to 15.8.1 (2026-10-15); resized to 120 GB and upgraded with the full installer (2026-10-28, no clicks needed) |
 
@@ -653,9 +653,11 @@ Apple only publishes VM installers up to the last release before the next
 major: **15.6.1** and **26.6.2**. List: `curl -s 'https://api.ipsw.me/v4/device/VirtualMac2,1?type=ipsw'`.
 Later 15.x and 26.x come from Apple's full installer (*Update a base VM*).
 
-The installers are kept on the SSD in `Tart/ipsw/` (2026-10-28: 27.2 IPSW,
-26.7.2 and 15.8.2 full installers; about 58 GB), so a VM can be rebuilt or
-upgraded without waiting for a download. Check an IPSW against the SHA-256 on
+Installers are downloaded when a VM is built or upgraded and deleted
+afterwards (since 2026-11-26; until then the 27.2 IPSW and the 26.7.2 and
+15.8.2 full installers were kept on the SSD in `Tart/ipsw/`). A large download
+from Apple's CDN can break off ("Connection reset by peer"); resume it with
+`curl -C -`. Check an IPSW against the SHA-256 on
 ipsw.me, a full installer with `pkgutil --check-signature` ("signed Apple
 Software") and its version in Apple's software catalog.
 

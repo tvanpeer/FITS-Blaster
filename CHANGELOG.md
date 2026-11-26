@@ -47,6 +47,13 @@ All notable changes to FITS Blaster are recorded here.
 
 ---
 
+## 2026-11-26 — Test VMs: macOS 27.2.1 and 27.3 beta 2 (Testing)
+
+- `fb-27` is rebuilt from macOS 27.2.1 (26B131) with a 120 GB disk; `fb-27-beta` from 27.3 beta 2 (26C5047e). Installer checksums matched. The VM smoke test with v1.24 (217) passed on both: no failures or warnings, metric baselines within tolerance.
+- `docs/internal/testing.md`: the support-level and base-VM tables name the new versions; installers are no longer kept on the SSD after use.
+
+---
+
 ## 2026-11-20 — Home page: screenshot carousel (Website)
 
 - **The home page shows the six App Store screenshots in a carousel** instead of one large screenshot and three small crops. Each slide has a caption; arrows, dots, the arrow keys and swiping change the slide, and a click opens the screenshot at full size. It moves on by itself every 6 seconds, pauses while the pointer is over it or a full-size view is open and for 20 seconds after the visitor changes the slide, and doesn't move with Reduce Motion. Scrolling the page over the carousel and opening the full-size view don't count as changing the slide (in the first version they stopped autoplay for good). On touch screens a tap no longer pauses it as if hovering, and only a swipe to another slide counts as a change.
